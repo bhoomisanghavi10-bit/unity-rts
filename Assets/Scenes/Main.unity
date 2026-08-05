@@ -471,7 +471,6 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   unitCount: 4
   spacing: 2
-  unitColor: {r: 0.8, g: 0.7, b: 0.2, a: 1}
 --- !u!1 &100050
 GameObject:
   m_ObjectHideFlags: 0
@@ -563,6 +562,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9332a2470a144d8bcff83740907377e, type: 3}
   m_Name:
   m_EditorClassIdentifier:
+  faction: 0
 --- !u!1 &100070
 GameObject:
   m_ObjectHideFlags: 0
@@ -608,10 +608,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: be0c40fb0dc543ccbf574fe86b909099, type: 3}
   m_Name:
   m_EditorClassIdentifier:
-  treeCount: 6
-  farmCount: 3
-  goldCount: 3
-  stoneCount: 3
+  treeCount: 8
+  farmCount: 5
+  goldCount: 5
+  stoneCount: 5
   minRadius: 6
   maxRadius: 16
   startingAmount: 40
@@ -662,7 +662,6 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier:
   position: {x: 0, y: 1, z: 8}
-  color: {r: 0.55, g: 0.5, b: 0.45, a: 1}
 --- !u!1 &100090
 GameObject:
   m_ObjectHideFlags: 0
@@ -713,7 +712,6 @@ MonoBehaviour:
   barracksStoneCost: 50
   barracksBuildTime: 8
   barracksSize: {x: 3, y: 2, z: 3}
-  barracksColor: {r: 0.5, g: 0.3, b: 0.2, a: 1}
   minClearance: 3
 --- !u!1 &100100
 GameObject:
@@ -948,6 +946,109 @@ MonoBehaviour:
   recomputeInterval: 0.25
   quadSize: 48
   quadHeight: 2.5
+--- !u!1 &100150
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 100151}
+  - component: {fileID: 100152}
+  m_Layer: 0
+  m_Name: EnemyResourceStockpile
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &100151
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100150}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 15
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &100152
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100150}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9332a2470a144d8bcff83740907377e, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  faction: 1
+--- !u!1 &100160
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 100161}
+  - component: {fileID: 100162}
+  m_Layer: 0
+  m_Name: AiController
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &100161
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100160}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 16
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &100162
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100160}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea304e77545f42ac97c7bea22e2a85ee, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  townCenterPosition: {x: 0, y: 1, z: -8}
+  startingWorkerCount: 4
+  workerSpacing: 2
+  decisionInterval: 2
+  attackCheckInterval: 45
+  attackSquadSize: 3
+  barracksWoodCost: 100
+  barracksStoneCost: 50
+  barracksBuildTime: 8
+  barracksClearance: 3
+  barracksOffset: {x: 6, y: 0, z: 0}
+
 
 
 

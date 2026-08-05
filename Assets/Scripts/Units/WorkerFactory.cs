@@ -1,27 +1,25 @@
 using UnityEngine;
 using UnityEngine.AI;
-using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Selection;
+using KingdomsOfBharat.ResourceGathering;
+using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.FogOfWar;
 
-namespace KingdomsOfBharat.Combat
+namespace KingdomsOfBharat.Units
 {
-    // Creates a placeholder capsule "Soldier" unit with combat components.
-    // Used by Barracks when training finishes, for whichever faction owns
-    // the training Barracks.
-    public static class SoldierFactory
+    // Creates a placeholder capsule "Worker" unit with movement, selection,
+    // gathering, and building components. Used by both UnitSpawner (the
+    // Player's starting workers) and AiController (the AI's own workers).
+    public static class WorkerFactory
     {
-        private static readonly Color PlayerColor = new Color(0.75f, 0.15f, 0.15f);
-        private static readonly Color EnemyColor = new Color(0.15f, 0.15f, 0.6f);
+        private static readonly Color PlayerColor = new Color(0.8f, 0.7f, 0.2f);
+        private static readonly Color EnemyColor = new Color(0.7f, 0.4f, 0.1f);
 
-        // No default faction value, deliberately: a future call site that
-        // forgets to pass one should fail to compile, not silently spawn a
-        // Player-owned soldier from an AI Barracks.
         public static GameObject Spawn(Vector3 position, FactionId faction)
         {
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            go.name = faction == FactionId.Player ? "Soldier" : "EnemySoldier";
+            go.name = faction == FactionId.Player ? "Worker" : "EnemyWorker";
             go.transform.position = position;
 
             var renderer = go.GetComponent<MeshRenderer>();
@@ -33,16 +31,19 @@ namespace KingdomsOfBharat.Combat
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f;
             agent.height = 2f;
-            agent.speed = 4f;
+            agent.speed = 3.5f;
 
             go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
-            go.AddComponent<Attackable>();
-            go.AddComponent<MeleeAttacker>();
+            go.AddComponent<Gatherer>();
+            go.AddComponent<Builder>();
             go.AddComponent<FactionMember>().Configure(faction);
 
-            // See WorkerFactory: only Player vision feeds FogOfWarManager.
+            // Only the Player's own vision feeds FogOfWarManager; the AI
+            // has full internal knowledge and never queries fog itself, so
+            // giving Enemy units a VisionSource too would incorrectly
+            // reveal fog around the AI's own base to the player.
             if (faction == FactionId.Player)
             {
                 go.AddComponent<VisionSource>().Configure(8f);

@@ -7,10 +7,10 @@ namespace KingdomsOfBharat.ResourceGathering
     // between runs.
     public class ResourceNodeSpawner : MonoBehaviour
     {
-        [SerializeField] private int treeCount = 6;
-        [SerializeField] private int farmCount = 3;
-        [SerializeField] private int goldCount = 3;
-        [SerializeField] private int stoneCount = 3;
+        [SerializeField] private int treeCount = 8;
+        [SerializeField] private int farmCount = 5;
+        [SerializeField] private int goldCount = 5;
+        [SerializeField] private int stoneCount = 5;
         [SerializeField] private float minRadius = 6f;
         [SerializeField] private float maxRadius = 16f;
         [SerializeField] private float startingAmount = 40f;

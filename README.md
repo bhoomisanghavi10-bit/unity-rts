@@ -13,7 +13,7 @@ mythology, other ages, multiplayer, or art are added.
 - One generic "Kingdom" civilization template (later split into Chola /
   Vijayanagara / Rajput variants)
 - Resources: Food, Wood, Gold, Stone
-- No naval mechanics, no AI opponent yet (in progress — see Phase 2 below)
+- No naval mechanics
 - Placeholder primitive-shape art only — mechanics first, visuals later
 
 ## Tech stack
@@ -37,6 +37,7 @@ Assets/
     UI/                 Resource counters, selected-unit panel, build menu
     Core/               Faction/ownership tagging, per-player economy
     FogOfWar/           Vision grid, fog rendering, enemy hide/reveal
+    AI/                 Scripted opponent (economy, building, combat)
   Prefabs/
   Materials/
 ```
@@ -87,12 +88,21 @@ fixed spot on the map to fight:
 
 The map starts under fog: unexplored areas are black, previously-explored
 areas you've moved away from stay dimmed, and only the area around your own
-units/buildings is fully visible (`FogOfWarManager`, `VisionSource`). The
-red target dummy is tagged as an "enemy" for fog-testing purposes — it
-disappears when no Player unit/building is nearby and reappears once one
-gets close, ahead of milestone 10's real AI opponent. Every unit/building
-now carries a `FactionMember` (`Player`/`Enemy`); the player can only
-select/command their own side.
+units/buildings is fully visible (`FogOfWarManager`, `VisionSource`). Every
+unit/building carries a `FactionMember` (`Player`/`Enemy`); the player can
+only select/command their own side.
+
+An AI opponent (`AiController`) starts its own base on the far side of the
+map (mirrored Town Center + starting workers) and runs entirely on its own
+timer — no input from you required. It gathers, eventually builds its own
+Barracks (sending one of its own workers to actually construct it, same
+AoE-style rule the player follows), trains Soldiers once Food/Gold allow,
+and sends a squad to attack-move toward the player once it has three or
+more idle Soldiers. It has full internal knowledge of the map (no scouting
+logic — a deliberate first-pass simplification) even though fog still hides
+its base visually from you until you scout it. It has its own separate
+resource stockpile (`EnemyResourceStockpile`) — the top-left HUD only ever
+shows yours.
 
 The B/T hotkeys above still work, but there's now on-screen UI too
 (`ResourceHUD`, `SelectedUnitPanel`, `BuildMenu` — plain IMGUI, not a Canvas;
@@ -127,8 +137,8 @@ see note below):
 ### Phase 2 (in progress)
 
 8. Multiple resources — Gold, Stone
-9. Team/Faction + fog of war *(this commit)*
-10. AI opponent
+9. Team/Faction + fog of war
+10. AI opponent *(this commit)*
 
 ## Design docs
 

@@ -2,6 +2,7 @@ using UnityEngine;
 using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.Units;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.UI
 {
@@ -64,10 +65,18 @@ namespace KingdomsOfBharat.UI
         {
             foreach (Building building in Building.All)
             {
-                if (building is Barracks barracks)
+                if (!(building is Barracks barracks))
                 {
-                    barracks.RequestTrain();
+                    continue;
                 }
+
+                if (!building.TryGetComponent(out FactionMember factionMember)
+                    || factionMember.Faction != FactionId.Player)
+                {
+                    continue;
+                }
+
+                barracks.RequestTrain();
             }
         }
     }

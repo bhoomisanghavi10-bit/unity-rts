@@ -1,28 +1,41 @@
 using System.Collections.Generic;
 using UnityEngine;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.ResourceGathering
 {
-    // Single-player resource bank. Gatherer writes to it on every drop-off;
-    // ResourceHUD (UI) reads GetTotal to render counters.
+    // Per-faction resource bank - one instance per FactionId in the scene.
+    // Gatherer/Barracks write to whichever faction they belong to via
+    // For(faction); ResourceHUD (UI) always reads the Player's.
     public class ResourceStockpile : MonoBehaviour
     {
-        // Self-healing: if Enter Play Mode's "Reload Domain" is off, this
-        // static field can go stale across Play/Stop cycles instead of
-        // being reset. Falling back to a scene lookup means a stale
-        // reference can't crash Deposit() with a NullReferenceException.
-        private static ResourceStockpile _instance;
+        [SerializeField] private FactionId faction = FactionId.Player;
 
-        public static ResourceStockpile Instance
+        // Self-healing per faction: if Enter Play Mode's "Reload Domain" is
+        // off, a cached entry can go stale across Play/Stop cycles instead
+        // of resetting. A scene lookup per faction (not one shared cache
+        // that could itself go stale) means a stale reference can't crash
+        // Deposit()/RequestTrain() with a NullReferenceException.
+        private static readonly Dictionary<FactionId, ResourceStockpile> _instances =
+            new Dictionary<FactionId, ResourceStockpile>();
+
+        public static ResourceStockpile For(FactionId faction)
         {
-            get
+            if (_instances.TryGetValue(faction, out ResourceStockpile existing) && existing != null)
             {
-                if (_instance == null)
-                {
-                    _instance = FindFirstObjectByType<ResourceStockpile>();
-                }
-                return _instance;
+                return existing;
             }
+
+            foreach (ResourceStockpile stockpile in FindObjectsByType<ResourceStockpile>(FindObjectsSortMode.None))
+            {
+                if (stockpile.faction == faction)
+                {
+                    _instances[faction] = stockpile;
+                    return stockpile;
+                }
+            }
+
+            return null;
         }
 
         private readonly Dictionary<ResourceType, float> _totals = new Dictionary<ResourceType, float>
@@ -35,7 +48,7 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private void Awake()
         {
-            _instance = this;
+            _instances[faction] = this;
         }
 
         public float GetTotal(ResourceType type)

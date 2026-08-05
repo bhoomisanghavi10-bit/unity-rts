@@ -1,15 +1,18 @@
 using UnityEngine;
 using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Core;
-using KingdomsOfBharat.FogOfWar;
 
 namespace KingdomsOfBharat.Buildings
 {
-    // Placement flow for a Barracks foundation: triggered by the B hotkey
-    // or BuildMenu's Build Barracks button (UI, milestone 7), both funnel
-    // through BeginPlacement(). Move the mouse to preview it (green if
-    // affordable and clear, red otherwise), left-click to confirm,
-    // right-click/Escape to cancel.
+    // Placement flow for the Player's Barracks foundation: triggered by the
+    // B hotkey or BuildMenu's Build Barracks button (UI, milestone 7), both
+    // funnel through BeginPlacement(). Move the mouse to preview it (green
+    // if affordable and clear, red otherwise), left-click to confirm,
+    // right-click/Escape to cancel. Always places for FactionId.Player -
+    // it's an inherently player-driven tool, not a spawned/faction-tagged
+    // entity itself, so it hardcodes that rather than trying to derive it.
+    // Actual GameObject creation is BarracksFactory's job (shared with
+    // AiController's programmatic placement).
     public class BuildingPlacer : MonoBehaviour
     {
         [SerializeField] private KeyCode placeBarracksKey = KeyCode.B;
@@ -17,7 +20,6 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float barracksStoneCost = 50f;
         [SerializeField] private float barracksBuildTime = 8f;
         [SerializeField] private Vector3 barracksSize = new Vector3(3f, 2f, 3f);
-        [SerializeField] private Color barracksColor = new Color(0.5f, 0.3f, 0.2f);
         [SerializeField] private float minClearance = 3f;
 
         // SelectionManager checks this so a click meant to place/cancel a
@@ -97,7 +99,7 @@ namespace KingdomsOfBharat.Buildings
             _ghost.transform.position = point + Vector3.up * (barracksSize.y * 0.5f);
 
             bool affordable = CanAffordBarracks();
-            bool clear = IsClear(point);
+            bool clear = BarracksFactory.IsClear(point, minClearance);
             var renderer = _ghost.GetComponent<MeshRenderer>();
             renderer.sharedMaterial.color = affordable && clear
                 ? new Color(0.3f, 1f, 0.3f, 0.5f)
@@ -106,7 +108,7 @@ namespace KingdomsOfBharat.Buildings
 
         private void TryConfirmPlacement()
         {
-            if (!TryGetGroundPoint(out Vector3 point) || !IsClear(point))
+            if (!TryGetGroundPoint(out Vector3 point) || !BarracksFactory.IsClear(point, minClearance))
             {
                 return;
             }
@@ -116,46 +118,18 @@ namespace KingdomsOfBharat.Buildings
                 return;
             }
 
-            ResourceStockpile.Instance.Add(ResourceType.Wood, -barracksWoodCost);
-            ResourceStockpile.Instance.Add(ResourceType.Stone, -barracksStoneCost);
-            PlaceBarracks(point);
+            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
+            stockpile.Add(ResourceType.Wood, -barracksWoodCost);
+            stockpile.Add(ResourceType.Stone, -barracksStoneCost);
+            BarracksFactory.Place(point, FactionId.Player, barracksBuildTime);
             CancelPlacing();
         }
 
         private bool CanAffordBarracks()
         {
-            return ResourceStockpile.Instance.GetTotal(ResourceType.Wood) >= barracksWoodCost
-                && ResourceStockpile.Instance.GetTotal(ResourceType.Stone) >= barracksStoneCost;
-        }
-
-        private void PlaceBarracks(Vector3 point)
-        {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = "Barracks";
-            go.transform.position = point + Vector3.up * (barracksSize.y * 0.5f);
-            go.transform.localScale = barracksSize;
-
-            var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = new Material(FindShader()) { color = barracksColor };
-
-            go.AddComponent<Barracks>();
-            var site = go.AddComponent<ConstructionSite>();
-            site.Configure(barracksBuildTime);
-            go.AddComponent<FactionMember>().Configure(FactionId.Player);
-            go.AddComponent<VisionSource>().Configure(10f);
-        }
-
-        private bool IsClear(Vector3 point)
-        {
-            foreach (Building building in Building.All)
-            {
-                if (Vector3.Distance(building.transform.position, point) < minClearance)
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
+            return stockpile.GetTotal(ResourceType.Wood) >= barracksWoodCost
+                && stockpile.GetTotal(ResourceType.Stone) >= barracksStoneCost;
         }
 
         private bool TryGetGroundPoint(out Vector3 point)

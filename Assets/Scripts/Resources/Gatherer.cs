@@ -1,6 +1,7 @@
 using UnityEngine;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Buildings;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.ResourceGathering
 {
@@ -131,7 +132,7 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private void Deposit()
         {
-            ResourceStockpile.Instance.Add(_carriedType, _carriedAmount);
+            ResourceStockpile.For(MyFaction()).Add(_carriedType, _carriedAmount);
             _carriedAmount = 0f;
 
             if (_targetNode != null && !_targetNode.IsDepleted)
@@ -147,12 +148,19 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private Building FindNearestDropOff()
         {
+            FactionId faction = MyFaction();
             Building nearest = null;
             float bestDistance = float.MaxValue;
 
             foreach (Building building in Building.All)
             {
                 if (!(building is TownCenter))
+                {
+                    continue;
+                }
+
+                if (!building.TryGetComponent(out FactionMember buildingFaction)
+                    || buildingFaction.Faction != faction)
                 {
                     continue;
                 }
@@ -166,6 +174,17 @@ namespace KingdomsOfBharat.ResourceGathering
             }
 
             return nearest;
+        }
+
+        // Now that Player and Enemy each have their own Town Center, a
+        // plain nearest-distance search could hand a worker's load to the
+        // wrong side's stockpile - this keeps drop-off (and the deposit
+        // itself, above) scoped to the worker's own faction.
+        private FactionId MyFaction()
+        {
+            return TryGetComponent(out FactionMember factionMember)
+                ? factionMember.Faction
+                : FactionId.Player;
         }
 
         private bool WithinRange(Vector3 target)

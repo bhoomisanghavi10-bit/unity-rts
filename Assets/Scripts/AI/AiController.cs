@@ -1,0 +1,281 @@
+using System.Collections.Generic;
+using UnityEngine;
+using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Units;
+using KingdomsOfBharat.Buildings;
+using KingdomsOfBharat.ResourceGathering;
+using KingdomsOfBharat.Combat;
+
+namespace KingdomsOfBharat.AI
+{
+    // Single scripted, timer-driven AI opponent - not adaptive/learning, a
+    // deliberate first-pass simplification. Has full internal knowledge of
+    // the map/player (no scouting logic); this is intentionally separate
+    // from the player-facing fog-of-war grid (FogOfWarManager), which this
+    // script never touches - "visible" here always means "known to the AI,"
+    // never "revealed to the player."
+    public class AiController : MonoBehaviour
+    {
+        [SerializeField] private Vector3 townCenterPosition = new Vector3(0f, 1f, -8f);
+        [SerializeField] private int startingWorkerCount = 4;
+        [SerializeField] private float workerSpacing = 2f;
+        [SerializeField] private float decisionInterval = 2f;
+        [SerializeField] private float attackCheckInterval = 45f;
+        [SerializeField] private int attackSquadSize = 3;
+        [SerializeField] private float barracksWoodCost = 100f;
+        [SerializeField] private float barracksStoneCost = 50f;
+        [SerializeField] private float barracksBuildTime = 8f;
+        [SerializeField] private float barracksClearance = 3f;
+        [SerializeField] private Vector3 barracksOffset = new Vector3(6f, 0f, 0f);
+
+        // Local to this controller, not a mutation on ResourceNode itself -
+        // keeps the "who's gathering what" bookkeeping contained to one file.
+        private readonly HashSet<ResourceNode> _claimedNodes = new HashSet<ResourceNode>();
+
+        private float _decisionTimer;
+        private float _attackTimer;
+        private Barracks _barracks;
+        private ConstructionSite _barracksSite;
+        private bool _barracksBuilderAssigned;
+
+        private void Start()
+        {
+            TownCenterFactory.Place(townCenterPosition, FactionId.Enemy);
+
+            for (int i = 0; i < startingWorkerCount; i++)
+            {
+                float x = i * workerSpacing - (startingWorkerCount - 1) * workerSpacing * 0.5f;
+                Vector3 spawnPos = townCenterPosition + new Vector3(x, 0f, -3f);
+                WorkerFactory.Spawn(spawnPos, FactionId.Enemy);
+            }
+        }
+
+        private void Update()
+        {
+            _decisionTimer += Time.deltaTime;
+            if (_decisionTimer >= decisionInterval)
+            {
+                _decisionTimer = 0f;
+                AssignIdleWorkers();
+                TryBuildBarracks();
+                AssignBuilderIfNeeded();
+                TryTrainSoldiers();
+            }
+
+            _attackTimer += Time.deltaTime;
+            if (_attackTimer >= attackCheckInterval)
+            {
+                _attackTimer = 0f;
+                TryAttack();
+            }
+        }
+
+        private void AssignIdleWorkers()
+        {
+            List<Unit> idleWorkers = new List<Unit>();
+            foreach (Unit unit in Unit.All)
+            {
+                if (IsMine(unit) && unit.TryGetComponent(out Gatherer gatherer) && !gatherer.IsWorking)
+                {
+                    idleWorkers.Add(unit);
+                }
+            }
+
+            if (idleWorkers.Count == 0)
+            {
+                return;
+            }
+
+            ResourceNode[] allNodes = FindObjectsByType<ResourceNode>(FindObjectsSortMode.None);
+
+            foreach (Unit unit in idleWorkers)
+            {
+                ResourceNode nearest = FindUnclaimedNode(unit.transform.position, allNodes);
+                if (nearest == null)
+                {
+                    continue;
+                }
+
+                _claimedNodes.Add(nearest);
+                unit.TryGetComponent(out Gatherer gatherer);
+                gatherer.GatherFrom(nearest);
+            }
+        }
+
+        private ResourceNode FindUnclaimedNode(Vector3 fromPosition, ResourceNode[] allNodes)
+        {
+            ResourceNode nearest = null;
+            float bestDistance = float.MaxValue;
+
+            foreach (ResourceNode node in allNodes)
+            {
+                if (_claimedNodes.Contains(node))
+                {
+                    continue;
+                }
+
+                float distance = Vector3.Distance(fromPosition, node.transform.position);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    nearest = node;
+                }
+            }
+
+            return nearest;
+        }
+
+        private void TryBuildBarracks()
+        {
+            if (_barracks != null)
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Enemy);
+            if (stockpile.GetTotal(ResourceType.Wood) < barracksWoodCost
+                || stockpile.GetTotal(ResourceType.Stone) < barracksStoneCost)
+            {
+                return;
+            }
+
+            Vector3 candidateXz = townCenterPosition + barracksOffset;
+            if (!TryResolveGroundHeight(candidateXz, out Vector3 point))
+            {
+                return;
+            }
+
+            if (!BarracksFactory.IsClear(point, barracksClearance))
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Wood, -barracksWoodCost);
+            stockpile.Add(ResourceType.Stone, -barracksStoneCost);
+
+            GameObject go = BarracksFactory.Place(point, FactionId.Enemy, barracksBuildTime);
+            go.TryGetComponent(out _barracks);
+            go.TryGetComponent(out _barracksSite);
+        }
+
+        // The AI must actively send a worker to build, same as the Player -
+        // a placed foundation doesn't build itself (milestone 5's rule).
+        // Pulls a worker off gathering duty if nothing's idle, rather than
+        // waiting for one to naturally become free (which may never happen,
+        // since AssignIdleWorkers immediately re-assigns anything idle).
+        private void AssignBuilderIfNeeded()
+        {
+            if (_barracksSite == null || _barracksBuilderAssigned || _barracksSite.IsComplete)
+            {
+                return;
+            }
+
+            foreach (Unit unit in Unit.All)
+            {
+                if (!IsMine(unit) || !unit.TryGetComponent(out Builder builder))
+                {
+                    continue;
+                }
+
+                if (unit.TryGetComponent(out Gatherer gatherer))
+                {
+                    gatherer.CancelGather();
+                }
+
+                builder.BuildAt(_barracksSite);
+                _barracksBuilderAssigned = true;
+                return;
+            }
+        }
+
+        private void TryTrainSoldiers()
+        {
+            if (_barracks == null || !_barracks.IsComplete)
+            {
+                return;
+            }
+
+            _barracks.RequestTrain();
+        }
+
+        private void TryAttack()
+        {
+            List<Unit> soldiers = new List<Unit>();
+            foreach (Unit unit in Unit.All)
+            {
+                if (IsMine(unit) && unit.TryGetComponent(out MeleeAttacker _))
+                {
+                    soldiers.Add(unit);
+                }
+            }
+
+            if (soldiers.Count < attackSquadSize)
+            {
+                return;
+            }
+
+            Attackable target = FindNearestPlayerUnit(townCenterPosition);
+            if (target == null)
+            {
+                return;
+            }
+
+            foreach (Unit soldier in soldiers)
+            {
+                soldier.TryGetComponent(out MeleeAttacker attacker);
+                attacker.AttackMove(target);
+            }
+        }
+
+        private static Attackable FindNearestPlayerUnit(Vector3 fromPosition)
+        {
+            Attackable nearest = null;
+            float bestDistance = float.MaxValue;
+
+            foreach (Unit unit in Unit.All)
+            {
+                if (!unit.TryGetComponent(out FactionMember factionMember)
+                    || factionMember.Faction != FactionId.Player)
+                {
+                    continue;
+                }
+
+                if (!unit.TryGetComponent(out Attackable attackable) || attackable.IsDead)
+                {
+                    continue;
+                }
+
+                float distance = Vector3.Distance(fromPosition, unit.transform.position);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    nearest = attackable;
+                }
+            }
+
+            return nearest;
+        }
+
+        private static bool IsMine(Unit unit)
+        {
+            return unit.TryGetComponent(out FactionMember factionMember)
+                && factionMember.Faction == FactionId.Enemy;
+        }
+
+        // No mouse input available for the AI - fires its own downward ray
+        // onto the Ground's existing MeshCollider instead of relying on
+        // BuildingPlacer's ScreenPointToRay-based TryGetGroundPoint.
+        private static bool TryResolveGroundHeight(Vector3 xzPoint, out Vector3 point)
+        {
+            Vector3 origin = new Vector3(xzPoint.x, 50f, xzPoint.z);
+            if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 100f))
+            {
+                point = hit.point;
+                return true;
+            }
+
+            point = Vector3.zero;
+            return false;
+        }
+    }
+}

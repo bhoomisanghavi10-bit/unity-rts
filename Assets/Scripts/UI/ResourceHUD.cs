@@ -1,16 +1,19 @@
 using UnityEngine;
 using KingdomsOfBharat.ResourceGathering;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.UI
 {
-    // Always-on resource counters, top-left corner.
+    // Always-on resource counters, top-left corner. Hardcoded to the
+    // Player's stockpile specifically (not a generic lookup) so it can
+    // never accidentally end up displaying the AI's economy.
     public class ResourceHUD : MonoBehaviour
     {
         private GUIStyle _style;
 
         private void OnGUI()
         {
-            ResourceStockpile stockpile = ResourceStockpile.Instance;
+            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
             if (stockpile == null)
             {
                 return;
