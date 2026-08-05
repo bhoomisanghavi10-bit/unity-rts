@@ -3,6 +3,8 @@ using UnityEngine.AI;
 using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Buildings;
+using KingdomsOfBharat.Core;
+using KingdomsOfBharat.FogOfWar;
 
 namespace KingdomsOfBharat.Units
 {
@@ -43,6 +45,8 @@ namespace KingdomsOfBharat.Units
             go.AddComponent<SelectionIndicator>();
             go.AddComponent<Gatherer>();
             go.AddComponent<Builder>();
+            go.AddComponent<FactionMember>().Configure(FactionId.Player);
+            go.AddComponent<VisionSource>().Configure(8f);
         }
 
         private static Shader FindShader()

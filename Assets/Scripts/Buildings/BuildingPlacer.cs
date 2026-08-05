@@ -1,5 +1,7 @@
 using UnityEngine;
 using KingdomsOfBharat.ResourceGathering;
+using KingdomsOfBharat.Core;
+using KingdomsOfBharat.FogOfWar;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -139,6 +141,8 @@ namespace KingdomsOfBharat.Buildings
             go.AddComponent<Barracks>();
             var site = go.AddComponent<ConstructionSite>();
             site.Configure(barracksBuildTime);
+            go.AddComponent<FactionMember>().Configure(FactionId.Player);
+            go.AddComponent<VisionSource>().Configure(10f);
         }
 
         private bool IsClear(Vector3 point)

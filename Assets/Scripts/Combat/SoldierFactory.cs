@@ -2,6 +2,8 @@ using UnityEngine;
 using UnityEngine.AI;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Selection;
+using KingdomsOfBharat.Core;
+using KingdomsOfBharat.FogOfWar;
 
 namespace KingdomsOfBharat.Combat
 {
@@ -30,6 +32,8 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<SelectionIndicator>();
             go.AddComponent<Attackable>();
             go.AddComponent<MeleeAttacker>();
+            go.AddComponent<FactionMember>().Configure(FactionId.Player);
+            go.AddComponent<VisionSource>().Configure(8f);
 
             return go;
         }

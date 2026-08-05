@@ -1,9 +1,13 @@
 using UnityEngine;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.Combat
 {
     // Milestone-6 placeholder: places a stationary target dummy to test
-    // combat against.
+    // combat against. Tagged Enemy faction (milestone 9) so it doubles as a
+    // way to test fog-of-war hide/reveal before milestone 10's real AI
+    // opponent exists - this doesn't change its attackability, since the
+    // same-faction exclusion only blocks Player-vs-Player targeting.
     public class TargetDummySpawner : MonoBehaviour
     {
         [SerializeField] private Vector3 position = new Vector3(10f, 1f, -6f);
@@ -23,6 +27,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<TargetDummy>();
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure(health);
+            go.AddComponent<FactionMember>().Configure(FactionId.Enemy);
         }
 
         private static Shader FindShader()

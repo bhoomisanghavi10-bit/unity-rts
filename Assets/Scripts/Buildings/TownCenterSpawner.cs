@@ -1,4 +1,6 @@
 using UnityEngine;
+using KingdomsOfBharat.Core;
+using KingdomsOfBharat.FogOfWar;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -21,6 +23,8 @@ namespace KingdomsOfBharat.Buildings
             renderer.sharedMaterial = new Material(FindShader()) { color = color };
 
             go.AddComponent<TownCenter>();
+            go.AddComponent<FactionMember>().Configure(FactionId.Player);
+            go.AddComponent<VisionSource>().Configure(10f);
         }
 
         private static Shader FindShader()

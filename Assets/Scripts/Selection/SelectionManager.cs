@@ -4,6 +4,7 @@ using KingdomsOfBharat.Units;
 using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Combat;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.Selection
 {
@@ -102,13 +103,13 @@ namespace KingdomsOfBharat.Selection
                     attacker?.CancelAttack();
                     gatherer?.GatherFrom(node);
                 }
-                else if (hitSite)
+                else if (hitSite && IsSameFaction(unit, site))
                 {
                     gatherer?.CancelGather();
                     attacker?.CancelAttack();
                     builder?.BuildAt(site);
                 }
-                else if (hitAttackable && attacker != null && attackable.gameObject != unit.gameObject)
+                else if (hitAttackable && attacker != null && IsHostileTarget(unit, attackable))
                 {
                     gatherer?.CancelGather();
                     builder?.CancelBuild();
@@ -132,7 +133,9 @@ namespace KingdomsOfBharat.Selection
             ClearSelection();
 
             Ray ray = _camera.ScreenPointToRay(screenPos);
-            if (Physics.Raycast(ray, out RaycastHit hit, 500f) && hit.collider.TryGetComponent(out Unit unit))
+            if (Physics.Raycast(ray, out RaycastHit hit, 500f)
+                && hit.collider.TryGetComponent(out Unit unit)
+                && IsPlayerControllable(unit))
             {
                 Select(unit);
             }
@@ -148,12 +151,61 @@ namespace KingdomsOfBharat.Selection
 
             foreach (Unit unit in Unit.All)
             {
+                if (!IsPlayerControllable(unit))
+                {
+                    continue;
+                }
+
                 Vector3 screenPoint = _camera.WorldToScreenPoint(unit.transform.position);
                 if (screenPoint.z > 0f && box.Contains(screenPoint))
                 {
                     Select(unit);
                 }
             }
+        }
+
+        // No FactionMember present is treated as "not player-controllable"
+        // here (unlike the fail-open combat/build checks below) - every
+        // spawner tags its units, so absence would mean something's wrong
+        // rather than "neutral," and defaulting to selectable would let the
+        // player command units nothing actually spawned as theirs.
+        private static bool IsPlayerControllable(Unit unit)
+        {
+            return unit.TryGetComponent(out FactionMember factionMember)
+                && factionMember.Faction == FactionId.Player;
+        }
+
+        // Neutral (no FactionMember) targets/sites are always valid - see
+        // TargetDummy, which is deliberately untagged-as-Player so it stays
+        // attackable regardless of the attacker's own faction.
+        private static bool IsHostileTarget(Unit source, Attackable target)
+        {
+            if (!target.TryGetComponent(out FactionMember targetFaction))
+            {
+                return true;
+            }
+
+            if (!source.TryGetComponent(out FactionMember sourceFaction))
+            {
+                return true;
+            }
+
+            return targetFaction.Faction != sourceFaction.Faction;
+        }
+
+        private static bool IsSameFaction(Unit source, Component target)
+        {
+            if (!source.TryGetComponent(out FactionMember sourceFaction))
+            {
+                return true;
+            }
+
+            if (!target.TryGetComponent(out FactionMember targetFaction))
+            {
+                return true;
+            }
+
+            return sourceFaction.Faction == targetFaction.Faction;
         }
 
         private void Select(Unit unit)
