@@ -29,5 +29,12 @@ namespace KingdomsOfBharat.ResourceGathering
         {
             _totals[type] += amount;
         }
+
+        // Temporary on-screen readout until milestone 7 adds a real HUD.
+        private void OnGUI()
+        {
+            GUI.Label(new Rect(10, 10, 200, 20), $"Wood: {(int)GetTotal(ResourceType.Wood)}");
+            GUI.Label(new Rect(10, 30, 200, 20), $"Food: {(int)GetTotal(ResourceType.Food)}");
+        }
     }
 }
