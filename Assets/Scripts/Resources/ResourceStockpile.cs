@@ -7,7 +7,23 @@ namespace KingdomsOfBharat.ResourceGathering
     // the UI (milestone 7) reads GetTotal to render counters.
     public class ResourceStockpile : MonoBehaviour
     {
-        public static ResourceStockpile Instance { get; private set; }
+        // Self-healing: if Enter Play Mode's "Reload Domain" is off, this
+        // static field can go stale across Play/Stop cycles instead of
+        // being reset. Falling back to a scene lookup means a stale
+        // reference can't crash Deposit() with a NullReferenceException.
+        private static ResourceStockpile _instance;
+
+        public static ResourceStockpile Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = FindFirstObjectByType<ResourceStockpile>();
+                }
+                return _instance;
+            }
+        }
 
         private readonly Dictionary<ResourceType, float> _totals = new Dictionary<ResourceType, float>
         {
@@ -17,7 +33,7 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private void Awake()
         {
-            Instance = this;
+            _instance = this;
         }
 
         public float GetTotal(ResourceType type)
