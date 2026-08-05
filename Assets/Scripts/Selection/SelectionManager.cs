@@ -77,8 +77,9 @@ namespace KingdomsOfBharat.Selection
             }
 
             bool hitNode = hit.collider.TryGetComponent(out ResourceNode node);
+            ConstructionSite site = null;
             bool hitSite = !hitNode
-                && hit.collider.TryGetComponent(out ConstructionSite site)
+                && hit.collider.TryGetComponent(out site)
                 && !site.IsComplete;
 
             foreach (Unit unit in _selected)
