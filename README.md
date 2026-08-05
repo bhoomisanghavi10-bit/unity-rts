@@ -54,23 +54,28 @@ The camera uses `RTSCameraController` on Main Camera:
 - **Pan:** WASD / arrow keys, or move the mouse to a screen edge
 - **Zoom:** mouse scroll wheel
 
-Four placeholder capsule "Worker" units (`UnitSpawner`) spawn on the map for
-testing selection and movement:
+Four placeholder capsule "Worker" units (`UnitSpawner`) spawn on the map,
+alongside scattered trees (Wood) and farmland patches (Food) from
+`ResourceNodeSpawner`, and a single Town Center (`TownCenterSpawner`):
 
 - **Select:** left-click a unit, or left-click-drag a box around several
-- **Move:** right-click a point on the ground to send selected units there
+- **Move:** right-click a point on open ground to send selected units there
   (pathfinding via a runtime-baked NavMesh — `NavMeshBaker`)
+- **Gather:** right-click a tree or farmland patch instead — selected workers
+  walk over, gather over time up to a carry cap, haul it to the Town Center,
+  and repeat until the node is exhausted (`Gatherer`, `ResourceStockpile`)
 
-> Note: this scene was authored outside the Unity Editor (no Editor available
-> in this environment). It follows Unity's standard scene YAML format, but
-> give it a quick sanity check the first time you open it.
+> Note: this scene was authored outside the Unity Editor. Milestones 1-3 have
+> been opened and verified working in Unity 6.3 LTS; the milestone-4 resource
+> additions below haven't been through a real Editor session yet, so give
+> them a sanity check.
 
 ## Build milestones
 
 1. Project scaffold
 2. Terrain & camera
-3. Unit selection & movement *(this commit)*
-4. Resource gathering
+3. Unit selection & movement
+4. Resource gathering *(this commit)*
 5. Building & construction
 6. Basic combat
 7. Minimal UI

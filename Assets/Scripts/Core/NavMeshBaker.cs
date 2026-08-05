@@ -4,15 +4,17 @@ using UnityEngine.AI;
 
 namespace KingdomsOfBharat.Core
 {
-    // Bakes a NavMesh at runtime over the scene's static colliders (the
-    // procedurally-built ground) using the legacy NavMeshBuilder runtime API,
-    // so pathfinding works without an Editor-baked NavMesh asset. Must run
+    // Bakes a NavMesh at runtime over the ground only (not trees/farmland/
+    // buildings, which spawn separately and would otherwise need to exist
+    // before baking) using the legacy NavMeshBuilder runtime API, so
+    // pathfinding works without an Editor-baked NavMesh asset. Must run
     // after ProceduralGround exists (Awake) and before any units are spawned
     // (UnitSpawner), hence the execution order.
     [DefaultExecutionOrder(-50)]
     public class NavMeshBaker : MonoBehaviour
     {
         [SerializeField] private Vector3 boundsSize = new Vector3(44f, 10f, 44f);
+        [SerializeField] private string groundObjectName = "Ground";
 
         private void Start()
         {
@@ -21,10 +23,12 @@ namespace KingdomsOfBharat.Core
 
         private void Bake()
         {
+            Transform groundRoot = GameObject.Find(groundObjectName)?.transform;
+
             var bounds = new Bounds(Vector3.zero, boundsSize);
             var sources = new List<NavMeshBuildSource>();
             NavMeshBuilder.CollectSources(
-                bounds, ~0, NavMeshCollectGeometry.PhysicsColliders, 0,
+                groundRoot, ~0, NavMeshCollectGeometry.PhysicsColliders, 0,
                 new List<NavMeshBuildMarkup>(), sources);
 
             NavMeshBuildSettings settings = NavMesh.GetSettingsByID(0);

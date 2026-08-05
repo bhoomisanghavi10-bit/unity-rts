@@ -1,12 +1,14 @@
 using System.Collections.Generic;
 using UnityEngine;
 using KingdomsOfBharat.Units;
+using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.Selection
 {
     // Owns all selection/command input: left-click selects a single unit,
     // left-click-drag box-selects multiple, right-click issues a move order
-    // to whatever is currently selected.
+    // (or a gather order, if the click landed on a resource node) to
+    // whatever is currently selected.
     public class SelectionManager : MonoBehaviour
     {
         [SerializeField] private float dragThreshold = 6f;
@@ -66,9 +68,15 @@ namespace KingdomsOfBharat.Selection
                 return;
             }
 
+            bool hitNode = hit.collider.TryGetComponent(out ResourceNode node);
+
             foreach (Unit unit in _selected)
             {
-                if (unit.TryGetComponent(out UnitMover mover))
+                if (hitNode && unit.TryGetComponent(out Gatherer gatherer))
+                {
+                    gatherer.GatherFrom(node);
+                }
+                else if (unit.TryGetComponent(out UnitMover mover))
                 {
                     mover.MoveTo(hit.point);
                 }
