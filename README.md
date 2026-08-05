@@ -74,10 +74,19 @@ build (AoE-style); it rises from the ground over 8 seconds while a worker is
 actively there, and multiple workers build proportionally faster
 (`Builder`, `ConstructionSite`).
 
+There's no building-selection UI yet, so press **T** to train a Soldier (50
+Food, 5 seconds) at every completed Barracks — it appears next to the
+building when ready. A red target dummy (`TargetDummySpawner`) sits at a
+fixed spot on the map to fight:
+
+- **Attack-move:** select a Soldier and right-click the dummy (or any other
+  live unit) — it walks into range and starts hitting it on a cooldown until
+  the target dies or you give a new order (`MeleeAttacker`, `Attackable`)
+
 > Note: this scene was authored outside the Unity Editor. Milestones 1-3 have
-> been opened and verified working in Unity 6.3 LTS; the milestone-4/5
-> additions below haven't been through a real Editor session yet, so give
-> them a sanity check.
+> been opened and verified working in Unity 6.3 LTS; milestones 4-6 have gone
+> through several rounds of real-Editor bug fixes already (see commit
+> history) but each new addition is still worth a sanity check.
 
 ## Build milestones
 
@@ -85,8 +94,8 @@ actively there, and multiple workers build proportionally faster
 2. Terrain & camera
 3. Unit selection & movement
 4. Resource gathering
-5. Building & construction *(this commit)*
-6. Basic combat
+5. Building & construction
+6. Basic combat *(this commit)*
 7. Minimal UI
 
 ## Design docs
