@@ -6,6 +6,8 @@ namespace KingdomsOfBharat.ResourceGathering
     {
         Food,
         Wood,
+        Gold,
+        Stone,
     }
 
     // A harvestable world object (tree, farmland). Depletes as workers

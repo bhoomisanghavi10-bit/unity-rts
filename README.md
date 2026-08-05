@@ -12,8 +12,9 @@ mythology, other ages, multiplayer, or art are added.
 - One small map (~40x40 units)
 - One generic "Kingdom" civilization template (later split into Chola /
   Vijayanagara / Rajput variants)
-- Resources: Food and Wood only (Gold/Stone come later)
-- No naval mechanics, no fog of war, no AI opponent yet
+- Resources: Food, Wood, Gold, Stone
+- No naval mechanics, no fog of war, no AI opponent yet (in progress — see
+  Phase 2 below)
 - Placeholder primitive-shape art only — mechanics first, visuals later
 
 ## Tech stack
@@ -55,28 +56,29 @@ The camera uses `RTSCameraController` on Main Camera:
 - **Zoom:** mouse scroll wheel
 
 Four placeholder capsule "Worker" units (`UnitSpawner`) spawn on the map,
-alongside scattered trees (Wood) and farmland patches (Food) from
+alongside scattered trees (Wood), farmland patches (Food), gold mines
+(yellow spheres), and stone quarries (gray blocks) from
 `ResourceNodeSpawner`, and a single Town Center (`TownCenterSpawner`):
 
 - **Select:** left-click a unit, or left-click-drag a box around several
 - **Move:** right-click a point on open ground to send selected units there
   (pathfinding via a runtime-baked NavMesh — `NavMeshBaker`)
-- **Gather:** right-click a tree or farmland patch instead — selected workers
-  walk over, gather over time up to a carry cap, haul it to the Town Center,
-  and repeat until the node is exhausted (`Gatherer`, `ResourceStockpile`)
+- **Gather:** right-click any resource node instead — selected workers walk
+  over, gather over time up to a carry cap, haul it to the Town Center, and
+  repeat until the node is exhausted (`Gatherer`, `ResourceStockpile`)
 
-Press **B** to start placing a Barracks foundation (costs 100 Wood). Move the
-mouse to preview it — green if you can afford it and the spot is clear of
-other buildings, red otherwise. **Left-click** to confirm, **right-click** or
-**Esc** to cancel (`BuildingPlacer`). A placed foundation does **not** build
-itself — select a worker and **right-click the foundation** to send it to
-build (AoE-style); it rises from the ground over 8 seconds while a worker is
-actively there, and multiple workers build proportionally faster
-(`Builder`, `ConstructionSite`).
+Press **B** to start placing a Barracks foundation (costs 100 Wood + 50
+Stone). Move the mouse to preview it — green if you can afford it and the
+spot is clear of other buildings, red otherwise. **Left-click** to confirm,
+**right-click** or **Esc** to cancel (`BuildingPlacer`). A placed foundation
+does **not** build itself — select a worker and **right-click the
+foundation** to send it to build (AoE-style); it rises from the ground over
+8 seconds while a worker is actively there, and multiple workers build
+proportionally faster (`Builder`, `ConstructionSite`).
 
 There's no building-selection UI yet, so press **T** to train a Soldier (50
-Food, 5 seconds) at every completed Barracks — it appears next to the
-building when ready. A red target dummy (`TargetDummySpawner`) sits at a
+Food + 20 Gold, 5 seconds) at every completed Barracks — it appears next to
+the building when ready. A red target dummy (`TargetDummySpawner`) sits at a
 fixed spot on the map to fight:
 
 - **Attack-move:** select a Soldier and right-click the dummy (or any other
@@ -87,7 +89,7 @@ The B/T hotkeys above still work, but there's now on-screen UI too
 (`ResourceHUD`, `SelectedUnitPanel`, `BuildMenu` — plain IMGUI, not a Canvas;
 see note below):
 
-- **Top-left:** live Wood/Food counters
+- **Top-left:** live Wood/Food/Gold/Stone counters
 - **Bottom-left:** appears when something's selected — unit name, status
   (Idle/Gathering/Building), and HP if it's a Soldier; shows a headcount
   instead for a multi-unit selection
@@ -111,7 +113,13 @@ see note below):
 4. Resource gathering
 5. Building & construction
 6. Basic combat
-7. Minimal UI *(this commit)*
+7. Minimal UI
+
+### Phase 2 (in progress)
+
+8. Multiple resources — Gold, Stone *(this commit)*
+9. Team/Faction + fog of war
+10. AI opponent
 
 ## Design docs
 

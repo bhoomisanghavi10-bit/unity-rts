@@ -610,6 +610,8 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   treeCount: 6
   farmCount: 3
+  goldCount: 3
+  stoneCount: 3
   minRadius: 6
   maxRadius: 16
   startingAmount: 40
@@ -708,6 +710,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   placeBarracksKey: 98
   barracksWoodCost: 100
+  barracksStoneCost: 50
   barracksBuildTime: 8
   barracksSize: {x: 3, y: 2, z: 3}
   barracksColor: {r: 0.5, g: 0.3, b: 0.2, a: 1}

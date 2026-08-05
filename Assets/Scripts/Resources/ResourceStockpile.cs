@@ -29,6 +29,8 @@ namespace KingdomsOfBharat.ResourceGathering
         {
             { ResourceType.Food, 0f },
             { ResourceType.Wood, 0f },
+            { ResourceType.Gold, 0f },
+            { ResourceType.Stone, 0f },
         };
 
         private void Awake()

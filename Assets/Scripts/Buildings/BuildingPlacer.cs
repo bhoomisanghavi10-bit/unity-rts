@@ -12,6 +12,7 @@ namespace KingdomsOfBharat.Buildings
     {
         [SerializeField] private KeyCode placeBarracksKey = KeyCode.B;
         [SerializeField] private float barracksWoodCost = 100f;
+        [SerializeField] private float barracksStoneCost = 50f;
         [SerializeField] private float barracksBuildTime = 8f;
         [SerializeField] private Vector3 barracksSize = new Vector3(3f, 2f, 3f);
         [SerializeField] private Color barracksColor = new Color(0.5f, 0.3f, 0.2f);
@@ -93,7 +94,7 @@ namespace KingdomsOfBharat.Buildings
 
             _ghost.transform.position = point + Vector3.up * (barracksSize.y * 0.5f);
 
-            bool affordable = ResourceStockpile.Instance.GetTotal(ResourceType.Wood) >= barracksWoodCost;
+            bool affordable = CanAffordBarracks();
             bool clear = IsClear(point);
             var renderer = _ghost.GetComponent<MeshRenderer>();
             renderer.sharedMaterial.color = affordable && clear
@@ -108,14 +109,21 @@ namespace KingdomsOfBharat.Buildings
                 return;
             }
 
-            if (ResourceStockpile.Instance.GetTotal(ResourceType.Wood) < barracksWoodCost)
+            if (!CanAffordBarracks())
             {
                 return;
             }
 
             ResourceStockpile.Instance.Add(ResourceType.Wood, -barracksWoodCost);
+            ResourceStockpile.Instance.Add(ResourceType.Stone, -barracksStoneCost);
             PlaceBarracks(point);
             CancelPlacing();
+        }
+
+        private bool CanAffordBarracks()
+        {
+            return ResourceStockpile.Instance.GetTotal(ResourceType.Wood) >= barracksWoodCost
+                && ResourceStockpile.Instance.GetTotal(ResourceType.Stone) >= barracksStoneCost;
         }
 
         private void PlaceBarracks(Vector3 point)

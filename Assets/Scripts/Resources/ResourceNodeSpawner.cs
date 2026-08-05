@@ -2,13 +2,15 @@ using UnityEngine;
 
 namespace KingdomsOfBharat.ResourceGathering
 {
-    // Milestone-4 placeholder: scatters tree (Wood) and farmland (Food)
-    // nodes around the map so gathering is testable. A fixed random seed
-    // keeps layout reproducible between runs.
+    // Milestone-4/8 placeholder: scatters resource nodes around the map so
+    // gathering is testable. A fixed random seed keeps layout reproducible
+    // between runs.
     public class ResourceNodeSpawner : MonoBehaviour
     {
         [SerializeField] private int treeCount = 6;
         [SerializeField] private int farmCount = 3;
+        [SerializeField] private int goldCount = 3;
+        [SerializeField] private int stoneCount = 3;
         [SerializeField] private float minRadius = 6f;
         [SerializeField] private float maxRadius = 16f;
         [SerializeField] private float startingAmount = 40f;
@@ -26,6 +28,16 @@ namespace KingdomsOfBharat.ResourceGathering
             for (int i = 0; i < farmCount; i++)
             {
                 SpawnFarmland(RandomPointInRing());
+            }
+
+            for (int i = 0; i < goldCount; i++)
+            {
+                SpawnGoldMine(RandomPointInRing());
+            }
+
+            for (int i = 0; i < stoneCount; i++)
+            {
+                SpawnStoneQuarry(RandomPointInRing());
             }
         }
 
@@ -58,6 +70,30 @@ namespace KingdomsOfBharat.ResourceGathering
 
             var node = go.AddComponent<ResourceNode>();
             node.Configure(ResourceType.Food, startingAmount);
+        }
+
+        private void SpawnGoldMine(Vector3 position)
+        {
+            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            go.name = "GoldMine";
+            go.transform.position = position + Vector3.up * 0.5f;
+            go.transform.localScale = new Vector3(1f, 1f, 1f);
+            Colorize(go, new Color(0.85f, 0.7f, 0.15f));
+
+            var node = go.AddComponent<ResourceNode>();
+            node.Configure(ResourceType.Gold, startingAmount);
+        }
+
+        private void SpawnStoneQuarry(Vector3 position)
+        {
+            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = "StoneQuarry";
+            go.transform.position = position + Vector3.up * 0.4f;
+            go.transform.localScale = new Vector3(1.4f, 0.8f, 1.4f);
+            Colorize(go, new Color(0.55f, 0.55f, 0.55f));
+
+            var node = go.AddComponent<ResourceNode>();
+            node.Configure(ResourceType.Stone, startingAmount);
         }
 
         private static void Colorize(GameObject go, Color color)

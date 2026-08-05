@@ -12,6 +12,7 @@ namespace KingdomsOfBharat.Buildings
     {
         [SerializeField] private KeyCode trainKey = KeyCode.T;
         [SerializeField] private float soldierFoodCost = 50f;
+        [SerializeField] private float soldierGoldCost = 20f;
         [SerializeField] private float trainTime = 5f;
         [SerializeField] private Vector3 rallyOffset = new Vector3(3f, 0f, 3f);
 
@@ -47,12 +48,14 @@ namespace KingdomsOfBharat.Buildings
                 return;
             }
 
-            if (ResourceStockpile.Instance.GetTotal(ResourceType.Food) < soldierFoodCost)
+            if (ResourceStockpile.Instance.GetTotal(ResourceType.Food) < soldierFoodCost
+                || ResourceStockpile.Instance.GetTotal(ResourceType.Gold) < soldierGoldCost)
             {
                 return;
             }
 
             ResourceStockpile.Instance.Add(ResourceType.Food, -soldierFoodCost);
+            ResourceStockpile.Instance.Add(ResourceType.Gold, -soldierGoldCost);
             _remaining = trainTime;
         }
 
