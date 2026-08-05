@@ -4,7 +4,7 @@ using UnityEngine;
 namespace KingdomsOfBharat.ResourceGathering
 {
     // Single-player resource bank. Gatherer writes to it on every drop-off;
-    // the UI (milestone 7) reads GetTotal to render counters.
+    // ResourceHUD (UI) reads GetTotal to render counters.
     public class ResourceStockpile : MonoBehaviour
     {
         // Self-healing: if Enter Play Mode's "Reload Domain" is off, this
@@ -44,13 +44,6 @@ namespace KingdomsOfBharat.ResourceGathering
         public void Add(ResourceType type, float amount)
         {
             _totals[type] += amount;
-        }
-
-        // Temporary on-screen readout until milestone 7 adds a real HUD.
-        private void OnGUI()
-        {
-            GUI.Label(new Rect(10, 10, 200, 20), $"Wood: {(int)GetTotal(ResourceType.Wood)}");
-            GUI.Label(new Rect(10, 30, 200, 20), $"Food: {(int)GetTotal(ResourceType.Food)}");
         }
     }
 }

@@ -4,9 +4,10 @@ using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.Buildings
 {
-    // Trains a Soldier unit. No build queue/UI yet (milestone 7) - every
-    // completed, idle Barracks trains one Soldier per press of the train
-    // key, if Food allows.
+    // Trains a Soldier unit. Every completed, idle Barracks trains one
+    // Soldier when RequestTrain() is called - either the train hotkey
+    // (below) or BuildMenu's Train Soldier button (UI, milestone 7), both
+    // funnel through the same entry point.
     public class Barracks : Building
     {
         [SerializeField] private KeyCode trainKey = KeyCode.T;
@@ -17,8 +18,8 @@ namespace KingdomsOfBharat.Buildings
         private ConstructionSite _site;
         private float _remaining = -1f;
 
-        private bool IsComplete => _site == null || _site.IsComplete;
-        private bool IsTraining => _remaining >= 0f;
+        public bool IsComplete => _site == null || _site.IsComplete;
+        public bool IsTraining => _remaining >= 0f;
 
         private void Awake()
         {
@@ -33,14 +34,19 @@ namespace KingdomsOfBharat.Buildings
                 return;
             }
 
-            if (IsComplete && Input.GetKeyDown(trainKey))
+            if (Input.GetKeyDown(trainKey))
             {
-                TryStartTraining();
+                RequestTrain();
             }
         }
 
-        private void TryStartTraining()
+        public void RequestTrain()
         {
+            if (!IsComplete || IsTraining)
+            {
+                return;
+            }
+
             if (ResourceStockpile.Instance.GetTotal(ResourceType.Food) < soldierFoodCost)
             {
                 return;

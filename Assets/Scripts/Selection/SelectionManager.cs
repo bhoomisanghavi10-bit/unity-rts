@@ -22,6 +22,9 @@ namespace KingdomsOfBharat.Selection
         private Vector2 _dragStart;
         private bool _dragging;
 
+        // For SelectedUnitPanel / BuildMenu (UI) to read current selection.
+        public IReadOnlyList<Unit> Selected => _selected;
+
         private void Awake()
         {
             _camera = UnityEngine.Camera.main;

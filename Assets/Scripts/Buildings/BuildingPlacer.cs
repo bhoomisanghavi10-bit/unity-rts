@@ -3,8 +3,9 @@ using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.Buildings
 {
-    // Minimal placement flow ahead of milestone 7's real build menu: press B
-    // to start placing a Barracks, move the mouse to preview it (green if
+    // Placement flow for a Barracks foundation: triggered by the B hotkey
+    // or BuildMenu's Build Barracks button (UI, milestone 7), both funnel
+    // through BeginPlacement(). Move the mouse to preview it (green if
     // affordable and clear, red otherwise), left-click to confirm,
     // right-click/Escape to cancel.
     public class BuildingPlacer : MonoBehaviour
@@ -29,11 +30,19 @@ namespace KingdomsOfBharat.Buildings
             _camera = UnityEngine.Camera.main;
         }
 
+        public void BeginPlacement()
+        {
+            if (!_placing)
+            {
+                StartPlacing();
+            }
+        }
+
         private void Update()
         {
             if (!_placing && Input.GetKeyDown(placeBarracksKey))
             {
-                StartPlacing();
+                BeginPlacement();
             }
 
             if (!_placing)

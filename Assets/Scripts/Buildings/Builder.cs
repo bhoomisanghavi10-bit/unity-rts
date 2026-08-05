@@ -16,6 +16,10 @@ namespace KingdomsOfBharat.Buildings
         private ConstructionSite _site;
         private bool _building;
 
+        // For SelectedUnitPanel (UI) to show a status line. True only while
+        // actually in range and contributing progress, not while walking over.
+        public bool IsBuilding => _building;
+
         private void Awake()
         {
             _mover = GetComponent<UnitMover>();

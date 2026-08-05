@@ -23,6 +23,9 @@ namespace KingdomsOfBharat.ResourceGathering
         private ResourceType _carriedType;
         private float _carriedAmount;
 
+        // For SelectedUnitPanel (UI) to show a status line.
+        public bool IsWorking => _state != State.Idle;
+
         private void Awake()
         {
             _mover = GetComponent<UnitMover>();

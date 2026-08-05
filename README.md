@@ -83,10 +83,25 @@ fixed spot on the map to fight:
   live unit) — it walks into range and starts hitting it on a cooldown until
   the target dies or you give a new order (`MeleeAttacker`, `Attackable`)
 
-> Note: this scene was authored outside the Unity Editor. Milestones 1-3 have
-> been opened and verified working in Unity 6.3 LTS; milestones 4-6 have gone
-> through several rounds of real-Editor bug fixes already (see commit
-> history) but each new addition is still worth a sanity check.
+The B/T hotkeys above still work, but there's now on-screen UI too
+(`ResourceHUD`, `SelectedUnitPanel`, `BuildMenu` — plain IMGUI, not a Canvas;
+see note below):
+
+- **Top-left:** live Wood/Food counters
+- **Bottom-left:** appears when something's selected — unit name, status
+  (Idle/Gathering/Building), and HP if it's a Soldier; shows a headcount
+  instead for a multi-unit selection
+- **Bottom-right:** "Build Barracks" (enabled only with a worker selected)
+  and "Train Soldier" buttons, calling the same code the hotkeys do
+
+> Notes: this scene was authored outside the Unity Editor. Milestones 1-3
+> have been opened and verified working in Unity 6.3 LTS; milestones 4-7 have
+> gone through several rounds of real-Editor bug fixes already (see commit
+> history) but each new addition is still worth a sanity check. The UI is
+> built with Unity's immediate-mode `OnGUI` rather than a uGUI Canvas +
+> TextMeshPro — it needed no scene-authored hierarchy or font-asset import
+> step, both of which are awkward to get right without an Editor to verify
+> against. Worth swapping for real uGUI once you're doing visual polish.
 
 ## Build milestones
 
@@ -95,8 +110,8 @@ fixed spot on the map to fight:
 3. Unit selection & movement
 4. Resource gathering
 5. Building & construction
-6. Basic combat *(this commit)*
-7. Minimal UI
+6. Basic combat
+7. Minimal UI *(this commit)*
 
 ## Design docs
 
