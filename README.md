@@ -44,10 +44,24 @@ Each folder is single-responsibility: a unit's movement, selection, gathering,
 and combat behaviors are separate components composed onto one GameObject,
 not one monolithic script.
 
+## Running the prototype
+
+Open `Assets/Scenes/Main.unity` and press Play. The ground is generated at
+runtime by `ProceduralGround` (a flat 40x40 grid with mild Perlin-noise height
+variation, so terrain has visible relief without an authored heightmap yet).
+The camera uses `RTSCameraController` on Main Camera:
+
+- **Pan:** WASD / arrow keys, or move the mouse to a screen edge
+- **Zoom:** mouse scroll wheel
+
+> Note: this scene was authored outside the Unity Editor (no Editor available
+> in this environment). It follows Unity's standard scene YAML format, but
+> give it a quick sanity check the first time you open it.
+
 ## Build milestones
 
-1. Project scaffold *(this commit)*
-2. Terrain & camera
+1. Project scaffold
+2. Terrain & camera *(this commit)*
 3. Unit selection & movement
 4. Resource gathering
 5. Building & construction
