@@ -54,6 +54,13 @@ The camera uses `RTSCameraController` on Main Camera:
 - **Pan:** WASD / arrow keys, or move the mouse to a screen edge
 - **Zoom:** mouse scroll wheel
 
+Four placeholder capsule "Worker" units (`UnitSpawner`) spawn on the map for
+testing selection and movement:
+
+- **Select:** left-click a unit, or left-click-drag a box around several
+- **Move:** right-click a point on the ground to send selected units there
+  (pathfinding via a runtime-baked NavMesh — `NavMeshBaker`)
+
 > Note: this scene was authored outside the Unity Editor (no Editor available
 > in this environment). It follows Unity's standard scene YAML format, but
 > give it a quick sanity check the first time you open it.
@@ -61,8 +68,8 @@ The camera uses `RTSCameraController` on Main Camera:
 ## Build milestones
 
 1. Project scaffold
-2. Terrain & camera *(this commit)*
-3. Unit selection & movement
+2. Terrain & camera
+3. Unit selection & movement *(this commit)*
 4. Resource gathering
 5. Building & construction
 6. Basic combat
