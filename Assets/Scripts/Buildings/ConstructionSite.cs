@@ -2,23 +2,37 @@ using UnityEngine;
 
 namespace KingdomsOfBharat.Buildings
 {
-    // Drives a building's build-time progress after placement: visually
-    // grows the building from ground level up to full height, and flips
-    // IsComplete once done. A building with no ConstructionSite (e.g. the
-    // milestone-4 Town Center) should be treated as always complete.
+    // Drives a building's build-time progress: visually grows the building
+    // from ground level up to full height, and flips IsComplete once done.
+    // Progress only advances while at least one Builder is actively working
+    // the site (AoE-style — a placed foundation sits idle until a worker is
+    // sent to build it; multiple workers build proportionally faster). A
+    // building with no ConstructionSite (e.g. the milestone-4 Town Center)
+    // should be treated as always complete.
     public class ConstructionSite : MonoBehaviour
     {
         [SerializeField] private float buildTime = 8f;
 
-        private float _elapsed;
+        private float _progress; // 0..1
         private Vector3 _finalScale;
         private float _baseY;
+        private int _activeBuilders;
 
         public bool IsComplete { get; private set; }
 
         public void Configure(float duration)
         {
             buildTime = duration;
+        }
+
+        public void BeginBuilding()
+        {
+            _activeBuilders++;
+        }
+
+        public void StopBuilding()
+        {
+            _activeBuilders = Mathf.Max(0, _activeBuilders - 1);
         }
 
         private void Awake()
@@ -30,16 +44,16 @@ namespace KingdomsOfBharat.Buildings
 
         private void Update()
         {
-            if (IsComplete)
+            if (IsComplete || _activeBuilders <= 0)
             {
                 return;
             }
 
-            _elapsed += Time.deltaTime;
-            float progress = Mathf.Clamp01(_elapsed / buildTime);
-            ApplyHeight(Mathf.Lerp(0.01f, _finalScale.y, progress));
+            _progress += (Time.deltaTime / buildTime) * _activeBuilders;
+            _progress = Mathf.Clamp01(_progress);
+            ApplyHeight(Mathf.Lerp(0.01f, _finalScale.y, _progress));
 
-            if (progress >= 1f)
+            if (_progress >= 1f)
             {
                 IsComplete = true;
             }

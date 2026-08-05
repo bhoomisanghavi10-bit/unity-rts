@@ -2,13 +2,16 @@ using System.Collections.Generic;
 using UnityEngine;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.ResourceGathering;
+using KingdomsOfBharat.Buildings;
 
 namespace KingdomsOfBharat.Selection
 {
     // Owns all selection/command input: left-click selects a single unit,
     // left-click-drag box-selects multiple, right-click issues a move order
-    // (or a gather order, if the click landed on a resource node) to
-    // whatever is currently selected.
+    // (or a gather/build order, if the click landed on a resource node or an
+    // in-progress construction site) to whatever is currently selected.
+    // Disarmed entirely while BuildingPlacer is mid-placement so a single
+    // click doesn't double up as both a placement action and a unit command.
     public class SelectionManager : MonoBehaviour
     {
         [SerializeField] private float dragThreshold = 6f;
@@ -25,6 +28,11 @@ namespace KingdomsOfBharat.Selection
 
         private void Update()
         {
+            if (BuildingPlacer.IsPlacing)
+            {
+                return;
+            }
+
             HandleSelectionInput();
             HandleMoveInput();
         }
@@ -69,16 +77,33 @@ namespace KingdomsOfBharat.Selection
             }
 
             bool hitNode = hit.collider.TryGetComponent(out ResourceNode node);
+            bool hitSite = !hitNode
+                && hit.collider.TryGetComponent(out ConstructionSite site)
+                && !site.IsComplete;
 
             foreach (Unit unit in _selected)
             {
-                if (hitNode && unit.TryGetComponent(out Gatherer gatherer))
+                unit.TryGetComponent(out Gatherer gatherer);
+                unit.TryGetComponent(out Builder builder);
+
+                if (hitNode)
                 {
-                    gatherer.GatherFrom(node);
+                    builder?.CancelBuild();
+                    gatherer?.GatherFrom(node);
                 }
-                else if (unit.TryGetComponent(out UnitMover mover))
+                else if (hitSite)
                 {
-                    mover.MoveTo(hit.point);
+                    gatherer?.CancelGather();
+                    builder?.BuildAt(site);
+                }
+                else
+                {
+                    gatherer?.CancelGather();
+                    builder?.CancelBuild();
+                    if (unit.TryGetComponent(out UnitMover mover))
+                    {
+                        mover.MoveTo(hit.point);
+                    }
                 }
             }
         }

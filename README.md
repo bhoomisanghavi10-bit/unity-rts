@@ -65,11 +65,14 @@ alongside scattered trees (Wood) and farmland patches (Food) from
   walk over, gather over time up to a carry cap, haul it to the Town Center,
   and repeat until the node is exhausted (`Gatherer`, `ResourceStockpile`)
 
-Press **B** to start placing a Barracks (costs 100 Wood, needs 8 seconds to
-build, visibly rises from the ground while under construction). Move the
+Press **B** to start placing a Barracks foundation (costs 100 Wood). Move the
 mouse to preview it — green if you can afford it and the spot is clear of
 other buildings, red otherwise. **Left-click** to confirm, **right-click** or
-**Esc** to cancel (`BuildingPlacer`, `ConstructionSite`).
+**Esc** to cancel (`BuildingPlacer`). A placed foundation does **not** build
+itself — select a worker and **right-click the foundation** to send it to
+build (AoE-style); it rises from the ground over 8 seconds while a worker is
+actively there, and multiple workers build proportionally faster
+(`Builder`, `ConstructionSite`).
 
 > Note: this scene was authored outside the Unity Editor. Milestones 1-3 have
 > been opened and verified working in Unity 6.3 LTS; the milestone-4/5

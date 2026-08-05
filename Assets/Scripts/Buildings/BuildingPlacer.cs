@@ -16,6 +16,10 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private Color barracksColor = new Color(0.5f, 0.3f, 0.2f);
         [SerializeField] private float minClearance = 3f;
 
+        // SelectionManager checks this so a click meant to place/cancel a
+        // building doesn't also register as a select/move/gather command.
+        public static bool IsPlacing { get; private set; }
+
         private UnityEngine.Camera _camera;
         private GameObject _ghost;
         private bool _placing;
@@ -54,6 +58,7 @@ namespace KingdomsOfBharat.Buildings
         private void StartPlacing()
         {
             _placing = true;
+            IsPlacing = true;
             _ghost = GameObject.CreatePrimitive(PrimitiveType.Cube);
             _ghost.name = "BarracksGhost";
             _ghost.transform.localScale = barracksSize;
@@ -66,6 +71,7 @@ namespace KingdomsOfBharat.Buildings
         private void CancelPlacing()
         {
             _placing = false;
+            IsPlacing = false;
             Destroy(_ghost);
         }
 

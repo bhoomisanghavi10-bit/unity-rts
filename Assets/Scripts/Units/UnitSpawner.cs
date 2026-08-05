@@ -2,12 +2,13 @@ using UnityEngine;
 using UnityEngine.AI;
 using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.ResourceGathering;
+using KingdomsOfBharat.Buildings;
 
 namespace KingdomsOfBharat.Units
 {
-    // Milestone-3/4 placeholder: drops a handful of capsule "worker" units on
-    // the map so selection, movement, and gathering are testable before
-    // buildings train units for real (milestone 6).
+    // Milestone-3/4/5 placeholder: drops a handful of capsule "worker" units
+    // on the map so selection, movement, gathering, and building are
+    // testable before buildings train units for real (milestone 6).
     public class UnitSpawner : MonoBehaviour
     {
         [SerializeField] private int unitCount = 4;
@@ -41,6 +42,7 @@ namespace KingdomsOfBharat.Units
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             go.AddComponent<Gatherer>();
+            go.AddComponent<Builder>();
         }
 
         private static Shader FindShader()

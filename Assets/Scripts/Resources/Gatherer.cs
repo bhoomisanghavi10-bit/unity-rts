@@ -36,6 +36,19 @@ namespace KingdomsOfBharat.ResourceGathering
             _state = State.MovingToNode;
         }
 
+        // Interrupts gathering. If a load is already being carried to the
+        // drop-off, let that finish rather than losing it.
+        public void CancelGather()
+        {
+            if (_state == State.MovingToDropOff)
+            {
+                return;
+            }
+
+            _targetNode = null;
+            _state = State.Idle;
+        }
+
         private void Update()
         {
             switch (_state)
