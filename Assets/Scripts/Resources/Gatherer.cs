@@ -22,6 +22,7 @@ namespace KingdomsOfBharat.ResourceGathering
         private Building _dropOff;
         private ResourceType _carriedType;
         private float _carriedAmount;
+        private float _stuckLogTimer;
 
         private void Awake()
         {
@@ -33,7 +34,7 @@ namespace KingdomsOfBharat.ResourceGathering
             _targetNode = node;
             _dropOff = null;
             _mover.MoveTo(node.transform.position);
-            _state = State.MovingToNode;
+            SetState(State.MovingToNode);
         }
 
         // Interrupts gathering. If a load is already being carried to the
@@ -46,7 +47,18 @@ namespace KingdomsOfBharat.ResourceGathering
             }
 
             _targetNode = null;
-            _state = State.Idle;
+            SetState(State.Idle);
+        }
+
+        // Temporary breadcrumb trail while chasing a gathering-loop bug.
+        // Remove once the loop is confirmed solid.
+        private void SetState(State newState)
+        {
+            if (newState != _state)
+            {
+                Debug.Log($"[Gatherer:{name}] {_state} -> {newState} (frame {Time.frameCount})");
+            }
+            _state = newState;
         }
 
         private void Update()
@@ -69,28 +81,32 @@ namespace KingdomsOfBharat.ResourceGathering
         {
             if (_targetNode == null)
             {
-                _state = State.Idle;
+                SetState(State.Idle);
                 return;
             }
 
-            if (WithinRange(_targetNode.transform.position))
+            float distance = Vector3.Distance(transform.position, _targetNode.transform.position);
+            if (distance <= interactionRange)
             {
-                _state = State.Gathering;
+                SetState(State.Gathering);
+                return;
             }
+
+            LogStuckPeriodically($"[Gatherer:{name}] MovingToNode, distance to node = {distance:F2}");
         }
 
         private void TickGathering()
         {
             if (_targetNode == null || _targetNode.IsDepleted)
             {
-                _state = _carriedAmount > 0f ? State.MovingToDropOff : State.Idle;
+                SetState(_carriedAmount > 0f ? State.MovingToDropOff : State.Idle);
                 return;
             }
 
             if (!WithinRange(_targetNode.transform.position))
             {
                 _mover.MoveTo(_targetNode.transform.position);
-                _state = State.MovingToNode;
+                SetState(State.MovingToNode);
                 return;
             }
 
@@ -99,7 +115,7 @@ namespace KingdomsOfBharat.ResourceGathering
 
             if (_carriedAmount >= carryCapacity)
             {
-                _state = State.MovingToDropOff;
+                SetState(State.MovingToDropOff);
             }
         }
 
@@ -110,8 +126,10 @@ namespace KingdomsOfBharat.ResourceGathering
                 _dropOff = FindNearestDropOff();
                 if (_dropOff == null)
                 {
+                    LogStuckPeriodically($"[Gatherer:{name}] MovingToDropOff, no TownCenter found in Building.All");
                     return; // no drop-off exists yet; keep waiting
                 }
+                Debug.Log($"[Gatherer:{name}] heading to drop-off {_dropOff.name}");
                 _mover.MoveTo(_dropOff.transform.position);
             }
 
@@ -119,21 +137,39 @@ namespace KingdomsOfBharat.ResourceGathering
             {
                 Deposit();
             }
+            else
+            {
+                float distance = Vector3.Distance(transform.position, _dropOff.transform.position);
+                LogStuckPeriodically($"[Gatherer:{name}] MovingToDropOff, distance to drop-off = {distance:F2}");
+            }
+        }
+
+        private void LogStuckPeriodically(string message)
+        {
+            _stuckLogTimer += Time.deltaTime;
+            if (_stuckLogTimer >= 1f)
+            {
+                _stuckLogTimer = 0f;
+                Debug.Log(message);
+            }
         }
 
         private void Deposit()
         {
+            Debug.Log($"[Gatherer:{name}] depositing {_carriedAmount:F1} {_carriedType} at {_dropOff.name}");
             ResourceStockpile.Instance.Add(_carriedType, _carriedAmount);
             _carriedAmount = 0f;
 
             if (_targetNode != null && !_targetNode.IsDepleted)
             {
+                Debug.Log($"[Gatherer:{name}] node still has resources, returning to it");
                 _mover.MoveTo(_targetNode.transform.position);
-                _state = State.MovingToNode;
+                SetState(State.MovingToNode);
             }
             else
             {
-                _state = State.Idle;
+                Debug.Log($"[Gatherer:{name}] node gone/depleted, no target, going idle");
+                SetState(State.Idle);
             }
         }
 
