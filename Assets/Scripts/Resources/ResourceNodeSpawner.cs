@@ -11,7 +11,7 @@ namespace KingdomsOfBharat.ResourceGathering
         [SerializeField] private int farmCount = 3;
         [SerializeField] private float minRadius = 6f;
         [SerializeField] private float maxRadius = 16f;
-        [SerializeField] private float startingAmount = 200f;
+        [SerializeField] private float startingAmount = 40f;
         [SerializeField] private int randomSeed = 12345;
 
         private void Start()

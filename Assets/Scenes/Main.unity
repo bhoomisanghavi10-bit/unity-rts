@@ -612,7 +612,7 @@ MonoBehaviour:
   farmCount: 3
   minRadius: 6
   maxRadius: 16
-  startingAmount: 200
+  startingAmount: 40
   randomSeed: 12345
 --- !u!1 &100080
 GameObject:
