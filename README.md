@@ -189,7 +189,8 @@ see note below):
 13. Lighting & post-processing — URP switch, Volume profile (bloom, tonemapping, vignette), softer shadows
 14. Terrain overhaul — layered noise height, splat-blended grass/dirt/rock ground texture
 15. Material/shader quality pass — shared matte PBR material helper, fixed the placement-ghost transparency bug
-16. Camera & readability polish — smoothed pan/zoom, a real minimap (click to jump) *(this commit)*
+16. Camera & readability polish — smoothed pan/zoom, a real minimap (click to jump)
+17. VFX pass — hit sparks, death poofs, gathering dust, construction dust *(this commit)*
 
 ## Design docs
 

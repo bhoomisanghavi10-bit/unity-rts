@@ -2,6 +2,7 @@ using UnityEngine;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Vfx;
 
 namespace KingdomsOfBharat.ResourceGathering
 {
@@ -24,6 +25,7 @@ namespace KingdomsOfBharat.ResourceGathering
         private ResourceType _carriedType;
         private float _carriedAmount;
         private float _rateMultiplier = 1f;
+        private float _vfxTimer;
 
         // For SelectedUnitPanel (UI) to show a status line.
         public bool IsWorking => _state != State.Idle;
@@ -112,6 +114,13 @@ namespace KingdomsOfBharat.ResourceGathering
 
             _carriedType = _targetNode.ResourceType;
             _carriedAmount += _targetNode.Harvest(gatherRate * _rateMultiplier * Time.deltaTime);
+
+            _vfxTimer += Time.deltaTime;
+            if (_vfxTimer >= 0.4f)
+            {
+                _vfxTimer = 0f;
+                VfxFactory.SpawnBurst(_targetNode.transform.position + Vector3.up * 0.5f, new Color(0.7f, 0.6f, 0.4f), size: 0.1f, count: 3, speed: 0.6f, lifetime: 0.35f);
+            }
 
             if (_carriedAmount >= carryCapacity)
             {

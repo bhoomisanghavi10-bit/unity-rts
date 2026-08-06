@@ -1,4 +1,5 @@
 using UnityEngine;
+using KingdomsOfBharat.Vfx;
 
 namespace KingdomsOfBharat.Combat
 {
@@ -29,11 +30,19 @@ namespace KingdomsOfBharat.Combat
             }
 
             Health -= amount;
+            VfxFactory.SpawnBurst(HitPoint(), new Color(1f, 0.9f, 0.5f), size: 0.08f, count: 4, speed: 1f, lifetime: 0.2f);
+
             if (Health <= 0f)
             {
                 Health = 0f;
+                VfxFactory.SpawnBurst(transform.position, new Color(0.5f, 0.45f, 0.4f), size: 0.25f, count: 14, speed: 2f, lifetime: 0.5f);
                 Destroy(gameObject);
             }
+        }
+
+        private Vector3 HitPoint()
+        {
+            return transform.position + Vector3.up * 1f;
         }
     }
 }

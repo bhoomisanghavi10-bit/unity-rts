@@ -1,4 +1,5 @@
 using UnityEngine;
+using KingdomsOfBharat.Vfx;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -17,6 +18,7 @@ namespace KingdomsOfBharat.Buildings
         private Vector3 _finalScale;
         private float _baseY;
         private int _activeBuilders;
+        private float _vfxTimer;
 
         public bool IsComplete { get; private set; }
 
@@ -52,6 +54,13 @@ namespace KingdomsOfBharat.Buildings
             _progress += (Time.deltaTime / buildTime) * _activeBuilders;
             _progress = Mathf.Clamp01(_progress);
             ApplyHeight(Mathf.Lerp(0.01f, _finalScale.y, _progress));
+
+            _vfxTimer += Time.deltaTime;
+            if (_vfxTimer >= 0.5f)
+            {
+                _vfxTimer = 0f;
+                VfxFactory.SpawnBurst(transform.position, new Color(0.6f, 0.55f, 0.5f), size: 0.15f, count: 5, speed: 1f, lifetime: 0.4f);
+            }
 
             if (_progress >= 1f)
             {
