@@ -16,13 +16,8 @@ namespace KingdomsOfBharat.Buildings
         {
             CivilizationProfile profile = CivilizationProfile.For(CivilizationRegistry.For(faction));
 
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            GameObject go = BuildingModelFactory.Spawn("Barracks", point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
             go.name = faction == FactionId.Player ? "Barracks" : "EnemyBarracks";
-            go.transform.position = point + Vector3.up * (Size.y * 0.5f);
-            go.transform.localScale = Size;
-
-            var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = GameplayMaterial.CreateOpaque(profile.PrimaryColor);
 
             go.AddComponent<Barracks>();
             var site = go.AddComponent<ConstructionSite>();

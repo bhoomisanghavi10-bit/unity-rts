@@ -15,13 +15,8 @@ namespace KingdomsOfBharat.Buildings
         {
             CivilizationProfile profile = CivilizationProfile.For(CivilizationRegistry.For(faction));
 
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            GameObject go = BuildingModelFactory.Spawn("TownCenter", position, Size, profile.PrimaryColor);
             go.name = faction == FactionId.Player ? "TownCenter" : "EnemyTownCenter";
-            go.transform.position = position;
-            go.transform.localScale = Size;
-
-            var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = GameplayMaterial.CreateOpaque(profile.PrimaryColor);
 
             go.AddComponent<TownCenter>();
             go.AddComponent<FactionMember>().Configure(faction);
