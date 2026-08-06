@@ -96,6 +96,16 @@ namespace KingdomsOfBharat.Units
             return fallback;
         }
 
+        // Small upward safety margin: bounds are measured here before the
+        // Idle animation (set moments later by AnimationDriver) has been
+        // evaluated even once, so this reads the mesh's rest/bind pose,
+        // not the actual idle-sway pose (typically slightly lower, knees
+        // microbent) - per real-Editor testing, that gap was enough for
+        // feet to visibly clip into the ground. A small constant margin
+        // is simpler and safer than trying to re-measure bounds every
+        // frame against a moving animated pose.
+        private const float GroundClearance = 0.08f;
+
         private static void AlignFeetToGround(GameObject model, float groundY)
         {
             Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
@@ -103,6 +113,8 @@ namespace KingdomsOfBharat.Units
             {
                 return;
             }
+
+            groundY += GroundClearance;
 
             Bounds bounds = renderers[0].bounds;
             for (int i = 1; i < renderers.Length; i++)
