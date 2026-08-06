@@ -22,6 +22,11 @@ namespace KingdomsOfBharat.Vfx
             go.transform.position = position;
 
             var ps = go.AddComponent<ParticleSystem>();
+            // AddComponent<ParticleSystem>() auto-starts it (playOnAwake
+            // defaults true) - editing main.duration while it's already
+            // "playing" logs a warning every single call. Stop it first.
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
             var main = ps.main;
             main.duration = lifetime;
             main.loop = false;
