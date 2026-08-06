@@ -11,11 +11,11 @@ namespace KingdomsOfBharat.Buildings
     public static class BarracksFactory
     {
         private static readonly Vector3 Size = new Vector3(3f, 2f, 3f);
-        private static readonly Color PlayerColor = new Color(0.5f, 0.3f, 0.2f);
-        private static readonly Color EnemyColor = new Color(0.35f, 0.15f, 0.35f);
 
         public static GameObject Place(Vector3 point, FactionId faction, float buildTime)
         {
+            CivilizationProfile profile = CivilizationProfile.For(CivilizationRegistry.For(faction));
+
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = faction == FactionId.Player ? "Barracks" : "EnemyBarracks";
             go.transform.position = point + Vector3.up * (Size.y * 0.5f);
@@ -24,7 +24,7 @@ namespace KingdomsOfBharat.Buildings
             var renderer = go.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = new Material(FindShader())
             {
-                color = faction == FactionId.Player ? PlayerColor : EnemyColor,
+                color = profile.PrimaryColor,
             };
 
             go.AddComponent<Barracks>();

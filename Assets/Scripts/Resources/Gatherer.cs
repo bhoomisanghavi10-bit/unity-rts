@@ -23,6 +23,7 @@ namespace KingdomsOfBharat.ResourceGathering
         private Building _dropOff;
         private ResourceType _carriedType;
         private float _carriedAmount;
+        private float _rateMultiplier = 1f;
 
         // For SelectedUnitPanel (UI) to show a status line.
         public bool IsWorking => _state != State.Idle;
@@ -30,6 +31,13 @@ namespace KingdomsOfBharat.ResourceGathering
         private void Awake()
         {
             _mover = GetComponent<UnitMover>();
+        }
+
+        // Applied by WorkerFactory at spawn time from the worker's
+        // civilization profile (e.g. Chola's faster gathering).
+        public void SetRateMultiplier(float multiplier)
+        {
+            _rateMultiplier = multiplier;
         }
 
         public void GatherFrom(ResourceNode node)
@@ -103,7 +111,7 @@ namespace KingdomsOfBharat.ResourceGathering
             }
 
             _carriedType = _targetNode.ResourceType;
-            _carriedAmount += _targetNode.Harvest(gatherRate * Time.deltaTime);
+            _carriedAmount += _targetNode.Harvest(gatherRate * _rateMultiplier * Time.deltaTime);
 
             if (_carriedAmount >= carryCapacity)
             {

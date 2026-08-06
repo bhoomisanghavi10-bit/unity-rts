@@ -102,7 +102,7 @@ namespace KingdomsOfBharat.Buildings
 
             stockpile.Add(ResourceType.Food, -soldierFoodCost);
             stockpile.Add(ResourceType.Gold, -soldierGoldCost);
-            _remaining = trainTime;
+            _remaining = trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier;
         }
 
         private void TickTraining()

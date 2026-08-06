@@ -10,11 +10,11 @@ namespace KingdomsOfBharat.Buildings
     public static class TownCenterFactory
     {
         private static readonly Vector3 Size = new Vector3(3f, 2f, 3f);
-        private static readonly Color PlayerColor = new Color(0.55f, 0.5f, 0.45f);
-        private static readonly Color EnemyColor = new Color(0.45f, 0.3f, 0.45f);
 
         public static GameObject Place(Vector3 position, FactionId faction)
         {
+            CivilizationProfile profile = CivilizationProfile.For(CivilizationRegistry.For(faction));
+
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = faction == FactionId.Player ? "TownCenter" : "EnemyTownCenter";
             go.transform.position = position;
@@ -23,7 +23,7 @@ namespace KingdomsOfBharat.Buildings
             var renderer = go.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = new Material(FindShader())
             {
-                color = faction == FactionId.Player ? PlayerColor : EnemyColor,
+                color = profile.PrimaryColor,
             };
 
             go.AddComponent<TownCenter>();

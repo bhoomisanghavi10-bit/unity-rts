@@ -15,10 +15,18 @@ namespace KingdomsOfBharat.Combat
         private UnitMover _mover;
         private Attackable _target;
         private float _cooldown;
+        private float _damageMultiplier = 1f;
 
         private void Awake()
         {
             _mover = GetComponent<UnitMover>();
+        }
+
+        // Applied by SoldierFactory at spawn time from the soldier's
+        // civilization profile (e.g. Rajput's combat-power bonus).
+        public void SetDamageMultiplier(float multiplier)
+        {
+            _damageMultiplier = multiplier;
         }
 
         public void AttackMove(Attackable target)
@@ -51,7 +59,7 @@ namespace KingdomsOfBharat.Combat
             _cooldown -= Time.deltaTime;
             if (_cooldown <= 0f)
             {
-                _target.TakeDamage(damage);
+                _target.TakeDamage(damage * _damageMultiplier);
                 _cooldown = attackInterval;
             }
         }

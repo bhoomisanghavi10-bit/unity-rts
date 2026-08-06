@@ -148,16 +148,17 @@ namespace KingdomsOfBharat.Buildings
             }
 
             ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).BuildCostMultiplier;
 
             if (_kind == BuildingKind.Barracks)
             {
-                stockpile.Add(ResourceType.Wood, -barracksWoodCost);
-                stockpile.Add(ResourceType.Stone, -barracksStoneCost);
+                stockpile.Add(ResourceType.Wood, -barracksWoodCost * multiplier);
+                stockpile.Add(ResourceType.Stone, -barracksStoneCost * multiplier);
                 BarracksFactory.Place(point, FactionId.Player, barracksBuildTime);
             }
             else
             {
-                stockpile.Add(ResourceType.Wood, -farmWoodCost);
+                stockpile.Add(ResourceType.Wood, -farmWoodCost * multiplier);
                 FarmFactory.Place(point, FactionId.Player, farmBuildTime);
             }
 
@@ -167,14 +168,15 @@ namespace KingdomsOfBharat.Buildings
         private bool CanAfford()
         {
             ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).BuildCostMultiplier;
 
             if (_kind == BuildingKind.Barracks)
             {
-                return stockpile.GetTotal(ResourceType.Wood) >= barracksWoodCost
-                    && stockpile.GetTotal(ResourceType.Stone) >= barracksStoneCost;
+                return stockpile.GetTotal(ResourceType.Wood) >= barracksWoodCost * multiplier
+                    && stockpile.GetTotal(ResourceType.Stone) >= barracksStoneCost * multiplier;
             }
 
-            return stockpile.GetTotal(ResourceType.Wood) >= farmWoodCost;
+            return stockpile.GetTotal(ResourceType.Wood) >= farmWoodCost * multiplier;
         }
 
         private Vector3 CurrentSize()

@@ -21,11 +21,14 @@ namespace KingdomsOfBharat.UI
 
             EnsureStyle();
 
-            GUI.Box(new Rect(8, 8, 160, 96), GUIContent.none);
-            GUI.Label(new Rect(16, 12, 150, 20), $"Wood: {(int)stockpile.GetTotal(ResourceType.Wood)}", _style);
-            GUI.Label(new Rect(16, 34, 150, 20), $"Food: {(int)stockpile.GetTotal(ResourceType.Food)}", _style);
-            GUI.Label(new Rect(16, 56, 150, 20), $"Gold: {(int)stockpile.GetTotal(ResourceType.Gold)}", _style);
-            GUI.Label(new Rect(16, 78, 150, 20), $"Stone: {(int)stockpile.GetTotal(ResourceType.Stone)}", _style);
+            string civName = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).DisplayName;
+
+            GUI.Box(new Rect(8, 8, 160, 118), GUIContent.none);
+            GUI.Label(new Rect(16, 12, 150, 20), $"Civilization: {civName}", _style);
+            GUI.Label(new Rect(16, 34, 150, 20), $"Wood: {(int)stockpile.GetTotal(ResourceType.Wood)}", _style);
+            GUI.Label(new Rect(16, 56, 150, 20), $"Food: {(int)stockpile.GetTotal(ResourceType.Food)}", _style);
+            GUI.Label(new Rect(16, 78, 150, 20), $"Gold: {(int)stockpile.GetTotal(ResourceType.Gold)}", _style);
+            GUI.Label(new Rect(16, 100, 150, 20), $"Stone: {(int)stockpile.GetTotal(ResourceType.Stone)}", _style);
         }
 
         private void EnsureStyle()

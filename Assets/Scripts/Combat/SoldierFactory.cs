@@ -12,22 +12,23 @@ namespace KingdomsOfBharat.Combat
     // the training Barracks.
     public static class SoldierFactory
     {
-        private static readonly Color PlayerColor = new Color(0.75f, 0.15f, 0.15f);
-        private static readonly Color EnemyColor = new Color(0.15f, 0.15f, 0.6f);
-
         // No default faction value, deliberately: a future call site that
         // forgets to pass one should fail to compile, not silently spawn a
         // Player-owned soldier from an AI Barracks.
         public static GameObject Spawn(Vector3 position, FactionId faction)
         {
+            CivilizationProfile profile = CivilizationProfile.For(CivilizationRegistry.For(faction));
+
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            go.name = faction == FactionId.Player ? "Soldier" : "EnemySoldier";
+            go.name = faction == FactionId.Player
+                ? $"{profile.DisplayName} Soldier"
+                : $"Enemy {profile.DisplayName} Soldier";
             go.transform.position = position;
 
             var renderer = go.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = new Material(FindShader())
             {
-                color = faction == FactionId.Player ? PlayerColor : EnemyColor,
+                color = profile.PrimaryColor,
             };
 
             var agent = go.AddComponent<NavMeshAgent>();
@@ -38,8 +39,8 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
-            go.AddComponent<Attackable>();
-            go.AddComponent<MeleeAttacker>();
+            go.AddComponent<Attackable>().Configure(30f * profile.MaxHealthMultiplier);
+            go.AddComponent<MeleeAttacker>().SetDamageMultiplier(profile.SoldierDamageMultiplier);
             go.AddComponent<FactionMember>().Configure(faction);
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.

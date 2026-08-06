@@ -132,6 +132,16 @@ units. It has its own separate resource stockpile
 (`EnemyResourceStockpile`) — the top-left HUD only ever shows yours. It
 doesn't have its own livestock herd, so milking isn't part of its economy.
 
+Each side now plays as one of three historically-grounded civilizations
+(`CivilizationSetup`, set via Inspector — no in-game picker yet): **Chola**
+(economic — irrigation and trade, +15% gather rate, -15% build cost),
+**Vijayanagara** (military tempo — Hampi's armies, -20% Soldier train time),
+or **Rajput** (raw combat power — warrior clans, +20% Soldier damage, +15%
+max health). You play Chola and the AI plays Vijayanagara by default. The
+bonus is deliberately modest — flavor and a reason to pick one, not a
+balance overhaul — and shows up as each civ's units/buildings sharing a
+distinct identity color, plus a "Civilization: X" line in the top-left HUD.
+
 The B/T hotkeys above still work, but there's now on-screen UI too
 (`ResourceHUD`, `SelectedUnitPanel`, `BuildMenu` — plain IMGUI, not a Canvas;
 see note below):
@@ -168,7 +178,8 @@ see note below):
 8. Multiple resources — Gold, Stone
 9. Team/Faction + fog of war
 10. AI opponent
-11. Wildlife & Farms — hunted boars, milked livestock, buildable Farm *(this commit)*
+11. Wildlife & Farms — hunted boars, milked livestock, buildable Farm
+12. Civilization differentiation — Chola, Vijayanagara, Rajput *(this commit)*
 
 ## Design docs
 

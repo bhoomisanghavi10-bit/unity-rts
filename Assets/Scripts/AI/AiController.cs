@@ -144,8 +144,9 @@ namespace KingdomsOfBharat.AI
             }
 
             ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Enemy);
-            if (stockpile.GetTotal(ResourceType.Wood) < barracksWoodCost
-                || stockpile.GetTotal(ResourceType.Stone) < barracksStoneCost)
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Enemy)).BuildCostMultiplier;
+            if (stockpile.GetTotal(ResourceType.Wood) < barracksWoodCost * multiplier
+                || stockpile.GetTotal(ResourceType.Stone) < barracksStoneCost * multiplier)
             {
                 return;
             }
@@ -161,8 +162,8 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
-            stockpile.Add(ResourceType.Wood, -barracksWoodCost);
-            stockpile.Add(ResourceType.Stone, -barracksStoneCost);
+            stockpile.Add(ResourceType.Wood, -barracksWoodCost * multiplier);
+            stockpile.Add(ResourceType.Stone, -barracksStoneCost * multiplier);
 
             GameObject go = BarracksFactory.Place(point, FactionId.Enemy, barracksBuildTime);
             go.TryGetComponent(out _barracks);
@@ -217,7 +218,8 @@ namespace KingdomsOfBharat.AI
             }
 
             ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Enemy);
-            if (stockpile.GetTotal(ResourceType.Wood) < farmWoodCost)
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Enemy)).BuildCostMultiplier;
+            if (stockpile.GetTotal(ResourceType.Wood) < farmWoodCost * multiplier)
             {
                 return;
             }
@@ -233,7 +235,7 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
-            stockpile.Add(ResourceType.Wood, -farmWoodCost);
+            stockpile.Add(ResourceType.Wood, -farmWoodCost * multiplier);
 
             GameObject go = FarmFactory.Place(point, FactionId.Enemy, farmBuildTime);
             go.TryGetComponent(out _farm);
