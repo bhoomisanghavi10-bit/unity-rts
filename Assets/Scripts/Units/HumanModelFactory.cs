@@ -25,12 +25,13 @@ namespace KingdomsOfBharat.Units
             GameObject go = Object.Instantiate(prefab, position, Quaternion.identity);
 
             // Humanoid FBX models get an Animator+Avatar auto-attached by
-            // Unity on import; AnimationDriver uses the legacy Animation
-            // component instead (see its own comment for why), so remove
-            // the Animator to avoid both fighting over the same skeleton.
+            // Unity on import - AnimationDriver needs exactly this (it
+            // drives the Avatar directly via the Playables API, with no
+            // AnimatorController assigned), so it's kept as-is rather than
+            // removed.
             if (go.TryGetComponent(out Animator animator))
             {
-                Object.Destroy(animator);
+                animator.runtimeAnimatorController = null;
             }
 
             ApplyPaletteMaterial(go, PaletteNameFor(civilization));

@@ -1,81 +1,112 @@
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Playables;
+using UnityEngine.Animations;
 using KingdomsOfBharat.UI;
 
 namespace KingdomsOfBharat.Units
 {
     // Plays the right animation clip for a unit's current status
     // (UnitStatus.Describe - the same shared logic SelectedUnitPanel and
-    // HoverTooltip already use) and movement speed. Deliberately built on
-    // the legacy Animation component rather than Mecanim's
-    // AnimatorController: building a state-machine .controller asset
-    // requires UnityEditor.Animations APIs that don't exist at runtime, so
-    // a hand-authored .controller YAML would be the only alternative - one
-    // of the riskiest Unity asset formats to hand-author blind, and this
-    // project has no Editor access to build one interactively either.
-    // AnimationClip.legacy can be flipped at runtime via script (see
-    // HumanAnimationSet), so this whole system stays procedural.
+    // HoverTooltip already use) and movement speed. Drives the model's
+    // Animator/Avatar directly via a PlayableGraph + AnimationClipPlayable
+    // rather than an AnimatorController state machine - deliberately, for
+    // two reasons: (1) building a .controller asset requires
+    // UnityEditor.Animations APIs unavailable at runtime, so a
+    // hand-authored .controller YAML would be the only alternative, one of
+    // the riskiest Unity asset formats to hand-author blind; (2) the
+    // legacy Animation component (the first approach tried here) turned
+    // out to be fundamentally incompatible with these clips - Humanoid-rig
+    // animation clips store muscle-space curves, not raw bone transforms,
+    // and the legacy Animation component can't read that format at all
+    // (confirmed by real-Editor testing: units stayed stuck in T-pose).
+    // The Playables API plays Humanoid clips correctly since it goes
+    // through the same Avatar retargeting Mecanim itself uses.
     public class AnimationDriver : MonoBehaviour
     {
-        private Animation _animation;
+        private Animator _animator;
+        private PlayableGraph _graph;
+        private AnimationPlayableOutput _output;
         private NavMeshAgent _agent;
         private Unit _unit;
-        private string _currentClip;
+        private HumanAnimationSet.Clips _clips;
+        private AnimationClip _currentClip;
 
         public void Configure(HumanAnimationSet.Clips clips, NavMeshAgent agent, Unit unit)
         {
-            _animation = gameObject.AddComponent<Animation>();
-            _animation.playAutomatically = false;
-            AddIfPresent(clips.Idle, "Idle");
-            AddIfPresent(clips.Walk, "Walk");
-            AddIfPresent(clips.Gather, "Gather");
-            AddIfPresent(clips.Build, "Build");
-            AddIfPresent(clips.Attack, "Attack");
-
+            _clips = clips;
             _agent = agent;
             _unit = unit;
+
+            _animator = GetComponent<Animator>();
+            if (_animator == null)
+            {
+                _animator = gameObject.AddComponent<Animator>();
+            }
+
+            _graph = PlayableGraph.Create($"{name}_Animation");
+            _output = AnimationPlayableOutput.Create(_graph, "Animation", _animator);
+
+            SetClip(_clips.Idle);
         }
 
-        private void AddIfPresent(AnimationClip clip, string clipName)
+        private void OnDestroy()
         {
-            if (clip != null)
+            if (_graph.IsValid())
             {
-                _animation.AddClip(clip, clipName);
+                _graph.Destroy();
             }
         }
 
         private void Update()
         {
-            if (_animation == null || _unit == null)
+            if (_unit == null || !_graph.IsValid())
             {
                 return;
             }
 
-            string clipName = ResolveClipName();
-            if (clipName == _currentClip || _animation.GetClip(clipName) == null)
+            AnimationClip target = ResolveClip();
+            if (target == _currentClip)
             {
                 return;
             }
 
-            _animation.CrossFade(clipName, 0.15f);
-            _currentClip = clipName;
+            SetClip(target);
         }
 
-        private string ResolveClipName()
+        private void SetClip(AnimationClip clip)
+        {
+            if (clip == null)
+            {
+                return;
+            }
+
+            var playable = AnimationClipPlayable.Create(_graph, clip);
+            _output.SetSourcePlayable(playable);
+            if (!_graph.IsPlaying())
+            {
+                _graph.Play();
+            }
+
+            _currentClip = clip;
+        }
+
+        private AnimationClip ResolveClip()
         {
             switch (UnitStatus.Describe(_unit))
             {
                 case "Gathering":
                 case "Farming":
                 case "Milking":
-                    return "Gather";
+                    return _clips.Gather;
                 case "Building":
-                    return "Build";
+                    return _clips.Build;
                 case "Attacking":
-                    return "Attack";
+                    return _clips.Attack;
             }
 
-            return _agent != null && _agent.velocity.sqrMagnitude > 0.05f ? "Walk" : "Idle";
+            bool moving = _agent != null && _agent.velocity.sqrMagnitude > 0.05f;
+            return moving ? _clips.Walk : _clips.Idle;
         }
     }
 }
