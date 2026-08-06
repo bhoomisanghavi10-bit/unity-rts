@@ -193,7 +193,7 @@ see note below):
 17. VFX pass — hit sparks, death poofs, gathering dust, construction dust
 18. Worker combat + hover tooltips — Workers can now fight/hunt boars for Food; hovering anything shows its name/status/HP/progress
 19. First real unit model — Soldiers use the "Axe Warrior" pack (Humanoid-rigged) instead of a capsule; Workers still primitives pending a civilian-style pack
-19b. Shared human body + animation — Workers and Soldiers both use the "Human Character Dummy" (Kevin Iglesias, Female/Male respectively), civ-tinted via the pack's own color palette, with real Idle/Walk/Gather/Build/Attack animation *(this commit)*
+19b. Shared human body + animation — Workers and Soldiers both use the "Human Character Dummy" (Kevin Iglesias, Female/Male respectively), civ-tinted via the pack's own color palette, with real Idle/Walk/Gather/Mine/Farm/Build/Attack animation, terrain-aware ground alignment *(this commit)*
 
 ## Design docs
 

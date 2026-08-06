@@ -2,14 +2,18 @@ using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Playables;
 using UnityEngine.Animations;
-using KingdomsOfBharat.UI;
+using KingdomsOfBharat.Combat;
+using KingdomsOfBharat.Buildings;
+using KingdomsOfBharat.ResourceGathering;
+using KingdomsOfBharat.Wildlife;
 
 namespace KingdomsOfBharat.Units
 {
-    // Plays the right animation clip for a unit's current status
-    // (UnitStatus.Describe - the same shared logic SelectedUnitPanel and
-    // HoverTooltip already use) and movement speed. Drives the model's
-    // Animator/Avatar directly via a PlayableGraph + AnimationClipPlayable
+    // Plays the right animation clip for a unit's current job/action
+    // (mirrors UnitStatus.Describe's priority order, but inspects
+    // components directly for finer detail - see ResolveClip) and
+    // movement speed. Drives the model's Animator/Avatar directly via a
+    // PlayableGraph + AnimationClipPlayable
     // rather than an AnimatorController state machine - deliberately, for
     // two reasons: (1) building a .controller asset requires
     // UnityEditor.Animations APIs unavailable at runtime, so a
@@ -94,18 +98,42 @@ namespace KingdomsOfBharat.Units
             _currentClip = clip;
         }
 
+        // Mirrors UnitStatus.Describe's priority order (Attacking >
+        // Building > Farming > Milking > Gathering > Idle/Walk) but goes
+        // straight to the components for finer-grained detail than that
+        // shared status string affords - specifically, splitting
+        // Gathering into Mine (Gold/Stone) vs. the generic Gather
+        // (Wood/Food) by resource type.
         private AnimationClip ResolveClip()
         {
-            switch (UnitStatus.Describe(_unit))
+            if (_unit.TryGetComponent(out MeleeAttacker attacker) && attacker.IsAttacking)
             {
-                case "Gathering":
-                case "Farming":
-                case "Milking":
-                    return _clips.Gather;
-                case "Building":
-                    return _clips.Build;
-                case "Attacking":
-                    return _clips.Attack;
+                return _clips.Attack;
+            }
+
+            if (_unit.TryGetComponent(out Builder builder) && builder.IsBuilding)
+            {
+                return _clips.Build;
+            }
+
+            if (_unit.TryGetComponent(out FarmWorker farmWorker) && farmWorker.IsFarming)
+            {
+                return _clips.Farm;
+            }
+
+            if (_unit.TryGetComponent(out LivestockWorker livestockWorker) && livestockWorker.IsMilking)
+            {
+                // No dedicated milking clip in the pack - Farm reads
+                // reasonably close (a repetitive hands-on-livestock motion
+                // beats standing/walking).
+                return _clips.Farm;
+            }
+
+            if (_unit.TryGetComponent(out Gatherer gatherer) && gatherer.IsWorking)
+            {
+                ResourceType? resourceType = gatherer.CurrentResourceType;
+                bool mining = resourceType == ResourceType.Gold || resourceType == ResourceType.Stone;
+                return mining ? _clips.Mine : _clips.Gather;
             }
 
             bool moving = _agent != null && _agent.velocity.sqrMagnitude > 0.05f;

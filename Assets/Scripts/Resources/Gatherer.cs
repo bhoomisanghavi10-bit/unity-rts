@@ -30,6 +30,9 @@ namespace KingdomsOfBharat.ResourceGathering
         // For SelectedUnitPanel (UI) to show a status line.
         public bool IsWorking => _state != State.Idle;
 
+        // For AnimationDriver to pick Mining vs. Gathering animation.
+        public ResourceType? CurrentResourceType => _targetNode != null ? _targetNode.ResourceType : (ResourceType?)null;
+
         private void Awake()
         {
             _mover = GetComponent<UnitMover>();
