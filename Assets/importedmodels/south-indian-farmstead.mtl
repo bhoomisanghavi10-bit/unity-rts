@@ -1,0 +1,31 @@
+# Exported by three-d-stage
+newmtl fieldstone
+Kd 0.2542 0.2307 0.1845
+Ks 0.2000 0.2000 0.2000
+Ns 8
+d 1.0000
+
+newmtl mud_plaster_ochre
+Kd 0.5776 0.2918 0.1144
+Ks 0.2000 0.2000 0.2000
+Ns 10
+d 1.0000
+
+newmtl timber_post
+Kd 0.1046 0.0482 0.0203
+Ks 0.2000 0.2000 0.2000
+Ns 30
+d 1.0000
+
+newmtl dark_thatch
+Kd 0.0685 0.0437 0.0160
+Ks 0.2000 0.2000 0.2000
+Ns 4
+d 1.0000
+
+newmtl terracotta_tile
+Kd 0.3325 0.0704 0.0319
+Ks 0.2000 0.2000 0.2000
+Ns 20
+d 1.0000
+
