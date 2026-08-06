@@ -65,19 +65,35 @@ namespace KingdomsOfBharat.Units
 
             ApplyPaletteMaterial(model, PaletteNameFor(civilization));
 
-            // The model's pivot convention (feet? hips? something else?)
-            // isn't documented and guessing it wrong is exactly what
-            // caused the floating/sunk feet seen in testing - measuring
-            // the model's actual rendered bounds and shifting it so those
-            // bounds sit on the ground works regardless of where the
-            // pivot actually is.
-            AlignFeetToGround(model, groundY: position.y - 1f);
+            // Two independent problems were compounding here: the model's
+            // pivot convention wasn't known (fixed by measuring rendered
+            // bounds instead of guessing an offset), and the caller's
+            // spawn position uses a flat, hardcoded Y that doesn't account
+            // for ProceduralGround's height variation (milestone 14) at
+            // that particular XZ - invisible on a plain capsule, obvious
+            // on a detailed model. Resolving actual ground height via
+            // raycast (same technique AiController/BuildingPlacer already
+            // use for buildings) fixes the second half; falls back to the
+            // caller's own Y if the raycast somehow misses.
+            float groundY = ResolveGroundHeight(position, fallback: position.y - 1f);
+            AlignFeetToGround(model, groundY);
 
             var collider = root.AddComponent<CapsuleCollider>();
             collider.radius = 0.4f;
             collider.height = 2f;
 
             return root;
+        }
+
+        private static float ResolveGroundHeight(Vector3 position, float fallback)
+        {
+            Vector3 origin = new Vector3(position.x, position.y + 20f, position.z);
+            if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 100f))
+            {
+                return hit.point.y;
+            }
+
+            return fallback;
         }
 
         private static void AlignFeetToGround(GameObject model, float groundY)
