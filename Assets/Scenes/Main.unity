@@ -612,9 +612,11 @@ MonoBehaviour:
   farmCount: 5
   goldCount: 5
   stoneCount: 5
+  fruitBushCount: 6
   minRadius: 6
   maxRadius: 16
   startingAmount: 40
+  fruitBushAmount: 25
   randomSeed: 12345
 --- !u!1 &100080
 GameObject:
@@ -712,6 +714,10 @@ MonoBehaviour:
   barracksStoneCost: 50
   barracksBuildTime: 8
   barracksSize: {x: 3, y: 2, z: 3}
+  placeFarmKey: 102
+  farmWoodCost: 60
+  farmBuildTime: 5
+  farmSize: {x: 2, y: 0.6, z: 2}
   minClearance: 3
 --- !u!1 &100100
 GameObject:
@@ -1048,6 +1054,106 @@ MonoBehaviour:
   barracksBuildTime: 8
   barracksClearance: 3
   barracksOffset: {x: 6, y: 0, z: 0}
+--- !u!1 &100170
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 100171}
+  - component: {fileID: 100172}
+  m_Layer: 0
+  m_Name: WildBoarSpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &100171
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100170}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 17
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &100172
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100170}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: abded9bc05964012a848436f19d01538, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  boarCount: 4
+  minRadius: 10
+  maxRadius: 18
+  health: 25
+  randomSeed: 54321
+--- !u!1 &100180
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 100181}
+  - component: {fileID: 100182}
+  m_Layer: 0
+  m_Name: LivestockSpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &100181
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100180}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 18
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &100182
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100180}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ece695155b1642a1a9af0f5dd2fd2a80, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  herdCenter: {x: -6, y: 1, z: 8}
+  cowCount: 3
+  spacing: 2
+
+
 
 
 

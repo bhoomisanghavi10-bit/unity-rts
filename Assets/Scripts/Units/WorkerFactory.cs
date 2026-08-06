@@ -5,12 +5,17 @@ using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.FogOfWar;
+using KingdomsOfBharat.Combat;
+using KingdomsOfBharat.Wildlife;
 
 namespace KingdomsOfBharat.Units
 {
     // Creates a placeholder capsule "Worker" unit with movement, selection,
     // gathering, and building components. Used by both UnitSpawner (the
     // Player's starting workers) and AiController (the AI's own workers).
+    // Workers carry Attackable (fragile, no MeleeAttacker of their own) so
+    // wild boars and enemy soldiers can actually threaten them - AoE-style,
+    // unarmed villagers are vulnerable, not invincible.
     public static class WorkerFactory
     {
         private static readonly Color PlayerColor = new Color(0.8f, 0.7f, 0.2f);
@@ -38,6 +43,9 @@ namespace KingdomsOfBharat.Units
             go.AddComponent<SelectionIndicator>();
             go.AddComponent<Gatherer>();
             go.AddComponent<Builder>();
+            go.AddComponent<FarmWorker>();
+            go.AddComponent<LivestockWorker>();
+            go.AddComponent<Attackable>().Configure(20f);
             go.AddComponent<FactionMember>().Configure(faction);
 
             // Only the Player's own vision feeds FogOfWarManager; the AI

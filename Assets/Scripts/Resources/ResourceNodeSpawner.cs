@@ -11,9 +11,11 @@ namespace KingdomsOfBharat.ResourceGathering
         [SerializeField] private int farmCount = 5;
         [SerializeField] private int goldCount = 5;
         [SerializeField] private int stoneCount = 5;
+        [SerializeField] private int fruitBushCount = 6;
         [SerializeField] private float minRadius = 6f;
         [SerializeField] private float maxRadius = 16f;
         [SerializeField] private float startingAmount = 40f;
+        [SerializeField] private float fruitBushAmount = 25f;
         [SerializeField] private int randomSeed = 12345;
 
         private void Start()
@@ -38,6 +40,11 @@ namespace KingdomsOfBharat.ResourceGathering
             for (int i = 0; i < stoneCount; i++)
             {
                 SpawnStoneQuarry(RandomPointInRing());
+            }
+
+            for (int i = 0; i < fruitBushCount; i++)
+            {
+                SpawnFruitBush(RandomPointInRing());
             }
         }
 
@@ -94,6 +101,18 @@ namespace KingdomsOfBharat.ResourceGathering
 
             var node = go.AddComponent<ResourceNode>();
             node.Configure(ResourceType.Stone, startingAmount);
+        }
+
+        private void SpawnFruitBush(Vector3 position)
+        {
+            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            go.name = "FruitBush";
+            go.transform.position = position + Vector3.up * 0.3f;
+            go.transform.localScale = new Vector3(0.7f, 0.6f, 0.7f);
+            Colorize(go, new Color(0.2f, 0.5f, 0.15f));
+
+            var node = go.AddComponent<ResourceNode>();
+            node.Configure(ResourceType.Food, fruitBushAmount);
         }
 
         private static void Colorize(GameObject go, Color color)

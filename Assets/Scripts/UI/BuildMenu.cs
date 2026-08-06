@@ -24,7 +24,7 @@ namespace KingdomsOfBharat.UI
         private void OnGUI()
         {
             const float width = 220f;
-            const float height = 82f;
+            const float height = 118f;
             float x = Screen.width - width - 8f;
             float y = Screen.height - height - 8f;
 
@@ -33,11 +33,16 @@ namespace KingdomsOfBharat.UI
             GUI.enabled = _placer != null && !BuildingPlacer.IsPlacing && HasBuilderSelected();
             if (GUI.Button(new Rect(x + 8, y + 8, width - 16, 28), "Build Barracks (100 Wood, 50 Stone)"))
             {
-                _placer.BeginPlacement();
+                _placer.BeginPlacementBarracks();
+            }
+
+            if (GUI.Button(new Rect(x + 8, y + 44, width - 16, 28), "Build Farm (60 Wood)"))
+            {
+                _placer.BeginPlacementFarm();
             }
 
             GUI.enabled = true;
-            if (GUI.Button(new Rect(x + 8, y + 44, width - 16, 28), "Train Soldier (50 Food, 20 Gold)"))
+            if (GUI.Button(new Rect(x + 8, y + 80, width - 16, 28), "Train Soldier (50 Food, 20 Gold)"))
             {
                 TrainAtAllReadyBarracks();
             }

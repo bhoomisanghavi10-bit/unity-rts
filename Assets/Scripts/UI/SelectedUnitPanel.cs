@@ -4,6 +4,7 @@ using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.ResourceGathering;
+using KingdomsOfBharat.Wildlife;
 
 namespace KingdomsOfBharat.UI
 {
@@ -61,6 +62,16 @@ namespace KingdomsOfBharat.UI
             if (unit.TryGetComponent(out Builder builder) && builder.IsBuilding)
             {
                 return "Building";
+            }
+
+            if (unit.TryGetComponent(out FarmWorker farmWorker) && farmWorker.IsFarming)
+            {
+                return "Farming";
+            }
+
+            if (unit.TryGetComponent(out LivestockWorker livestockWorker) && livestockWorker.IsMilking)
+            {
+                return "Milking";
             }
 
             if (unit.TryGetComponent(out Gatherer gatherer) && gatherer.IsWorking)

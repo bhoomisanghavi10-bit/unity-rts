@@ -38,6 +38,7 @@ Assets/
     Core/               Faction/ownership tagging, per-player economy
     FogOfWar/           Vision grid, fog rendering, enemy hide/reveal
     AI/                 Scripted opponent (economy, building, combat)
+    Wildlife/           Wild boars (hunt for Food), livestock (milk for Food)
   Prefabs/
   Materials/
 ```
@@ -57,9 +58,10 @@ The camera uses `RTSCameraController` on Main Camera:
 - **Zoom:** mouse scroll wheel
 
 Four placeholder capsule "Worker" units (`UnitSpawner`) spawn on the map,
-alongside scattered trees (Wood), farmland patches (Food), gold mines
-(yellow spheres), and stone quarries (gray blocks) from
-`ResourceNodeSpawner`, and a single Town Center (`TownCenterSpawner`):
+alongside scattered trees (Wood), farmland patches (Food), fruit bushes
+(small dark-green spheres, Food), gold mines (yellow spheres), and stone
+quarries (gray blocks) from `ResourceNodeSpawner`, and a single Town Center
+(`TownCenterSpawner`):
 
 - **Select:** left-click a unit, or left-click-drag a box around several
 - **Move:** right-click a point on open ground to send selected units there
@@ -68,14 +70,35 @@ alongside scattered trees (Wood), farmland patches (Food), gold mines
   over, gather over time up to a carry cap, haul it to the Town Center, and
   repeat until the node is exhausted (`Gatherer`, `ResourceStockpile`)
 
+**Food also comes from wildlife.** A few wild boars (`WildBoarSpawner`,
+dark capsules) wander the map and are dangerous — they'll break off to chase
+and attack *any* unit, Player's or the AI's, that strays within range,
+including unarmed workers (workers are fragile: 20 HP, no way to fight
+back). Select a Soldier and attack-move onto one to hunt it down; killing it
+leaves a Food carcass any worker can gather normally, same as any other
+resource node.
+
+A small herd of cows (`LivestockSpawner`, cream-colored, grazing near your
+Town Center) is a separate, safe Food source — **cows cannot be attacked or
+killed by anything**, reflecting the setting's food culture; they can only
+be milked. Select a worker and right-click a cow to send it there — it
+produces Food slowly for as long as it stays in range (`LivestockWorker`),
+following the cow if it wanders off.
+
 Press **B** to start placing a Barracks foundation (costs 100 Wood + 50
-Stone). Move the mouse to preview it — green if you can afford it and the
-spot is clear of other buildings, red otherwise. **Left-click** to confirm,
-**right-click** or **Esc** to cancel (`BuildingPlacer`). A placed foundation
-does **not** build itself — select a worker and **right-click the
-foundation** to send it to build (AoE-style); it rises from the ground over
-8 seconds while a worker is actively there, and multiple workers build
-proportionally faster (`Builder`, `ConstructionSite`).
+Stone), or **F** for a Farm (60 Wood) — a passive Food source you can build
+anywhere, anytime, unlike the map's fixed resource scatter. Move the mouse
+to preview it — green if you can afford it and the spot is clear of other
+buildings, red otherwise. **Left-click** to confirm, **right-click** or
+**Esc** to cancel (`BuildingPlacer`). Neither building builds itself —
+select a worker and **right-click the foundation** to send it to build
+(AoE-style); it rises from the ground over several seconds while a worker
+is actively there, and multiple workers build proportionally faster
+(`Builder`, `ConstructionSite`). Once a Farm is complete, right-click it
+(instead of an incomplete foundation) to **staff** it — like Barracks, it
+produces nothing without an assigned worker present, but a Farm's output is
+deliberately slower than gathering directly from a resource node
+(`Farm`, `FarmWorker`) — the tradeoff is that it's always available.
 
 There's no building-selection UI yet, so press **T** to train a Soldier (50
 Food + 20 Gold, 5 seconds) at every completed Barracks — it appears next to
@@ -110,10 +133,11 @@ see note below):
 
 - **Top-left:** live Wood/Food/Gold/Stone counters
 - **Bottom-left:** appears when something's selected — unit name, status
-  (Idle/Gathering/Building), and HP if it's a Soldier; shows a headcount
-  instead for a multi-unit selection
-- **Bottom-right:** "Build Barracks" (enabled only with a worker selected)
-  and "Train Soldier" buttons, calling the same code the hotkeys do
+  (Idle/Gathering/Building/Farming/Milking), and HP if it's a Soldier or
+  Worker; shows a headcount instead for a multi-unit selection
+- **Bottom-right:** "Build Barracks", "Build Farm" (both enabled only with
+  a worker selected), and "Train Soldier" buttons, calling the same code
+  the hotkeys do
 
 > Notes: this scene was authored outside the Unity Editor. Milestones 1-3
 > have been opened and verified working in Unity 6.3 LTS; milestones 4-7 have
@@ -138,7 +162,8 @@ see note below):
 
 8. Multiple resources — Gold, Stone
 9. Team/Faction + fog of war
-10. AI opponent *(this commit)*
+10. AI opponent
+11. Wildlife & Farms — hunted boars, milked livestock, buildable Farm *(this commit)*
 
 ## Design docs
 

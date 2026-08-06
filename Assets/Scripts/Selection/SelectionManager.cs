@@ -5,6 +5,7 @@ using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Wildlife;
 
 namespace KingdomsOfBharat.Selection
 {
@@ -86,8 +87,15 @@ namespace KingdomsOfBharat.Selection
             bool hitSite = !hitNode
                 && hit.collider.TryGetComponent(out site)
                 && !site.IsComplete;
+            Farm farm = null;
+            bool hitFarm = !hitNode && !hitSite
+                && hit.collider.TryGetComponent(out farm)
+                && farm.IsComplete;
+            Livestock livestock = null;
+            bool hitLivestock = !hitNode && !hitSite && !hitFarm
+                && hit.collider.TryGetComponent(out livestock);
             Attackable attackable = null;
-            bool hitAttackable = !hitNode && !hitSite
+            bool hitAttackable = !hitNode && !hitSite && !hitFarm && !hitLivestock
                 && hit.collider.TryGetComponent(out attackable)
                 && !attackable.IsDead;
 
@@ -96,23 +104,47 @@ namespace KingdomsOfBharat.Selection
                 unit.TryGetComponent(out Gatherer gatherer);
                 unit.TryGetComponent(out Builder builder);
                 unit.TryGetComponent(out MeleeAttacker attacker);
+                unit.TryGetComponent(out FarmWorker farmWorker);
+                unit.TryGetComponent(out LivestockWorker livestockWorker);
 
                 if (hitNode)
                 {
                     builder?.CancelBuild();
                     attacker?.CancelAttack();
+                    farmWorker?.CancelWork();
+                    livestockWorker?.CancelWork();
                     gatherer?.GatherFrom(node);
                 }
                 else if (hitSite && IsSameFaction(unit, site))
                 {
                     gatherer?.CancelGather();
                     attacker?.CancelAttack();
+                    farmWorker?.CancelWork();
+                    livestockWorker?.CancelWork();
                     builder?.BuildAt(site);
+                }
+                else if (hitFarm && farmWorker != null && IsSameFaction(unit, farm))
+                {
+                    gatherer?.CancelGather();
+                    builder?.CancelBuild();
+                    attacker?.CancelAttack();
+                    livestockWorker?.CancelWork();
+                    farmWorker.StaffAt(farm);
+                }
+                else if (hitLivestock && livestockWorker != null)
+                {
+                    gatherer?.CancelGather();
+                    builder?.CancelBuild();
+                    attacker?.CancelAttack();
+                    farmWorker?.CancelWork();
+                    livestockWorker.StaffAt(livestock);
                 }
                 else if (hitAttackable && attacker != null && IsHostileTarget(unit, attackable))
                 {
                     gatherer?.CancelGather();
                     builder?.CancelBuild();
+                    farmWorker?.CancelWork();
+                    livestockWorker?.CancelWork();
                     attacker.AttackMove(attackable);
                 }
                 else
@@ -120,6 +152,8 @@ namespace KingdomsOfBharat.Selection
                     gatherer?.CancelGather();
                     builder?.CancelBuild();
                     attacker?.CancelAttack();
+                    farmWorker?.CancelWork();
+                    livestockWorker?.CancelWork();
                     if (unit.TryGetComponent(out UnitMover mover))
                     {
                         mover.MoveTo(hit.point);
