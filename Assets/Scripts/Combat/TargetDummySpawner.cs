@@ -22,19 +22,12 @@ namespace KingdomsOfBharat.Combat
             go.transform.localScale = new Vector3(1f, 2f, 1f);
 
             var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = new Material(FindShader()) { color = color };
+            renderer.sharedMaterial = GameplayMaterial.CreateOpaque(color);
 
             go.AddComponent<TargetDummy>();
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure(health);
             go.AddComponent<FactionMember>().Configure(FactionId.Enemy);
-        }
-
-        private static Shader FindShader()
-        {
-            return Shader.Find("Universal Render Pipeline/Lit")
-                ?? Shader.Find("Standard")
-                ?? Shader.Find("Diffuse");
         }
     }
 }

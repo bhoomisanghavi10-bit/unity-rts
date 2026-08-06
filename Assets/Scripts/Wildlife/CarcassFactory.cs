@@ -1,5 +1,6 @@
 using UnityEngine;
 using KingdomsOfBharat.ResourceGathering;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.Wildlife
 {
@@ -16,17 +17,10 @@ namespace KingdomsOfBharat.Wildlife
             go.transform.localScale = new Vector3(1.2f, 0.4f, 1.2f);
 
             var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = new Material(FindShader()) { color = new Color(0.4f, 0.2f, 0.15f) };
+            renderer.sharedMaterial = GameplayMaterial.CreateOpaque(new Color(0.4f, 0.2f, 0.15f));
 
             var node = go.AddComponent<ResourceNode>();
             node.Configure(ResourceType.Food, foodAmount);
-        }
-
-        private static Shader FindShader()
-        {
-            return Shader.Find("Universal Render Pipeline/Lit")
-                ?? Shader.Find("Standard")
-                ?? Shader.Find("Diffuse");
         }
     }
 }

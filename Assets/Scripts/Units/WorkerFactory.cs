@@ -29,10 +29,7 @@ namespace KingdomsOfBharat.Units
             go.transform.position = position;
 
             var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = new Material(FindShader())
-            {
-                color = profile.PrimaryColor,
-            };
+            renderer.sharedMaterial = GameplayMaterial.CreateOpaque(profile.PrimaryColor);
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f;
@@ -61,11 +58,5 @@ namespace KingdomsOfBharat.Units
             return go;
         }
 
-        private static Shader FindShader()
-        {
-            return Shader.Find("Universal Render Pipeline/Lit")
-                ?? Shader.Find("Standard")
-                ?? Shader.Find("Diffuse");
-        }
     }
 }

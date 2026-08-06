@@ -22,10 +22,7 @@ namespace KingdomsOfBharat.Buildings
             go.transform.localScale = Size;
 
             var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = new Material(FindShader())
-            {
-                color = profile.PrimaryColor,
-            };
+            renderer.sharedMaterial = GameplayMaterial.CreateOpaque(profile.PrimaryColor);
 
             go.AddComponent<Barracks>();
             var site = go.AddComponent<ConstructionSite>();
@@ -56,11 +53,5 @@ namespace KingdomsOfBharat.Buildings
             return true;
         }
 
-        private static Shader FindShader()
-        {
-            return Shader.Find("Universal Render Pipeline/Lit")
-                ?? Shader.Find("Standard")
-                ?? Shader.Find("Diffuse");
-        }
     }
 }

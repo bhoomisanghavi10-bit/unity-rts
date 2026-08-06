@@ -1,4 +1,5 @@
 using UnityEngine;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.ResourceGathering
 {
@@ -118,14 +119,7 @@ namespace KingdomsOfBharat.ResourceGathering
         private static void Colorize(GameObject go, Color color)
         {
             var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = new Material(FindShader()) { color = color };
-        }
-
-        private static Shader FindShader()
-        {
-            return Shader.Find("Universal Render Pipeline/Lit")
-                ?? Shader.Find("Standard")
-                ?? Shader.Find("Diffuse");
+            renderer.sharedMaterial = GameplayMaterial.CreateOpaque(color);
         }
     }
 }

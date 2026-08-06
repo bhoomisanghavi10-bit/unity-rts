@@ -1,4 +1,5 @@
 using UnityEngine;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.Selection
 {
@@ -21,16 +22,9 @@ namespace KingdomsOfBharat.Selection
             _ring.transform.localScale = new Vector3(1.2f, 0.02f, 1.2f);
 
             var renderer = _ring.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = new Material(FindShader()) { color = ringColor };
+            renderer.sharedMaterial = GameplayMaterial.CreateOpaque(ringColor);
 
             SetSelected(false);
-        }
-
-        private static Shader FindShader()
-        {
-            return Shader.Find("Universal Render Pipeline/Lit")
-                ?? Shader.Find("Standard")
-                ?? Shader.Find("Diffuse");
         }
 
         public void SetSelected(bool selected)

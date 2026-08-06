@@ -181,7 +181,8 @@ see note below):
 11. Wildlife & Farms — hunted boars, milked livestock, buildable Farm
 12. Civilization differentiation — Chola, Vijayanagara, Rajput
 13. Lighting & post-processing — URP switch, Volume profile (bloom, tonemapping, vignette), softer shadows
-14. Terrain overhaul — layered noise height, splat-blended grass/dirt/rock ground texture *(this commit)*
+14. Terrain overhaul — layered noise height, splat-blended grass/dirt/rock ground texture
+15. Material/shader quality pass — shared matte PBR material helper, fixed the placement-ghost transparency bug *(this commit)*
 
 ## Design docs
 

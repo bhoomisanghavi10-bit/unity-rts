@@ -107,7 +107,7 @@ namespace KingdomsOfBharat.Buildings
             Destroy(_ghost.GetComponent<Collider>());
 
             var renderer = _ghost.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = new Material(FindShader());
+            renderer.sharedMaterial = GameplayMaterial.CreateTransparent(Color.white);
         }
 
         private void CancelPlacing()
@@ -197,11 +197,5 @@ namespace KingdomsOfBharat.Buildings
             return false;
         }
 
-        private static Shader FindShader()
-        {
-            return Shader.Find("Universal Render Pipeline/Lit")
-                ?? Shader.Find("Standard")
-                ?? Shader.Find("Diffuse");
-        }
     }
 }

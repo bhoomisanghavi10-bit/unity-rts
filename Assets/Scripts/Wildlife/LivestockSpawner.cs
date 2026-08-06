@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.Wildlife
 {
@@ -30,7 +31,7 @@ namespace KingdomsOfBharat.Wildlife
             go.transform.localScale = new Vector3(0.9f, 0.7f, 0.9f);
 
             var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = new Material(FindShader()) { color = new Color(0.95f, 0.95f, 0.9f) };
+            renderer.sharedMaterial = GameplayMaterial.CreateOpaque(new Color(0.95f, 0.95f, 0.9f));
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f;
@@ -38,13 +39,6 @@ namespace KingdomsOfBharat.Wildlife
             agent.speed = 2f;
 
             go.AddComponent<Livestock>();
-        }
-
-        private static Shader FindShader()
-        {
-            return Shader.Find("Universal Render Pipeline/Lit")
-                ?? Shader.Find("Standard")
-                ?? Shader.Find("Diffuse");
         }
     }
 }
