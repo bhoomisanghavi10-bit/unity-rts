@@ -46,6 +46,18 @@ namespace KingdomsOfBharat.Units
             // way, the exact correction needs to come from testing
             // feedback, not another blind guess.
             model.transform.localRotation = Quaternion.identity;
+            // Forced explicitly rather than trusting Instantiate to carry
+            // over (1,1,1): Instantiate(prefab, parent) preserves whatever
+            // local scale is saved on the PREFAB ASSET itself, not a fresh
+            // default - so if that shared asset's own Transform scale ever
+            // gets edited by accident (e.g. selecting the wrong asset in
+            // the Project window while scaling something else entirely),
+            // every worker/soldier spawned afterward silently inherits the
+            // bad scale, while ones already alive keep their original one -
+            // exactly the "some units giant, some fine, root reads 1,1,1"
+            // symptom seen in testing. Forcing it here makes every spawn
+            // correct regardless of what the shared asset's own scale is.
+            model.transform.localScale = Vector3.one;
 
             // Humanoid FBX models get an Animator+Avatar auto-attached by
             // Unity on import - AnimationDriver needs exactly this (it
