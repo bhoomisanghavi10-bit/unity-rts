@@ -36,6 +36,9 @@ ExportedObj/
 
 # Unity3D crash reports
 sysinfo.txt
+mono_crash.*.json
+/Assets/_Recovery/
+/Assets/_Recovery.meta
 
 # Builds
 *.apk
