@@ -191,7 +191,8 @@ see note below):
 15. Material/shader quality pass — shared matte PBR material helper, fixed the placement-ghost transparency bug
 16. Camera & readability polish — smoothed pan/zoom, a real minimap (click to jump)
 17. VFX pass — hit sparks, death poofs, gathering dust, construction dust
-18. Worker combat + hover tooltips — Workers can now fight/hunt boars for Food; hovering anything shows its name/status/HP/progress *(this commit)*
+18. Worker combat + hover tooltips — Workers can now fight/hunt boars for Food; hovering anything shows its name/status/HP/progress
+19. First real unit model — Soldiers use the "Axe Warrior" pack (Humanoid-rigged) instead of a capsule; Workers still primitives pending a civilian-style pack *(this commit)*
 
 ## Design docs
 
