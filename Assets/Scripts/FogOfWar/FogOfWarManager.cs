@@ -222,6 +222,7 @@ namespace KingdomsOfBharat.FogOfWar
             meshRenderer.receiveShadows = false;
             Material material = new Material(FindFogShader());
             material.mainTexture = _texture;
+            ForceTransparent(material);
             meshRenderer.sharedMaterial = material;
 
             transform.position = new Vector3(0f, quadHeight, 0f);
@@ -236,6 +237,33 @@ namespace KingdomsOfBharat.FogOfWar
             return Shader.Find("Universal Render Pipeline/Unlit")
                 ?? Shader.Find("Unlit/Transparent")
                 ?? Shader.Find("Unlit/Color");
+        }
+
+        // Unlike the legacy Unlit/Transparent fallback (transparent by
+        // definition), URP's Unlit shader defaults to an OPAQUE surface
+        // from a bare `new Material(shader)` - the "Surface Type" dropdown
+        // Unity's Inspector exposes has to be flipped to Transparent
+        // explicitly, which for a runtime-created material means setting
+        // these properties/keywords by hand. Guarded by HasProperty so the
+        // legacy Unlit/Transparent fallback (no _Surface property at all,
+        // already transparent by design) is left untouched.
+        private static void ForceTransparent(Material material)
+        {
+            if (!material.HasProperty("_Surface"))
+            {
+                return;
+            }
+
+            material.SetFloat("_Surface", 1f); // 0 = Opaque, 1 = Transparent
+            material.SetFloat("_Blend", 0f); // Alpha blend
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetInt("_ZWrite", 0);
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.EnableKeyword("_ALPHABLEND_ON");
+            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
         }
     }
 }
