@@ -179,7 +179,9 @@ see note below):
 9. Team/Faction + fog of war
 10. AI opponent
 11. Wildlife & Farms — hunted boars, milked livestock, buildable Farm
-12. Civilization differentiation — Chola, Vijayanagara, Rajput *(this commit)*
+12. Civilization differentiation — Chola, Vijayanagara, Rajput
+13. Lighting & post-processing — URP switch, Volume profile (bloom, tonemapping, vignette), softer shadows
+14. Terrain overhaul — layered noise height, splat-blended grass/dirt/rock ground texture *(this commit)*
 
 ## Design docs
 
