@@ -5,7 +5,11 @@ namespace KingdomsOfBharat.Camera
     // Drives an RTS-style camera rig: WASD/arrow pan, screen-edge pan, and
     // scroll-wheel zoom (dolly along the camera's own height). Movement is
     // applied in world space so panning stays level regardless of the
-    // camera's downward tilt.
+    // camera's downward tilt. Input accumulates into a target position,
+    // then the actual transform eases toward it (SmoothDamp) each frame -
+    // gives pan/zoom a bit of weight/deceleration instead of snapping
+    // instantly, and lets MinimapController.JumpTo() fly the camera to a
+    // clicked point the same eased way rather than teleporting.
     [RequireComponent(typeof(UnityEngine.Camera))]
     public class RTSCameraController : MonoBehaviour
     {
@@ -19,17 +23,39 @@ namespace KingdomsOfBharat.Camera
         [SerializeField] private float minHeight = 8f;
         [SerializeField] private float maxHeight = 35f;
 
+        [Header("Smoothing")]
+        [SerializeField] private float positionSmoothTime = 0.12f;
+
         [Header("Map Bounds")]
         [SerializeField] private Vector2 mapMin = new Vector2(-20f, -20f);
         [SerializeField] private Vector2 mapMax = new Vector2(20f, 20f);
 
+        private Vector3 _targetPosition;
+        private Vector3 _velocity;
+
+        private void Start()
+        {
+            _targetPosition = transform.position;
+        }
+
+        // Called by MinimapController when the player clicks/drags on the
+        // minimap - re-centers the target XZ, keeping current zoom height,
+        // and lets the existing SmoothDamp ease the camera there.
+        public void JumpTo(float worldX, float worldZ)
+        {
+            _targetPosition.x = worldX;
+            _targetPosition.z = worldZ;
+        }
+
         private void Update()
         {
             Vector3 move = GetKeyboardInput() + GetEdgeScrollInput();
-            transform.Translate(move * panSpeed * Time.deltaTime, Space.World);
-            ClampPosition();
+            _targetPosition += move * panSpeed * Time.deltaTime;
 
             HandleZoom();
+            ClampTargetPosition();
+
+            transform.position = Vector3.SmoothDamp(transform.position, _targetPosition, ref _velocity, positionSmoothTime);
         }
 
         private static Vector3 GetKeyboardInput()
@@ -78,17 +104,13 @@ namespace KingdomsOfBharat.Camera
                 return;
             }
 
-            Vector3 position = transform.position;
-            position.y = Mathf.Clamp(position.y - scroll * zoomSpeed * Time.deltaTime, minHeight, maxHeight);
-            transform.position = position;
+            _targetPosition.y = Mathf.Clamp(_targetPosition.y - scroll * zoomSpeed * Time.deltaTime, minHeight, maxHeight);
         }
 
-        private void ClampPosition()
+        private void ClampTargetPosition()
         {
-            Vector3 position = transform.position;
-            position.x = Mathf.Clamp(position.x, mapMin.x, mapMax.x);
-            position.z = Mathf.Clamp(position.z, mapMin.y, mapMax.y);
-            transform.position = position;
+            _targetPosition.x = Mathf.Clamp(_targetPosition.x, mapMin.x, mapMax.x);
+            _targetPosition.z = Mathf.Clamp(_targetPosition.z, mapMin.y, mapMax.y);
         }
     }
 }

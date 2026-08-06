@@ -153,6 +153,12 @@ see note below):
 - **Bottom-right:** "Build Barracks", "Build Farm" (both enabled only with
   a worker selected), and "Train Soldier" buttons, calling the same code
   the hotkeys do
+- **Bottom-right corner (below the build menu):** a live minimap
+  (`MinimapController`) — a second top-down camera rendered into a small
+  texture, so it automatically shows the same fog-of-war/units/buildings
+  the main view does. Click or click-drag on it to jump the main camera
+  there; panning/zooming (WASD/arrows, screen-edge scroll, mouse wheel)
+  now eases smoothly instead of snapping instantly.
 
 > Notes: this scene was authored outside the Unity Editor. Milestones 1-3
 > have been opened and verified working in Unity 6.3 LTS; milestones 4-7 have
@@ -182,7 +188,8 @@ see note below):
 12. Civilization differentiation — Chola, Vijayanagara, Rajput
 13. Lighting & post-processing — URP switch, Volume profile (bloom, tonemapping, vignette), softer shadows
 14. Terrain overhaul — layered noise height, splat-blended grass/dirt/rock ground texture
-15. Material/shader quality pass — shared matte PBR material helper, fixed the placement-ghost transparency bug *(this commit)*
+15. Material/shader quality pass — shared matte PBR material helper, fixed the placement-ghost transparency bug
+16. Camera & readability polish — smoothed pan/zoom, a real minimap (click to jump) *(this commit)*
 
 ## Design docs
 

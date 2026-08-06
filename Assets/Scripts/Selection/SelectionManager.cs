@@ -6,6 +6,7 @@ using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Wildlife;
+using KingdomsOfBharat.Camera;
 
 namespace KingdomsOfBharat.Selection
 {
@@ -46,7 +47,7 @@ namespace KingdomsOfBharat.Selection
             // check would not catch this.
             _selected.RemoveAll(unit => unit == null);
 
-            if (BuildingPlacer.IsPlacing)
+            if (BuildingPlacer.IsPlacing || MinimapController.IsPointerOverMinimap)
             {
                 return;
             }

@@ -88,6 +88,11 @@ namespace KingdomsOfBharat.Buildings
                 return;
             }
 
+            if (KingdomsOfBharat.Camera.MinimapController.IsPointerOverMinimap)
+            {
+                return;
+            }
+
             UpdateGhost();
 
             if (Input.GetMouseButtonDown(0))
