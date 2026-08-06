@@ -9,6 +9,7 @@ namespace KingdomsOfBharat.Combat
         [SerializeField] private float maxHealth = 30f;
 
         public float Health { get; private set; }
+        public float MaxHealth => maxHealth;
         public bool IsDead => Health <= 0f;
 
         public void Configure(float newMaxHealth)

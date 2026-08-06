@@ -190,7 +190,8 @@ see note below):
 14. Terrain overhaul — layered noise height, splat-blended grass/dirt/rock ground texture
 15. Material/shader quality pass — shared matte PBR material helper, fixed the placement-ghost transparency bug
 16. Camera & readability polish — smoothed pan/zoom, a real minimap (click to jump)
-17. VFX pass — hit sparks, death poofs, gathering dust, construction dust *(this commit)*
+17. VFX pass — hit sparks, death poofs, gathering dust, construction dust
+18. Worker combat + hover tooltips — Workers can now fight/hunt boars for Food; hovering anything shows its name/status/HP/progress *(this commit)*
 
 ## Design docs
 

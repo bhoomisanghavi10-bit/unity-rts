@@ -302,10 +302,15 @@ namespace KingdomsOfBharat.AI
 
         private void TryAttack()
         {
+            // Workers now carry a weak MeleeAttacker too (can fight back/
+            // hunt boars), so "has MeleeAttacker" alone no longer means
+            // "is a Soldier" - excluding anything with a Gatherer keeps
+            // the AI's attack squad built from actual Soldiers only,
+            // instead of pulling its whole economy into an attack-move.
             List<Unit> soldiers = new List<Unit>();
             foreach (Unit unit in Unit.All)
             {
-                if (IsMine(unit) && unit.TryGetComponent(out MeleeAttacker _))
+                if (IsMine(unit) && unit.TryGetComponent(out MeleeAttacker _) && !unit.TryGetComponent(out Gatherer _))
                 {
                     soldiers.Add(unit);
                 }

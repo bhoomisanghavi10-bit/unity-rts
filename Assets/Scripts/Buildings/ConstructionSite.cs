@@ -21,6 +21,7 @@ namespace KingdomsOfBharat.Buildings
         private float _vfxTimer;
 
         public bool IsComplete { get; private set; }
+        public float Progress => _progress;
 
         public void Configure(float duration)
         {

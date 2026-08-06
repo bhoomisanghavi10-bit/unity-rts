@@ -2,9 +2,6 @@ using UnityEngine;
 using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Combat;
-using KingdomsOfBharat.Buildings;
-using KingdomsOfBharat.ResourceGathering;
-using KingdomsOfBharat.Wildlife;
 
 namespace KingdomsOfBharat.UI
 {
@@ -49,37 +46,12 @@ namespace KingdomsOfBharat.UI
         private void DrawSingle(Unit unit, float y)
         {
             GUI.Label(new Rect(16, y + 4, 200, 20), unit.gameObject.name, _style);
-            GUI.Label(new Rect(16, y + 24, 200, 20), GetStatus(unit), _style);
+            GUI.Label(new Rect(16, y + 24, 200, 20), UnitStatus.Describe(unit), _style);
 
             if (unit.TryGetComponent(out Attackable attackable))
             {
-                GUI.Label(new Rect(16, y + 44, 200, 20), $"HP: {(int)attackable.Health}", _style);
+                GUI.Label(new Rect(16, y + 44, 200, 20), $"HP: {(int)attackable.Health}/{(int)attackable.MaxHealth}", _style);
             }
-        }
-
-        private static string GetStatus(Unit unit)
-        {
-            if (unit.TryGetComponent(out Builder builder) && builder.IsBuilding)
-            {
-                return "Building";
-            }
-
-            if (unit.TryGetComponent(out FarmWorker farmWorker) && farmWorker.IsFarming)
-            {
-                return "Farming";
-            }
-
-            if (unit.TryGetComponent(out LivestockWorker livestockWorker) && livestockWorker.IsMilking)
-            {
-                return "Milking";
-            }
-
-            if (unit.TryGetComponent(out Gatherer gatherer) && gatherer.IsWorking)
-            {
-                return "Gathering";
-            }
-
-            return "Idle";
         }
 
         private void EnsureStyle()

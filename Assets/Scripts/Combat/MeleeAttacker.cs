@@ -17,6 +17,9 @@ namespace KingdomsOfBharat.Combat
         private float _cooldown;
         private float _damageMultiplier = 1f;
 
+        // For SelectedUnitPanel/HoverTooltip (UI) to show a status line.
+        public bool IsAttacking => _target != null;
+
         private void Awake()
         {
             _mover = GetComponent<UnitMover>();
@@ -27,6 +30,14 @@ namespace KingdomsOfBharat.Combat
         public void SetDamageMultiplier(float multiplier)
         {
             _damageMultiplier = multiplier;
+        }
+
+        // Applied by WorkerFactory: unarmed workers can still fight back or
+        // hunt (AoE-style villager combat), but noticeably weaker than a
+        // dedicated Soldier's base damage.
+        public void SetBaseDamage(float newDamage)
+        {
+            damage = newDamage;
         }
 
         public void AttackMove(Attackable target)
