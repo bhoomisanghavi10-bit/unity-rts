@@ -5,10 +5,12 @@ namespace KingdomsOfBharat.Buildings
 {
     // Shared building-mesh spawn path, mirroring HumanModelFactory: looks
     // for a real model under Resources/Buildings/<resourceName> first, and
-    // only falls back to today's flat-color primitive cube if nothing's
-    // been imported yet - so every Building factory keeps working exactly
-    // as before, completely unchanged visually, until a real building pack
-    // exists to source model names from.
+    // falls back to a hand-assembled procedural silhouette
+    // (ProceduralBuildingFactory - stepped/spired/towered shapes, not just
+    // a flat cube) whenever nothing's been imported yet - so every
+    // Building factory keeps working, just with a more building-like
+    // placeholder shape than a single box, until a real pack exists to
+    // source model names from.
     //
     // Every gameplay component (Barracks/Farm/House/TownCenter,
     // ConstructionSite, FactionMember) still gets added by each factory to
@@ -28,28 +30,36 @@ namespace KingdomsOfBharat.Buildings
         // pre-centered spawn position) - kept as the root's own transform
         // so every existing distance/rally-offset call site (IsClear,
         // rallyOffset, etc.) keeps reading the same position it always
-        // has, unaffected by whichever visual (primitive or real model)
-        // ends up under it.
+        // has, unaffected by whichever visual (real model or procedural
+        // shape) ends up under it.
         public static GameObject Spawn(string resourceName, Vector3 rootPosition, Vector3 fallbackSize, Color civColor)
         {
             GameObject prefab = Resources.Load<GameObject>($"Buildings/{resourceName}");
-            if (prefab == null)
-            {
-                return SpawnFallback(rootPosition, fallbackSize, civColor);
-            }
 
             GameObject root = new GameObject(resourceName);
             root.transform.position = rootPosition;
 
-            GameObject model = Object.Instantiate(prefab, root.transform);
+            GameObject model;
+            if (prefab != null)
+            {
+                model = Object.Instantiate(prefab, root.transform);
+                // Only a real imported pack gets the partial Lerp tint -
+                // it has its own diffuse texture/material to partially
+                // preserve. Procedural parts already get the civ color
+                // outright at creation time (see ProceduralBuildingFactory).
+                TintMaterials(model, civColor);
+            }
+            else
+            {
+                model = ProceduralBuildingFactory.Build(resourceName, civColor, root.transform);
+            }
+
             model.transform.localPosition = Vector3.zero;
             model.transform.localRotation = Quaternion.identity;
 
-            TintMaterials(model, civColor);
-
-            // Ground level under a center-pivoted fallback cube of this
-            // size - approximate for TownCenter specifically (its spawn
-            // Y predates milestone 14's terrain height variation, same
+            // Ground level under a center-pivoted building of this size -
+            // approximate for TownCenter specifically (its spawn Y
+            // predates milestone 14's terrain height variation, same
             // latent flat-Y issue unit spawns had before ResolveGroundHeight
             // was added), exact for Barracks/Farm/House (their point is
             // already ground-raycast-resolved by the caller).
@@ -58,18 +68,6 @@ namespace KingdomsOfBharat.Buildings
             AddBoundsCollider(root, bounds);
 
             return root;
-        }
-
-        private static GameObject SpawnFallback(Vector3 rootPosition, Vector3 size, Color civColor)
-        {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.transform.position = rootPosition;
-            go.transform.localScale = size;
-
-            var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = GameplayMaterial.CreateOpaque(civColor);
-
-            return go;
         }
 
         private static Bounds AlignBaseToGround(GameObject model, float groundY)
