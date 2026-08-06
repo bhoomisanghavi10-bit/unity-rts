@@ -10,35 +10,35 @@ using KingdomsOfBharat.Wildlife;
 
 namespace KingdomsOfBharat.Units
 {
-    // Creates a placeholder capsule "Worker" unit with movement, selection,
-    // gathering, and building components. Used by both UnitSpawner (the
-    // Player's starting workers) and AiController (the AI's own workers).
-    // Workers carry Attackable so wild boars and enemy soldiers can
-    // actually threaten them - AoE-style, unarmed villagers are
-    // vulnerable, not invincible - but also a weak MeleeAttacker of their
-    // own (well below a Soldier's damage) so they can fight back or hunt
-    // wild boars for Food, same as AoE villagers can.
+    // Creates a "Worker" unit with movement, selection, gathering, and
+    // building components. Used by both UnitSpawner (the Player's
+    // starting workers) and AiController (the AI's own workers). Workers
+    // carry Attackable so wild boars and enemy soldiers can actually
+    // threaten them - AoE-style, unarmed villagers are vulnerable, not
+    // invincible - but also a weak MeleeAttacker of their own (well below
+    // a Soldier's damage) so they can fight back or hunt wild boars for
+    // Food, same as AoE villagers can. Milestone 19b: uses the shared
+    // Human Character Dummy body (Female) instead of a capsule - Soldiers
+    // use the Male variant, giving Workers and Soldiers distinct
+    // silhouettes for free.
     public static class WorkerFactory
     {
         public static GameObject Spawn(Vector3 position, FactionId faction)
         {
-            CivilizationProfile profile = CivilizationProfile.For(CivilizationRegistry.For(faction));
+            CivilizationId civilization = CivilizationRegistry.For(faction);
+            CivilizationProfile profile = CivilizationProfile.For(civilization);
 
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Female, position, civilization);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} Worker"
                 : $"Enemy {profile.DisplayName} Worker";
-            go.transform.position = position;
-
-            var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = GameplayMaterial.CreateOpaque(profile.PrimaryColor);
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f;
             agent.height = 2f;
             agent.speed = 3.5f;
 
-            go.AddComponent<Unit>();
+            var unit = go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             go.AddComponent<Gatherer>().SetRateMultiplier(profile.GatherRateMultiplier);
@@ -48,6 +48,7 @@ namespace KingdomsOfBharat.Units
             go.AddComponent<Attackable>().Configure(20f * profile.MaxHealthMultiplier);
             go.AddComponent<MeleeAttacker>().SetBaseDamage(2f);
             go.AddComponent<FactionMember>().Configure(faction);
+            go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Female), agent, unit);
 
             // Only the Player's own vision feeds FogOfWarManager; the AI
             // has full internal knowledge and never queries fog itself, so
