@@ -3,6 +3,7 @@ using UnityEngine;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Buildings;
+using KingdomsOfBharat.Wildlife;
 
 namespace KingdomsOfBharat.FogOfWar
 {
@@ -126,26 +127,39 @@ namespace KingdomsOfBharat.FogOfWar
             _texture.Apply(false);
         }
 
+        // Hides mobile things the player hasn't currently got vision on:
+        // Enemy-faction units/buildings, and wild boars (which wander like
+        // units, so are treated the same way). Static resource nodes
+        // (trees, farmland, carcasses...) are deliberately left alone here
+        // and stay visible once explored - matching how AoE treats terrain
+        // features versus units, and simpler than retrofitting every
+        // resource spawner with fog awareness for a cosmetic difference.
         private void UpdateEnemyVisibility()
         {
             foreach (Unit unit in Unit.All)
             {
-                ApplyVisibility(unit.gameObject);
+                if (unit.TryGetComponent(out FactionMember factionMember) && factionMember.Faction == FactionId.Enemy)
+                {
+                    SetVisibilityByCell(unit.gameObject);
+                }
             }
 
             foreach (Building building in Building.All)
             {
-                ApplyVisibility(building.gameObject);
+                if (building.TryGetComponent(out FactionMember factionMember) && factionMember.Faction == FactionId.Enemy)
+                {
+                    SetVisibilityByCell(building.gameObject);
+                }
+            }
+
+            foreach (WildBoar boar in FindObjectsByType<WildBoar>(FindObjectsSortMode.None))
+            {
+                SetVisibilityByCell(boar.gameObject);
             }
         }
 
-        private void ApplyVisibility(GameObject go)
+        private void SetVisibilityByCell(GameObject go)
         {
-            if (!go.TryGetComponent(out FactionMember factionMember) || factionMember.Faction != FactionId.Enemy)
-            {
-                return;
-            }
-
             (int x, int z) = WorldToCell(go.transform.position);
             bool visible = _cells[z * gridSize + x] == CellState.Visible;
 

@@ -27,6 +27,10 @@ namespace KingdomsOfBharat.AI
         [SerializeField] private float barracksBuildTime = 8f;
         [SerializeField] private float barracksClearance = 3f;
         [SerializeField] private Vector3 barracksOffset = new Vector3(6f, 0f, 0f);
+        [SerializeField] private float farmWoodCost = 60f;
+        [SerializeField] private float farmBuildTime = 5f;
+        [SerializeField] private float farmClearance = 3f;
+        [SerializeField] private Vector3 farmOffset = new Vector3(-6f, 0f, 0f);
 
         // Local to this controller, not a mutation on ResourceNode itself -
         // keeps the "who's gathering what" bookkeeping contained to one file.
@@ -37,6 +41,10 @@ namespace KingdomsOfBharat.AI
         private Barracks _barracks;
         private ConstructionSite _barracksSite;
         private bool _barracksBuilderAssigned;
+        private Farm _farm;
+        private ConstructionSite _farmSite;
+        private bool _farmBuilderAssigned;
+        private bool _farmWorkerAssigned;
 
         private void Start()
         {
@@ -60,6 +68,9 @@ namespace KingdomsOfBharat.AI
                 TryBuildBarracks();
                 AssignBuilderIfNeeded();
                 TryTrainSoldiers();
+                TryBuildFarm();
+                AssignFarmBuilderIfNeeded();
+                AssignFarmWorkerIfNeeded();
             }
 
             _attackTimer += Time.deltaTime;
@@ -196,6 +207,95 @@ namespace KingdomsOfBharat.AI
             }
 
             _barracks.RequestTrain();
+        }
+
+        private void TryBuildFarm()
+        {
+            if (_farm != null)
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Enemy);
+            if (stockpile.GetTotal(ResourceType.Wood) < farmWoodCost)
+            {
+                return;
+            }
+
+            Vector3 candidateXz = townCenterPosition + farmOffset;
+            if (!TryResolveGroundHeight(candidateXz, out Vector3 point))
+            {
+                return;
+            }
+
+            if (!BarracksFactory.IsClear(point, farmClearance))
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Wood, -farmWoodCost);
+
+            GameObject go = FarmFactory.Place(point, FactionId.Enemy, farmBuildTime);
+            go.TryGetComponent(out _farm);
+            go.TryGetComponent(out _farmSite);
+        }
+
+        // Same shape as AssignBuilderIfNeeded, for the Farm instead of the
+        // Barracks. A worker pulled here for one job can't simultaneously
+        // be pulled for the other in the same tick since both explicitly
+        // cancel Gatherer first - but nothing here stops both this and
+        // AssignBuilderIfNeeded from picking the *same* worker on the same
+        // tick if both a Barracks and a Farm need building at once; the
+        // second call just re-targets that worker, and the loser retries
+        // next tick. A known, accepted inefficiency at this scale.
+        private void AssignFarmBuilderIfNeeded()
+        {
+            if (_farmSite == null || _farmBuilderAssigned || _farmSite.IsComplete)
+            {
+                return;
+            }
+
+            foreach (Unit unit in Unit.All)
+            {
+                if (!IsMine(unit) || !unit.TryGetComponent(out Builder builder))
+                {
+                    continue;
+                }
+
+                if (unit.TryGetComponent(out Gatherer gatherer))
+                {
+                    gatherer.CancelGather();
+                }
+
+                builder.BuildAt(_farmSite);
+                _farmBuilderAssigned = true;
+                return;
+            }
+        }
+
+        private void AssignFarmWorkerIfNeeded()
+        {
+            if (_farm == null || !_farm.IsComplete || _farmWorkerAssigned)
+            {
+                return;
+            }
+
+            foreach (Unit unit in Unit.All)
+            {
+                if (!IsMine(unit) || !unit.TryGetComponent(out FarmWorker farmWorker))
+                {
+                    continue;
+                }
+
+                if (unit.TryGetComponent(out Gatherer gatherer))
+                {
+                    gatherer.CancelGather();
+                }
+
+                farmWorker.StaffAt(_farm);
+                _farmWorkerAssigned = true;
+                return;
+            }
         }
 
         private void TryAttack()

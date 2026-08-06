@@ -34,6 +34,18 @@ namespace KingdomsOfBharat.Selection
 
         private void Update()
         {
+            // A selected unit can now die mid-selection (workers are
+            // killable since milestone 11 - wild boars, enemy soldiers).
+            // Prune before anything this frame reads _selected: HandleMoveInput
+            // below, and SelectedUnitPanel/BuildMenu's OnGUI, which would
+            // otherwise throw MissingReferenceException touching a
+            // destroyed Unit every frame. The == null check here is
+            // deliberate - it invokes UnityEngine.Object's overridden
+            // equality, which is what actually detects "destroyed but not
+            // yet real C# null" Unity objects; a plain reference/is-null
+            // check would not catch this.
+            _selected.RemoveAll(unit => unit == null);
+
             if (BuildingPlacer.IsPlacing)
             {
                 return;

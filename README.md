@@ -117,15 +117,20 @@ only select/command their own side.
 
 An AI opponent (`AiController`) starts its own base on the far side of the
 map (mirrored Town Center + starting workers) and runs entirely on its own
-timer — no input from you required. It gathers, eventually builds its own
-Barracks (sending one of its own workers to actually construct it, same
-AoE-style rule the player follows), trains Soldiers once Food/Gold allow,
-and sends a squad to attack-move toward the player once it has three or
-more idle Soldiers. It has full internal knowledge of the map (no scouting
-logic — a deliberate first-pass simplification) even though fog still hides
-its base visually from you until you scout it. It has its own separate
-resource stockpile (`EnemyResourceStockpile`) — the top-left HUD only ever
-shows yours.
+timer — no input from you required. It gathers (automatically picking up
+fruit bushes and hunted-boar carcasses too, since those are just resource
+nodes like any other), eventually builds its own Barracks *and* Farm
+(sending its own workers to construct and staff each, same AoE-style rules
+the player follows), trains Soldiers once Food/Gold allow, and sends a
+squad to attack-move toward the player once it has three or more idle
+Soldiers. It has full internal knowledge of the map (no scouting logic — a
+deliberate first-pass simplification) even though fog still hides its base
+visually from you until you scout it — wild boars are hidden by fog the
+same way (they wander like units), while static resource nodes stay
+visible once explored, matching how AoE treats terrain features versus
+units. It has its own separate resource stockpile
+(`EnemyResourceStockpile`) — the top-left HUD only ever shows yours. It
+doesn't have its own livestock herd, so milking isn't part of its economy.
 
 The B/T hotkeys above still work, but there's now on-screen UI too
 (`ResourceHUD`, `SelectedUnitPanel`, `BuildMenu` — plain IMGUI, not a Canvas;

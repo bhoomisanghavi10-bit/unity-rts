@@ -1054,6 +1054,10 @@ MonoBehaviour:
   barracksBuildTime: 8
   barracksClearance: 3
   barracksOffset: {x: 6, y: 0, z: 0}
+  farmWoodCost: 60
+  farmBuildTime: 5
+  farmClearance: 3
+  farmOffset: {x: -6, y: 0, z: 0}
 --- !u!1 &100170
 GameObject:
   m_ObjectHideFlags: 0
