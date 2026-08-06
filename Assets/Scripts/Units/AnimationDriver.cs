@@ -38,10 +38,13 @@ namespace KingdomsOfBharat.Units
             _agent = agent;
             _unit = unit;
 
-            _animator = GetComponent<Animator>();
+            // The Animator lives on the visual model child, not this
+            // component's own GameObject - see HumanModelFactory, which
+            // parents the model separately from the gameplay root.
+            _animator = GetComponentInChildren<Animator>();
             if (_animator == null)
             {
-                _animator = gameObject.AddComponent<Animator>();
+                return;
             }
 
             _graph = PlayableGraph.Create($"{name}_Animation");

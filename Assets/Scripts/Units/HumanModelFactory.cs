@@ -18,30 +18,51 @@ namespace KingdomsOfBharat.Units
     {
         public enum Gender { Male, Female }
 
+        // The returned root sits at "center height" - the same convention
+        // every other unit/building spawn position in this project already
+        // uses (e.g. AiController's townCenterPosition.y = 1, matching a
+        // ~2-unit-tall object's vertical center resting on the ground).
+        // The dummy model's own pivot is at its feet (standard for a
+        // Humanoid rig, unlike a CreatePrimitive capsule's center pivot),
+        // so it's parented as a visual-only child offset down by half the
+        // body height instead of being instantiated directly at the root -
+        // keeps every other system's position-based math (VisionSource
+        // range, MeleeAttacker range, NavMeshAgent, the Collider) working
+        // unchanged, since they all read the root's transform, not the
+        // visual child's.
         public static GameObject Spawn(Gender gender, Vector3 position, CivilizationId civilization)
         {
             string genderTag = gender == Gender.Male ? "M" : "F";
             GameObject prefab = Resources.Load<GameObject>($"Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_{genderTag} White");
-            GameObject go = Object.Instantiate(prefab, position, Quaternion.identity);
+
+            GameObject root = new GameObject(prefab.name);
+            root.transform.position = position;
+
+            GameObject model = Object.Instantiate(prefab, root.transform);
+            model.transform.localPosition = new Vector3(0f, -1f, 0f);
+            // Best-effort correction for the model's forward axis not
+            // matching Unity's +Z convention - flag to the user if the
+            // model still faces the wrong way after testing so this can
+            // be tuned precisely.
+            model.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
 
             // Humanoid FBX models get an Animator+Avatar auto-attached by
             // Unity on import - AnimationDriver needs exactly this (it
             // drives the Avatar directly via the Playables API, with no
             // AnimatorController assigned), so it's kept as-is rather than
             // removed.
-            if (go.TryGetComponent(out Animator animator))
+            if (model.TryGetComponent(out Animator animator))
             {
                 animator.runtimeAnimatorController = null;
             }
 
-            ApplyPaletteMaterial(go, PaletteNameFor(civilization));
+            ApplyPaletteMaterial(model, PaletteNameFor(civilization));
 
-            var collider = go.AddComponent<CapsuleCollider>();
+            var collider = root.AddComponent<CapsuleCollider>();
             collider.radius = 0.4f;
             collider.height = 2f;
-            collider.center = new Vector3(0f, 1f, 0f);
 
-            return go;
+            return root;
         }
 
         private static string PaletteNameFor(CivilizationId civilization)
