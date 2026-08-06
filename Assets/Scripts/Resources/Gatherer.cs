@@ -27,8 +27,16 @@ namespace KingdomsOfBharat.ResourceGathering
         private float _rateMultiplier = 1f;
         private float _vfxTimer;
 
-        // For SelectedUnitPanel (UI) to show a status line.
+        // For SelectedUnitPanel (UI) to show a status line - true for the
+        // whole round trip (walking to the node, gathering, walking back),
+        // matching AoE's convention of showing "Gathering" throughout.
         public bool IsWorking => _state != State.Idle;
+
+        // For AnimationDriver: true only while actually in range and
+        // harvesting, not during the walk there/back - IsWorking is too
+        // broad for this (confirmed by testing: using it played the
+        // gather/mine animation while still walking toward the node).
+        public bool IsActivelyGathering => _state == State.Gathering;
 
         // For AnimationDriver to pick Mining vs. Gathering animation.
         public ResourceType? CurrentResourceType => _targetNode != null ? _targetNode.ResourceType : (ResourceType?)null;

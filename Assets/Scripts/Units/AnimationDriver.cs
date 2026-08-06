@@ -129,7 +129,7 @@ namespace KingdomsOfBharat.Units
                 return _clips.Farm;
             }
 
-            if (_unit.TryGetComponent(out Gatherer gatherer) && gatherer.IsWorking)
+            if (_unit.TryGetComponent(out Gatherer gatherer) && gatherer.IsActivelyGathering)
             {
                 ResourceType? resourceType = gatherer.CurrentResourceType;
                 bool mining = resourceType == ResourceType.Gold || resourceType == ResourceType.Stone;
