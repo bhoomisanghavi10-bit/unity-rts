@@ -39,30 +39,63 @@ namespace KingdomsOfBharat.Units
             root.transform.position = position;
 
             GameObject model = Object.Instantiate(prefab, root.transform);
-            model.transform.localPosition = new Vector3(0f, -1f, 0f);
-            // Best-effort correction for the model's forward axis not
-            // matching Unity's +Z convention - flag to the user if the
-            // model still faces the wrong way after testing so this can
-            // be tuned precisely.
-            model.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            model.transform.localPosition = Vector3.zero;
+            // No facing correction applied (a guessed 180-degree flip made
+            // it worse per real-Editor testing, so it's removed rather
+            // than compounding the guess) - if it still faces the wrong
+            // way, the exact correction needs to come from testing
+            // feedback, not another blind guess.
+            model.transform.localRotation = Quaternion.identity;
 
             // Humanoid FBX models get an Animator+Avatar auto-attached by
             // Unity on import - AnimationDriver needs exactly this (it
             // drives the Avatar directly via the Playables API, with no
             // AnimatorController assigned), so it's kept as-is rather than
-            // removed.
+            // removed. applyRootMotion is disabled: the walk clip's own
+            // baked-in forward translation would otherwise fight
+            // NavMeshAgent's independent control of the root's position,
+            // producing exactly the "gliding" symptom seen in testing
+            // (visual root motion and actual navigation motion doubling
+            // up / cancelling out).
             if (model.TryGetComponent(out Animator animator))
             {
                 animator.runtimeAnimatorController = null;
+                animator.applyRootMotion = false;
             }
 
             ApplyPaletteMaterial(model, PaletteNameFor(civilization));
+
+            // The model's pivot convention (feet? hips? something else?)
+            // isn't documented and guessing it wrong is exactly what
+            // caused the floating/sunk feet seen in testing - measuring
+            // the model's actual rendered bounds and shifting it so those
+            // bounds sit on the ground works regardless of where the
+            // pivot actually is.
+            AlignFeetToGround(model, groundY: position.y - 1f);
 
             var collider = root.AddComponent<CapsuleCollider>();
             collider.radius = 0.4f;
             collider.height = 2f;
 
             return root;
+        }
+
+        private static void AlignFeetToGround(GameObject model, float groundY)
+        {
+            Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0)
+            {
+                return;
+            }
+
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+            {
+                bounds.Encapsulate(renderers[i].bounds);
+            }
+
+            float correction = groundY - bounds.min.y;
+            model.transform.position += new Vector3(0f, correction, 0f);
         }
 
         private static string PaletteNameFor(CivilizationId civilization)

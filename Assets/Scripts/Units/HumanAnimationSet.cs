@@ -47,11 +47,17 @@ namespace KingdomsOfBharat.Units
         private static AnimationClip Load(string path)
         {
             AnimationClip clip = Resources.Load<AnimationClip>(path);
-            if (clip != null)
+            if (clip == null)
             {
-                clip.wrapMode = WrapMode.Loop;
+                // A failed load here means AnimationDriver silently keeps
+                // playing whatever the last successfully-set clip was
+                // (Idle, most likely) instead of switching - looks exactly
+                // like "stuck in place while moving" if this is Walk.
+                Debug.LogWarning($"HumanAnimationSet: failed to load clip at Resources path '{path}'");
+                return null;
             }
 
+            clip.wrapMode = WrapMode.Loop;
             return clip;
         }
     }
