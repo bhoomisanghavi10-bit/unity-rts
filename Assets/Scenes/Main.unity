@@ -757,6 +757,10 @@ MonoBehaviour:
   farmWoodCost: 60
   farmBuildTime: 5
   farmSize: {x: 2, y: 0.6, z: 2}
+  placeHouseKey: 104
+  houseWoodCost: 30
+  houseBuildTime: 4
+  houseSize: {x: 2, y: 1.6, z: 2}
   minClearance: 3
 --- !u!1 &100100
 GameObject:

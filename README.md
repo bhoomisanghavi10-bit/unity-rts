@@ -119,9 +119,11 @@ An AI opponent (`AiController`) starts its own base on the far side of the
 map (mirrored Town Center + starting workers) and runs entirely on its own
 timer — no input from you required. It gathers (automatically picking up
 fruit bushes and hunted-boar carcasses too, since those are just resource
-nodes like any other), eventually builds its own Barracks *and* Farm
-(sending its own workers to construct and staff each, same AoE-style rules
-the player follows), trains Soldiers once Food/Gold allow, and sends a
+nodes like any other), eventually builds its own Barracks, Farm, and
+Houses (sending its own workers to construct and staff each, same
+AoE-style rules the player follows — Houses go up proactively once its
+population gets close to the cap), trains Soldiers and replacement
+Workers once Food/Gold allow and there's population room, and sends a
 squad to attack-move toward the player once it has three or more idle
 Soldiers. It has full internal knowledge of the map (no scouting logic — a
 deliberate first-pass simplification) even though fog still hides its base
@@ -146,13 +148,15 @@ The B/T hotkeys above still work, but there's now on-screen UI too
 (`ResourceHUD`, `SelectedUnitPanel`, `BuildMenu` — plain IMGUI, not a Canvas;
 see note below):
 
-- **Top-left:** live Wood/Food/Gold/Stone counters
+- **Top-left:** live Wood/Food/Gold/Stone counters, plus a Population: X/Y
+  readout (X/Y — current headcount vs. cap; build Houses to raise the cap,
+  AoE-style)
 - **Bottom-left:** appears when something's selected — unit name, status
   (Idle/Gathering/Building/Farming/Milking), and HP if it's a Soldier or
   Worker; shows a headcount instead for a multi-unit selection
-- **Bottom-right:** "Build Barracks", "Build Farm" (both enabled only with
-  a worker selected), and "Train Soldier" buttons, calling the same code
-  the hotkeys do
+- **Bottom-right:** "Build Barracks", "Build Farm", "Build House" (all
+  enabled only with a worker selected), "Train Worker", and "Train
+  Soldier" buttons, calling the same code the hotkeys do
 - **Bottom-right corner (below the build menu):** a live minimap
   (`MinimapController`) — a second top-down camera rendered into a small
   texture, so it automatically shows the same fog-of-war/units/buildings
@@ -193,7 +197,8 @@ see note below):
 17. VFX pass — hit sparks, death poofs, gathering dust, construction dust
 18. Worker combat + hover tooltips — Workers can now fight/hunt boars for Food; hovering anything shows its name/status/HP/progress
 19. First real unit model — Soldiers use the "Axe Warrior" pack (Humanoid-rigged) instead of a capsule; Workers still primitives pending a civilian-style pack
-19b. Shared human body + animation — Workers and Soldiers both use the "Human Character Dummy" (Kevin Iglesias, Female/Male respectively), civ-tinted via the pack's own color palette, with real Idle/Walk/Gather/Mine/Farm/Build/Attack animation, terrain-aware ground alignment *(this commit)*
+19b. Shared human body + animation — Workers and Soldiers both use the "Human Character Dummy" (Kevin Iglesias, Female/Male respectively), civ-tinted via the pack's own color palette, with real Idle/Walk/Gather/Mine/Farm/Build/Attack animation, terrain-aware ground alignment
+20. Population cap + Houses — AoE-style: each faction starts with a base cap of 10, build Houses (30 Wood) to raise it by 5 each; Worker/Soldier training blocks once at the cap. Town Center now trains Workers directly (G hotkey, 50 Food) alongside Barracks training Soldiers; the AI opponent builds its own Houses and trains replacement Workers the same way *(this commit)*
 
 ## Design docs
 

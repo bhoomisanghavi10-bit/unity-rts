@@ -31,6 +31,11 @@ namespace KingdomsOfBharat.AI
         [SerializeField] private float farmBuildTime = 5f;
         [SerializeField] private float farmClearance = 3f;
         [SerializeField] private Vector3 farmOffset = new Vector3(-6f, 0f, 0f);
+        [SerializeField] private float houseWoodCost = 30f;
+        [SerializeField] private float houseBuildTime = 4f;
+        [SerializeField] private float houseClearance = 3f;
+        [SerializeField] private Vector3 houseOffset = new Vector3(0f, 0f, -6f);
+        [SerializeField] private int populationBuffer = 2;
 
         // Local to this controller, not a mutation on ResourceNode itself -
         // keeps the "who's gathering what" bookkeeping contained to one file.
@@ -38,6 +43,7 @@ namespace KingdomsOfBharat.AI
 
         private float _decisionTimer;
         private float _attackTimer;
+        private TownCenter _townCenter;
         private Barracks _barracks;
         private ConstructionSite _barracksSite;
         private bool _barracksBuilderAssigned;
@@ -45,10 +51,15 @@ namespace KingdomsOfBharat.AI
         private ConstructionSite _farmSite;
         private bool _farmBuilderAssigned;
         private bool _farmWorkerAssigned;
+        private House _house;
+        private ConstructionSite _houseSite;
+        private bool _houseBuilderAssigned;
+        private int _houseCount;
 
         private void Start()
         {
-            TownCenterFactory.Place(townCenterPosition, FactionId.Enemy);
+            GameObject townCenterGo = TownCenterFactory.Place(townCenterPosition, FactionId.Enemy);
+            townCenterGo.TryGetComponent(out _townCenter);
 
             for (int i = 0; i < startingWorkerCount; i++)
             {
@@ -71,6 +82,9 @@ namespace KingdomsOfBharat.AI
                 TryBuildFarm();
                 AssignFarmBuilderIfNeeded();
                 AssignFarmWorkerIfNeeded();
+                TryBuildHouse();
+                AssignHouseBuilderIfNeeded();
+                TryTrainWorkers();
             }
 
             _attackTimer += Time.deltaTime;
@@ -298,6 +312,94 @@ namespace KingdomsOfBharat.AI
                 _farmWorkerAssigned = true;
                 return;
             }
+        }
+
+        // Population.Cap/Current recompute fresh from Building.All/Unit.All
+        // each call (see Population), so no persistent house-count state
+        // is needed for the cap math itself - only for tracking the
+        // currently-in-progress house until it's complete, at which point
+        // tracking resets so a later call (population grown again) can
+        // start another one. AoE-style: builds proactively once room gets
+        // low, not only once actually full.
+        private void TryBuildHouse()
+        {
+            if (_houseSite != null && _houseSite.IsComplete)
+            {
+                _house = null;
+                _houseSite = null;
+                _houseBuilderAssigned = false;
+            }
+
+            if (_house != null)
+            {
+                return;
+            }
+
+            if (Population.Cap(FactionId.Enemy) - Population.Current(FactionId.Enemy) > populationBuffer)
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Enemy);
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Enemy)).BuildCostMultiplier;
+            if (stockpile.GetTotal(ResourceType.Wood) < houseWoodCost * multiplier)
+            {
+                return;
+            }
+
+            Vector3 candidateXz = townCenterPosition + houseOffset + new Vector3(_houseCount * 2.5f, 0f, 0f);
+            if (!TryResolveGroundHeight(candidateXz, out Vector3 point))
+            {
+                return;
+            }
+
+            if (!BarracksFactory.IsClear(point, houseClearance))
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Wood, -houseWoodCost * multiplier);
+
+            GameObject go = HouseFactory.Place(point, FactionId.Enemy, houseBuildTime);
+            go.TryGetComponent(out _house);
+            go.TryGetComponent(out _houseSite);
+            _houseCount++;
+        }
+
+        // Same shape as AssignBuilderIfNeeded/AssignFarmBuilderIfNeeded.
+        private void AssignHouseBuilderIfNeeded()
+        {
+            if (_houseSite == null || _houseBuilderAssigned || _houseSite.IsComplete)
+            {
+                return;
+            }
+
+            foreach (Unit unit in Unit.All)
+            {
+                if (!IsMine(unit) || !unit.TryGetComponent(out Builder builder))
+                {
+                    continue;
+                }
+
+                if (unit.TryGetComponent(out Gatherer gatherer))
+                {
+                    gatherer.CancelGather();
+                }
+
+                builder.BuildAt(_houseSite);
+                _houseBuilderAssigned = true;
+                return;
+            }
+        }
+
+        private void TryTrainWorkers()
+        {
+            if (_townCenter == null)
+            {
+                return;
+            }
+
+            _townCenter.RequestTrain();
         }
 
         private void TryAttack()

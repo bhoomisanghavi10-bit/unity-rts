@@ -5,18 +5,19 @@ using KingdomsOfBharat.Core;
 namespace KingdomsOfBharat.Buildings
 {
     // Placement flow for the Player's constructible buildings (Barracks,
-    // Farm): triggered by the B/F hotkeys or BuildMenu's buttons, both
-    // funnel through BeginPlacementBarracks()/BeginPlacementFarm(). Move
-    // the mouse to preview it (green if affordable and clear, red
-    // otherwise), left-click to confirm, right-click/Escape to cancel.
-    // Always places for FactionId.Player - it's an inherently
-    // player-driven tool, not a spawned/faction-tagged entity itself, so
-    // it hardcodes that rather than trying to derive it. Actual
-    // GameObject creation is BarracksFactory's/FarmFactory's job (shared
-    // with AiController's programmatic placement, for Barracks).
+    // Farm, House): triggered by the B/F/H hotkeys or BuildMenu's buttons,
+    // both funnel through BeginPlacementBarracks()/BeginPlacementFarm()/
+    // BeginPlacementHouse(). Move the mouse to preview it (green if
+    // affordable and clear, red otherwise), left-click to confirm,
+    // right-click/Escape to cancel. Always places for FactionId.Player -
+    // it's an inherently player-driven tool, not a spawned/faction-tagged
+    // entity itself, so it hardcodes that rather than trying to derive it.
+    // Actual GameObject creation is BarracksFactory's/FarmFactory's/
+    // HouseFactory's job (shared with AiController's programmatic
+    // placement, for Barracks and House).
     public class BuildingPlacer : MonoBehaviour
     {
-        private enum BuildingKind { Barracks, Farm }
+        private enum BuildingKind { Barracks, Farm, House }
 
         [Header("Barracks")]
         [SerializeField] private KeyCode placeBarracksKey = KeyCode.B;
@@ -30,6 +31,12 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float farmWoodCost = 60f;
         [SerializeField] private float farmBuildTime = 5f;
         [SerializeField] private Vector3 farmSize = new Vector3(2f, 0.6f, 2f);
+
+        [Header("House")]
+        [SerializeField] private KeyCode placeHouseKey = KeyCode.H;
+        [SerializeField] private float houseWoodCost = 30f;
+        [SerializeField] private float houseBuildTime = 4f;
+        [SerializeField] private Vector3 houseSize = new Vector3(2f, 1.6f, 2f);
 
         [SerializeField] private float minClearance = 3f;
 
@@ -63,6 +70,14 @@ namespace KingdomsOfBharat.Buildings
             }
         }
 
+        public void BeginPlacementHouse()
+        {
+            if (!_placing)
+            {
+                StartPlacing(BuildingKind.House);
+            }
+        }
+
         private void Update()
         {
             if (!_placing)
@@ -74,6 +89,10 @@ namespace KingdomsOfBharat.Buildings
                 else if (Input.GetKeyDown(placeFarmKey))
                 {
                     BeginPlacementFarm();
+                }
+                else if (Input.GetKeyDown(placeHouseKey))
+                {
+                    BeginPlacementHouse();
                 }
             }
 
@@ -155,16 +174,21 @@ namespace KingdomsOfBharat.Buildings
             ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
             float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).BuildCostMultiplier;
 
-            if (_kind == BuildingKind.Barracks)
+            switch (_kind)
             {
-                stockpile.Add(ResourceType.Wood, -barracksWoodCost * multiplier);
-                stockpile.Add(ResourceType.Stone, -barracksStoneCost * multiplier);
-                BarracksFactory.Place(point, FactionId.Player, barracksBuildTime);
-            }
-            else
-            {
-                stockpile.Add(ResourceType.Wood, -farmWoodCost * multiplier);
-                FarmFactory.Place(point, FactionId.Player, farmBuildTime);
+                case BuildingKind.Barracks:
+                    stockpile.Add(ResourceType.Wood, -barracksWoodCost * multiplier);
+                    stockpile.Add(ResourceType.Stone, -barracksStoneCost * multiplier);
+                    BarracksFactory.Place(point, FactionId.Player, barracksBuildTime);
+                    break;
+                case BuildingKind.Farm:
+                    stockpile.Add(ResourceType.Wood, -farmWoodCost * multiplier);
+                    FarmFactory.Place(point, FactionId.Player, farmBuildTime);
+                    break;
+                case BuildingKind.House:
+                    stockpile.Add(ResourceType.Wood, -houseWoodCost * multiplier);
+                    HouseFactory.Place(point, FactionId.Player, houseBuildTime);
+                    break;
             }
 
             CancelPlacing();
@@ -175,18 +199,26 @@ namespace KingdomsOfBharat.Buildings
             ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
             float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).BuildCostMultiplier;
 
-            if (_kind == BuildingKind.Barracks)
+            switch (_kind)
             {
-                return stockpile.GetTotal(ResourceType.Wood) >= barracksWoodCost * multiplier
-                    && stockpile.GetTotal(ResourceType.Stone) >= barracksStoneCost * multiplier;
+                case BuildingKind.Barracks:
+                    return stockpile.GetTotal(ResourceType.Wood) >= barracksWoodCost * multiplier
+                        && stockpile.GetTotal(ResourceType.Stone) >= barracksStoneCost * multiplier;
+                case BuildingKind.House:
+                    return stockpile.GetTotal(ResourceType.Wood) >= houseWoodCost * multiplier;
+                default:
+                    return stockpile.GetTotal(ResourceType.Wood) >= farmWoodCost * multiplier;
             }
-
-            return stockpile.GetTotal(ResourceType.Wood) >= farmWoodCost * multiplier;
         }
 
         private Vector3 CurrentSize()
         {
-            return _kind == BuildingKind.Barracks ? barracksSize : farmSize;
+            switch (_kind)
+            {
+                case BuildingKind.Barracks: return barracksSize;
+                case BuildingKind.House: return houseSize;
+                default: return farmSize;
+            }
         }
 
         private bool TryGetGroundPoint(out Vector3 point)

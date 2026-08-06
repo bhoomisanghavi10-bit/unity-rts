@@ -88,7 +88,7 @@ namespace KingdomsOfBharat.Buildings
 
         public void RequestTrain()
         {
-            if (!IsComplete || IsTraining)
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
             {
                 return;
             }
