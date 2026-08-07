@@ -2,7 +2,8 @@ using UnityEngine;
 
 namespace KingdomsOfBharat.Units
 {
-    // Loads the specific Kevin Iglesias animation clips this project
+    // Loads the specific Kevin Iglesias animation clips (Assets/Resources/human/)
+    // this project
     // actually uses (Idle, Walk, Gather, Mine, Farm, Build, Attack), for
     // whichever gender's dummy body a unit was spawned with. Deliberately
     // narrow - seven clips, not the whole pack - can extend later as more
@@ -38,7 +39,7 @@ namespace KingdomsOfBharat.Units
         {
             string genderFolder = gender == HumanModelFactory.Gender.Male ? "Male" : "Female";
             string tag = gender == HumanModelFactory.Gender.Male ? "HumanM" : "HumanF";
-            string basePath = $"Kevin Iglesias/Human Animations/Animations/{genderFolder}";
+            string basePath = $"human/Human Animations/Animations/{genderFolder}";
 
             AnimationClip idle = Load($"{basePath}/Idles/{tag}@Idle01");
             AnimationClip walk = Load($"{basePath}/Movement/Walk/{tag}@Walk01_Forward");

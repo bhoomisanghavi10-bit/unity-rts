@@ -4,7 +4,7 @@ using KingdomsOfBharat.Core;
 namespace KingdomsOfBharat.Units
 {
     // Instantiates the shared "Human Character Dummy" body (Kevin Iglesias
-    // pack, Assets/Resources/Kevin Iglesias/) used by every human unit type
+    // pack, Assets/Resources/human/) used by every human unit type
     // - Worker, Soldier, any future human role - reskinned per civ via the
     // pack's own color-palette materials rather than a hand-picked flat
     // tint, since the palette is a trim-sheet texture (same _MainTex
@@ -33,7 +33,7 @@ namespace KingdomsOfBharat.Units
         public static GameObject Spawn(Gender gender, Vector3 position, CivilizationId civilization)
         {
             string genderTag = gender == Gender.Male ? "M" : "F";
-            GameObject prefab = Resources.Load<GameObject>($"Kevin Iglesias/Human Character Dummy/Prefabs/HumanDummy_{genderTag} White");
+            GameObject prefab = Resources.Load<GameObject>($"human/Human Character Dummy/Prefabs/HumanDummy_{genderTag} White");
 
             GameObject root = new GameObject(prefab.name);
             root.transform.position = position;
@@ -156,8 +156,8 @@ namespace KingdomsOfBharat.Units
         private static void ApplyPaletteMaterial(GameObject go, string paletteName)
         {
             string materialPath = paletteName == null
-                ? "Kevin Iglesias/Human Character Dummy/Materials/HumanDummy"
-                : $"Kevin Iglesias/Human Character Dummy/Materials/HumanDummy_{paletteName}";
+                ? "human/Human Character Dummy/Materials/HumanDummy"
+                : $"human/Human Character Dummy/Materials/HumanDummy_{paletteName}";
             Material source = Resources.Load<Material>(materialPath);
 
             Material material = GameplayMaterial.CreateOpaque(Color.white);
