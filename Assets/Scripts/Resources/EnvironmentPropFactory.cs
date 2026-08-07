@@ -73,15 +73,35 @@ namespace KingdomsOfBharat.ResourceGathering
                 return;
             }
 
-            Bounds bounds = renderers[0].bounds;
+            Bounds worldBounds = renderers[0].bounds;
             for (int i = 1; i < renderers.Length; i++)
             {
-                bounds.Encapsulate(renderers[i].bounds);
+                worldBounds.Encapsulate(renderers[i].bounds);
+            }
+
+            // Props spawn at a random Y rotation - worldBounds.size is a
+            // WORLD-axis-aligned extent, so assigning it directly as the
+            // BoxCollider's LOCAL size only lines up near 0/180 degree
+            // rotations; at other angles the box misrepresents a
+            // non-square footprint (elongated bushes/rocks). Same fix as
+            // AnimalModelFactory: transform the world bounds' corners into
+            // root-local space so the box actually wraps the model at any
+            // rotation.
+            Bounds localBounds = new Bounds(root.transform.InverseTransformPoint(worldBounds.center), Vector3.zero);
+            Vector3 min = worldBounds.min;
+            Vector3 max = worldBounds.max;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = new Vector3(
+                    (i & 1) == 0 ? min.x : max.x,
+                    (i & 2) == 0 ? min.y : max.y,
+                    (i & 4) == 0 ? min.z : max.z);
+                localBounds.Encapsulate(root.transform.InverseTransformPoint(corner));
             }
 
             BoxCollider collider = root.AddComponent<BoxCollider>();
-            collider.center = root.transform.InverseTransformPoint(bounds.center);
-            collider.size = bounds.size;
+            collider.center = localBounds.center;
+            collider.size = localBounds.size;
         }
     }
 }

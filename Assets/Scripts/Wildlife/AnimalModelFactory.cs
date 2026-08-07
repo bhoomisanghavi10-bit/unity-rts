@@ -39,15 +39,32 @@ namespace KingdomsOfBharat.Wildlife
             model.transform.localRotation = Quaternion.identity;
             model.transform.localScale = Vector3.one;
 
-            // Same fix HumanModelFactory needed: a Generic-rig Animator
-            // auto-attached on import still applies baked-in root motion
-            // by default, which fights NavMeshAgent's own position control
-            // and produces the "gliding" symptom already seen once this
-            // project. Disabled preemptively here instead of waiting to
-            // rediscover it.
-            if (model.TryGetComponent(out Animator animator))
+            // GetComponentInChildren, not TryGetComponent directly on
+            // model: some packs (RedCambala's boar) put the Animator on a
+            // nested child rather than the model's own top-level
+            // GameObject, so a direct check silently misses it.
+            Animator animator = model.GetComponentInChildren<Animator>();
+            if (animator != null)
             {
+                // Same fix HumanModelFactory needed: a Generic-rig Animator
+                // auto-attached on import still applies baked-in root motion
+                // by default, which fights NavMeshAgent's own position control
+                // and produces the "gliding" symptom already seen once this
+                // project. Disabled preemptively here instead of waiting to
+                // rediscover it.
                 animator.applyRootMotion = false;
+
+                // Some packs (again, RedCambala's boar) ship their own
+                // Animator Controller asset. AnimationDriver/BoarAnimation-
+                // Driver/CowAnimationDriver drive the Animator directly via
+                // a hand-built PlayableGraph and never touch this
+                // controller's parameters, so if left assigned it keeps
+                // driving the Animator's default state (uncontrolled,
+                // parameter-less) in parallel with - and fighting - the
+                // custom graph. Clearing it hands the Animator over to the
+                // custom graph completely, same as packs that never shipped
+                // a controller in the first place.
+                animator.runtimeAnimatorController = null;
             }
 
             AlignBaseToGround(model, groundPoint.y);
@@ -88,15 +105,41 @@ namespace KingdomsOfBharat.Wildlife
                 return;
             }
 
-            Bounds bounds = renderers[0].bounds;
+            Bounds worldBounds = renderers[0].bounds;
             for (int i = 1; i < renderers.Length; i++)
             {
-                bounds.Encapsulate(renderers[i].bounds);
+                worldBounds.Encapsulate(renderers[i].bounds);
+            }
+
+            // Animals spawn at a random Y rotation (unlike static props,
+            // that rotation also changes at runtime as they turn to walk).
+            // worldBounds.size is a WORLD-axis-aligned extent - assigning
+            // it directly as the BoxCollider's LOCAL size only happens to
+            // line up when root's rotation is near 0/180 degrees. At any
+            // other rotation the box ends up narrower along one local axis
+            // and wider along the other than the actual (elongated,
+            // non-square) animal body, so right-click raycasts
+            // (SelectionManager reads hit.collider directly, single
+            // Physics.Raycast, no fallback) miss the visible model more
+            // often than not - the direct cause of milking/attack commands
+            // silently not registering. Transforming the world bounds'
+            // corners into root-local space instead gives a box that
+            // actually wraps the model regardless of root rotation.
+            Bounds localBounds = new Bounds(root.transform.InverseTransformPoint(worldBounds.center), Vector3.zero);
+            Vector3 min = worldBounds.min;
+            Vector3 max = worldBounds.max;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = new Vector3(
+                    (i & 1) == 0 ? min.x : max.x,
+                    (i & 2) == 0 ? min.y : max.y,
+                    (i & 4) == 0 ? min.z : max.z);
+                localBounds.Encapsulate(root.transform.InverseTransformPoint(corner));
             }
 
             BoxCollider collider = root.AddComponent<BoxCollider>();
-            collider.center = root.transform.InverseTransformPoint(bounds.center);
-            collider.size = bounds.size;
+            collider.center = localBounds.center;
+            collider.size = localBounds.size;
         }
     }
 }
