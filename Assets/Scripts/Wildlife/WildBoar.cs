@@ -6,11 +6,13 @@ using KingdomsOfBharat.Combat;
 namespace KingdomsOfBharat.Wildlife
 {
     // Dangerous wildlife (AoE-style boar, not a passive deer): wanders near
-    // its spawn point, but breaks off to chase and attack any unit -
-    // Player's or the AI's, no faction filter, wild animals are hostile to
-    // everyone - that strays within aggroRange. Killing it (Attackable
-    // reaching zero HP) leaves behind a Food carcass other units can
-    // gather from normally.
+    // its spawn point, and fights back against any unit - Player's or the
+    // AI's, no faction filter, wild animals are hostile to everyone - that
+    // gets within aggroRange, but holds its ground rather than chasing
+    // (doesn't move to close the distance itself - the human has to come
+    // to it, and it stays put for the whole encounter once engaged).
+    // Killing it (Attackable reaching zero HP) leaves behind a Food
+    // carcass other units can gather from normally.
     [RequireComponent(typeof(NavMeshAgent))]
     [RequireComponent(typeof(Attackable))]
     public class WildBoar : MonoBehaviour
@@ -81,10 +83,17 @@ namespace KingdomsOfBharat.Wildlife
 
         private void Engage()
         {
+            // Holds ground rather than chasing - cancels any in-progress
+            // wander movement the moment a target comes into range, and
+            // never issues a new destination itself while engaged. If the
+            // target isn't within attackRange yet, it just waits; the
+            // human closing the distance (or not) decides what happens
+            // next, not the boar.
+            _agent.ResetPath();
+
             float distance = Vector3.Distance(transform.position, _target.transform.position);
             if (distance > attackRange)
             {
-                _agent.SetDestination(_target.transform.position);
                 return;
             }
 

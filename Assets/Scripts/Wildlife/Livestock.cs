@@ -18,6 +18,13 @@ namespace KingdomsOfBharat.Wildlife
         private Vector3 _homePosition;
         private float _timer;
 
+        // Set by LivestockWorker for as long as it's actively milking this
+        // animal - wandering off mid-milk was forcing the worker to keep
+        // re-chasing it every few seconds, which read as the cow refusing
+        // to stay still. A cow being worked just stands there instead,
+        // same as a Worker's own gather/build/farm targets don't wander.
+        public bool IsBeingMilked { get; set; }
+
         private void Awake()
         {
             _agent = GetComponent<NavMeshAgent>();
@@ -26,6 +33,11 @@ namespace KingdomsOfBharat.Wildlife
 
         private void Update()
         {
+            if (IsBeingMilked)
+            {
+                return;
+            }
+
             _timer -= Time.deltaTime;
             if (_timer > 0f)
             {

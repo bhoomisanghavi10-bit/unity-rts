@@ -6,9 +6,10 @@ using KingdomsOfBharat.ResourceGathering;
 namespace KingdomsOfBharat.Wildlife
 {
     // Worker-side "milking" component: walk to a Livestock animal and
-    // produce Food for as long as it stays in range. Same "must be
-    // present" shape as Builder/FarmWorker, except the target itself can
-    // wander off, so staying in range may take re-chasing periodically.
+    // produce Food for as long as it stays in range. The target itself no
+    // longer wanders while actively being milked (see Livestock.
+    // IsBeingMilked), so once contact is made this no longer needs to
+    // re-chase - only the initial approach can require movement.
     [RequireComponent(typeof(UnitMover))]
     public class LivestockWorker : MonoBehaviour
     {
@@ -28,6 +29,11 @@ namespace KingdomsOfBharat.Wildlife
 
         public void StaffAt(Livestock target)
         {
+            if (_target != null)
+            {
+                _target.IsBeingMilked = false;
+            }
+
             _target = target;
             IsMilking = false;
             _mover.MoveTo(target.transform.position);
@@ -35,6 +41,11 @@ namespace KingdomsOfBharat.Wildlife
 
         public void CancelWork()
         {
+            if (_target != null)
+            {
+                _target.IsBeingMilked = false;
+            }
+
             _target = null;
             IsMilking = false;
         }
@@ -50,11 +61,13 @@ namespace KingdomsOfBharat.Wildlife
             if (!inRange)
             {
                 IsMilking = false;
+                _target.IsBeingMilked = false;
                 _mover.MoveTo(_target.transform.position);
                 return;
             }
 
             IsMilking = true;
+            _target.IsBeingMilked = true;
             FactionId faction = TryGetComponent(out FactionMember factionMember)
                 ? factionMember.Faction
                 : FactionId.Player;
