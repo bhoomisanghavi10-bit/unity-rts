@@ -15,8 +15,17 @@ namespace KingdomsOfBharat.Wildlife
     [RequireComponent(typeof(Attackable))]
     public class WildBoar : MonoBehaviour
     {
-        [SerializeField] private float wanderRadius = 6f;
-        [SerializeField] private float wanderInterval = 4f;
+        [SerializeField] private float wanderRadius = 4f;
+        [SerializeField] private float wanderInterval = 10f;
+        // Chance, each time the wander timer fires, of the boar just
+        // staying put instead of picking a new destination - the
+        // difference between "occasionally roots around near its spawn"
+        // and "runs somewhere new every few seconds," which read as
+        // frantic once a real animated-pose model replaced the plain
+        // capsule (a static model gets dragged along by NavMeshAgent with
+        // no walk animation, so frequent repositioning looked like
+        // sliding/darting rather than calm wandering).
+        [SerializeField] private float idleChance = 0.6f;
         [SerializeField] private float aggroRange = 4f;
         [SerializeField] private float attackRange = 1.5f;
         [SerializeField] private float damage = 8f;
@@ -118,7 +127,13 @@ namespace KingdomsOfBharat.Wildlife
                 return;
             }
 
-            _wanderTimer = wanderInterval + Random.Range(-1f, 1f);
+            _wanderTimer = wanderInterval + Random.Range(-2f, 2f);
+
+            if (Random.value < idleChance)
+            {
+                return;
+            }
+
             Vector2 offset = Random.insideUnitCircle * wanderRadius;
             Vector3 target = _homePosition + new Vector3(offset.x, 0f, offset.y);
             _agent.SetDestination(target);
