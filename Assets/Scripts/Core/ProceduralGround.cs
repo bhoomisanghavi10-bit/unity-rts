@@ -40,6 +40,15 @@ namespace KingdomsOfBharat.Core
             var meshCollider = gameObject.AddComponent<MeshCollider>();
             meshCollider.sharedMesh = mesh;
 
+            // Ground-height raycasts (HumanModelFactory, AiController) are
+            // restricted to this layer specifically, so they can't hit a
+            // unit's or building's collider standing in the way instead of
+            // the actual terrain. Falls back to layer 0 (Default) if the
+            // "Ground" layer hasn't been added to this project yet - still
+            // works, just loses the raycast-filtering protection.
+            int groundLayer = LayerMask.NameToLayer("Ground");
+            gameObject.layer = groundLayer >= 0 ? groundLayer : 0;
+
             gameObject.isStatic = true;
         }
 

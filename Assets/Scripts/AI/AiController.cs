@@ -474,10 +474,14 @@ namespace KingdomsOfBharat.AI
         // No mouse input available for the AI - fires its own downward ray
         // onto the Ground's existing MeshCollider instead of relying on
         // BuildingPlacer's ScreenPointToRay-based TryGetGroundPoint.
+        // Restricted to the Ground layer (see ProceduralGround /
+        // HumanModelFactory.GroundLayerMask) so this can't hit a nearby
+        // unit or building's collider first and place a foundation at
+        // that wrong height instead of the actual terrain.
         private static bool TryResolveGroundHeight(Vector3 xzPoint, out Vector3 point)
         {
             Vector3 origin = new Vector3(xzPoint.x, 50f, xzPoint.z);
-            if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 100f))
+            if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 100f, GroundLayerMask))
             {
                 point = hit.point;
                 return true;
@@ -485,6 +489,14 @@ namespace KingdomsOfBharat.AI
 
             point = Vector3.zero;
             return false;
+        }
+
+        private static readonly int GroundLayerMask = ResolveGroundLayerMask();
+
+        private static int ResolveGroundLayerMask()
+        {
+            int mask = LayerMask.GetMask("Ground");
+            return mask != 0 ? mask : ~0;
         }
     }
 }
