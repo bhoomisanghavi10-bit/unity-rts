@@ -1,5 +1,12 @@
 fileFormatVersion: 2
-guid: 377de5fd15a804c358059199caf92c68
+guid: dab9fbaaf814a8f4fbc8087047654be3
+AssetOrigin:
+  serializedVersion: 1
+  productId: 377614
+  packageName: 'Realistic Cow: Shepherd Valley'
+  packageVersion: 1.0
+  assetPath: Assets/Shepherd_Valley/HDRP/Models/SK_Cow.fbx
+  uploadId: 909530
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
@@ -7,14 +14,14 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: defaultMat
-    second: {fileID: 2100000, guid: 1c8328f294c7145c19cf1447abfbedb2, type: 2}
+      name: M_Cow
+    second: {fileID: 2100000, guid: 285081fa0fe474425b4223e77f374d68, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
     materialSearch: 1
     materialLocation: 1
-    searchTexturesGlobally: 0
+    searchTexturesGlobally: 1
   animations:
     legacyGenerateAnimations: 4
     bakeSimulation: 0
