@@ -52,6 +52,10 @@ namespace KingdomsOfBharat.Wildlife
             agent.height = 1f;
             agent.speed = 3f;
 
+            // NavMeshAgent's own auto-rotation wobbles at low speed and
+            // during frequent path resets - see AnimalFacing for why.
+            go.AddComponent<AnimalFacing>().Configure(agent);
+
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure(health);
             var boar = go.AddComponent<WildBoar>();

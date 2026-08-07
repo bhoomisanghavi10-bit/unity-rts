@@ -99,7 +99,10 @@ namespace KingdomsOfBharat.Wildlife
             // target isn't within attackRange yet, it just waits; the
             // human closing the distance (or not) decides what happens
             // next, not the boar.
-            _agent.ResetPath();
+            if (_agent.hasPath)
+            {
+                _agent.ResetPath();
+            }
 
             float distance = Vector3.Distance(transform.position, _target.transform.position);
             if (distance > attackRange)
