@@ -74,11 +74,15 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private void SpawnFarmland(Vector3 position)
         {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = "Farmland";
-            go.transform.position = position + Vector3.up * 0.1f;
-            go.transform.localScale = new Vector3(2.5f, 0.2f, 2.5f);
-            Colorize(go, new Color(0.75f, 0.65f, 0.25f));
+            GameObject go = EnvironmentPropFactory.TrySpawn("Farmland", ResolveGroundPoint(position));
+            if (go == null)
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                go.name = "Farmland";
+                go.transform.position = position + Vector3.up * 0.1f;
+                go.transform.localScale = new Vector3(2.5f, 0.2f, 2.5f);
+                Colorize(go, new Color(0.75f, 0.65f, 0.25f));
+            }
 
             var node = go.AddComponent<ResourceNode>();
             node.Configure(ResourceType.Food, startingAmount);
@@ -86,11 +90,15 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private void SpawnGoldMine(Vector3 position)
         {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            go.name = "GoldMine";
-            go.transform.position = position + Vector3.up * 0.5f;
-            go.transform.localScale = new Vector3(1f, 1f, 1f);
-            Colorize(go, new Color(0.85f, 0.7f, 0.15f));
+            GameObject go = EnvironmentPropFactory.TrySpawn("GoldMine", ResolveGroundPoint(position));
+            if (go == null)
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                go.name = "GoldMine";
+                go.transform.position = position + Vector3.up * 0.5f;
+                go.transform.localScale = new Vector3(1f, 1f, 1f);
+                Colorize(go, new Color(0.85f, 0.7f, 0.15f));
+            }
 
             var node = go.AddComponent<ResourceNode>();
             node.Configure(ResourceType.Gold, startingAmount);
@@ -98,11 +106,15 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private void SpawnStoneQuarry(Vector3 position)
         {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = "StoneQuarry";
-            go.transform.position = position + Vector3.up * 0.4f;
-            go.transform.localScale = new Vector3(1.4f, 0.8f, 1.4f);
-            Colorize(go, new Color(0.55f, 0.55f, 0.55f));
+            GameObject go = EnvironmentPropFactory.TrySpawn("StoneQuarry", ResolveGroundPoint(position));
+            if (go == null)
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                go.name = "StoneQuarry";
+                go.transform.position = position + Vector3.up * 0.4f;
+                go.transform.localScale = new Vector3(1.4f, 0.8f, 1.4f);
+                Colorize(go, new Color(0.55f, 0.55f, 0.55f));
+            }
 
             var node = go.AddComponent<ResourceNode>();
             node.Configure(ResourceType.Stone, startingAmount);

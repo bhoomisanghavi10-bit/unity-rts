@@ -35,13 +35,17 @@ namespace KingdomsOfBharat.Wildlife
 
         private void SpawnBoar(Vector3 position)
         {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            go.name = "WildBoar";
-            go.transform.position = position;
-            go.transform.localScale = new Vector3(0.8f, 0.6f, 0.8f);
+            GameObject go = AnimalModelFactory.TrySpawn("WildBoar", ResolveGroundPoint(position));
+            if (go == null)
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                go.name = "WildBoar";
+                go.transform.position = position;
+                go.transform.localScale = new Vector3(0.8f, 0.6f, 0.8f);
 
-            var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = GameplayMaterial.CreateOpaque(new Color(0.35f, 0.25f, 0.15f));
+                var renderer = go.GetComponent<MeshRenderer>();
+                renderer.sharedMaterial = GameplayMaterial.CreateOpaque(new Color(0.35f, 0.25f, 0.15f));
+            }
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f;
@@ -51,6 +55,16 @@ namespace KingdomsOfBharat.Wildlife
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure(health);
             go.AddComponent<WildBoar>();
+        }
+
+        // Only used for the real-model path (AnimalModelFactory): see
+        // ResourceNodeSpawner's identical helper for why. The primitive
+        // fallback keeps its existing flat-Y position unchanged.
+        private static Vector3 ResolveGroundPoint(Vector3 xzPoint)
+        {
+            return GroundReference.TryGetHeight(xzPoint, out float height)
+                ? new Vector3(xzPoint.x, height, xzPoint.z)
+                : xzPoint;
         }
     }
 }
