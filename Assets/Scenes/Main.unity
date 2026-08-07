@@ -328,6 +328,7 @@ MonoBehaviour:
   zoomSpeed: 400
   minHeight: 8
   maxHeight: 35
+  positionSmoothTime: 0.12
   mapMin: {x: -20, y: -20}
   mapMax: {x: 20, y: 20}
 --- !u!114 &100015
@@ -423,6 +424,9 @@ MonoBehaviour:
   noiseHeight: 0.6
   noiseScale: 0.15
   groundColor: {r: 0.36, g: 0.5, b: 0.28, a: 1}
+  dirtColor: {r: 0.5, g: 0.4, b: 0.26, a: 1}
+  rockColor: {r: 0.42, g: 0.38, b: 0.34, a: 1}
+  splatTextureSize: 256
 --- !u!1 &100030
 GameObject:
   m_ObjectHideFlags: 0
@@ -1094,6 +1098,11 @@ MonoBehaviour:
   farmBuildTime: 5
   farmClearance: 3
   farmOffset: {x: -6, y: 0, z: 0}
+  houseWoodCost: 30
+  houseBuildTime: 4
+  houseClearance: 3
+  houseOffset: {x: 0, y: 0, z: -6}
+  populationBuffer: 2
 --- !u!1 &100170
 GameObject:
   m_ObjectHideFlags: 0
@@ -1232,8 +1241,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dd4711ed74e048388ea70f6a63676f5a, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   playerCivilization: 0
   aiCivilization: 1
 --- !u!1 &100200
@@ -1278,8 +1287,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b9713b971fec4b749b1a7d68ea28162e, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   mapSize: 44
   textureSize: 256
   cameraHeight: 60
@@ -1327,8 +1336,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 025fab8148c24ef1a56c21bb0e4dcb74, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   maxDistance: 500
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
