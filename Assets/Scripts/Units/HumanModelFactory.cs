@@ -94,6 +94,12 @@ namespace KingdomsOfBharat.Units
             collider.radius = 0.4f;
             collider.height = 2f;
 
+            // Keeps this alignment correct as NavMeshAgent moves the root
+            // around after spawn, not just at this one initial moment -
+            // see GroundFollower for why a one-time alignment isn't
+            // enough.
+            root.AddComponent<GroundFollower>().Configure(model.transform);
+
             return root;
         }
 
