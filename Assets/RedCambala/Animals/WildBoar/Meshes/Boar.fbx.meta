@@ -1,14 +1,16 @@
 fileFormatVersion: 2
-guid: 6701f111c61c649a6a500793201b3ec3
+guid: 88be62c153c6b6747b05413f3e7993a8
+AssetOrigin:
+  serializedVersion: 1
+  productId: 262076
+  packageName: Wild boar
+  packageVersion: 1.0
+  assetPath: Assets/RedCambala/Animals/WildBoar/Meshes/Boar.fbx
+  uploadId: 620418
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
-  externalObjects:
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: M_Cow
-    second: {fileID: 2100000, guid: 285081fa0fe474425b4223e77f374d68, type: 2}
+  externalObjects: {}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -20,7 +22,7 @@ ModelImporter:
     bakeSimulation: 0
     resampleCurves: 1
     optimizeGameObjects: 0
-    removeConstantScaleCurves: 0
+    removeConstantScaleCurves: 1
     motionNodeName: 
     animationImportErrors: 
     animationImportWarnings: 
@@ -108,7 +110,7 @@ ModelImporter:
   humanoidOversampling: 1
   avatarSetup: 1
   addHumanoidExtraRootOnlyWhenUsingAvatar: 1
-  importBlendShapeDeformPercent: 1
+  importBlendShapeDeformPercent: 0
   remapMaterialsIfMaterialImportModeIsNone: 0
   additionalBone: 0
   userData: 
