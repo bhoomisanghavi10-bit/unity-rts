@@ -42,6 +42,10 @@ namespace KingdomsOfBharat.Wildlife
         private Attackable _target;
         private bool _carcassSpawned;
 
+        // For BoarAnimationDriver.
+        public bool IsDead => _selfAttackable != null && _selfAttackable.IsDead;
+        public bool IsAttacking { get; private set; }
+
         private void Awake()
         {
             _agent = GetComponent<NavMeshAgent>();
@@ -65,6 +69,12 @@ namespace KingdomsOfBharat.Wildlife
                 }
                 return;
             }
+
+            // Recomputed every tick rather than only set true where damage
+            // is dealt: this needs to stay true for the whole engagement
+            // (Attack animation plays continuously), not just flicker on
+            // for the instant a hit lands.
+            IsAttacking = false;
 
             if (_target == null || _target.IsDead)
             {
@@ -96,6 +106,8 @@ namespace KingdomsOfBharat.Wildlife
             {
                 return;
             }
+
+            IsAttacking = true;
 
             _attackCooldown -= Time.deltaTime;
             if (_attackCooldown <= 0f)

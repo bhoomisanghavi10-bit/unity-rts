@@ -39,6 +39,17 @@ namespace KingdomsOfBharat.Wildlife
             model.transform.localRotation = Quaternion.identity;
             model.transform.localScale = Vector3.one;
 
+            // Same fix HumanModelFactory needed: a Generic-rig Animator
+            // auto-attached on import still applies baked-in root motion
+            // by default, which fights NavMeshAgent's own position control
+            // and produces the "gliding" symptom already seen once this
+            // project. Disabled preemptively here instead of waiting to
+            // rediscover it.
+            if (model.TryGetComponent(out Animator animator))
+            {
+                animator.applyRootMotion = false;
+            }
+
             AlignBaseToGround(model, groundPoint.y);
             AddBoundsCollider(root, model);
             root.AddComponent<GroundFollower>().Configure(model.transform);

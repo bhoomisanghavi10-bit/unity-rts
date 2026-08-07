@@ -42,7 +42,12 @@ namespace KingdomsOfBharat.Wildlife
             agent.height = 1f;
             agent.speed = 2f;
 
-            go.AddComponent<Livestock>();
+            var livestock = go.AddComponent<Livestock>();
+
+            // Safe to add unconditionally, including on the primitive
+            // fallback with no Animator to drive - Configure() no-ops if
+            // it can't find one, same guard AnimationDriver uses.
+            go.AddComponent<CowAnimationDriver>().Configure(CowAnimationSet.Load(), agent, livestock);
         }
 
         // Only used for the real-model path (AnimalModelFactory): see

@@ -54,7 +54,12 @@ namespace KingdomsOfBharat.Wildlife
 
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure(health);
-            go.AddComponent<WildBoar>();
+            var boar = go.AddComponent<WildBoar>();
+
+            // Safe to add unconditionally, including on the primitive
+            // fallback with no Animator to drive - Configure() no-ops if
+            // it can't find one, same guard AnimationDriver uses.
+            go.AddComponent<BoarAnimationDriver>().Configure(BoarAnimationSet.Load(), agent, boar);
         }
 
         // Only used for the real-model path (AnimalModelFactory): see
