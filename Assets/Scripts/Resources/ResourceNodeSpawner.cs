@@ -58,11 +58,15 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private void SpawnTree(Vector3 position)
         {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            go.name = "Tree";
-            go.transform.position = position + Vector3.up;
-            go.transform.localScale = new Vector3(0.6f, 1f, 0.6f);
-            Colorize(go, new Color(0.25f, 0.45f, 0.2f));
+            GameObject go = EnvironmentPropFactory.TrySpawn("Trees", ResolveGroundPoint(position));
+            if (go == null)
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                go.name = "Tree";
+                go.transform.position = position + Vector3.up;
+                go.transform.localScale = new Vector3(0.6f, 1f, 0.6f);
+                Colorize(go, new Color(0.25f, 0.45f, 0.2f));
+            }
 
             var node = go.AddComponent<ResourceNode>();
             node.Configure(ResourceType.Wood, startingAmount);
@@ -106,14 +110,33 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private void SpawnFruitBush(Vector3 position)
         {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            go.name = "FruitBush";
-            go.transform.position = position + Vector3.up * 0.3f;
-            go.transform.localScale = new Vector3(0.7f, 0.6f, 0.7f);
-            Colorize(go, new Color(0.2f, 0.5f, 0.15f));
+            GameObject go = EnvironmentPropFactory.TrySpawn("Bushes", ResolveGroundPoint(position));
+            if (go == null)
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                go.name = "FruitBush";
+                go.transform.position = position + Vector3.up * 0.3f;
+                go.transform.localScale = new Vector3(0.7f, 0.6f, 0.7f);
+                Colorize(go, new Color(0.2f, 0.5f, 0.15f));
+            }
 
             var node = go.AddComponent<ResourceNode>();
             node.Configure(ResourceType.Food, fruitBushAmount);
+        }
+
+        // Only used for the real-model path (EnvironmentPropFactory): a
+        // detailed imported tree/bush mesh makes flat-Y placement mismatches
+        // obvious the same way it did for buildings and human models
+        // earlier this project, so this resolves the actual terrain height
+        // before spawning one. The primitive fallback keeps its existing
+        // flat-position behavior unchanged - untouched here deliberately,
+        // since it isn't the reported problem and primitives hide the
+        // mismatch anyway.
+        private static Vector3 ResolveGroundPoint(Vector3 xzPoint)
+        {
+            return GroundReference.TryGetHeight(xzPoint, out float height)
+                ? new Vector3(xzPoint.x, height, xzPoint.z)
+                : xzPoint;
         }
 
         private static void Colorize(GameObject go, Color color)
