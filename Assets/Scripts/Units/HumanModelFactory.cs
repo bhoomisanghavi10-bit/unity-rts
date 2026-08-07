@@ -103,33 +103,13 @@ namespace KingdomsOfBharat.Units
             return root;
         }
 
-        // Restricted to the Ground layer (see ProceduralGround) - an
-        // unfiltered downward raycast used to hit whatever's directly
-        // above the terrain first, which as the map filled up with more
-        // units and (now much bigger) building colliders started
-        // occasionally hitting a nearby unit or building instead of the
-        // actual ground, aligning the spawned unit to stand on top of
-        // that instead - the "hovering in mid-air, unselectable" bug seen
-        // in testing. Falls back to an unfiltered raycast if the Ground
-        // layer somehow isn't set up, rather than silently matching
-        // nothing and always using the fallback height.
-        private static readonly int GroundLayerMask = ResolveGroundLayerMask();
-
-        private static int ResolveGroundLayerMask()
-        {
-            int mask = LayerMask.GetMask("Ground");
-            return mask != 0 ? mask : ~0;
-        }
-
+        // See GroundReference - filters to the actual Ground GameObject by
+        // name rather than a Physics Layer, so this can't hit a unit's or
+        // building's collider standing in the way instead of the real
+        // terrain.
         private static float ResolveGroundHeight(Vector3 position, float fallback)
         {
-            Vector3 origin = new Vector3(position.x, position.y + 20f, position.z);
-            if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 100f, GroundLayerMask))
-            {
-                return hit.point.y;
-            }
-
-            return fallback;
+            return GroundReference.TryGetHeight(position, out float height) ? height : fallback;
         }
 
         // Small upward safety margin: bounds are measured here before the

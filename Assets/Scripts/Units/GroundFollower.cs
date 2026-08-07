@@ -1,4 +1,5 @@
 using UnityEngine;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.Units
 {
@@ -39,15 +40,7 @@ namespace KingdomsOfBharat.Units
                 return;
             }
 
-            Vector3 rootPosition = transform.position;
-            Vector3 origin = new Vector3(rootPosition.x, rootPosition.y + 20f, rootPosition.z);
-            int mask = LayerMask.GetMask("Ground");
-            if (mask == 0)
-            {
-                mask = ~0;
-            }
-
-            if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 100f, mask))
+            if (!GroundReference.TryGetHeight(transform.position, out float groundY))
             {
                 return;
             }
@@ -58,7 +51,7 @@ namespace KingdomsOfBharat.Units
                 bounds.Encapsulate(renderers[i].bounds);
             }
 
-            float correction = hit.point.y + GroundClearance - bounds.min.y;
+            float correction = groundY + GroundClearance - bounds.min.y;
             _model.position += new Vector3(0f, correction, 0f);
         }
     }
