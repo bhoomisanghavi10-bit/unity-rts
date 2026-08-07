@@ -481,7 +481,21 @@ namespace KingdomsOfBharat.AI
         private static bool TryResolveGroundHeight(Vector3 xzPoint, out Vector3 point)
         {
             Vector3 origin = new Vector3(xzPoint.x, 50f, xzPoint.z);
-            if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 100f, GroundLayerMask))
+            // Resolved per-call rather than cached in a static field:
+            // LayerMask.GetMask can't run from a MonoBehaviour's static
+            // field initializer (Unity throws - it runs before the engine
+            // is ready for that call), only from Awake/Start/Update or
+            // later. AiController is a MonoBehaviour, so this has to be a
+            // plain method call instead - cheap enough to not bother
+            // caching for how infrequently this runs (once per building
+            // placement attempt, not per frame).
+            int mask = LayerMask.GetMask("Ground");
+            if (mask == 0)
+            {
+                mask = ~0;
+            }
+
+            if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 100f, mask))
             {
                 point = hit.point;
                 return true;
@@ -489,14 +503,6 @@ namespace KingdomsOfBharat.AI
 
             point = Vector3.zero;
             return false;
-        }
-
-        private static readonly int GroundLayerMask = ResolveGroundLayerMask();
-
-        private static int ResolveGroundLayerMask()
-        {
-            int mask = LayerMask.GetMask("Ground");
-            return mask != 0 ? mask : ~0;
         }
     }
 }
