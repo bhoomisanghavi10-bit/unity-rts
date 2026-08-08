@@ -27,10 +27,8 @@ namespace KingdomsOfBharat.ResourceGathering
 
             GameObject root = new GameObject(prefab.name);
             root.transform.position = groundPoint;
-            // Random facing so a cluster of the same variant doesn't all
-            // stare the same direction - purely cosmetic, props have no
-            // gameplay-relevant orientation.
-            root.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+            // Left at identity rotation until AFTER the collider is sized
+            // below - see AddBoundsCollider for why.
 
             GameObject model = Object.Instantiate(prefab, root.transform);
             model.transform.localPosition = Vector3.zero;
@@ -39,6 +37,14 @@ namespace KingdomsOfBharat.ResourceGathering
 
             AlignBaseToGround(model, groundPoint.y);
             AddBoundsCollider(root, model);
+
+            // Random facing so a cluster of the same variant doesn't all
+            // stare the same direction - purely cosmetic, props have no
+            // gameplay-relevant orientation. Applied AFTER the collider is
+            // sized (not before) so the box - defined in local space - just
+            // rotates along with root from here on, staying correctly
+            // fitted at any facing.
+            root.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
 
             return root;
         }
@@ -73,35 +79,25 @@ namespace KingdomsOfBharat.ResourceGathering
                 return;
             }
 
-            Bounds worldBounds = renderers[0].bounds;
+            Bounds bounds = renderers[0].bounds;
             for (int i = 1; i < renderers.Length; i++)
             {
-                worldBounds.Encapsulate(renderers[i].bounds);
+                bounds.Encapsulate(renderers[i].bounds);
             }
 
-            // Props spawn at a random Y rotation - worldBounds.size is a
-            // WORLD-axis-aligned extent, so assigning it directly as the
-            // BoxCollider's LOCAL size only lines up near 0/180 degree
-            // rotations; at other angles the box misrepresents a
-            // non-square footprint (elongated bushes/rocks). Same fix as
-            // AnimalModelFactory: transform the world bounds' corners into
-            // root-local space so the box actually wraps the model at any
-            // rotation.
-            Bounds localBounds = new Bounds(root.transform.InverseTransformPoint(worldBounds.center), Vector3.zero);
-            Vector3 min = worldBounds.min;
-            Vector3 max = worldBounds.max;
-            for (int i = 0; i < 8; i++)
-            {
-                Vector3 corner = new Vector3(
-                    (i & 1) == 0 ? min.x : max.x,
-                    (i & 2) == 0 ? min.y : max.y,
-                    (i & 4) == 0 ? min.z : max.z);
-                localBounds.Encapsulate(root.transform.InverseTransformPoint(corner));
-            }
-
+            // root is still at identity rotation here (TrySpawn applies the
+            // random facing only after this runs), so world-space bounds
+            // and root-local bounds are identical - a genuinely tight fit.
+            // A prior version of this tried to correct for rotation by
+            // transforming the world bounds' 8 corners into local space
+            // AFTER rotating - that's provably never smaller than the true
+            // footprint and often much larger for elongated/asymmetric
+            // models (a rotated-then-rebounded box always over-estimates),
+            // which produced oversized colliders that swallowed clicks
+            // meant for neighboring objects map-wide.
             BoxCollider collider = root.AddComponent<BoxCollider>();
-            collider.center = localBounds.center;
-            collider.size = localBounds.size;
+            collider.center = root.transform.InverseTransformPoint(bounds.center);
+            collider.size = bounds.size;
         }
     }
 }
