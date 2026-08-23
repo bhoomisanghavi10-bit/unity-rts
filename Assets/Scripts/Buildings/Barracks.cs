@@ -2,6 +2,7 @@ using UnityEngine;
 using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -102,7 +103,8 @@ namespace KingdomsOfBharat.Buildings
 
             stockpile.Add(ResourceType.Food, -soldierFoodCost);
             stockpile.Add(ResourceType.Gold, -soldierGoldCost);
-            _remaining = trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier;
+            float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
+            _remaining = trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier * ageTrainMultiplier;
         }
 
         private void TickTraining()

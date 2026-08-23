@@ -1,6 +1,7 @@
 using UnityEngine;
 using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -54,13 +55,20 @@ namespace KingdomsOfBharat.Buildings
             _camera = UnityEngine.Camera.main;
         }
 
+        // Gated behind Classical Age - gives the Age system real teeth
+        // (rather than pure stat bonuses) and mirrors the same gate
+        // AiController's TryBuildBarracks() checks for the Enemy faction,
+        // so the requirement is symmetric between Player and AI.
         public void BeginPlacementBarracks()
         {
-            if (!_placing)
+            if (!_placing && AgeProgress.CurrentAge(FactionId.Player) != AgeId.Ancient)
             {
                 StartPlacing(BuildingKind.Barracks);
             }
         }
+
+        // For BuildMenu, to show/disable the Build Barracks button.
+        public static bool CanPlaceBarracks => AgeProgress.CurrentAge(FactionId.Player) != AgeId.Ancient;
 
         public void BeginPlacementFarm()
         {

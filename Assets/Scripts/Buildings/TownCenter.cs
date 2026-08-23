@@ -2,6 +2,7 @@ using UnityEngine;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -13,6 +14,11 @@ namespace KingdomsOfBharat.Buildings
     // creation reason documented there), plus a Population.HasRoom() check
     // Barracks now shares too - AoE-style, training blocks at the
     // population cap until a House is built.
+    //
+    // Also researches Age advancement (RequestAgeUp()) - deliberately its
+    // own independent countdown rather than sharing Worker training's
+    // _remaining slot, so a faction can train Workers and research an Age
+    // at the same time, same as real AoE's parallel queues.
     public class TownCenter : Building
     {
         [SerializeField] private KeyCode trainKey = KeyCode.G;
@@ -22,6 +28,8 @@ namespace KingdomsOfBharat.Buildings
 
         private FactionMember _factionMember;
         private float _remaining = -1f;
+        private float _ageUpRemaining = -1f;
+        private AgeId _ageUpTarget;
 
         private FactionId Faction
         {
@@ -37,16 +45,22 @@ namespace KingdomsOfBharat.Buildings
         }
 
         public bool IsTraining => _remaining >= 0f;
+        public bool IsAgingUp => _ageUpRemaining >= 0f;
+        public float AgeUpProgress => IsAgingUp ? 1f - (_ageUpRemaining / AgeProfile.For(_ageUpTarget).ResearchTime) : 0f;
 
         private void Update()
         {
             if (IsTraining)
             {
                 TickTraining();
-                return;
             }
 
-            if (Faction == FactionId.Player && Input.GetKeyDown(trainKey))
+            if (IsAgingUp)
+            {
+                TickAgeUp();
+            }
+
+            if (Faction == FactionId.Player && !IsTraining && Input.GetKeyDown(trainKey))
             {
                 RequestTrain();
             }
@@ -66,7 +80,8 @@ namespace KingdomsOfBharat.Buildings
             }
 
             stockpile.Add(ResourceType.Food, -workerFoodCost);
-            _remaining = trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier;
+            float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
+            _remaining = trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier * ageTrainMultiplier;
         }
 
         private void TickTraining()
@@ -76,6 +91,39 @@ namespace KingdomsOfBharat.Buildings
             {
                 WorkerFactory.Spawn(transform.position + rallyOffset, Faction);
                 _remaining = -1f;
+            }
+        }
+
+        public void RequestAgeUp()
+        {
+            if (IsAgingUp || !AgeProgress.HasNextAge(Faction))
+            {
+                return;
+            }
+
+            AgeId next = AgeProgress.NextAge(Faction);
+            AgeProfile profile = AgeProfile.For(next);
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Wood) < profile.WoodCost
+                || stockpile.GetTotal(ResourceType.Stone) < profile.StoneCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Wood, -profile.WoodCost);
+            stockpile.Add(ResourceType.Stone, -profile.StoneCost);
+            _ageUpTarget = next;
+            _ageUpRemaining = profile.ResearchTime;
+        }
+
+        private void TickAgeUp()
+        {
+            _ageUpRemaining -= Time.deltaTime;
+            if (_ageUpRemaining <= 0f)
+            {
+                AgeProgress.Advance(Faction, _ageUpTarget);
+                _ageUpRemaining = -1f;
             }
         }
     }

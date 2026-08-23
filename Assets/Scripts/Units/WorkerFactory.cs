@@ -7,6 +7,7 @@ using KingdomsOfBharat.Core;
 using KingdomsOfBharat.FogOfWar;
 using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.Wildlife;
+using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Units
 {
@@ -27,6 +28,11 @@ namespace KingdomsOfBharat.Units
         {
             CivilizationId civilization = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civilization);
+            // Baked in at spawn time, same as the civ bonus - a later Age-up
+            // doesn't retroactively boost units that already exist, only
+            // ones trained from then on, matching how CivilizationProfile's
+            // own bonuses already work here.
+            AgeProfile age = AgeProfile.For(AgeProgress.CurrentAge(faction));
 
             GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Female, position, civilization);
             go.name = faction == FactionId.Player
@@ -41,11 +47,11 @@ namespace KingdomsOfBharat.Units
             var unit = go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
-            go.AddComponent<Gatherer>().SetRateMultiplier(profile.GatherRateMultiplier);
+            go.AddComponent<Gatherer>().SetRateMultiplier(profile.GatherRateMultiplier * age.GatherRateMultiplier);
             go.AddComponent<Builder>();
             go.AddComponent<FarmWorker>();
             go.AddComponent<LivestockWorker>();
-            go.AddComponent<Attackable>().Configure(20f * profile.MaxHealthMultiplier);
+            go.AddComponent<Attackable>().Configure(20f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             go.AddComponent<MeleeAttacker>().SetBaseDamage(2f);
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Female), agent, unit);

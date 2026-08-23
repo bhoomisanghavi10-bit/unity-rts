@@ -5,6 +5,7 @@ using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Combat;
+using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.AI
 {
@@ -36,6 +37,7 @@ namespace KingdomsOfBharat.AI
         [SerializeField] private float houseClearance = 3f;
         [SerializeField] private Vector3 houseOffset = new Vector3(0f, 0f, -6f);
         [SerializeField] private int populationBuffer = 2;
+        [SerializeField] private float ageUpResourceBuffer = 1.5f;
 
         // Local to this controller, not a mutation on ResourceNode itself -
         // keeps the "who's gathering what" bookkeeping contained to one file.
@@ -76,6 +78,7 @@ namespace KingdomsOfBharat.AI
             {
                 _decisionTimer = 0f;
                 AssignIdleWorkers();
+                TryAgeUp();
                 TryBuildBarracks();
                 AssignBuilderIfNeeded();
                 TryTrainSoldiers();
@@ -150,9 +153,36 @@ namespace KingdomsOfBharat.AI
             return nearest;
         }
 
+        // Ages up once it's holding a comfortable buffer past the next
+        // Age's cost - mirrors the "builds Houses proactively before
+        // hitting the cap" convention already used elsewhere in this
+        // controller: act early on a margin rather than reactively at the
+        // exact threshold. RequestAgeUp() itself is the source of truth
+        // for cost/eligibility/in-progress checks; this is just the
+        // decision of *when* to call it.
+        private void TryAgeUp()
+        {
+            if (_townCenter == null || _townCenter.IsAgingUp || !AgeProgress.HasNextAge(FactionId.Enemy))
+            {
+                return;
+            }
+
+            AgeProfile nextProfile = AgeProfile.For(AgeProgress.NextAge(FactionId.Enemy));
+            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Enemy);
+            if (stockpile.GetTotal(ResourceType.Wood) < nextProfile.WoodCost * ageUpResourceBuffer
+                || stockpile.GetTotal(ResourceType.Stone) < nextProfile.StoneCost * ageUpResourceBuffer)
+            {
+                return;
+            }
+
+            _townCenter.RequestAgeUp();
+        }
+
         private void TryBuildBarracks()
         {
-            if (_barracks != null)
+            // Symmetric with the Player's own gate in BuildingPlacer -
+            // the AI can't build a Barracks before Classical Age either.
+            if (_barracks != null || AgeProgress.CurrentAge(FactionId.Enemy) == AgeId.Ancient)
             {
                 return;
             }

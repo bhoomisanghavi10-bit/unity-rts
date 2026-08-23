@@ -4,6 +4,7 @@ using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.FogOfWar;
+using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Combat
 {
@@ -22,6 +23,8 @@ namespace KingdomsOfBharat.Combat
         {
             CivilizationId civilization = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civilization);
+            // Baked in at spawn time - see WorkerFactory's identical note.
+            AgeProfile age = AgeProfile.For(AgeProgress.CurrentAge(faction));
 
             GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
             go.name = faction == FactionId.Player
@@ -36,7 +39,7 @@ namespace KingdomsOfBharat.Combat
             var unit = go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
-            go.AddComponent<Attackable>().Configure(30f * profile.MaxHealthMultiplier);
+            go.AddComponent<Attackable>().Configure(30f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             go.AddComponent<MeleeAttacker>().SetDamageMultiplier(profile.SoldierDamageMultiplier);
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);
