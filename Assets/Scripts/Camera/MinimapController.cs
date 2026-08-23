@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace KingdomsOfBharat.Camera
 {
@@ -8,14 +9,17 @@ namespace KingdomsOfBharat.Camera
     // buildings all show up on the minimap automatically with zero extra
     // compositing code, guaranteed to match FogOfWarManager's own visuals
     // since it's the same geometry. Click/drag on the minimap re-centers
-    // the main camera there.
+    // the main camera there. uGUI replacement for the original OnGUI
+    // version - the render texture is displayed via a RawImage Canvas
+    // child (wired up in the Inspector) instead of GUI.DrawTexture, and
+    // input is tracked against that RawImage's RectTransform instead of a
+    // manually computed screen Rect.
     public class MinimapController : MonoBehaviour
     {
         [SerializeField] private float mapSize = 44f;
         [SerializeField] private int textureSize = 256;
         [SerializeField] private float cameraHeight = 60f;
-        [SerializeField] private Vector2 screenSize = new Vector2(220f, 220f);
-        [SerializeField] private float screenMargin = 10f;
+        [SerializeField] private RawImage display;
 
         // SelectionManager checks this so a click meant to jump the camera
         // via the minimap doesn't also register as a select/move command
@@ -25,13 +29,13 @@ namespace KingdomsOfBharat.Camera
 
         private RTSCameraController _mainCameraController;
         private RenderTexture _renderTexture;
-        private Rect _screenRect;
 
         private void Awake()
         {
             _mainCameraController = UnityEngine.Camera.main.GetComponent<RTSCameraController>();
 
             _renderTexture = new RenderTexture(textureSize, textureSize, 16);
+            display.texture = _renderTexture;
 
             var camGo = new GameObject("MinimapCamera");
             camGo.transform.SetParent(transform, false);
@@ -50,31 +54,25 @@ namespace KingdomsOfBharat.Camera
             minimapCamera.depth = -10f;
         }
 
-        private void OnGUI()
+        private void Update()
         {
-            _screenRect = new Rect(
-                Screen.width - screenSize.x - screenMargin,
-                Screen.height - screenSize.y - screenMargin,
-                screenSize.x, screenSize.y);
-
-            GUI.DrawTexture(_screenRect, _renderTexture, ScaleMode.StretchToFill, false);
-
             HandleInput();
         }
 
         private void HandleInput()
         {
-            Vector2 mouse = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
-            IsPointerOverMinimap = _screenRect.Contains(mouse);
+            RectTransform rt = display.rectTransform;
+            IsPointerOverMinimap = RectTransformUtility.RectangleContainsScreenPoint(rt, Input.mousePosition, null);
 
             if (!IsPointerOverMinimap || !Input.GetMouseButton(0))
             {
                 return;
             }
 
-            Vector2 local = mouse - new Vector2(_screenRect.x, _screenRect.y);
-            float normX = local.x / _screenRect.width;
-            float normZ = 1f - local.y / _screenRect.height;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(rt, Input.mousePosition, null, out Vector2 local);
+
+            float normX = (local.x - rt.rect.x) / rt.rect.width;
+            float normZ = (local.y - rt.rect.y) / rt.rect.height;
 
             float half = mapSize * 0.5f;
             float worldX = Mathf.Lerp(-half, half, normX);
