@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.Buildings;
@@ -13,16 +14,19 @@ namespace KingdomsOfBharat.UI
     // whatever's directly under it, for anything in the game: units,
     // buildings, resource nodes, wildlife. Same unfiltered raycast
     // SelectionManager/BuildingPlacer already use, so it always agrees
-    // with what a click there would actually hit.
+    // with what a click there would actually hit. uGUI/TMP replacement
+    // for the original OnGUI version - panelRoot is a Canvas child
+    // repositioned to the cursor and toggled active/inactive instead of
+    // being conditionally drawn every frame.
     public class HoverTooltip : MonoBehaviour
     {
         [SerializeField] private float maxDistance = 500f;
+        [SerializeField] private RectTransform panelRoot;
+        [SerializeField] private TMP_Text line1Label;
+        [SerializeField] private TMP_Text line2Label;
+        [SerializeField] private TMP_Text line3Label;
 
         private UnityEngine.Camera _camera;
-        private GUIStyle _style;
-        private string _line1;
-        private string _line2;
-        private string _line3;
 
         private void Awake()
         {
@@ -31,89 +35,63 @@ namespace KingdomsOfBharat.UI
 
         private void Update()
         {
-            _line1 = null;
-            _line2 = null;
-            _line3 = null;
+            string line1 = null;
+            string line2 = null;
+            string line3 = null;
 
-            if (BuildingPlacer.IsPlacing || MinimapController.IsPointerOverMinimap)
+            if (!BuildingPlacer.IsPlacing && !MinimapController.IsPointerOverMinimap)
+            {
+                Ray ray = _camera.ScreenPointToRay(Input.mousePosition);
+                if (Physics.Raycast(ray, out RaycastHit hit, maxDistance))
+                {
+                    GameObject go = hit.collider.gameObject;
+                    line1 = go.name;
+
+                    if (go.TryGetComponent(out FactionMember factionMember))
+                    {
+                        line1 += factionMember.Faction == FactionId.Enemy ? " (Enemy)" : " (Player)";
+                    }
+
+                    if (go.TryGetComponent(out Unit unit))
+                    {
+                        line2 = UnitStatus.Describe(unit);
+                    }
+                    else if (go.TryGetComponent(out ConstructionSite site) && !site.IsComplete)
+                    {
+                        line2 = $"Building: {(int)(site.Progress * 100f)}%";
+                    }
+                    else if (go.TryGetComponent(out ResourceNode node))
+                    {
+                        line2 = node.ResourceType.ToString();
+                    }
+
+                    if (go.TryGetComponent(out Attackable attackable))
+                    {
+                        line3 = $"HP: {(int)attackable.Health}/{(int)attackable.MaxHealth}";
+                    }
+                }
+            }
+
+            panelRoot.gameObject.SetActive(line1 != null);
+            if (line1 == null)
             {
                 return;
             }
 
-            Ray ray = _camera.ScreenPointToRay(Input.mousePosition);
-            if (!Physics.Raycast(ray, out RaycastHit hit, maxDistance))
+            panelRoot.position = new Vector3(Input.mousePosition.x + 16f, Input.mousePosition.y - 16f, 0f);
+
+            line1Label.text = line1;
+            line2Label.gameObject.SetActive(line2 != null);
+            if (line2 != null)
             {
-                return;
+                line2Label.text = line2;
             }
 
-            GameObject go = hit.collider.gameObject;
-            _line1 = go.name;
-
-            if (go.TryGetComponent(out FactionMember factionMember))
+            line3Label.gameObject.SetActive(line3 != null);
+            if (line3 != null)
             {
-                _line1 += factionMember.Faction == FactionId.Enemy ? " (Enemy)" : " (Player)";
+                line3Label.text = line3;
             }
-
-            if (go.TryGetComponent(out Unit unit))
-            {
-                _line2 = UnitStatus.Describe(unit);
-            }
-            else if (go.TryGetComponent(out ConstructionSite site) && !site.IsComplete)
-            {
-                _line2 = $"Building: {(int)(site.Progress * 100f)}%";
-            }
-            else if (go.TryGetComponent(out ResourceNode node))
-            {
-                _line2 = node.ResourceType.ToString();
-            }
-
-            if (go.TryGetComponent(out Attackable attackable))
-            {
-                _line3 = $"HP: {(int)attackable.Health}/{(int)attackable.MaxHealth}";
-            }
-        }
-
-        private void OnGUI()
-        {
-            if (_line1 == null)
-            {
-                return;
-            }
-
-            EnsureStyle();
-
-            Vector2 mouse = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
-            float width = 160f;
-            float height = 20f + (_line2 != null ? 18f : 0f) + (_line3 != null ? 18f : 0f);
-            Rect rect = new Rect(mouse.x + 16f, mouse.y + 16f, width, height);
-
-            GUI.Box(rect, GUIContent.none);
-
-            float y = rect.y + 2f;
-            GUI.Label(new Rect(rect.x + 6f, y, width - 12f, 18f), _line1, _style);
-            y += 18f;
-
-            if (_line2 != null)
-            {
-                GUI.Label(new Rect(rect.x + 6f, y, width - 12f, 18f), _line2, _style);
-                y += 18f;
-            }
-
-            if (_line3 != null)
-            {
-                GUI.Label(new Rect(rect.x + 6f, y, width - 12f, 18f), _line3, _style);
-            }
-        }
-
-        private void EnsureStyle()
-        {
-            if (_style != null)
-            {
-                return;
-            }
-
-            _style = new GUIStyle(GUI.skin.label) { fontSize = 12 };
-            _style.normal.textColor = Color.white;
         }
     }
 }
