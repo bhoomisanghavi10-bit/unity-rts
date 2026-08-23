@@ -6,11 +6,18 @@ using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Buildings
 {
-    // Trains a Soldier unit for whichever faction owns this Barracks. Every
-    // completed, idle Barracks trains one Soldier when RequestTrain() is
-    // called - the Player's via the train hotkey (Player-owned Barracks
-    // only) or BuildMenu's Train Soldier button, the AI's via AiController -
-    // all funnel through the same entry point.
+    // Trains Soldier/Archer units and researches Attack/Armor upgrades for
+    // whichever faction owns this Barracks - the Player's via the train
+    // hotkey (Soldier only) or BuildMenu's buttons, the AI's via
+    // AiController - all funnel through the same entry points.
+    //
+    // Training (Soldier/Archer) shares one queue slot (_remaining), same as
+    // before Archers existed - only one unit trains at a time. Research
+    // (Attack/Armor) is its own independent countdown per track, mirroring
+    // TownCenter's Age-up-alongside-Worker-training shape: a faction can
+    // train a unit and research an upgrade at the same time, and even
+    // research both tracks at once, since real AoE's Blacksmith queues
+    // don't block each other either.
     //
     // Deliberately NOT [RequireComponent(typeof(FactionMember))]: that would
     // auto-add a default (Player) FactionMember the instant AddComponent
@@ -37,13 +44,20 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private KeyCode trainKey = KeyCode.T;
         [SerializeField] private float soldierFoodCost = 50f;
         [SerializeField] private float soldierGoldCost = 20f;
+        [SerializeField] private float archerFoodCost = 40f;
+        [SerializeField] private float archerGoldCost = 35f;
         [SerializeField] private float trainTime = 5f;
         [SerializeField] private Vector3 rallyOffset = new Vector3(3f, 0f, 3f);
+        [SerializeField] private float upgradeGoldCostPerTier = 80f;
+        [SerializeField] private float upgradeResearchTimePerTier = 15f;
 
         private ConstructionSite _site;
         private bool _siteResolved;
         private FactionMember _factionMember;
         private float _remaining = -1f;
+        private bool _trainingArcher;
+        private float _attackResearchRemaining = -1f;
+        private float _armorResearchRemaining = -1f;
 
         private ConstructionSite Site
         {
@@ -72,16 +86,40 @@ namespace KingdomsOfBharat.Buildings
 
         public bool IsComplete => Site == null || Site.IsComplete;
         public bool IsTraining => _remaining >= 0f;
+        public bool IsResearchingAttack => _attackResearchRemaining >= 0f;
+        public bool IsResearchingArmor => _armorResearchRemaining >= 0f;
+        public float AttackResearchProgress => IsResearchingAttack
+            ? 1f - (_attackResearchRemaining / (upgradeResearchTimePerTier * (UpgradeProgress.AttackTier(Faction) + 1)))
+            : 0f;
+        public float ArmorResearchProgress => IsResearchingArmor
+            ? 1f - (_armorResearchRemaining / (upgradeResearchTimePerTier * (UpgradeProgress.ArmorTier(Faction) + 1)))
+            : 0f;
+
+        // Exposed so BuildMenu's cost label reads the same number
+        // RequestResearchAttack/Armor actually charge, instead of
+        // duplicating the *(tier+1) formula and risking the two drifting
+        // apart if upgradeGoldCostPerTier is ever tuned in the Inspector.
+        public float NextAttackUpgradeCost => upgradeGoldCostPerTier * (UpgradeProgress.AttackTier(Faction) + 1);
+        public float NextArmorUpgradeCost => upgradeGoldCostPerTier * (UpgradeProgress.ArmorTier(Faction) + 1);
 
         private void Update()
         {
             if (IsTraining)
             {
                 TickTraining();
-                return;
             }
 
-            if (Faction == FactionId.Player && Input.GetKeyDown(trainKey))
+            if (IsResearchingAttack)
+            {
+                TickAttackResearch();
+            }
+
+            if (IsResearchingArmor)
+            {
+                TickArmorResearch();
+            }
+
+            if (Faction == FactionId.Player && !IsTraining && Input.GetKeyDown(trainKey))
             {
                 RequestTrain();
             }
@@ -103,8 +141,34 @@ namespace KingdomsOfBharat.Buildings
 
             stockpile.Add(ResourceType.Food, -soldierFoodCost);
             stockpile.Add(ResourceType.Gold, -soldierGoldCost);
+            _trainingArcher = false;
+            _remaining = ScaledTrainTime();
+        }
+
+        public void RequestTrainArcher()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Food) < archerFoodCost
+                || stockpile.GetTotal(ResourceType.Gold) < archerGoldCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Food, -archerFoodCost);
+            stockpile.Add(ResourceType.Gold, -archerGoldCost);
+            _trainingArcher = true;
+            _remaining = ScaledTrainTime();
+        }
+
+        private float ScaledTrainTime()
+        {
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
-            _remaining = trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier * ageTrainMultiplier;
+            return trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier * ageTrainMultiplier;
         }
 
         private void TickTraining()
@@ -112,8 +176,73 @@ namespace KingdomsOfBharat.Buildings
             _remaining -= Time.deltaTime;
             if (_remaining <= 0f)
             {
-                SoldierFactory.Spawn(transform.position + rallyOffset, Faction);
+                if (_trainingArcher)
+                {
+                    ArcherFactory.Spawn(transform.position + rallyOffset, Faction);
+                }
+                else
+                {
+                    SoldierFactory.Spawn(transform.position + rallyOffset, Faction);
+                }
                 _remaining = -1f;
+            }
+        }
+
+        public void RequestResearchAttack()
+        {
+            if (!IsComplete || IsResearchingAttack || !UpgradeProgress.HasNextAttackTier(Faction))
+            {
+                return;
+            }
+
+            int tier = UpgradeProgress.AttackTier(Faction);
+            float cost = upgradeGoldCostPerTier * (tier + 1);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < cost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -cost);
+            _attackResearchRemaining = upgradeResearchTimePerTier * (tier + 1);
+        }
+
+        public void RequestResearchArmor()
+        {
+            if (!IsComplete || IsResearchingArmor || !UpgradeProgress.HasNextArmorTier(Faction))
+            {
+                return;
+            }
+
+            int tier = UpgradeProgress.ArmorTier(Faction);
+            float cost = upgradeGoldCostPerTier * (tier + 1);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < cost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -cost);
+            _armorResearchRemaining = upgradeResearchTimePerTier * (tier + 1);
+        }
+
+        private void TickAttackResearch()
+        {
+            _attackResearchRemaining -= Time.deltaTime;
+            if (_attackResearchRemaining <= 0f)
+            {
+                UpgradeProgress.AdvanceAttack(Faction);
+                _attackResearchRemaining = -1f;
+            }
+        }
+
+        private void TickArmorResearch()
+        {
+            _armorResearchRemaining -= Time.deltaTime;
+            if (_armorResearchRemaining <= 0f)
+            {
+                UpgradeProgress.AdvanceArmor(Faction);
+                _armorResearchRemaining = -1f;
             }
         }
     }

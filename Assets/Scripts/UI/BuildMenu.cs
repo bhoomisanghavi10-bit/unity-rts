@@ -33,6 +33,11 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button houseButton;
         [SerializeField] private Button workerButton;
         [SerializeField] private Button soldierButton;
+        [SerializeField] private Button archerButton;
+        [SerializeField] private Button attackUpgradeButton;
+        [SerializeField] private TMP_Text attackUpgradeLabel;
+        [SerializeField] private Button armorUpgradeButton;
+        [SerializeField] private TMP_Text armorUpgradeLabel;
         [SerializeField] private Button ageButton;
         [SerializeField] private TMP_Text ageLabel;
 
@@ -49,6 +54,9 @@ namespace KingdomsOfBharat.UI
             houseButton.onClick.AddListener(() => _placer.BeginPlacementHouse());
             workerButton.onClick.AddListener(TrainWorkerAtSelected);
             soldierButton.onClick.AddListener(TrainSoldierAtSelected);
+            archerButton.onClick.AddListener(TrainArcherAtSelected);
+            attackUpgradeButton.onClick.AddListener(ResearchAttackAtSelected);
+            armorUpgradeButton.onClick.AddListener(ResearchArmorAtSelected);
             ageButton.onClick.AddListener(RequestAgeUpAtSelected);
         }
 
@@ -68,6 +76,9 @@ namespace KingdomsOfBharat.UI
             workerButton.gameObject.SetActive(townCenter != null);
             ageButton.gameObject.SetActive(townCenter != null);
             soldierButton.gameObject.SetActive(barracks != null);
+            archerButton.gameObject.SetActive(barracks != null);
+            attackUpgradeButton.gameObject.SetActive(barracks != null);
+            armorUpgradeButton.gameObject.SetActive(barracks != null);
 
             if (showPlacement)
             {
@@ -86,8 +97,49 @@ namespace KingdomsOfBharat.UI
 
             if (barracks != null)
             {
-                soldierButton.interactable = barracks.IsComplete && !barracks.IsTraining;
+                UpdateBarracksButtons(barracks);
             }
+        }
+
+        private void UpdateBarracksButtons(Barracks barracks)
+        {
+            bool canTrain = barracks.IsComplete && !barracks.IsTraining;
+            soldierButton.interactable = canTrain;
+            archerButton.interactable = canTrain;
+
+            UpdateUpgradeButton(
+                attackUpgradeButton, attackUpgradeLabel, "Attack",
+                barracks.IsComplete, barracks.IsResearchingAttack, barracks.AttackResearchProgress,
+                UpgradeProgress.AttackTier(FactionId.Player), UpgradeProgress.HasNextAttackTier(FactionId.Player),
+                barracks.NextAttackUpgradeCost);
+
+            UpdateUpgradeButton(
+                armorUpgradeButton, armorUpgradeLabel, "Armor",
+                barracks.IsComplete, barracks.IsResearchingArmor, barracks.ArmorResearchProgress,
+                UpgradeProgress.ArmorTier(FactionId.Player), UpgradeProgress.HasNextArmorTier(FactionId.Player),
+                barracks.NextArmorUpgradeCost);
+        }
+
+        private static void UpdateUpgradeButton(
+            Button button, TMP_Text label, string trackName,
+            bool barracksComplete, bool isResearching, float progress, int tier, bool hasNextTier, float goldCost)
+        {
+            if (isResearching)
+            {
+                button.interactable = false;
+                label.text = $"Researching {trackName}... {(int)(progress * 100f)}%";
+                return;
+            }
+
+            if (!hasNextTier)
+            {
+                button.interactable = false;
+                label.text = $"{trackName} (Max)";
+                return;
+            }
+
+            button.interactable = barracksComplete;
+            label.text = $"Upgrade {trackName} (Tier {tier + 1}, {(int)goldCost} Gold)";
         }
 
         private void SetPlacementButtonsActive(bool active)
@@ -133,6 +185,30 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
                 barracks.RequestTrain();
+            }
+        }
+
+        private void TrainArcherAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                barracks.RequestTrainArcher();
+            }
+        }
+
+        private void ResearchAttackAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                barracks.RequestResearchAttack();
+            }
+        }
+
+        private void ResearchArmorAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                barracks.RequestResearchArmor();
             }
         }
 

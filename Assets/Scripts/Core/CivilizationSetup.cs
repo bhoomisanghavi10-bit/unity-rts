@@ -20,6 +20,16 @@ namespace KingdomsOfBharat.Core
         [SerializeField] private CivilizationId aiCivilization = CivilizationId.Vijayanagara;
         [SerializeField] private GameObject[] gatedMatchContent;
 
+        // MatchManager reads this so it never evaluates victory/defeat
+        // (both factions read as "eliminated" with zero units/buildings)
+        // during the CivPicker overlay, before any match content exists.
+        public static bool HasMatchStarted { get; private set; }
+
+        private void OnDestroy()
+        {
+            HasMatchStarted = false;
+        }
+
         public void BeginMatch(CivilizationId playerCivilization)
         {
             CivilizationRegistry.Assign(FactionId.Player, playerCivilization);
@@ -32,6 +42,8 @@ namespace KingdomsOfBharat.Core
             {
                 content.SetActive(true);
             }
+
+            HasMatchStarted = true;
         }
     }
 }

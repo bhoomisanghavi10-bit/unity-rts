@@ -26,7 +26,9 @@ namespace KingdomsOfBharat.Buildings
             var site = go.AddComponent<ConstructionSite>();
             site.Configure(buildTime);
             go.AddComponent<SelectionIndicator>().Configure(1.9f, -Size.y * 0.5f);
-            go.AddComponent<Attackable>().Configure(MaxHealth);
+            var attackable = go.AddComponent<Attackable>();
+            attackable.Configure(MaxHealth);
+            attackable.ConfigureArmor(meleeArmor: 2f, pierceArmor: 3f);
             go.AddComponent<HealthBar>();
             go.AddComponent<FactionMember>().Configure(faction);
 

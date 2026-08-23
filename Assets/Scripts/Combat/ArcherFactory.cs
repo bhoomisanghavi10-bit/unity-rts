@@ -8,51 +8,53 @@ using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Combat
 {
-    // Creates a "Soldier" unit with combat components. Used by Barracks
-    // when training finishes, for whichever faction owns the training
-    // Barracks. Milestone 19b: uses the shared Human Character Dummy body
-    // (Male) instead of the earlier single-pose Axe Warrior model - gives
-    // Idle/Walk/Attack animation via AnimationDriver, and Workers/Soldiers
-    // now share one consistent body style (see HumanModelFactory).
-    public static class SoldierFactory
+    // Creates an "Archer" unit: AoE-style ranged counterpart to Soldier -
+    // lower HP, hits from range instead of needing melee contact, and
+    // deals Pierce damage (so it's resisted by pierceArmor, not
+    // meleeArmor - see Attackable). Mirrors SoldierFactory's shape almost
+    // exactly, sharing the same Male body model since no dedicated archer
+    // model/animation exists yet (same "primitive/placeholder until a real
+    // pack lands" convention already used elsewhere in this project).
+    public static class ArcherFactory
     {
-        // No default faction value, deliberately: a future call site that
-        // forgets to pass one should fail to compile, not silently spawn a
-        // Player-owned soldier from an AI Barracks.
         public static GameObject Spawn(Vector3 position, FactionId faction)
         {
             CivilizationId civilization = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civilization);
-            // Baked in at spawn time - see WorkerFactory's identical note.
             AgeProfile age = AgeProfile.For(AgeProgress.CurrentAge(faction));
 
             GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
             go.name = faction == FactionId.Player
-                ? $"{profile.DisplayName} Soldier"
-                : $"Enemy {profile.DisplayName} Soldier";
+                ? $"{profile.DisplayName} Archer"
+                : $"Enemy {profile.DisplayName} Archer";
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f;
             agent.height = 2f;
-            agent.speed = 4f;
+            agent.speed = 3.8f;
 
             var unit = go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure(30f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
-            attackable.ConfigureArmor(meleeArmor: 1f + UpgradeProgress.ArmorBonus(faction), pierceArmor: UpgradeProgress.ArmorBonus(faction));
+            attackable.Configure(18f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.ConfigureArmor(meleeArmor: 0f, pierceArmor: UpgradeProgress.ArmorBonus(faction));
             go.AddComponent<HealthBar>();
+
             var attacker = go.AddComponent<MeleeAttacker>();
+            attacker.SetBaseDamage(4f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction));
+            attacker.SetRange(6f);
+            attacker.SetDamageType(DamageType.Pierce);
+
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.
             if (faction == FactionId.Player)
             {
-                go.AddComponent<VisionSource>().Configure(8f);
+                go.AddComponent<VisionSource>().Configure(9f);
             }
 
             return go;

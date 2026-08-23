@@ -3,10 +3,23 @@ using KingdomsOfBharat.Vfx;
 
 namespace KingdomsOfBharat.Combat
 {
-    // Anything that can take damage and die: soldiers and the target dummy.
+    // AoE-style: melee attackers (Soldiers) deal Melee damage, ranged
+    // attackers (Archers) deal Pierce damage - two separate armor stats let
+    // a unit/building resist one better than the other instead of a single
+    // flat damage reduction.
+    public enum DamageType
+    {
+        Melee,
+        Pierce,
+    }
+
+    // Anything that can take damage and die: soldiers, archers, buildings,
+    // and the target dummy.
     public class Attackable : MonoBehaviour
     {
         [SerializeField] private float maxHealth = 30f;
+        [SerializeField] private float meleeArmor;
+        [SerializeField] private float pierceArmor;
 
         public float Health { get; private set; }
         public float MaxHealth => maxHealth;
@@ -18,19 +31,33 @@ namespace KingdomsOfBharat.Combat
             Health = maxHealth;
         }
 
+        // Armor is additive on top of whatever Configure(maxHealth) already
+        // set - factories call this second, after Configure, so a caller
+        // that skips it just gets 0/0 armor (today's pre-armor behavior).
+        public void ConfigureArmor(float meleeArmor, float pierceArmor)
+        {
+            this.meleeArmor = meleeArmor;
+            this.pierceArmor = pierceArmor;
+        }
+
         private void Awake()
         {
             Health = maxHealth;
         }
 
-        public void TakeDamage(float amount)
+        // AoE's own floor: armor can blunt a hit a long way but never to
+        // zero - every attack that lands does at least 1 damage.
+        public void TakeDamage(float amount, DamageType damageType = DamageType.Melee)
         {
             if (IsDead)
             {
                 return;
             }
 
-            Health -= amount;
+            float armor = damageType == DamageType.Melee ? meleeArmor : pierceArmor;
+            float effective = Mathf.Max(1f, amount - armor);
+
+            Health -= effective;
             VfxFactory.SpawnBurst(HitPoint(), new Color(1f, 0.9f, 0.5f), size: 0.08f, count: 4, speed: 1f, lifetime: 0.2f);
 
             if (Health <= 0f)
