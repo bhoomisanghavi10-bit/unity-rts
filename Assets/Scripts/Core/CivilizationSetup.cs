@@ -3,27 +3,35 @@ using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Core
 {
-    // Assigns which civilization each faction plays as, and seeds each
-    // faction's starting Age. No civ-picker UI yet (future work, needs a
-    // real menu) - set via Inspector for now. Runs before anything else in
-    // the scene (see execution order): every spawner (WorkerFactory,
-    // SoldierFactory, TownCenterFactory, BarracksFactory, FarmFactory)
+    // Assigns which civilization each faction plays as, seeds each
+    // faction's starting Age, then releases the actual match content -
+    // called once by CivPicker after the player confirms a choice, not at
+    // scene load. Every spawner (WorkerFactory, SoldierFactory,
+    // TownCenterFactory, BarracksFactory, FarmFactory, AiController, ...)
     // reads CivilizationRegistry.For()/AgeProgress.CurrentAge() at spawn
-    // time, so both must exist before the very first Awake()/Start() that
-    // spawns something runs.
-    [DefaultExecutionOrder(-100)]
+    // time and bakes the result in permanently, so the player's choice has
+    // to be known before any of them run - not just before the player can
+    // see the result. The gated GameObjects (wired in the Inspector) start
+    // inactive in the scene for exactly this reason: their Awake()/Start()
+    // must not fire until BeginMatch activates them here, in this order,
+    // after the civ/age state above is already in place.
     public class CivilizationSetup : MonoBehaviour
     {
-        [SerializeField] private CivilizationId playerCivilization = CivilizationId.Chola;
         [SerializeField] private CivilizationId aiCivilization = CivilizationId.Vijayanagara;
+        [SerializeField] private GameObject[] gatedMatchContent;
 
-        private void Awake()
+        public void BeginMatch(CivilizationId playerCivilization)
         {
             CivilizationRegistry.Assign(FactionId.Player, playerCivilization);
             CivilizationRegistry.Assign(FactionId.Enemy, aiCivilization);
 
             AgeProgress.Initialize(FactionId.Player);
             AgeProgress.Initialize(FactionId.Enemy);
+
+            foreach (GameObject content in gatedMatchContent)
+            {
+                content.SetActive(true);
+            }
         }
     }
 }
