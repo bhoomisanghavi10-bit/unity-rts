@@ -453,7 +453,7 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
-            Attackable target = FindNearestPlayerUnit(townCenterPosition);
+            Attackable target = FindNearestPlayerTarget(townCenterPosition);
             if (target == null)
             {
                 return;
@@ -466,33 +466,46 @@ namespace KingdomsOfBharat.AI
             }
         }
 
-        private static Attackable FindNearestPlayerUnit(Vector3 fromPosition)
+        // Considers the Player's units AND buildings - buildings are
+        // destructible (Attackable) same as units, so the AI's army should
+        // be able to raze them too, AoE-style, not just fight other units.
+        private static Attackable FindNearestPlayerTarget(Vector3 fromPosition)
         {
             Attackable nearest = null;
             float bestDistance = float.MaxValue;
 
             foreach (Unit unit in Unit.All)
             {
-                if (!unit.TryGetComponent(out FactionMember factionMember)
-                    || factionMember.Faction != FactionId.Player)
-                {
-                    continue;
-                }
+                ConsiderTarget(unit.gameObject, fromPosition, ref nearest, ref bestDistance);
+            }
 
-                if (!unit.TryGetComponent(out Attackable attackable) || attackable.IsDead)
-                {
-                    continue;
-                }
-
-                float distance = Vector3.Distance(fromPosition, unit.transform.position);
-                if (distance < bestDistance)
-                {
-                    bestDistance = distance;
-                    nearest = attackable;
-                }
+            foreach (Building building in Building.All)
+            {
+                ConsiderTarget(building.gameObject, fromPosition, ref nearest, ref bestDistance);
             }
 
             return nearest;
+        }
+
+        private static void ConsiderTarget(GameObject candidate, Vector3 fromPosition, ref Attackable nearest, ref float bestDistance)
+        {
+            if (!candidate.TryGetComponent(out FactionMember factionMember)
+                || factionMember.Faction != FactionId.Player)
+            {
+                return;
+            }
+
+            if (!candidate.TryGetComponent(out Attackable attackable) || attackable.IsDead)
+            {
+                return;
+            }
+
+            float distance = Vector3.Distance(fromPosition, candidate.transform.position);
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                nearest = attackable;
+            }
         }
 
         private static bool IsMine(Unit unit)

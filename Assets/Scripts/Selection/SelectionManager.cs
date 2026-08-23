@@ -10,10 +10,12 @@ using KingdomsOfBharat.Camera;
 
 namespace KingdomsOfBharat.Selection
 {
-    // Owns all selection/command input: left-click selects a single unit,
-    // left-click-drag box-selects multiple, right-click issues a move order
-    // (or a gather/build/attack-move order, depending what the click landed
-    // on) to whatever is currently selected. Disarmed entirely while
+    // Owns all selection/command input: left-click selects a single unit
+    // (or, failing that, a single building - AoE-style, the two are
+    // mutually exclusive, selecting one clears the other), left-click-drag
+    // box-selects multiple units, right-click issues a move order (or a
+    // gather/build/attack-move order, depending what the click landed on)
+    // to whatever units are currently selected. Disarmed entirely while
     // BuildingPlacer is mid-placement so a single click doesn't double up as
     // both a placement action and a unit command.
     public class SelectionManager : MonoBehaviour
@@ -21,12 +23,14 @@ namespace KingdomsOfBharat.Selection
         [SerializeField] private float dragThreshold = 6f;
 
         private readonly List<Unit> _selected = new List<Unit>();
+        private Building _selectedBuilding;
         private UnityEngine.Camera _camera;
         private Vector2 _dragStart;
         private bool _dragging;
 
         // For SelectedUnitPanel / BuildMenu (UI) to read current selection.
         public IReadOnlyList<Unit> Selected => _selected;
+        public Building SelectedBuilding => _selectedBuilding;
 
         private void Awake()
         {
@@ -46,6 +50,20 @@ namespace KingdomsOfBharat.Selection
             // yet real C# null" Unity objects; a plain reference/is-null
             // check would not catch this.
             _selected.RemoveAll(unit => unit == null);
+
+            // Same reasoning as above, now that buildings are destructible
+            // (Attackable) too: a selected building can be destroyed by an
+            // enemy attack while still selected. The `== null` check (not a
+            // plain reference check) is what detects "destroyed but not yet
+            // real C# null" here; the assignment inside then collapses that
+            // into an actual null, since BuildMenu/SelectedUnitPanel read
+            // SelectedBuilding via `is TownCenter`-style pattern matching,
+            // which does a plain C# null check and would NOT catch a
+            // dangling-but-Unity-null reference on its own.
+            if (_selectedBuilding == null)
+            {
+                _selectedBuilding = null;
+            }
 
             if (BuildingPlacer.IsPlacing || MinimapController.IsPointerOverMinimap)
             {
@@ -107,8 +125,17 @@ namespace KingdomsOfBharat.Selection
             Livestock livestock = null;
             bool hitLivestock = !hitNode && !hitSite && !hitFarm
                 && hit.collider.TryGetComponent(out livestock);
+            // Deliberately NOT excluded by hitSite here (unlike the other
+            // hit* flags): an incomplete building can be BOTH a
+            // ConstructionSite (for the owner's own Builder to keep working
+            // it - see the hitSite branch below, checked first and taking
+            // priority for that same-faction case) AND an Attackable (for
+            // anyone else to attack it while it's still under construction,
+            // AoE-style - enemy foundations aren't invulnerable). Excluding
+            // on !hitSite unconditionally would make enemy buildings
+            // unattackable for as long as they're mid-construction.
             Attackable attackable = null;
-            bool hitAttackable = !hitNode && !hitSite && !hitFarm && !hitLivestock
+            bool hitAttackable = !hitNode && !hitFarm && !hitLivestock
                 && hit.collider.TryGetComponent(out attackable)
                 && !attackable.IsDead;
 
@@ -193,6 +220,21 @@ namespace KingdomsOfBharat.Selection
                 if (hit.collider.TryGetComponent(out Unit unit) && IsPlayerControllable(unit))
                 {
                     Select(unit);
+                    return;
+                }
+            }
+
+            // No player unit under the cursor - fall back to selecting
+            // whatever building (own or enemy, for inspection) is there, so
+            // SelectedUnitPanel/BuildMenu can react to it. Enemy buildings
+            // are selectable too (matches HoverTooltip already showing their
+            // HP on hover) - BuildMenu itself is what decides not to offer
+            // train/build actions for a building that isn't the Player's.
+            foreach (RaycastHit hit in hits)
+            {
+                if (hit.collider.TryGetComponent(out Building building))
+                {
+                    _selectedBuilding = building;
                     return;
                 }
             }
@@ -284,6 +326,7 @@ namespace KingdomsOfBharat.Selection
                 }
             }
             _selected.Clear();
+            _selectedBuilding = null;
         }
 
         // Simple immediate-mode box-select overlay. Screen-space input is

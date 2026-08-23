@@ -60,7 +60,7 @@ namespace KingdomsOfBharat.Combat
                 return;
             }
 
-            float distance = Vector3.Distance(transform.position, _target.transform.position);
+            float distance = DistanceToTarget();
             if (distance > attackRange)
             {
                 _mover.MoveTo(_target.transform.position);
@@ -73,6 +73,24 @@ namespace KingdomsOfBharat.Combat
                 _target.TakeDamage(damage * _damageMultiplier);
                 _cooldown = attackInterval;
             }
+        }
+
+        // Distance to the target's collider SURFACE, not its transform
+        // center - matters once buildings became attackable: a building's
+        // footprint can be several units wide, so a soldier standing right
+        // against its wall would otherwise still read as multiple units
+        // away from its center and could never come "in range" at all.
+        // Units are small/roughly centered on their own collider already,
+        // so this doesn't meaningfully change unit-vs-unit combat.
+        private float DistanceToTarget()
+        {
+            if (_target.TryGetComponent(out Collider targetCollider))
+            {
+                Vector3 closestPoint = targetCollider.ClosestPoint(transform.position);
+                return Vector3.Distance(transform.position, closestPoint);
+            }
+
+            return Vector3.Distance(transform.position, _target.transform.position);
         }
     }
 }

@@ -7,12 +7,15 @@ using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.UI
 {
-    // Minimal build/train menu, bottom-right: buttons that call the same
-    // entry points the B/F/H/G/T hotkeys already use. Population: X/Y is
-    // shown by ResourceHUD instead, alongside the other resource counters.
-    // Build Barracks/Farm/House only enable with a worker (a unit with
-    // Builder) selected, since placement still needs one to actually build
-    // it afterward.
+    // Context-sensitive build/train menu, bottom-right - AoE-style: only
+    // shows commands relevant to whatever is currently selected, instead of
+    // one fixed panel of every action. A selected Worker (has Builder)
+    // shows Build Barracks/Farm/House; the Player's own selected TownCenter
+    // shows Train Worker + Advance Age; the Player's own selected Barracks
+    // shows Train Soldier. Nothing selected (or an enemy building, or a
+    // non-Builder unit) draws nothing. SelectionManager enforces that unit
+    // selection and building selection are mutually exclusive, so at most
+    // one of these panels is ever relevant at a time.
     public class BuildMenu : MonoBehaviour
     {
         private BuildingPlacer _placer;
@@ -26,14 +29,35 @@ namespace KingdomsOfBharat.UI
 
         private void OnGUI()
         {
+            if (_selectionManager == null)
+            {
+                return;
+            }
+
+            if (HasBuilderSelected())
+            {
+                DrawBuilderMenu();
+            }
+            else if (_selectionManager.SelectedBuilding is TownCenter townCenter && IsPlayerOwned(townCenter))
+            {
+                DrawTownCenterMenu(townCenter);
+            }
+            else if (_selectionManager.SelectedBuilding is Barracks barracks && IsPlayerOwned(barracks))
+            {
+                DrawBarracksMenu(barracks);
+            }
+        }
+
+        private void DrawBuilderMenu()
+        {
             const float width = 220f;
-            const float height = 238f;
+            const float height = 112f;
             float x = Screen.width - width - 8f;
             float y = Screen.height - height - 8f;
 
             GUI.Box(new Rect(x, y, width, height), GUIContent.none);
 
-            GUI.enabled = _placer != null && !BuildingPlacer.IsPlacing && HasBuilderSelected() && BuildingPlacer.CanPlaceBarracks;
+            GUI.enabled = _placer != null && !BuildingPlacer.IsPlacing && BuildingPlacer.CanPlaceBarracks;
             string barracksLabel = BuildingPlacer.CanPlaceBarracks
                 ? "Build Barracks (100 Wood, 50 Stone)"
                 : "Build Barracks (Requires Classical Age)";
@@ -42,7 +66,7 @@ namespace KingdomsOfBharat.UI
                 _placer.BeginPlacementBarracks();
             }
 
-            GUI.enabled = _placer != null && !BuildingPlacer.IsPlacing && HasBuilderSelected();
+            GUI.enabled = _placer != null && !BuildingPlacer.IsPlacing;
             if (GUI.Button(new Rect(x + 8, y + 40, width - 16, 28), "Build Farm (60 Wood)"))
             {
                 _placer.BeginPlacementFarm();
@@ -54,31 +78,46 @@ namespace KingdomsOfBharat.UI
             }
 
             GUI.enabled = true;
-            if (GUI.Button(new Rect(x + 8, y + 112, width - 16, 28), "Train Worker (50 Food)"))
+        }
+
+        private void DrawTownCenterMenu(TownCenter townCenter)
+        {
+            const float width = 220f;
+            const float height = 76f;
+            float x = Screen.width - width - 8f;
+            float y = Screen.height - height - 8f;
+
+            GUI.Box(new Rect(x, y, width, height), GUIContent.none);
+
+            if (GUI.Button(new Rect(x + 8, y + 4, width - 16, 28), "Train Worker (50 Food)"))
             {
-                TrainAtAllReadyTownCenters();
+                townCenter.RequestTrain();
             }
 
-            if (GUI.Button(new Rect(x + 8, y + 148, width - 16, 28), "Train Soldier (50 Food, 20 Gold)"))
-            {
-                TrainAtAllReadyBarracks();
-            }
+            DrawAgeButton(townCenter, x, y + 40, width);
+        }
 
-            DrawAgeButton(x, y + 184, width);
+        private void DrawBarracksMenu(Barracks barracks)
+        {
+            const float width = 220f;
+            const float height = 40f;
+            float x = Screen.width - width - 8f;
+            float y = Screen.height - height - 8f;
+
+            GUI.Box(new Rect(x, y, width, height), GUIContent.none);
+
+            if (GUI.Button(new Rect(x + 8, y + 4, width - 16, 28), "Train Soldier (50 Food, 20 Gold)"))
+            {
+                barracks.RequestTrain();
+            }
         }
 
         // Age-up runs on its own independent countdown on TownCenter (see
         // TownCenter.RequestAgeUp/IsAgingUp) - parallel to Worker training,
         // not sharing its busy slot, so the button stays live/showing
         // progress even while a Worker is also being trained.
-        private void DrawAgeButton(float x, float y, float width)
+        private static void DrawAgeButton(TownCenter townCenter, float x, float y, float width)
         {
-            TownCenter townCenter = FindPlayerTownCenter();
-            if (townCenter == null)
-            {
-                return;
-            }
-
             if (townCenter.IsAgingUp)
             {
                 GUI.enabled = false;
@@ -102,28 +141,14 @@ namespace KingdomsOfBharat.UI
             }
         }
 
-        private static TownCenter FindPlayerTownCenter()
+        private static bool IsPlayerOwned(Building building)
         {
-            foreach (Building building in Building.All)
-            {
-                if (building is TownCenter townCenter
-                    && building.TryGetComponent(out FactionMember factionMember)
-                    && factionMember.Faction == FactionId.Player)
-                {
-                    return townCenter;
-                }
-            }
-
-            return null;
+            return building.TryGetComponent(out FactionMember factionMember)
+                && factionMember.Faction == FactionId.Player;
         }
 
         private bool HasBuilderSelected()
         {
-            if (_selectionManager == null)
-            {
-                return false;
-            }
-
             foreach (Unit unit in _selectionManager.Selected)
             {
                 if (unit.TryGetComponent(out Builder _))
@@ -133,44 +158,6 @@ namespace KingdomsOfBharat.UI
             }
 
             return false;
-        }
-
-        private static void TrainAtAllReadyBarracks()
-        {
-            foreach (Building building in Building.All)
-            {
-                if (!(building is Barracks barracks))
-                {
-                    continue;
-                }
-
-                if (!building.TryGetComponent(out FactionMember factionMember)
-                    || factionMember.Faction != FactionId.Player)
-                {
-                    continue;
-                }
-
-                barracks.RequestTrain();
-            }
-        }
-
-        private static void TrainAtAllReadyTownCenters()
-        {
-            foreach (Building building in Building.All)
-            {
-                if (!(building is TownCenter townCenter))
-                {
-                    continue;
-                }
-
-                if (!building.TryGetComponent(out FactionMember factionMember)
-                    || factionMember.Faction != FactionId.Player)
-                {
-                    continue;
-                }
-
-                townCenter.RequestTrain();
-            }
         }
     }
 }
