@@ -167,11 +167,11 @@ see note below):
 > Notes: this scene was authored outside the Unity Editor. Milestones 1-3
 > have been opened and verified working in Unity 6.3 LTS; milestones 4-7 have
 > gone through several rounds of real-Editor bug fixes already (see commit
-> history) but each new addition is still worth a sanity check. The UI is
-> built with Unity's immediate-mode `OnGUI` rather than a uGUI Canvas +
-> TextMeshPro — it needed no scene-authored hierarchy or font-asset import
-> step, both of which are awkward to get right without an Editor to verify
-> against. Worth swapping for real uGUI once you're doing visual polish.
+> history) but each new addition is still worth a sanity check. The UI now
+> runs on a real uGUI Canvas + TextMeshPro (see milestone 26) rather than
+> `OnGUI` — the original IMGUI version was a deliberate first pass since it
+> needed no scene-authored hierarchy or font-asset import step, both awkward
+> to get right without an Editor to verify against.
 
 ## Build milestones
 
@@ -203,6 +203,7 @@ see note below):
 23. Environment variety, part 1 — Trees and bushes load from multiple prefab variants at random per spawn instead of one repeated model (`EnvironmentPropFactory`); the Kevin Iglesias animation folder rename lands here too
 24. Environment variety, part 2 — Gold mines, stone quarries, and farmland get the same multi-variant treatment; the 2D pixel-art rock pile pack is dropped in favor of proper 3D resource-node models. The multi-variant loading code shipped first with the target folders empty (silently falling back to the flat-primitive placeholders); now populated - GoldMine gets a gold-ore prop from the Human Crafting Animations pack, Farmland gets two variants (a tilled-plot prop from the same pack, plus a standalone downloaded farmland model), and StoneQuarry gets three rock-formation sizes (small/medium/large) from a rock asset pack
 25. Wildlife polish — Wild boar and cow (livestock) models get real Idle/Walk/Eating/Attack/Death animation, calmer wander behavior (an idle-chance so they don't dart to a new spot every few seconds), manual facing control (NavMeshAgent's built-in rotation was causing spin/jitter), a fix for oversized colliders that broke map-wide selection, and — most recently — a stray `Rigidbody` left on the imported boar mesh that sent it tumbling under physics independent of its actual NavMesh-driven position
+26. uGUI/TextMeshPro swap — all five UI scripts (`ResourceHUD`, `SelectedUnitPanel`, `BuildMenu`, `HoverTooltip`, `MinimapController`) move off `OnGUI` onto real Canvas hierarchies: panels/labels are TMP text bound via serialized fields instead of `GUI.Label` calls, buttons are real `Button`s wired to `onClick` instead of `if (GUI.Button(...))`, and the minimap swaps `GUI.DrawTexture` for a `RawImage`. `CanvasScaler` runs Constant Pixel Size so screen coordinates keep the same meaning the original `Rect()` math used.
 
 ## Design docs
 
