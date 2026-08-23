@@ -57,6 +57,20 @@ namespace KingdomsOfBharat.Buildings
             model.transform.localPosition = Vector3.zero;
             model.transform.localRotation = Quaternion.identity;
 
+            // Imported packs (TownCenter in particular) ship their own
+            // Collider baked into the model, sized by whoever authored the
+            // pack rather than this project's units - TownCenter's is
+            // roughly 13x22x12 world units once its x2 scale is applied,
+            // dwarfing the actual building footprint and catching
+            // raycasts/clicks on ground far outside the visible silhouette.
+            // Stripped so the only Collider left is the tight one added
+            // below, sized from the model's actual rendered bounds - same
+            // reasoning as ProceduralBuildingFactory's primitive parts.
+            foreach (Collider leftover in model.GetComponentsInChildren<Collider>(true))
+            {
+                Object.Destroy(leftover);
+            }
+
             // Ground level under a center-pivoted building of this size -
             // approximate for TownCenter specifically (its spawn Y
             // predates milestone 14's terrain height variation, same

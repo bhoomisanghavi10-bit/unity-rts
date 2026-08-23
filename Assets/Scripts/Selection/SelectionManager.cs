@@ -179,12 +179,22 @@ namespace KingdomsOfBharat.Selection
         {
             ClearSelection();
 
+            // RaycastAll rather than a single Raycast: a building's collider
+            // (bigger, and often nearer the camera at typical RTS angles)
+            // would otherwise eclipse a smaller unit collider standing right
+            // next to it, making units near buildings unselectable. Units
+            // take priority over whatever else the ray also passes through.
             Ray ray = _camera.ScreenPointToRay(screenPos);
-            if (Physics.Raycast(ray, out RaycastHit hit, 500f)
-                && hit.collider.TryGetComponent(out Unit unit)
-                && IsPlayerControllable(unit))
+            RaycastHit[] hits = Physics.RaycastAll(ray, 500f);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            foreach (RaycastHit hit in hits)
             {
-                Select(unit);
+                if (hit.collider.TryGetComponent(out Unit unit) && IsPlayerControllable(unit))
+                {
+                    Select(unit);
+                    return;
+                }
             }
         }
 

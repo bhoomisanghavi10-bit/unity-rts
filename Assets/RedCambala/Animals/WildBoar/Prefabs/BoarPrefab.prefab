@@ -265,6 +265,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3928661417354363243}
   - component: {fileID: 3928661417354363242}
+  - component: {fileID: 1743853219979213785}
   m_Layer: 0
   m_Name: BoarPrefab
   m_TagString: Untagged
@@ -286,7 +287,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5146591394241307003}
-  - {fileID: 6644988265732151106}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &3928661417354363242
@@ -303,6 +303,28 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rotationSpeed: 50
   rotationSpeedChangeAmount: 10
+--- !u!95 &1743853219979213785
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3928661417354363241}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 0}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &4474891137872329334
 GameObject:
   m_ObjectHideFlags: 0
@@ -476,7 +498,7 @@ Animator:
   m_GameObject: {fileID: 5487509935843818433}
   m_Enabled: 1
   m_Avatar: {fileID: 9000000, guid: 88be62c153c6b6747b05413f3e7993a8, type: 3}
-  m_Controller: {fileID: 9100000, guid: 4057d31ce3d918044bc13b2bbcfce93b, type: 2}
+  m_Controller: {fileID: 0}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -1065,65 +1087,3 @@ Transform:
   m_Children: []
   m_Father: {fileID: 4629403157861537423}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1001 &7688441849365272105
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 3928661417354363243}
-    m_Modifications:
-    - target: {fileID: 3928661417354363241, guid: 708f984738cfb4873a31536666e9e2e7, type: 3}
-      propertyPath: m_Name
-      value: BoarPrefab
-      objectReference: {fileID: 0}
-    - target: {fileID: 3928661417354363243, guid: 708f984738cfb4873a31536666e9e2e7, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -0.57532847
-      objectReference: {fileID: 0}
-    - target: {fileID: 3928661417354363243, guid: 708f984738cfb4873a31536666e9e2e7, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: -0.00000004230946
-      objectReference: {fileID: 0}
-    - target: {fileID: 3928661417354363243, guid: 708f984738cfb4873a31536666e9e2e7, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -1.0318583
-      objectReference: {fileID: 0}
-    - target: {fileID: 3928661417354363243, guid: 708f984738cfb4873a31536666e9e2e7, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3928661417354363243, guid: 708f984738cfb4873a31536666e9e2e7, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3928661417354363243, guid: 708f984738cfb4873a31536666e9e2e7, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3928661417354363243, guid: 708f984738cfb4873a31536666e9e2e7, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3928661417354363243, guid: 708f984738cfb4873a31536666e9e2e7, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3928661417354363243, guid: 708f984738cfb4873a31536666e9e2e7, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3928661417354363243, guid: 708f984738cfb4873a31536666e9e2e7, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 708f984738cfb4873a31536666e9e2e7, type: 3}
---- !u!4 &6644988265732151106 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 3928661417354363243, guid: 708f984738cfb4873a31536666e9e2e7, type: 3}
-  m_PrefabInstance: {fileID: 7688441849365272105}
-  m_PrefabAsset: {fileID: 0}
