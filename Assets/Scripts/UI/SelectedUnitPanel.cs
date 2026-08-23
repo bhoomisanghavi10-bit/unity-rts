@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Combat;
@@ -7,62 +8,61 @@ namespace KingdomsOfBharat.UI
 {
     // Bottom-left info panel for whatever SelectionManager currently has
     // selected: a single unit's name/status/HP, or a headcount for a group.
+    // uGUI/TMP replacement for the original OnGUI version - the panel
+    // background and labels are real Canvas children wired up in the
+    // Inspector; this just toggles which ones are active and pushes text
+    // into them instead of issuing GUI.Box/GUI.Label draw calls every
+    // frame regardless of selection state.
     public class SelectedUnitPanel : MonoBehaviour
     {
+        [SerializeField] private GameObject panelRoot;
+        [SerializeField] private TMP_Text nameLabel;
+        [SerializeField] private TMP_Text statusLabel;
+        [SerializeField] private TMP_Text hpLabel;
+        [SerializeField] private TMP_Text groupCountLabel;
+
         private SelectionManager _selectionManager;
-        private GUIStyle _style;
 
         private void Awake()
         {
             _selectionManager = FindFirstObjectByType<SelectionManager>();
         }
 
-        private void OnGUI()
+        private void Update()
         {
-            if (_selectionManager == null || _selectionManager.Selected.Count == 0)
+            bool hasSelection = _selectionManager != null && _selectionManager.Selected.Count > 0;
+            panelRoot.SetActive(hasSelection);
+            if (!hasSelection)
             {
                 return;
             }
 
-            EnsureStyle();
+            bool single = _selectionManager.Selected.Count == 1;
+            nameLabel.gameObject.SetActive(single);
+            statusLabel.gameObject.SetActive(single);
+            groupCountLabel.gameObject.SetActive(!single);
 
-            const float panelHeight = 70f;
-            const float panelWidth = 220f;
-            float y = Screen.height - panelHeight - 8f;
-
-            GUI.Box(new Rect(8, y, panelWidth, panelHeight), GUIContent.none);
-
-            if (_selectionManager.Selected.Count == 1)
+            if (single)
             {
-                DrawSingle(_selectionManager.Selected[0], y);
+                DrawSingle(_selectionManager.Selected[0]);
             }
             else
             {
-                GUI.Label(new Rect(16, y + 4, panelWidth - 16, 20),
-                    $"{_selectionManager.Selected.Count} units selected", _style);
+                groupCountLabel.text = $"{_selectionManager.Selected.Count} units selected";
             }
         }
 
-        private void DrawSingle(Unit unit, float y)
+        private void DrawSingle(Unit unit)
         {
-            GUI.Label(new Rect(16, y + 4, 200, 20), unit.gameObject.name, _style);
-            GUI.Label(new Rect(16, y + 24, 200, 20), UnitStatus.Describe(unit), _style);
+            nameLabel.text = unit.gameObject.name;
+            statusLabel.text = UnitStatus.Describe(unit);
 
-            if (unit.TryGetComponent(out Attackable attackable))
+            bool hasAttackable = unit.TryGetComponent(out Attackable attackable);
+            hpLabel.gameObject.SetActive(hasAttackable);
+            if (hasAttackable)
             {
-                GUI.Label(new Rect(16, y + 44, 200, 20), $"HP: {(int)attackable.Health}/{(int)attackable.MaxHealth}", _style);
+                hpLabel.text = $"HP: {(int)attackable.Health}/{(int)attackable.MaxHealth}";
             }
-        }
-
-        private void EnsureStyle()
-        {
-            if (_style != null)
-            {
-                return;
-            }
-
-            _style = new GUIStyle(GUI.skin.label) { fontSize = 13 };
-            _style.normal.textColor = Color.white;
         }
     }
 }
