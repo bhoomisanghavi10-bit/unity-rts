@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
 using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.Units;
@@ -12,9 +14,22 @@ namespace KingdomsOfBharat.UI
     // shown by ResourceHUD instead, alongside the other resource counters.
     // Build Barracks/Farm/House only enable with a worker (a unit with
     // Builder) selected, since placement still needs one to actually build
-    // it afterward.
+    // it afterward. uGUI/TMP replacement for the original OnGUI version -
+    // buttons are real Canvas children wired to these entry points once in
+    // Awake via onClick, this just toggles interactable/text every frame
+    // instead of re-issuing GUI.Button draw calls (and re-deciding whether
+    // a click landed) regardless of state.
     public class BuildMenu : MonoBehaviour
     {
+        [SerializeField] private Button barracksButton;
+        [SerializeField] private TMP_Text barracksLabel;
+        [SerializeField] private Button farmButton;
+        [SerializeField] private Button houseButton;
+        [SerializeField] private Button workerButton;
+        [SerializeField] private Button soldierButton;
+        [SerializeField] private Button ageButton;
+        [SerializeField] private TMP_Text ageLabel;
+
         private BuildingPlacer _placer;
         private SelectionManager _selectionManager;
 
@@ -22,81 +37,67 @@ namespace KingdomsOfBharat.UI
         {
             _placer = FindFirstObjectByType<BuildingPlacer>();
             _selectionManager = FindFirstObjectByType<SelectionManager>();
+
+            barracksButton.onClick.AddListener(() => _placer.BeginPlacementBarracks());
+            farmButton.onClick.AddListener(() => _placer.BeginPlacementFarm());
+            houseButton.onClick.AddListener(() => _placer.BeginPlacementHouse());
+            workerButton.onClick.AddListener(TrainAtAllReadyTownCenters);
+            soldierButton.onClick.AddListener(TrainAtAllReadyBarracks);
+            ageButton.onClick.AddListener(RequestAgeUp);
         }
 
-        private void OnGUI()
+        private void Update()
         {
-            const float width = 220f;
-            const float height = 238f;
-            float x = Screen.width - width - 8f;
-            float y = Screen.height - height - 8f;
+            bool canBuild = _placer != null && !BuildingPlacer.IsPlacing && HasBuilderSelected();
 
-            GUI.Box(new Rect(x, y, width, height), GUIContent.none);
-
-            GUI.enabled = _placer != null && !BuildingPlacer.IsPlacing && HasBuilderSelected() && BuildingPlacer.CanPlaceBarracks;
-            string barracksLabel = BuildingPlacer.CanPlaceBarracks
+            barracksButton.interactable = canBuild && BuildingPlacer.CanPlaceBarracks;
+            barracksLabel.text = BuildingPlacer.CanPlaceBarracks
                 ? "Build Barracks (100 Wood, 50 Stone)"
                 : "Build Barracks (Requires Classical Age)";
-            if (GUI.Button(new Rect(x + 8, y + 4, width - 16, 28), barracksLabel))
-            {
-                _placer.BeginPlacementBarracks();
-            }
 
-            GUI.enabled = _placer != null && !BuildingPlacer.IsPlacing && HasBuilderSelected();
-            if (GUI.Button(new Rect(x + 8, y + 40, width - 16, 28), "Build Farm (60 Wood)"))
-            {
-                _placer.BeginPlacementFarm();
-            }
+            farmButton.interactable = canBuild;
+            houseButton.interactable = canBuild;
 
-            if (GUI.Button(new Rect(x + 8, y + 76, width - 16, 28), "Build House (30 Wood)"))
-            {
-                _placer.BeginPlacementHouse();
-            }
-
-            GUI.enabled = true;
-            if (GUI.Button(new Rect(x + 8, y + 112, width - 16, 28), "Train Worker (50 Food)"))
-            {
-                TrainAtAllReadyTownCenters();
-            }
-
-            if (GUI.Button(new Rect(x + 8, y + 148, width - 16, 28), "Train Soldier (50 Food, 20 Gold)"))
-            {
-                TrainAtAllReadyBarracks();
-            }
-
-            DrawAgeButton(x, y + 184, width);
+            UpdateAgeButton();
         }
 
         // Age-up runs on its own independent countdown on TownCenter (see
         // TownCenter.RequestAgeUp/IsAgingUp) - parallel to Worker training,
         // not sharing its busy slot, so the button stays live/showing
         // progress even while a Worker is also being trained.
-        private void DrawAgeButton(float x, float y, float width)
+        private void UpdateAgeButton()
         {
             TownCenter townCenter = FindPlayerTownCenter();
             if (townCenter == null)
             {
+                ageButton.interactable = false;
+                ageLabel.text = "Advance Age";
                 return;
             }
 
             if (townCenter.IsAgingUp)
             {
-                GUI.enabled = false;
-                GUI.Button(new Rect(x + 8, y, width - 16, 28), $"Researching Age... {(int)(townCenter.AgeUpProgress * 100f)}%");
-                GUI.enabled = true;
+                ageButton.interactable = false;
+                ageLabel.text = $"Researching Age... {(int)(townCenter.AgeUpProgress * 100f)}%";
                 return;
             }
 
             if (!AgeProgress.HasNextAge(FactionId.Player))
             {
-                GUI.enabled = false;
-                GUI.Button(new Rect(x + 8, y, width - 16, 28), "Imperial Age (Max)");
-                GUI.enabled = true;
+                ageButton.interactable = false;
+                ageLabel.text = "Imperial Age (Max)";
                 return;
             }
 
             AgeProfile next = AgeProfile.For(AgeProgress.NextAge(FactionId.Player));
-            if (GUI.Button(new Rect(x + 8, y, width - 16, 28), $"Advance to {next.DisplayName} ({(int)next.WoodCost} Wood, {(int)next.StoneCost} Stone)"))
+            ageButton.interactable = true;
+            ageLabel.text = $"Advance to {next.DisplayName} ({(int)next.WoodCost} Wood, {(int)next.StoneCost} Stone)";
+        }
+
+        private void RequestAgeUp()
+        {
+            TownCenter townCenter = FindPlayerTownCenter();
+            if (townCenter != null && !townCenter.IsAgingUp && AgeProgress.HasNextAge(FactionId.Player))
             {
                 townCenter.RequestAgeUp();
             }
