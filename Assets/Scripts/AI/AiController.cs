@@ -10,11 +10,21 @@ using KingdomsOfBharat.Progression;
 namespace KingdomsOfBharat.AI
 {
     // Single scripted, timer-driven AI opponent - not adaptive/learning, a
-    // deliberate first-pass simplification. Has full internal knowledge of
-    // the map/player (no scouting logic); this is intentionally separate
-    // from the player-facing fog-of-war grid (FogOfWarManager), which this
-    // script never touches - "visible" here always means "known to the AI,"
-    // never "revealed to the player."
+    // deliberate first-pass simplification. Economy/build decisions
+    // (AssignIdleWorkers, TryBuildBarracks, ...) still act on full internal
+    // knowledge of the map/player - that's normal for a scripted RTS AI and
+    // not what "scouting" is about here. What's gated on scouting instead
+    // is combat: the AI won't send its attack squad after the player until
+    // one of its own units has actually gotten close enough to a Player
+    // unit/building to "find" it (see CheckForScoutDiscovery/TryAttack),
+    // giving the player a genuine early grace period instead of getting
+    // attacked exactly at attackCheckInterval regardless of anything having
+    // happened yet. This is intentionally separate from the player-facing
+    // fog-of-war grid (FogOfWarManager), which this script never touches -
+    // "discovered" here always means "known to the AI," never "revealed to
+    // the player" (the reverse is already true: WorkerFactory deliberately
+    // never gives Enemy units a VisionSource, so the AI's own base doesn't
+    // leak into the player's fog).
     public class AiController : MonoBehaviour
     {
         [SerializeField] private Vector3 townCenterPosition = new Vector3(0f, 1f, -8f);
@@ -38,6 +48,9 @@ namespace KingdomsOfBharat.AI
         [SerializeField] private Vector3 houseOffset = new Vector3(0f, 0f, -6f);
         [SerializeField] private int populationBuffer = 2;
         [SerializeField] private float ageUpResourceBuffer = 1.5f;
+        [SerializeField] private float scoutInterval = 15f;
+        [SerializeField] private float scoutDiscoveryRadius = 12f;
+        [SerializeField] private float scoutTimeout = 20f;
 
         // Local to this controller, not a mutation on ResourceNode itself -
         // keeps the "who's gathering what" bookkeeping contained to one file.
@@ -57,6 +70,10 @@ namespace KingdomsOfBharat.AI
         private ConstructionSite _houseSite;
         private bool _houseBuilderAssigned;
         private int _houseCount;
+        private float _scoutTimer;
+        private float _scoutElapsed;
+        private bool _hasScoutedPlayer;
+        private Unit _scoutUnit;
 
         private void Start()
         {
@@ -88,6 +105,8 @@ namespace KingdomsOfBharat.AI
                 TryBuildHouse();
                 AssignHouseBuilderIfNeeded();
                 TryTrainWorkers();
+                TryResearchUpgrades();
+                UpdateScouting();
             }
 
             _attackTimer += Time.deltaTime;
@@ -98,11 +117,136 @@ namespace KingdomsOfBharat.AI
             }
         }
 
+        // Discovery is checked every decision tick regardless of dispatch
+        // state (any unit wandering close enough counts, not just a
+        // dedicated scout), but a new scout is only sent out - and only one
+        // at a time - once every scoutInterval while still undiscovered.
+        private void UpdateScouting()
+        {
+            if (_hasScoutedPlayer)
+            {
+                return;
+            }
+
+            CheckForScoutDiscovery();
+            if (_hasScoutedPlayer)
+            {
+                _scoutUnit = null;
+                return;
+            }
+
+            if (_scoutUnit != null)
+            {
+                _scoutElapsed += decisionInterval;
+                if (_scoutElapsed >= scoutTimeout)
+                {
+                    // Gave up without finding anything - releases the unit
+                    // back to AssignIdleWorkers next tick; scoutTimer below
+                    // will send another scout out once scoutInterval passes.
+                    _scoutUnit = null;
+                }
+                return;
+            }
+
+            _scoutTimer += decisionInterval;
+            if (_scoutTimer < scoutInterval)
+            {
+                return;
+            }
+            _scoutTimer = 0f;
+
+            DispatchScout();
+        }
+
+        // A unit close enough to any Player unit/building counts as having
+        // found it - not just a unit explicitly sent out to look, since a
+        // worker gathering near the map's edge could plausibly stumble onto
+        // the player's base too.
+        private void CheckForScoutDiscovery()
+        {
+            foreach (Unit unit in Unit.All)
+            {
+                if (IsMine(unit) && IsNearAnyPlayerTarget(unit.transform.position))
+                {
+                    _hasScoutedPlayer = true;
+                    return;
+                }
+            }
+        }
+
+        private bool IsNearAnyPlayerTarget(Vector3 fromPosition)
+        {
+            foreach (Unit unit in Unit.All)
+            {
+                if (unit.TryGetComponent(out FactionMember factionMember)
+                    && factionMember.Faction == FactionId.Player
+                    && Vector3.Distance(fromPosition, unit.transform.position) <= scoutDiscoveryRadius)
+                {
+                    return true;
+                }
+            }
+
+            foreach (Building building in Building.All)
+            {
+                if (building.TryGetComponent(out FactionMember factionMember)
+                    && factionMember.Faction == FactionId.Player
+                    && Vector3.Distance(fromPosition, building.transform.position) <= scoutDiscoveryRadius)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // Pulls one worker off gathering (skipping anything mid-build, same
+        // courtesy AssignBuilderIfNeeded's siblings extend to an
+        // in-progress foundation) and sends it toward ScoutTarget.
+        // AssignIdleWorkers explicitly skips _scoutUnit so it doesn't get
+        // immediately reassigned back to a resource node next tick.
+        private void DispatchScout()
+        {
+            foreach (Unit unit in Unit.All)
+            {
+                if (!IsMine(unit) || !unit.TryGetComponent(out Gatherer gatherer) || !unit.TryGetComponent(out UnitMover mover))
+                {
+                    continue;
+                }
+
+                if (unit.TryGetComponent(out Builder builder) && builder.IsBuilding)
+                {
+                    continue;
+                }
+
+                gatherer.CancelGather();
+                mover.MoveTo(ScoutTarget());
+                _scoutUnit = unit;
+                _scoutElapsed = 0f;
+                return;
+            }
+        }
+
+        // A guess, not omniscience: the map's starting positions are
+        // roughly mirrored across the center, so this is where a rival
+        // civilization would plausibly have settled. The scout still has
+        // to physically travel there and get within scoutDiscoveryRadius
+        // before TryAttack can act on anything - this only decides where
+        // to send it looking, not what it finds.
+        private Vector3 ScoutTarget()
+        {
+            return new Vector3(-townCenterPosition.x, townCenterPosition.y, -townCenterPosition.z);
+        }
+
         private void AssignIdleWorkers()
         {
             List<Unit> idleWorkers = new List<Unit>();
             foreach (Unit unit in Unit.All)
             {
+                if (unit == _scoutUnit)
+                {
+                    continue;
+                }
+
                 if (IsMine(unit) && unit.TryGetComponent(out Gatherer gatherer) && !gatherer.IsWorking)
                 {
                     idleWorkers.Add(unit);
@@ -244,14 +388,57 @@ namespace KingdomsOfBharat.AI
             }
         }
 
+        private int _soldiersTrainedSinceLastArcher;
+
+        // AoE-style mixed composition rather than an all-melee army - one
+        // Archer for every couple of Soldiers, so the enemy's attack squads
+        // actually benefit from armor/damage-type variety instead of only
+        // ever pressuring meleeArmor.
         private void TryTrainSoldiers()
+        {
+            if (_barracks == null || !_barracks.IsComplete || _barracks.IsTraining)
+            {
+                return;
+            }
+
+            if (_soldiersTrainedSinceLastArcher >= 2)
+            {
+                _barracks.RequestTrainArcher();
+                _soldiersTrainedSinceLastArcher = 0;
+            }
+            else
+            {
+                _barracks.RequestTrain();
+                _soldiersTrainedSinceLastArcher++;
+            }
+        }
+
+        // Same early-margin-not-exact-threshold shape as TryAgeUp: research
+        // once holding a comfortable buffer above the tier's Gold cost,
+        // alternating tracks so both keep advancing over a long game.
+        private void TryResearchUpgrades()
         {
             if (_barracks == null || !_barracks.IsComplete)
             {
                 return;
             }
 
-            _barracks.RequestTrain();
+            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Enemy);
+
+            if (!_barracks.IsResearchingAttack
+                && UpgradeProgress.HasNextAttackTier(FactionId.Enemy)
+                && stockpile.GetTotal(ResourceType.Gold) > 150f)
+            {
+                _barracks.RequestResearchAttack();
+                return;
+            }
+
+            if (!_barracks.IsResearchingArmor
+                && UpgradeProgress.HasNextArmorTier(FactionId.Enemy)
+                && stockpile.GetTotal(ResourceType.Gold) > 150f)
+            {
+                _barracks.RequestResearchArmor();
+            }
         }
 
         private void TryBuildFarm()
@@ -434,6 +621,11 @@ namespace KingdomsOfBharat.AI
 
         private void TryAttack()
         {
+            if (!_hasScoutedPlayer)
+            {
+                return;
+            }
+
             // Workers now carry a weak MeleeAttacker too (can fight back/
             // hunt boars), so "has MeleeAttacker" alone no longer means
             // "is a Soldier" - excluding anything with a Gatherer keeps
