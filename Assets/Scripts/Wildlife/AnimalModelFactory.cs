@@ -68,6 +68,19 @@ namespace KingdomsOfBharat.Wildlife
                 animator.runtimeAnimatorController = null;
             }
 
+            // RedCambala's boar ships a Rigidbody on the mesh (useGravity
+            // + not kinematic) left over from its source scene. With
+            // nothing constraining it, that Rigidbody free-falls and
+            // tumbles under physics the instant the model spawns -
+            // completely independent of NavMeshAgent's control of root -
+            // which read as the animal spinning/flying off erratically.
+            // Strip every Rigidbody found on the model; movement is
+            // entirely NavMeshAgent-driven, physics is never wanted here.
+            foreach (Rigidbody rigidbody in model.GetComponentsInChildren<Rigidbody>(true))
+            {
+                Object.Destroy(rigidbody);
+            }
+
             AlignBaseToGround(model, groundPoint.y);
             AddBoundsCollider(root, model);
 
