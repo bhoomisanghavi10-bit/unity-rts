@@ -52,6 +52,7 @@ namespace KingdomsOfBharat.Units
             go.AddComponent<FarmWorker>();
             go.AddComponent<LivestockWorker>();
             go.AddComponent<Attackable>().Configure(20f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            go.AddComponent<HealthBar>();
             go.AddComponent<MeleeAttacker>().SetBaseDamage(2f);
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Female), agent, unit);

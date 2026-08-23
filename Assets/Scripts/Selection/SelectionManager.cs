@@ -21,12 +21,18 @@ namespace KingdomsOfBharat.Selection
         [SerializeField] private float dragThreshold = 6f;
 
         private readonly List<Unit> _selected = new List<Unit>();
+        private Building _selectedBuilding;
         private UnityEngine.Camera _camera;
         private Vector2 _dragStart;
         private bool _dragging;
 
         // For SelectedUnitPanel / BuildMenu (UI) to read current selection.
         public IReadOnlyList<Unit> Selected => _selected;
+
+        // Buildings are single-select only and mutually exclusive with unit
+        // selection (AoE-style) - selecting one clears the other. Null when
+        // nothing/a unit is selected instead.
+        public Building SelectedBuilding => _selectedBuilding;
 
         private void Awake()
         {
@@ -46,6 +52,13 @@ namespace KingdomsOfBharat.Selection
             // yet real C# null" Unity objects; a plain reference/is-null
             // check would not catch this.
             _selected.RemoveAll(unit => unit == null);
+
+            // Same destroyed-but-not-yet-null concern as above, now that
+            // buildings are attackable and can die mid-selection too.
+            if (!_selectedBuilding)
+            {
+                _selectedBuilding = null;
+            }
 
             if (BuildingPlacer.IsPlacing || MinimapController.IsPointerOverMinimap)
             {
@@ -96,14 +109,21 @@ namespace KingdomsOfBharat.Selection
             }
 
             bool hitNode = hit.collider.TryGetComponent(out ResourceNode node);
+            // Faction-gated, not just "unfinished"/"finished": an enemy's
+            // incomplete building shouldn't offer the "help build" action,
+            // and an enemy's finished Farm shouldn't offer "staff it" -
+            // both need to fall through to the attack branch below instead
+            // (see hitAttackable), now that buildings carry Attackable.
             ConstructionSite site = null;
             bool hitSite = !hitNode
                 && hit.collider.TryGetComponent(out site)
-                && !site.IsComplete;
+                && !site.IsComplete
+                && IsFriendlyToPlayer(site);
             Farm farm = null;
             bool hitFarm = !hitNode && !hitSite
                 && hit.collider.TryGetComponent(out farm)
-                && farm.IsComplete;
+                && farm.IsComplete
+                && IsFriendlyToPlayer(farm);
             Livestock livestock = null;
             bool hitLivestock = !hitNode && !hitSite && !hitFarm
                 && hit.collider.TryGetComponent(out livestock);
@@ -196,6 +216,19 @@ namespace KingdomsOfBharat.Selection
                     return;
                 }
             }
+
+            // Buildings select second (any faction, not just Player's own -
+            // AoE lets you click an enemy building to see its HP, just not
+            // command it), so a unit standing on/near one is still picked
+            // first by the loop above.
+            foreach (RaycastHit hit in hits)
+            {
+                if (hit.collider.TryGetComponent(out Building building))
+                {
+                    SelectBuilding(building);
+                    return;
+                }
+            }
         }
 
         private void SelectInBox(Vector2 start, Vector2 end)
@@ -250,6 +283,17 @@ namespace KingdomsOfBharat.Selection
             return targetFaction.Faction != sourceFaction.Faction;
         }
 
+        // No FactionMember present is treated as friendly here (matches
+        // IsSameFaction/IsHostileTarget's fail-open convention) - only
+        // used to decide whether a click should be a build-assist/staff
+        // action (friendly) or an attack (hostile), and every selected
+        // unit is always Player's own (see IsPlayerControllable).
+        private static bool IsFriendlyToPlayer(Component target)
+        {
+            return !target.TryGetComponent(out FactionMember targetFaction)
+                || targetFaction.Faction == FactionId.Player;
+        }
+
         private static bool IsSameFaction(Unit source, Component target)
         {
             if (!source.TryGetComponent(out FactionMember sourceFaction))
@@ -274,6 +318,18 @@ namespace KingdomsOfBharat.Selection
             }
         }
 
+        // Single-select, mutually exclusive with unit selection - ClearSelection
+        // (called by both SelectSingle and SelectInBox before reselecting)
+        // already drops any previously selected building.
+        private void SelectBuilding(Building building)
+        {
+            _selectedBuilding = building;
+            if (building.TryGetComponent(out SelectionIndicator indicator))
+            {
+                indicator.SetSelected(true);
+            }
+        }
+
         private void ClearSelection()
         {
             foreach (Unit unit in _selected)
@@ -284,6 +340,12 @@ namespace KingdomsOfBharat.Selection
                 }
             }
             _selected.Clear();
+
+            if (_selectedBuilding != null && _selectedBuilding.TryGetComponent(out SelectionIndicator buildingIndicator))
+            {
+                buildingIndicator.SetSelected(false);
+            }
+            _selectedBuilding = null;
         }
 
         // Simple immediate-mode box-select overlay. Screen-space input is

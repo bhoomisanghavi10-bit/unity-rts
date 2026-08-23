@@ -27,6 +27,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<TargetDummy>();
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure(health);
+            go.AddComponent<HealthBar>();
             go.AddComponent<FactionMember>().Configure(FactionId.Enemy);
         }
     }

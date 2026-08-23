@@ -40,6 +40,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             go.AddComponent<Attackable>().Configure(30f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            go.AddComponent<HealthBar>();
             go.AddComponent<MeleeAttacker>().SetDamageMultiplier(profile.SoldierDamageMultiplier);
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);

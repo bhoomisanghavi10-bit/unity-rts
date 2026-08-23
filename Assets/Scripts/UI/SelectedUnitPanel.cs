@@ -3,11 +3,13 @@ using TMPro;
 using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Combat;
+using KingdomsOfBharat.Buildings;
 
 namespace KingdomsOfBharat.UI
 {
     // Bottom-left info panel for whatever SelectionManager currently has
-    // selected: a single unit's name/status/HP, or a headcount for a group.
+    // selected: a single unit's name/status/HP, a building's name/HP/build
+    // progress, or a headcount for a group of units.
     // uGUI/TMP replacement for the original OnGUI version - the panel
     // background and labels are real Canvas children wired up in the
     // Inspector; this just toggles which ones are active and pushes text
@@ -30,10 +32,21 @@ namespace KingdomsOfBharat.UI
 
         private void Update()
         {
-            bool hasSelection = _selectionManager != null && _selectionManager.Selected.Count > 0;
+            Building selectedBuilding = _selectionManager != null ? _selectionManager.SelectedBuilding : null;
+            bool hasUnitSelection = _selectionManager != null && _selectionManager.Selected.Count > 0;
+            bool hasSelection = hasUnitSelection || selectedBuilding != null;
             panelRoot.SetActive(hasSelection);
             if (!hasSelection)
             {
+                return;
+            }
+
+            if (selectedBuilding != null)
+            {
+                nameLabel.gameObject.SetActive(true);
+                statusLabel.gameObject.SetActive(true);
+                groupCountLabel.gameObject.SetActive(false);
+                DrawBuilding(selectedBuilding);
                 return;
             }
 
@@ -58,6 +71,21 @@ namespace KingdomsOfBharat.UI
             statusLabel.text = UnitStatus.Describe(unit);
 
             bool hasAttackable = unit.TryGetComponent(out Attackable attackable);
+            hpLabel.gameObject.SetActive(hasAttackable);
+            if (hasAttackable)
+            {
+                hpLabel.text = $"HP: {(int)attackable.Health}/{(int)attackable.MaxHealth}";
+            }
+        }
+
+        private void DrawBuilding(Building building)
+        {
+            nameLabel.text = building.gameObject.name;
+            statusLabel.text = building.TryGetComponent(out ConstructionSite site) && !site.IsComplete
+                ? $"Building... {(int)(site.Progress * 100f)}%"
+                : "Complete";
+
+            bool hasAttackable = building.TryGetComponent(out Attackable attackable);
             hpLabel.gameObject.SetActive(hasAttackable);
             if (hasAttackable)
             {

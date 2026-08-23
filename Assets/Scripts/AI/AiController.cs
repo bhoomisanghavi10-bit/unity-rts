@@ -453,7 +453,7 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
-            Attackable target = FindNearestPlayerUnit(townCenterPosition);
+            Attackable target = FindNearestPlayerTarget(townCenterPosition);
             if (target == null)
             {
                 return;
@@ -466,7 +466,12 @@ namespace KingdomsOfBharat.AI
             }
         }
 
-        private static Attackable FindNearestPlayerUnit(Vector3 fromPosition)
+        // Player units take priority (soldiers wade through defenders
+        // rather than beelining past them for a building), buildings only
+        // considered when no player unit is nearer - both are Attackable
+        // now that buildings carry it too, so the attack squad can raze a
+        // Town Center/Barracks/Farm/House same as it can kill a unit.
+        private static Attackable FindNearestPlayerTarget(Vector3 fromPosition)
         {
             Attackable nearest = null;
             float bestDistance = float.MaxValue;
@@ -485,6 +490,32 @@ namespace KingdomsOfBharat.AI
                 }
 
                 float distance = Vector3.Distance(fromPosition, unit.transform.position);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    nearest = attackable;
+                }
+            }
+
+            if (nearest != null)
+            {
+                return nearest;
+            }
+
+            foreach (Building building in Building.All)
+            {
+                if (!building.TryGetComponent(out FactionMember factionMember)
+                    || factionMember.Faction != FactionId.Player)
+                {
+                    continue;
+                }
+
+                if (!building.TryGetComponent(out Attackable attackable) || attackable.IsDead)
+                {
+                    continue;
+                }
+
+                float distance = Vector3.Distance(fromPosition, building.transform.position);
                 if (distance < bestDistance)
                 {
                     bestDistance = distance;

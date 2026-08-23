@@ -1,6 +1,8 @@
 using UnityEngine;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.FogOfWar;
+using KingdomsOfBharat.Combat;
+using KingdomsOfBharat.Selection;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -11,6 +13,7 @@ namespace KingdomsOfBharat.Buildings
     public static class BarracksFactory
     {
         private static readonly Vector3 Size = new Vector3(3f, 2f, 3f);
+        private const float MaxHealth = 300f;
 
         public static GameObject Place(Vector3 point, FactionId faction, float buildTime)
         {
@@ -22,6 +25,9 @@ namespace KingdomsOfBharat.Buildings
             go.AddComponent<Barracks>();
             var site = go.AddComponent<ConstructionSite>();
             site.Configure(buildTime);
+            go.AddComponent<SelectionIndicator>().Configure(1.9f, -Size.y * 0.5f);
+            go.AddComponent<Attackable>().Configure(MaxHealth);
+            go.AddComponent<HealthBar>();
             go.AddComponent<FactionMember>().Configure(faction);
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.
