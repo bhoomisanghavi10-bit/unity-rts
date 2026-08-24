@@ -116,6 +116,8 @@ namespace KingdomsOfBharat.Buildings
         // ConstructionSite/FactionMember below) and needs to be.
         private void Awake()
         {
+            trainKey = GameSettings.GetKey("TrainUnit", trainKey);
+
             _rally = gameObject.AddComponent<RallyPoint>();
             _rally.Configure(rallyOffset);
         }

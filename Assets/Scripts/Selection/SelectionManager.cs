@@ -44,6 +44,8 @@ namespace KingdomsOfBharat.Selection
 
         private void Awake()
         {
+            cycleStanceKey = GameSettings.GetKey("CycleStance", cycleStanceKey);
+
             _camera = UnityEngine.Camera.main;
 
             for (int i = 0; i < _controlGroups.Length; i++)

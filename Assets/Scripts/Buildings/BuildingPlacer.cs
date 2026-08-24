@@ -85,6 +85,21 @@ namespace KingdomsOfBharat.Buildings
         private void Awake()
         {
             _camera = UnityEngine.Camera.main;
+            ApplyKeySettings();
+        }
+
+        // Item 46: same per-field GameSettings override pattern used
+        // across SelectionManager/Barracks/TownCenter, just seven fields
+        // at once instead of one.
+        private void ApplyKeySettings()
+        {
+            placeBarracksKey = GameSettings.GetKey("PlaceBarracks", placeBarracksKey);
+            placeFarmKey = GameSettings.GetKey("PlaceFarm", placeFarmKey);
+            placeHouseKey = GameSettings.GetKey("PlaceHouse", placeHouseKey);
+            placeWallKey = GameSettings.GetKey("PlaceWall", placeWallKey);
+            placeGateKey = GameSettings.GetKey("PlaceGate", placeGateKey);
+            placeTowerKey = GameSettings.GetKey("PlaceTower", placeTowerKey);
+            placeMarketKey = GameSettings.GetKey("PlaceMarket", placeMarketKey);
         }
 
         // Gated behind Classical Age - gives the Age system real teeth

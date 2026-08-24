@@ -105,6 +105,16 @@ namespace KingdomsOfBharat.AI
         // every subsequent Update tick) reads it.
         private void ApplyDifficulty()
         {
+            // Item 46: once the player has actually opened Settings and
+            // chosen a difficulty, that choice wins over this Inspector
+            // default - HasDifficultyOverride distinguishes "never touched
+            // Settings" from "explicitly chose Normal", so an untouched
+            // Settings menu never silently overwrites a designer's choice.
+            if (GameSettings.HasDifficultyOverride)
+            {
+                difficulty = GameSettings.Difficulty;
+            }
+
             switch (difficulty)
             {
                 case AiDifficulty.Easy:

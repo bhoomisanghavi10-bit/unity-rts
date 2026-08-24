@@ -79,7 +79,12 @@ namespace KingdomsOfBharat.Combat
 
             _fill.localScale = new Vector3(width * fraction, 0.12f, 1f);
             _fill.localPosition = new Vector3(-width * (1f - fraction) * 0.5f, 0f, -0.005f);
-            _fillRenderer.sharedMaterial.color = Color.Lerp(Color.red, Color.green, fraction);
+            // Item 46 colorblind mode: red-green is the pairing deuteranopia/
+            // protanopia confuse most easily - blue/orange stays readable
+            // across all common types of color blindness.
+            _fillRenderer.sharedMaterial.color = GameSettings.ColorblindMode
+                ? Color.Lerp(new Color(0.9f, 0.45f, 0.05f), new Color(0.15f, 0.55f, 1f), fraction)
+                : Color.Lerp(Color.red, Color.green, fraction);
 
             if (_camera != null)
             {

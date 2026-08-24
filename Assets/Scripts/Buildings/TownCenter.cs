@@ -41,6 +41,8 @@ namespace KingdomsOfBharat.Buildings
         // ever training anything.
         private void Awake()
         {
+            trainKey = GameSettings.GetKey("TrainWorker", trainKey);
+
             _rally = gameObject.AddComponent<RallyPoint>();
             _rally.Configure(rallyOffset);
         }
