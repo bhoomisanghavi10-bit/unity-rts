@@ -20,6 +20,7 @@ namespace KingdomsOfBharat.Selection
     {
         [SerializeField] private float dragThreshold = 6f;
         [SerializeField] private KeyCode cycleStanceKey = KeyCode.V;
+        [SerializeField] private float formationSpacing = 1.5f;
 
         private readonly List<Unit> _selected = new List<Unit>();
         private Building _selectedBuilding;
@@ -262,6 +263,14 @@ namespace KingdomsOfBharat.Selection
                 && hit.collider.TryGetComponent(out attackable)
                 && !attackable.IsDead;
 
+            // Only the plain-move (else) branch below uses this - a group
+            // ordered onto open ground spreads into a rough grid (see
+            // GroupFormation) instead of every unit pathing to the exact
+            // same point, but gather/build/attack/staff targets are a
+            // single specific thing every selected unit needs to reach,
+            // not open ground to spread across.
+            int formationIndex = 0;
+
             foreach (Unit unit in _selected)
             {
                 unit.TryGetComponent(out Gatherer gatherer);
@@ -319,7 +328,9 @@ namespace KingdomsOfBharat.Selection
                     livestockWorker?.CancelWork();
                     if (unit.TryGetComponent(out UnitMover mover))
                     {
-                        mover.MoveTo(hit.point);
+                        Vector3 offset = GroupFormation.GetOffset(formationIndex, _selected.Count, formationSpacing);
+                        mover.MoveTo(hit.point + offset);
+                        formationIndex++;
                     }
                 }
             }
