@@ -490,6 +490,29 @@ namespace KingdomsOfBharat.AI
                 && stockpile.GetTotal(ResourceType.Gold) > 150f)
             {
                 _barracks.RequestResearchArmor();
+                return;
+            }
+
+            // Item 40's per-class layer, on top of the flat tracks above -
+            // Cavalry gets the attack line (it's the aggressive strike
+            // unit, most rewarded by raw damage), Archer gets the armor
+            // line (the roster's most fragile unit, most rewarded by
+            // extra survivability). A fixed pairing, not cycled - keeps
+            // the AI's choice legible/predictable rather than spreading
+            // Gold thin across all four classes.
+            if (!_barracks.IsResearchingClassAttack
+                && UpgradeProgress.HasNextClassAttackTier(FactionId.Enemy, UnitClass.Cavalry)
+                && stockpile.GetTotal(ResourceType.Gold) > 150f)
+            {
+                _barracks.RequestResearchClassAttack(UnitClass.Cavalry);
+                return;
+            }
+
+            if (!_barracks.IsResearchingClassArmor
+                && UpgradeProgress.HasNextClassArmorTier(FactionId.Enemy, UnitClass.Archer)
+                && stockpile.GetTotal(ResourceType.Gold) > 150f)
+            {
+                _barracks.RequestResearchClassArmor(UnitClass.Archer);
             }
         }
 

@@ -75,6 +75,17 @@ namespace KingdomsOfBharat.Buildings
         private float _attackResearchRemaining = -1f;
         private float _armorResearchRemaining = -1f;
 
+        // Item 40's additive layer - one more independent research track
+        // each for Attack/Armor, same "doesn't block the others" shape as
+        // the flat tracks above, but targeting a specific UnitClass
+        // (RequestResearchClassAttack/Armor) instead of every unit
+        // equally. _classAttackTarget/_classArmorTarget record which
+        // class each track is currently researching.
+        private float _classAttackResearchRemaining = -1f;
+        private float _classArmorResearchRemaining = -1f;
+        private UnitClass _classAttackTarget;
+        private UnitClass _classArmorTarget;
+
         private ConstructionSite Site
         {
             get
@@ -127,6 +138,14 @@ namespace KingdomsOfBharat.Buildings
         public float NextAttackUpgradeCost => upgradeGoldCostPerTier * (UpgradeProgress.AttackTier(Faction) + 1);
         public float NextArmorUpgradeCost => upgradeGoldCostPerTier * (UpgradeProgress.ArmorTier(Faction) + 1);
 
+        public bool IsResearchingClassAttack => _classAttackResearchRemaining >= 0f;
+        public bool IsResearchingClassArmor => _classArmorResearchRemaining >= 0f;
+
+        public float NextClassAttackUpgradeCost(UnitClass unitClass) =>
+            upgradeGoldCostPerTier * (UpgradeProgress.ClassAttackTier(Faction, unitClass) + 1);
+        public float NextClassArmorUpgradeCost(UnitClass unitClass) =>
+            upgradeGoldCostPerTier * (UpgradeProgress.ClassArmorTier(Faction, unitClass) + 1);
+
         private void Update()
         {
             if (IsTraining)
@@ -142,6 +161,16 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingArmor)
             {
                 TickArmorResearch();
+            }
+
+            if (IsResearchingClassAttack)
+            {
+                TickClassAttackResearch();
+            }
+
+            if (IsResearchingClassArmor)
+            {
+                TickClassArmorResearch();
             }
 
             if (Faction == FactionId.Player && !IsTraining && Input.GetKeyDown(trainKey))
@@ -308,6 +337,69 @@ namespace KingdomsOfBharat.Buildings
             {
                 UpgradeProgress.AdvanceArmor(Faction);
                 _armorResearchRemaining = -1f;
+            }
+        }
+
+        // Item 40's additive per-class research - same cost/no-blocking
+        // shape as RequestResearchAttack/Armor above, just keyed to a
+        // specific UnitClass instead of applying to everyone.
+        public void RequestResearchClassAttack(UnitClass unitClass)
+        {
+            if (!IsComplete || IsResearchingClassAttack || !UpgradeProgress.HasNextClassAttackTier(Faction, unitClass))
+            {
+                return;
+            }
+
+            int tier = UpgradeProgress.ClassAttackTier(Faction, unitClass);
+            float cost = upgradeGoldCostPerTier * (tier + 1);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < cost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -cost);
+            _classAttackTarget = unitClass;
+            _classAttackResearchRemaining = upgradeResearchTimePerTier * (tier + 1);
+        }
+
+        public void RequestResearchClassArmor(UnitClass unitClass)
+        {
+            if (!IsComplete || IsResearchingClassArmor || !UpgradeProgress.HasNextClassArmorTier(Faction, unitClass))
+            {
+                return;
+            }
+
+            int tier = UpgradeProgress.ClassArmorTier(Faction, unitClass);
+            float cost = upgradeGoldCostPerTier * (tier + 1);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < cost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -cost);
+            _classArmorTarget = unitClass;
+            _classArmorResearchRemaining = upgradeResearchTimePerTier * (tier + 1);
+        }
+
+        private void TickClassAttackResearch()
+        {
+            _classAttackResearchRemaining -= Time.deltaTime;
+            if (_classAttackResearchRemaining <= 0f)
+            {
+                UpgradeProgress.AdvanceClassAttack(Faction, _classAttackTarget);
+                _classAttackResearchRemaining = -1f;
+            }
+        }
+
+        private void TickClassArmorResearch()
+        {
+            _classArmorResearchRemaining -= Time.deltaTime;
+            if (_classArmorResearchRemaining <= 0f)
+            {
+                UpgradeProgress.AdvanceClassArmor(Faction, _classArmorTarget);
+                _classArmorResearchRemaining = -1f;
             }
         }
     }
