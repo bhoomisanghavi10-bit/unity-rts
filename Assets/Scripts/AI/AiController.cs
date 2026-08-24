@@ -40,6 +40,7 @@ namespace KingdomsOfBharat.AI
         [SerializeField] private float workerSpacing = 2f;
         [SerializeField] private float decisionInterval = 2f;
         [SerializeField] private float attackCheckInterval = 45f;
+        [SerializeField] private float diplomacyEvalInterval = 20f;
         [SerializeField] private int attackSquadSize = 3;
         [SerializeField] private float barracksWoodCost = 100f;
         [SerializeField] private float barracksStoneCost = 50f;
@@ -69,6 +70,7 @@ namespace KingdomsOfBharat.AI
 
         private float _decisionTimer;
         private float _attackTimer;
+        private float _diplomacyTimer;
         private TownCenter _townCenter;
         private Barracks _barracks;
         private ConstructionSite _barracksSite;
@@ -108,30 +110,150 @@ namespace KingdomsOfBharat.AI
             }
         }
 
-        // Item 48: which faction this AI currently treats as its combat
-        // focus - resolved fresh (not cached) so a mid-match alliance
-        // change picks a new target instead of continuing to attack a
-        // faction that just became an ally. Candidate order is fixed
-        // (Player, then Enemy, then Enemy2) purely for determinism - this
-        // AI still only ever focuses one faction at a time (see the class
-        // doc comment on "single scripted opponent"), real multi-front
-        // behavior is out of scope here. Falls back to Player when
-        // nothing reads as hostile (e.g. every other faction allied),
-        // matching this AI's pre-diplomacy behavior exactly rather than
-        // leaving it with no target at all.
+        // Item 48/49-gap-closing: which faction this AI currently treats as
+        // its combat focus - resolved fresh (not cached) so a mid-match
+        // alliance change, or a closer threat showing up, picks a new
+        // target instead of continuing to march toward a stale one.
+        // Originally a fixed Player/Enemy/Enemy2 priority order; now
+        // genuinely reactive - whichever hostile faction has the nearest
+        // unit/building to the AI's own base wins, so a 3-faction match
+        // has real multi-front behavior (an AI under attack from Enemy2
+        // will defend against Enemy2 instead of blindly continuing to
+        // march on a distant Player). Falls back to Player when nothing
+        // hostile has any presence at all (e.g. a 2-faction match before
+        // Enemy2 exists, or every other faction allied) - matches this
+        // AI's original pre-diplomacy behavior exactly in the common case.
         private static readonly FactionId[] CandidateFactions = { FactionId.Player, FactionId.Enemy, FactionId.Enemy2 };
 
         private FactionId HostileTargetFaction()
         {
+            FactionId? nearest = null;
+            float bestDistance = float.MaxValue;
+
             foreach (FactionId candidate in CandidateFactions)
             {
-                if (candidate != myFaction && DiplomacyRegistry.IsHostile(myFaction, candidate))
+                if (candidate == myFaction || !DiplomacyRegistry.IsHostile(myFaction, candidate))
                 {
-                    return candidate;
+                    continue;
+                }
+
+                float distance = NearestPresenceDistance(candidate, townCenterPosition);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    nearest = candidate;
                 }
             }
 
-            return FactionId.Player;
+            return nearest ?? FactionId.Player;
+        }
+
+        // float.MaxValue means "this faction has no units/buildings at
+        // all right now" - lets HostileTargetFaction() naturally skip a
+        // faction with no actual presence (e.g. Enemy2 in a 2-faction
+        // match) without a separate existence check.
+        private static float NearestPresenceDistance(FactionId faction, Vector3 fromPosition)
+        {
+            float best = float.MaxValue;
+
+            foreach (Unit unit in Unit.All)
+            {
+                if (unit.TryGetComponent(out FactionMember factionMember) && factionMember.Faction == faction)
+                {
+                    best = Mathf.Min(best, Vector3.Distance(fromPosition, unit.transform.position));
+                }
+            }
+
+            foreach (Building building in Building.All)
+            {
+                if (building.TryGetComponent(out FactionMember factionMember) && factionMember.Faction == faction)
+                {
+                    best = Mathf.Min(best, Vector3.Distance(fromPosition, building.transform.position));
+                }
+            }
+
+            return best;
+        }
+
+        // Item 49-gap-closing: "the enemy of my enemy is my friend" - a
+        // simple, well-established AI diplomacy heuristic rather than a
+        // full negotiation system. Checked on a slow timer (not every
+        // decision tick) to avoid flip-flopping, and an alliance once
+        // formed is never broken by this AI on its own (no "backstab"
+        // behavior) - sticky alliances are far easier to reason about for
+        // a player than an ally that might turn at any moment. Naturally
+        // a no-op in a 2-faction match: with only one other faction to
+        // possibly ally with, there's no third faction left to need
+        // rescuing from, so biggestThreat stays null and nothing happens -
+        // this AI's default behavior is completely unchanged unless a 3rd
+        // faction is actually in play.
+        private void TryEvaluateDiplomacy()
+        {
+            foreach (FactionId other in CandidateFactions)
+            {
+                if (other == myFaction || DiplomacyRegistry.AreAllied(myFaction, other) || !FactionHasPresence(other))
+                {
+                    continue;
+                }
+
+                FactionId? biggestThreat = null;
+                float biggestThreatStrength = 0f;
+
+                foreach (FactionId threat in CandidateFactions)
+                {
+                    if (threat == myFaction || threat == other || !DiplomacyRegistry.IsHostile(myFaction, threat))
+                    {
+                        continue;
+                    }
+
+                    float strength = FactionStrength(threat);
+                    if (strength > biggestThreatStrength)
+                    {
+                        biggestThreatStrength = strength;
+                        biggestThreat = threat;
+                    }
+                }
+
+                // Only seek help when losing badly (below half the
+                // threat's strength) - a fair fight is still this AI's
+                // own fight to handle.
+                if (biggestThreat != null && FactionStrength(myFaction) < biggestThreatStrength * 0.5f)
+                {
+                    DiplomacyRegistry.SetAllied(myFaction, other, true);
+                    return;
+                }
+            }
+        }
+
+        private static bool FactionHasPresence(FactionId faction)
+        {
+            return FactionStrength(faction) > 0f;
+        }
+
+        // Simple unit+building count - deliberately not damage/tier-
+        // weighted, matching this AI's other "coarse, not omniscient-
+        // precise" heuristics (see TryAttack's squad-size threshold).
+        private static float FactionStrength(FactionId faction)
+        {
+            float score = 0f;
+
+            foreach (Unit unit in Unit.All)
+            {
+                if (unit.TryGetComponent(out FactionMember factionMember) && factionMember.Faction == faction)
+                {
+                    score += 1f;
+                }
+            }
+
+            foreach (Building building in Building.All)
+            {
+                if (building.TryGetComponent(out FactionMember factionMember) && factionMember.Faction == faction)
+                {
+                    score += 1f;
+                }
+            }
+
+            return score;
         }
 
         // Scales existing timer/threshold fields rather than changing any
@@ -197,6 +319,13 @@ namespace KingdomsOfBharat.AI
             {
                 _attackTimer = 0f;
                 TryAttack();
+            }
+
+            _diplomacyTimer += Time.deltaTime;
+            if (_diplomacyTimer >= diplomacyEvalInterval)
+            {
+                _diplomacyTimer = 0f;
+                TryEvaluateDiplomacy();
             }
         }
 
