@@ -16,6 +16,7 @@ namespace KingdomsOfBharat.Combat
         [SerializeField] private float attackRange = 2f;
         [SerializeField] private float attackInterval = 1f;
         [SerializeField] private DamageType damageType = DamageType.Melee;
+        [SerializeField] private UnitClass unitClass = UnitClass.Infantry;
 
         private UnitMover _mover;
         private Attackable _target;
@@ -59,6 +60,15 @@ namespace KingdomsOfBharat.Combat
             damageType = newDamageType;
         }
 
+        // For CombatBonus's counter matrix - what class of attacker this
+        // is, looked up against the target's own Attackable.Class when a
+        // hit lands. Defaults to Infantry (Worker/Soldier); ArcherFactory
+        // overrides it to Archer.
+        public void SetUnitClass(UnitClass newUnitClass)
+        {
+            unitClass = newUnitClass;
+        }
+
         // Applied by SoldierFactory/ArcherFactory at spawn time from
         // UpgradeProgress - a flat bonus baked in alongside the civ/age
         // multipliers, same "baked in at spawn, not retroactive" convention
@@ -98,7 +108,9 @@ namespace KingdomsOfBharat.Combat
             _cooldown -= Time.deltaTime;
             if (_cooldown <= 0f)
             {
-                _target.TakeDamage(damage * _damageMultiplier + _damageBonus, damageType);
+                float baseDamage = damage * _damageMultiplier + _damageBonus;
+                float bonus = CombatBonus.Multiplier(unitClass, _target.Class);
+                _target.TakeDamage(baseDamage * bonus, damageType);
                 _cooldown = attackInterval;
             }
         }

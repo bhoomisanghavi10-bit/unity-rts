@@ -27,9 +27,23 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private Vector3 rallyOffset = new Vector3(-3f, 0f, 3f);
 
         private FactionMember _factionMember;
+        private RallyPoint _rally;
         private float _remaining = -1f;
         private float _ageUpRemaining = -1f;
         private AgeId _ageUpTarget;
+
+        // Self-added in Awake (not lazily like ConstructionSite/FactionMember
+        // below) rather than requiring a Factory change: RallyPoint only
+        // needs this component's own Building/rallyOffset, both already
+        // available at Awake time, unlike the siblings a Factory adds
+        // moments later - and it needs to exist as soon as this building is
+        // selectable, since a player can right-click a rally point before
+        // ever training anything.
+        private void Awake()
+        {
+            _rally = gameObject.AddComponent<RallyPoint>();
+            _rally.Configure(rallyOffset);
+        }
 
         private FactionId Faction
         {
@@ -89,7 +103,8 @@ namespace KingdomsOfBharat.Buildings
             _remaining -= Time.deltaTime;
             if (_remaining <= 0f)
             {
-                WorkerFactory.Spawn(transform.position + rallyOffset, Faction);
+                GameObject spawned = WorkerFactory.Spawn(transform.position + rallyOffset, Faction);
+                _rally.ApplyTo(spawned);
                 _remaining = -1f;
             }
         }

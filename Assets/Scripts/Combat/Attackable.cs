@@ -20,10 +20,12 @@ namespace KingdomsOfBharat.Combat
         [SerializeField] private float maxHealth = 30f;
         [SerializeField] private float meleeArmor;
         [SerializeField] private float pierceArmor;
+        [SerializeField] private UnitClass unitClass = UnitClass.Infantry;
 
         public float Health { get; private set; }
         public float MaxHealth => maxHealth;
         public bool IsDead => Health <= 0f;
+        public UnitClass Class => unitClass;
 
         public void Configure(float newMaxHealth)
         {
@@ -38,6 +40,14 @@ namespace KingdomsOfBharat.Combat
         {
             this.meleeArmor = meleeArmor;
             this.pierceArmor = pierceArmor;
+        }
+
+        // Defaults to Infantry (the field's own default) so a factory that
+        // skips this call - same convention as ConfigureArmor - still gets
+        // a reasonable CombatBonus lookup instead of an unset/zero value.
+        public void ConfigureClass(UnitClass newUnitClass)
+        {
+            unitClass = newUnitClass;
         }
 
         private void Awake()

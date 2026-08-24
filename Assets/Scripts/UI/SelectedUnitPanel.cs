@@ -69,6 +69,10 @@ namespace KingdomsOfBharat.UI
         {
             nameLabel.text = unit.gameObject.name;
             statusLabel.text = UnitStatus.Describe(unit);
+            if (unit.TryGetComponent(out StanceController stance))
+            {
+                statusLabel.text += $" | Stance: {stance.Stance} (V to cycle)";
+            }
 
             bool hasAttackable = unit.TryGetComponent(out Attackable attackable);
             hpLabel.gameObject.SetActive(hasAttackable);

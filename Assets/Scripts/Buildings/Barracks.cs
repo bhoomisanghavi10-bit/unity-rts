@@ -54,6 +54,7 @@ namespace KingdomsOfBharat.Buildings
         private ConstructionSite _site;
         private bool _siteResolved;
         private FactionMember _factionMember;
+        private RallyPoint _rally;
         private float _remaining = -1f;
         private bool _trainingArcher;
         private float _attackResearchRemaining = -1f;
@@ -82,6 +83,15 @@ namespace KingdomsOfBharat.Buildings
                 }
                 return _factionMember.Faction;
             }
+        }
+
+        // Self-added in Awake, not lazily - see TownCenter's identical
+        // comment on why this is safe to do eagerly (unlike
+        // ConstructionSite/FactionMember below) and needs to be.
+        private void Awake()
+        {
+            _rally = gameObject.AddComponent<RallyPoint>();
+            _rally.Configure(rallyOffset);
         }
 
         public bool IsComplete => Site == null || Site.IsComplete;
@@ -176,14 +186,10 @@ namespace KingdomsOfBharat.Buildings
             _remaining -= Time.deltaTime;
             if (_remaining <= 0f)
             {
-                if (_trainingArcher)
-                {
-                    ArcherFactory.Spawn(transform.position + rallyOffset, Faction);
-                }
-                else
-                {
-                    SoldierFactory.Spawn(transform.position + rallyOffset, Faction);
-                }
+                GameObject spawned = _trainingArcher
+                    ? ArcherFactory.Spawn(transform.position + rallyOffset, Faction)
+                    : SoldierFactory.Spawn(transform.position + rallyOffset, Faction);
+                _rally.ApplyTo(spawned);
                 _remaining = -1f;
             }
         }

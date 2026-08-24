@@ -39,6 +39,7 @@ namespace KingdomsOfBharat.Combat
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure(18f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(meleeArmor: 0f, pierceArmor: UpgradeProgress.ArmorBonus(faction));
+            attackable.ConfigureClass(UnitClass.Archer);
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
@@ -47,6 +48,8 @@ namespace KingdomsOfBharat.Combat
             attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction));
             attacker.SetRange(6f);
             attacker.SetDamageType(DamageType.Pierce);
+            attacker.SetUnitClass(UnitClass.Archer);
+            go.AddComponent<StanceController>();
 
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);

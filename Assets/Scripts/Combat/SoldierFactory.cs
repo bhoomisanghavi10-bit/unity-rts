@@ -42,10 +42,13 @@ namespace KingdomsOfBharat.Combat
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure(30f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(meleeArmor: 1f + UpgradeProgress.ArmorBonus(faction), pierceArmor: UpgradeProgress.ArmorBonus(faction));
+            attackable.ConfigureClass(UnitClass.Infantry);
             go.AddComponent<HealthBar>();
             var attacker = go.AddComponent<MeleeAttacker>();
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction));
+            attacker.SetUnitClass(UnitClass.Infantry);
+            go.AddComponent<StanceController>();
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);
 

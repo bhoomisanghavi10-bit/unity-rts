@@ -19,6 +19,7 @@ namespace KingdomsOfBharat.Selection
     public class SelectionManager : MonoBehaviour
     {
         [SerializeField] private float dragThreshold = 6f;
+        [SerializeField] private KeyCode cycleStanceKey = KeyCode.V;
 
         private readonly List<Unit> _selected = new List<Unit>();
         private Building _selectedBuilding;
@@ -67,6 +68,68 @@ namespace KingdomsOfBharat.Selection
 
             HandleSelectionInput();
             HandleMoveInput();
+            HandleRallyInput();
+            HandleStanceHotkey();
+        }
+
+        // Right-click while a production building (one with a RallyPoint -
+        // see TownCenter/Barracks) is selected sets its rally point instead
+        // of issuing a unit-move order; unit and building selection are
+        // already mutually exclusive (see SelectBuilding), so this never
+        // fires on the same click as HandleMoveInput. Mirrors
+        // HandleMoveInput's own hit-priority shape (resource node -> hostile
+        // target -> plain point) but without the friendly-build-assist/
+        // staff-farm cases, which don't apply to a rally point.
+        private void HandleRallyInput()
+        {
+            if (_selectedBuilding == null
+                || !_selectedBuilding.TryGetComponent(out RallyPoint rally)
+                || !Input.GetMouseButtonDown(1))
+            {
+                return;
+            }
+
+            Ray ray = _camera.ScreenPointToRay(Input.mousePosition);
+            if (!Physics.Raycast(ray, out RaycastHit hit, 500f))
+            {
+                return;
+            }
+
+            if (hit.collider.TryGetComponent(out ResourceNode node))
+            {
+                rally.SetGatherTarget(node);
+                return;
+            }
+
+            if (hit.collider.TryGetComponent(out Attackable attackable)
+                && !attackable.IsDead
+                && !IsFriendlyToPlayer(attackable))
+            {
+                rally.SetAttackTarget(attackable);
+                return;
+            }
+
+            rally.SetPoint(hit.point);
+        }
+
+        // Cycles stance (Aggressive -> Defensive -> StandGround) for every
+        // currently selected unit that has a StanceController - Workers
+        // don't get one (see StanceController's own comment), so this is a
+        // silent no-op for an all-Worker selection.
+        private void HandleStanceHotkey()
+        {
+            if (_selected.Count == 0 || !Input.GetKeyDown(cycleStanceKey))
+            {
+                return;
+            }
+
+            foreach (Unit unit in _selected)
+            {
+                if (unit.TryGetComponent(out StanceController stance))
+                {
+                    stance.CycleStance();
+                }
+            }
         }
 
         private void HandleSelectionInput()
