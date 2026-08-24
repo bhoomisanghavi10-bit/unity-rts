@@ -38,14 +38,16 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure(18f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
-            attackable.ConfigureArmor(meleeArmor: 0f, pierceArmor: UpgradeProgress.ArmorBonus(faction));
+            attackable.ConfigureArmor(
+                meleeArmor: 0f,
+                pierceArmor: UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Archer));
             attackable.ConfigureClass(UnitClass.Archer);
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
             attacker.SetBaseDamage(4f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
-            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction));
+            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Archer));
             attacker.SetRange(6f);
             attacker.SetDamageType(DamageType.Pierce);
             attacker.SetUnitClass(UnitClass.Archer);
@@ -53,6 +55,14 @@ namespace KingdomsOfBharat.Combat
 
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);
+
+            // Purely cosmetic - see SoldierFactory's identical note on why
+            // the offsets are approximate. Held in the off-hand so a
+            // Soldier (sword, right hand) and Archer (bow, left hand)
+            // silhouette differently even at a glance.
+            WeaponAttachment.AttachToBone(
+                go, HumanBodyBones.LeftHand, "Weapons/Bow/scene",
+                targetSize: 1f, localPositionOffset: new Vector3(-0.05f, 0f, 0f), localEulerOffset: new Vector3(0f, 90f, 0f));
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.
             if (faction == FactionId.Player)

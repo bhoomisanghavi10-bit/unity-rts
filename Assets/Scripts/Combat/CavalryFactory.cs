@@ -41,19 +41,30 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure(40f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
-            attackable.ConfigureArmor(meleeArmor: 1f + UpgradeProgress.ArmorBonus(faction), pierceArmor: UpgradeProgress.ArmorBonus(faction));
+            attackable.ConfigureArmor(
+                meleeArmor: 1f + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Cavalry),
+                pierceArmor: UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Cavalry));
             attackable.ConfigureClass(UnitClass.Cavalry);
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
             attacker.SetBaseDamage(6f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
-            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction));
+            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Cavalry));
             attacker.SetUnitClass(UnitClass.Cavalry);
             go.AddComponent<StanceController>();
 
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);
+
+            // Purely cosmetic - stands a horse mount behind/around the
+            // rider rather than a true seated pose (no rig integration
+            // between the human's Idle/Walk clips and the horse's own
+            // animations), but reads as "mounted" distinctly from Soldier/
+            // Archer's bare-handed silhouette, which is the actual goal.
+            WeaponAttachment.AttachBeside(
+                go, "Mounts/Horse/scene",
+                targetSize: 2.2f, localPositionOffset: new Vector3(0f, 0f, -0.6f), localEulerOffset: Vector3.zero);
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.
             if (faction == FactionId.Player)

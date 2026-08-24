@@ -41,16 +41,29 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure(30f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
-            attackable.ConfigureArmor(meleeArmor: 1f + UpgradeProgress.ArmorBonus(faction), pierceArmor: UpgradeProgress.ArmorBonus(faction));
+            attackable.ConfigureArmor(
+                meleeArmor: 1f + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Infantry),
+                pierceArmor: UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Infantry));
             attackable.ConfigureClass(UnitClass.Infantry);
             go.AddComponent<HealthBar>();
             var attacker = go.AddComponent<MeleeAttacker>();
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
-            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction));
+            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Infantry));
             attacker.SetUnitClass(UnitClass.Infantry);
             go.AddComponent<StanceController>();
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);
+
+            // Purely cosmetic - gives Soldier a silhouette distinct from
+            // Archer/Cavalry (previously all three shared the exact same
+            // bare-handed model). See WeaponAttachment for why the
+            // position/rotation offsets below are approximate: this pack's
+            // pivot isn't at the grip, so exact hand placement is tuned by
+            // eye rather than derived.
+            WeaponAttachment.AttachToBone(
+                go, HumanBodyBones.RightHand, "Weapons/Sword/scene",
+                targetSize: 1f, localPositionOffset: new Vector3(0.05f, 0.05f, 0f), localEulerOffset: new Vector3(0f, 0f, 100f),
+                trimToFirstMesh: true);
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.
             if (faction == FactionId.Player)

@@ -40,14 +40,16 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure(50f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
-            attackable.ConfigureArmor(meleeArmor: UpgradeProgress.ArmorBonus(faction), pierceArmor: UpgradeProgress.ArmorBonus(faction));
+            attackable.ConfigureArmor(
+                meleeArmor: UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Siege),
+                pierceArmor: UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Siege));
             attackable.ConfigureClass(UnitClass.Siege);
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
             attacker.SetBaseDamage(15f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
-            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction));
+            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Siege));
             attacker.SetRange(3f);
             attacker.SetUnitClass(UnitClass.Siege);
             go.AddComponent<StanceController>();
