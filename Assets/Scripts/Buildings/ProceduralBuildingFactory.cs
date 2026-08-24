@@ -66,6 +66,9 @@ namespace KingdomsOfBharat.Buildings
                 case "Market":
                     BuildMarket(container.transform, civColor);
                     break;
+                case "Dock":
+                    BuildDock(container.transform, civColor);
+                    break;
                 default:
                     BuildHut(container.transform, civColor);
                     break;
@@ -127,6 +130,16 @@ namespace KingdomsOfBharat.Buildings
         {
             AddTierCube(parent, new Vector3(1.6f, 1f, 1.6f), 0f, color);
             AddPyramid(parent, "Roof", new Vector3(0f, 1f, 0f), 2f, 2f, 0.9f, color);
+        }
+
+        // Item 49: a low wooden platform (long/flat, water-facing) with two
+        // corner posts - reads as a pier at RTS camera distance without
+        // needing a real imported model yet.
+        private static void BuildDock(Transform parent, Color color)
+        {
+            AddTierCube(parent, new Vector3(2.2f, 0.3f, 4f), 0f, color);
+            AddOffsetCube(parent, new Vector3(0.3f, 1.2f, 0.3f), new Vector3(-0.9f, 0.6f, 1.7f), color);
+            AddOffsetCube(parent, new Vector3(0.3f, 1.2f, 0.3f), new Vector3(0.9f, 0.6f, 1.7f), color);
         }
 
         // A single thin fortification slab - just tall/solid enough to

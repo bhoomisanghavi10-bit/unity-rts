@@ -18,7 +18,7 @@ namespace KingdomsOfBharat.Buildings
     // placement, for Barracks and House).
     public class BuildingPlacer : MonoBehaviour
     {
-        private enum BuildingKind { Barracks, Farm, House, Wall, Gate, Tower, Market }
+        private enum BuildingKind { Barracks, Farm, House, Wall, Gate, Tower, Market, Dock }
 
         [Header("Barracks")]
         [SerializeField] private KeyCode placeBarracksKey = KeyCode.B;
@@ -71,6 +71,19 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float marketBuildTime = 8f;
         [SerializeField] private Vector3 marketSize = new Vector3(2.4f, 1.6f, 2.4f);
 
+        [Header("Dock")]
+        [SerializeField] private KeyCode placeDockKey = KeyCode.N;
+        [SerializeField] private float dockWoodCost = 80f;
+        [SerializeField] private float dockStoneCost = 20f;
+        [SerializeField] private float dockBuildTime = 6f;
+        [SerializeField] private Vector3 dockSize = new Vector3(2.2f, 0.6f, 4f);
+        // Item 49: how close to the water rectangle's edge a Dock must be
+        // placed - a Dock has to actually reach the water to be useful
+        // (boats spawn/dock there), but the foundation itself sits on
+        // land (there's no ground collider inside the water hole to place
+        // on - see ProceduralGround).
+        [SerializeField] private float dockMaxWaterDistance = 4f;
+
         [SerializeField] private float minClearance = 3f;
 
         // SelectionManager checks this so a click meant to place/cancel a
@@ -100,6 +113,7 @@ namespace KingdomsOfBharat.Buildings
             placeGateKey = GameSettings.GetKey("PlaceGate", placeGateKey);
             placeTowerKey = GameSettings.GetKey("PlaceTower", placeTowerKey);
             placeMarketKey = GameSettings.GetKey("PlaceMarket", placeMarketKey);
+            placeDockKey = GameSettings.GetKey("PlaceDock", placeDockKey);
         }
 
         // Gated behind Classical Age - gives the Age system real teeth
@@ -165,6 +179,19 @@ namespace KingdomsOfBharat.Buildings
             }
         }
 
+        // Gated on the current map actually having water - no point
+        // offering Dock placement on RiverValley/Highlands.
+        public void BeginPlacementDock()
+        {
+            if (!_placing && WaterProximity.HasWater)
+            {
+                StartPlacing(BuildingKind.Dock);
+            }
+        }
+
+        // For BuildMenu, to show/disable the Build Dock button.
+        public static bool CanPlaceDock => WaterProximity.HasWater;
+
         private void Update()
         {
             if (!_placing)
@@ -196,6 +223,10 @@ namespace KingdomsOfBharat.Buildings
                 else if (Input.GetKeyDown(placeMarketKey))
                 {
                     BeginPlacementMarket();
+                }
+                else if (Input.GetKeyDown(placeDockKey))
+                {
+                    BeginPlacementDock();
                 }
             }
 
@@ -255,7 +286,7 @@ namespace KingdomsOfBharat.Buildings
             _ghost.transform.position = point + Vector3.up * (size.y * 0.5f);
 
             bool affordable = CanAfford();
-            bool clear = BarracksFactory.IsClear(point, CurrentClearance());
+            bool clear = IsClearForKind(point);
             var renderer = _ghost.GetComponent<MeshRenderer>();
             renderer.sharedMaterial.color = affordable && clear
                 ? new Color(0.3f, 1f, 0.3f, 0.5f)
@@ -264,7 +295,7 @@ namespace KingdomsOfBharat.Buildings
 
         private void TryConfirmPlacement()
         {
-            if (!TryGetGroundPoint(out Vector3 point) || !BarracksFactory.IsClear(point, CurrentClearance()))
+            if (!TryGetGroundPoint(out Vector3 point) || !IsClearForKind(point))
             {
                 return;
             }
@@ -311,6 +342,11 @@ namespace KingdomsOfBharat.Buildings
                     stockpile.Add(ResourceType.Gold, -marketGoldCost * multiplier);
                     MarketFactory.Place(point, FactionId.Player, marketBuildTime);
                     break;
+                case BuildingKind.Dock:
+                    stockpile.Add(ResourceType.Wood, -dockWoodCost * multiplier);
+                    stockpile.Add(ResourceType.Stone, -dockStoneCost * multiplier);
+                    DockFactory.Place(point, FactionId.Player, dockBuildTime);
+                    break;
             }
 
             CancelPlacing();
@@ -339,6 +375,9 @@ namespace KingdomsOfBharat.Buildings
                 case BuildingKind.Market:
                     return stockpile.GetTotal(ResourceType.Wood) >= marketWoodCost * multiplier
                         && stockpile.GetTotal(ResourceType.Gold) >= marketGoldCost * multiplier;
+                case BuildingKind.Dock:
+                    return stockpile.GetTotal(ResourceType.Wood) >= dockWoodCost * multiplier
+                        && stockpile.GetTotal(ResourceType.Stone) >= dockStoneCost * multiplier;
                 default:
                     return stockpile.GetTotal(ResourceType.Wood) >= farmWoodCost * multiplier;
             }
@@ -354,6 +393,7 @@ namespace KingdomsOfBharat.Buildings
                 case BuildingKind.Gate: return gateSize;
                 case BuildingKind.Tower: return towerSize;
                 case BuildingKind.Market: return marketSize;
+                case BuildingKind.Dock: return dockSize;
                 default: return farmSize;
             }
         }
@@ -361,6 +401,24 @@ namespace KingdomsOfBharat.Buildings
         private float CurrentClearance()
         {
             return _kind == BuildingKind.Wall || _kind == BuildingKind.Gate ? wallClearance : minClearance;
+        }
+
+        // Item 49: Dock needs an extra gate beyond the generic "not on top
+        // of another building" check every other kind uses - it has to
+        // actually be near water to be useful, and can't be placed
+        // directly inside the water rectangle itself (no ground collider
+        // there to place a foundation on - see ProceduralGround's hole).
+        private bool IsClearForKind(Vector3 point)
+        {
+            bool clear = BarracksFactory.IsClear(point, CurrentClearance());
+            if (_kind != BuildingKind.Dock)
+            {
+                return clear;
+            }
+
+            return clear
+                && !WaterProximity.IsInsideWater(point)
+                && WaterProximity.DistanceToWater(point) <= dockMaxWaterDistance;
         }
 
         private bool TryGetGroundPoint(out Vector3 point)

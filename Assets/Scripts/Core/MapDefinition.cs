@@ -64,6 +64,10 @@ namespace KingdomsOfBharat.Core
         // completely unaffected by this feature's existence.
         public Vector3 WaterCenter;
         public Vector3 WaterHalfExtents;
+        // Item 49: how many Fish nodes (Food, gathered by Fishing Boats)
+        // to scatter inside the water rectangle - 0 for RiverValley/
+        // Highlands (no water to put them in anyway).
+        public int FishCount;
     }
 
     // Faction civ choice has one assignment per match (CivilizationRegistry);
@@ -139,6 +143,7 @@ namespace KingdomsOfBharat.Core
                 NavMeshBoundsSize = new Vector3(54f, 10f, 54f),
                 WaterCenter = new Vector3(20f, 0f, 0f),
                 WaterHalfExtents = new Vector3(5f, 0f, 25f),
+                FishCount = 5,
             },
         };
 

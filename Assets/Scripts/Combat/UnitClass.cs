@@ -12,5 +12,10 @@ namespace KingdomsOfBharat.Combat
         Cavalry,
         Siege,
         Building,
+        // Item 49: War Galley. Deliberately no CombatBonus entries yet -
+        // flat 1x against everything, same as any unlisted pairing -
+        // land/naval balance is a separate concern from just having ships
+        // exist and fight.
+        Naval,
     }
 }

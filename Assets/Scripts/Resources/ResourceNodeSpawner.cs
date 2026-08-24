@@ -20,6 +20,8 @@ namespace KingdomsOfBharat.ResourceGathering
         [SerializeField] private float startingAmount = 40f;
         [SerializeField] private float fruitBushAmount = 25f;
         [SerializeField] private int randomSeed = 12345;
+        [SerializeField] private int fishCount;
+        [SerializeField] private float fishAmount = 60f;
 
         private void Start()
         {
@@ -51,6 +53,11 @@ namespace KingdomsOfBharat.ResourceGathering
             {
                 SpawnFruitBush(RandomPointInRing());
             }
+
+            for (int i = 0; i < fishCount; i++)
+            {
+                SpawnFish(RandomPointInWater());
+            }
         }
 
         // Item 44: same pattern as ProceduralGround.ApplyMapDefinition -
@@ -71,6 +78,7 @@ namespace KingdomsOfBharat.ResourceGathering
             minRadius = map.ResourceMinRadius;
             maxRadius = map.ResourceMaxRadius;
             randomSeed = map.ResourceSeed;
+            fishCount = map.FishCount;
         }
 
         private Vector3 RandomPointInRing()
@@ -78,6 +86,19 @@ namespace KingdomsOfBharat.ResourceGathering
             Vector2 direction = Random.insideUnitCircle.normalized;
             float radius = Random.Range(minRadius, maxRadius);
             return new Vector3(direction.x * radius, 0f, direction.y * radius);
+        }
+
+        // Item 49: a random point inside the current map's water
+        // rectangle - only ever called fishCount times, itself only ever
+        // non-zero on a map that actually has water (see
+        // MapDefinitionData.FishCount), so this never runs on
+        // RiverValley/Highlands.
+        private Vector3 RandomPointInWater()
+        {
+            MapDefinitionData map = MapRegistry.Current;
+            float x = map.WaterCenter.x + Random.Range(-map.WaterHalfExtents.x, map.WaterHalfExtents.x);
+            float z = map.WaterCenter.z + Random.Range(-map.WaterHalfExtents.z, map.WaterHalfExtents.z);
+            return new Vector3(x, 0f, z);
         }
 
         private void SpawnTree(Vector3 position)
@@ -158,6 +179,23 @@ namespace KingdomsOfBharat.ResourceGathering
 
             var node = go.AddComponent<ResourceNode>();
             node.Configure(ResourceType.Food, fruitBushAmount);
+        }
+
+        // Item 49: unlike every other node, deliberately NOT run through
+        // ResolveGroundPoint - the water region is a literal hole in the
+        // ground mesh (see ProceduralGround), so there's no terrain height
+        // to raycast against there. Floats at a fixed height near the
+        // water surface instead.
+        private void SpawnFish(Vector3 position)
+        {
+            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            go.name = "Fish";
+            go.transform.position = position + Vector3.up * 0.3f;
+            go.transform.localScale = new Vector3(0.5f, 0.2f, 0.9f);
+            Colorize(go, new Color(0.55f, 0.6f, 0.65f));
+
+            var node = go.AddComponent<ResourceNode>();
+            node.Configure(ResourceType.Food, fishAmount);
         }
 
         // Only used for the real-model path (EnvironmentPropFactory): a

@@ -116,9 +116,32 @@ namespace KingdomsOfBharat.Buildings
                 return;
             }
 
+            // Item 49: same two checks as above, for a boat's own naval
+            // equivalents (BoatGatherer/BoatAttacker) - a boat has neither
+            // Gatherer nor MeleeAttacker, so without these branches it
+            // would silently fall through to "no rally behavior at all"
+            // rather than the plain-point WaterMover.MoveTo below.
+            if (_gatherTarget != null && unitGo.TryGetComponent(out BoatGatherer boatGatherer))
+            {
+                boatGatherer.GatherFrom(_gatherTarget);
+                return;
+            }
+
+            if (_attackTarget != null && !_attackTarget.IsDead && unitGo.TryGetComponent(out BoatAttacker boatAttacker))
+            {
+                boatAttacker.AttackMove(_attackTarget);
+                return;
+            }
+
             if (unitGo.TryGetComponent(out UnitMover mover))
             {
                 mover.MoveTo(Position);
+                return;
+            }
+
+            if (unitGo.TryGetComponent(out WaterMover waterMover))
+            {
+                waterMover.MoveTo(Position);
             }
         }
     }

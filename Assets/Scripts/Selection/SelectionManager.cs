@@ -287,6 +287,13 @@ namespace KingdomsOfBharat.Selection
                 unit.TryGetComponent(out MeleeAttacker attacker);
                 unit.TryGetComponent(out FarmWorker farmWorker);
                 unit.TryGetComponent(out LivestockWorker livestockWorker);
+                // Item 49: a boat has none of the land components above -
+                // Gatherer/Builder/MeleeAttacker/FarmWorker/LivestockWorker
+                // are all null for it - so it needs its own equivalents
+                // wired into the same branches, or right-clicking with a
+                // boat selected would silently do nothing at all.
+                unit.TryGetComponent(out BoatGatherer boatGatherer);
+                unit.TryGetComponent(out BoatAttacker boatAttacker);
 
                 if (hitNode)
                 {
@@ -295,6 +302,8 @@ namespace KingdomsOfBharat.Selection
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
                     gatherer?.GatherFrom(node);
+                    boatAttacker?.CancelAttack();
+                    boatGatherer?.GatherFrom(node);
                 }
                 else if (hitSite && IsSameFaction(unit, site))
                 {
@@ -328,6 +337,11 @@ namespace KingdomsOfBharat.Selection
                     livestockWorker?.CancelWork();
                     attacker.AttackMove(attackable);
                 }
+                else if (hitAttackable && boatAttacker != null && IsHostileTarget(unit, attackable))
+                {
+                    boatGatherer?.CancelGather();
+                    boatAttacker.AttackMove(attackable);
+                }
                 else
                 {
                     gatherer?.CancelGather();
@@ -335,10 +349,18 @@ namespace KingdomsOfBharat.Selection
                     attacker?.CancelAttack();
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
+                    boatGatherer?.CancelGather();
+                    boatAttacker?.CancelAttack();
                     if (unit.TryGetComponent(out UnitMover mover))
                     {
                         Vector3 offset = GroupFormation.GetOffset(formationIndex, _selected.Count, formationSpacing);
                         mover.MoveTo(hit.point + offset);
+                        formationIndex++;
+                    }
+                    else if (unit.TryGetComponent(out WaterMover waterMover))
+                    {
+                        Vector3 offset = GroupFormation.GetOffset(formationIndex, _selected.Count, formationSpacing);
+                        waterMover.MoveTo(hit.point + offset);
                         formationIndex++;
                     }
                 }
