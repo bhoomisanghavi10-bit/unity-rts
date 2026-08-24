@@ -17,9 +17,12 @@ namespace KingdomsOfBharat.Combat
     //    (Infantry > Archer > Cavalry > Infantry).
     //  - Archer vs Building: arrows are a poor tool against wood/stone,
     //    same reasoning AoE2 gives its own archer line.
+    //  - Siege vs Building: the entire reason a Siege unit exists - built
+    //    to crack Walls/Towers a normal army would grind against for
+    //    ages, at the cost of being slow and unremarkable (flat 1x, no
+    //    special bonus or penalty) against every unit class.
     // Every other pairing (including anything not listed) is a flat 1x -
-    // no bonus, no penalty. Siege (roadmap item 37) adds a Building-
-    // focused entry here when it lands, not a redesign.
+    // no bonus, no penalty.
     public static class CombatBonus
     {
         public static float Multiplier(UnitClass attacker, UnitClass target)
@@ -42,6 +45,11 @@ namespace KingdomsOfBharat.Combat
             if (attacker == UnitClass.Archer && target == UnitClass.Building)
             {
                 return 0.5f;
+            }
+
+            if (attacker == UnitClass.Siege && target == UnitClass.Building)
+            {
+                return 3f;
             }
 
             return 1f;

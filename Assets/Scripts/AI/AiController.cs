@@ -391,10 +391,13 @@ namespace KingdomsOfBharat.AI
         private int _trainRotation;
 
         // AoE-style mixed composition rather than an all-melee army: two
-        // Soldiers, then an Archer, then a Cavalry, repeating - so the
-        // enemy's attack squads benefit from CombatBonus's full counter
-        // triangle (Infantry > Archer > Cavalry > Infantry) instead of
-        // fielding just one class.
+        // Soldiers, an Archer, a Cavalry, a Soldier, then a Siege,
+        // repeating - so the enemy's attack squads benefit from
+        // CombatBonus's full counter triangle (Infantry > Archer >
+        // Cavalry > Infantry) instead of fielding just one class. Siege
+        // is deliberately the rarest slot (1 in 6) - its 3x Building bonus
+        // is wasted outside a siege against Walls/Towers/other buildings,
+        // and it's slow and unremarkable against units in the meantime.
         private void TryTrainSoldiers()
         {
             if (_barracks == null || !_barracks.IsComplete || _barracks.IsTraining)
@@ -410,12 +413,15 @@ namespace KingdomsOfBharat.AI
                 case 3:
                     _barracks.RequestTrainCavalry();
                     break;
+                case 5:
+                    _barracks.RequestTrainSiege();
+                    break;
                 default:
                     _barracks.RequestTrain();
                     break;
             }
 
-            _trainRotation = (_trainRotation + 1) % 4;
+            _trainRotation = (_trainRotation + 1) % 6;
         }
 
         // Same early-margin-not-exact-threshold shape as TryAgeUp: research
