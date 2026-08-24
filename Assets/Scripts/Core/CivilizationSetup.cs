@@ -19,6 +19,18 @@ namespace KingdomsOfBharat.Core
     {
         [SerializeField] private CivilizationId aiCivilization = CivilizationId.Vijayanagara;
         [SerializeField] private MapId map = MapId.RiverValley;
+        // Item 48: off by default so an existing match/scene behaves
+        // exactly as before - Inspector-only for now, same "no UI yet"
+        // state civ/difficulty/map choices were all in before their own
+        // pickers existed. The actual second AiController GameObject
+        // still has to exist in the scene (gated, like the first) for
+        // this to do anything - this flag alone doesn't spawn one.
+        [SerializeField] private bool enableThirdFaction;
+        [SerializeField] private CivilizationId enemy2Civilization = CivilizationId.Rajput;
+        // Separate from gatedMatchContent (which always activates) since
+        // this GameObject (the 2nd AiController) should only exist when
+        // enableThirdFaction is actually on.
+        [SerializeField] private GameObject[] enemy2GatedContent;
         [SerializeField] private GameObject[] gatedMatchContent;
 
         // MatchManager reads this so it never evaluates victory/defeat
@@ -34,12 +46,30 @@ namespace KingdomsOfBharat.Core
         public void BeginMatch(CivilizationId playerCivilization)
         {
             MapRegistry.Select(map);
+            DiplomacyRegistry.Reset();
 
             CivilizationRegistry.Assign(FactionId.Player, playerCivilization);
             CivilizationRegistry.Assign(FactionId.Enemy, aiCivilization);
 
             AgeProgress.Initialize(FactionId.Player);
             AgeProgress.Initialize(FactionId.Enemy);
+
+            // Item 48: only touches Enemy2's registries when the 3rd
+            // faction is actually on - an untouched CivilizationRegistry/
+            // AgeProgress entry for Enemy2 is harmless (nothing reads it
+            // unless a 2nd AiController actually spawns and asks), but
+            // initializing it unconditionally would be pointless work for
+            // the common 2-faction case.
+            if (enableThirdFaction)
+            {
+                CivilizationRegistry.Assign(FactionId.Enemy2, enemy2Civilization);
+                AgeProgress.Initialize(FactionId.Enemy2);
+
+                foreach (GameObject content in enemy2GatedContent)
+                {
+                    content.SetActive(true);
+                }
+            }
 
             foreach (GameObject content in gatedMatchContent)
             {

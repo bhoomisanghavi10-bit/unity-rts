@@ -87,14 +87,25 @@ namespace KingdomsOfBharat.Core
             Debug.Log($"[SaveManager] Saved to {SavePath}");
         }
 
+        // Item 48: Player/Enemy/Enemy2 are always all three captured
+        // (Enemy2's entry is just harmless defaults - Chola civ, Ancient
+        // age, empty resources - when no 2nd AiController ever spawned)
+        // rather than conditionally including it, so RestoreFactionState
+        // on load never has to guess whether a save predates 3-faction
+        // support - it always finds an entry, even if that entry
+        // represents "this faction was never in play."
+        private static readonly FactionId[] AllFactions = { FactionId.Player, FactionId.Enemy, FactionId.Enemy2 };
+
         private static MatchSaveData Capture()
         {
             var data = new MatchSaveData { mapId = (int)MapRegistry.CurrentId };
 
-            foreach (FactionId faction in new[] { FactionId.Player, FactionId.Enemy })
+            foreach (FactionId faction in AllFactions)
             {
                 data.factions.Add(CaptureFaction(faction));
             }
+
+            CaptureAlliances(data);
 
             foreach (Unit unit in Unit.All)
             {
@@ -170,6 +181,20 @@ namespace KingdomsOfBharat.Core
             }
 
             return factionData;
+        }
+
+        private static void CaptureAlliances(MatchSaveData data)
+        {
+            for (int i = 0; i < AllFactions.Length; i++)
+            {
+                for (int j = i + 1; j < AllFactions.Length; j++)
+                {
+                    if (DiplomacyRegistry.AreAllied(AllFactions[i], AllFactions[j]))
+                    {
+                        data.alliances.Add(new AllianceEntry { factionA = (int)AllFactions[i], factionB = (int)AllFactions[j] });
+                    }
+                }
+            }
         }
 
         // Worker carries the same UnitClass.Infantry tag Soldier does (see
@@ -257,6 +282,7 @@ namespace KingdomsOfBharat.Core
 
             FactionSaveData playerData = data.factions.Find(f => f.faction == (int)FactionId.Player);
             FactionSaveData enemyData = data.factions.Find(f => f.faction == (int)FactionId.Enemy);
+            FactionSaveData enemy2Data = data.factions.Find(f => f.faction == (int)FactionId.Enemy2);
 
             // Wipe whatever's running right now (this session's live match)
             // before the normal match-start flow spawns its own defaults on
@@ -274,6 +300,22 @@ namespace KingdomsOfBharat.Core
                 CivilizationRegistry.Assign(FactionId.Enemy, (CivilizationId)enemyData.civilization);
             }
 
+            // Item 48: only assigns Enemy2 a civilization if the save
+            // actually has forces/units for it - an empty default entry
+            // (see Capture's AllFactions comment) shouldn't make a 2nd AI
+            // faction appear real when the save never had one.
+            bool enemy2InPlay = data.units.Exists(u => u.faction == (int)FactionId.Enemy2)
+                || data.buildings.Exists(b => b.faction == (int)FactionId.Enemy2);
+            if (enemy2Data != null && enemy2InPlay)
+            {
+                CivilizationRegistry.Assign(FactionId.Enemy2, (CivilizationId)enemy2Data.civilization);
+            }
+
+            foreach (AllianceEntry entry in data.alliances)
+            {
+                DiplomacyRegistry.SetAllied((FactionId)entry.factionA, (FactionId)entry.factionB, true);
+            }
+
             // Let every gated Start() (TownCenterSpawner, UnitSpawner,
             // AiController, ResourceNodeSpawner...) finish its own default
             // spawn first - two frames of margin for that deferral.
@@ -283,6 +325,10 @@ namespace KingdomsOfBharat.Core
             WipeCurrentMatch();
             RestoreFactionState(FactionId.Player, playerData);
             RestoreFactionState(FactionId.Enemy, enemyData);
+            if (enemy2InPlay)
+            {
+                RestoreFactionState(FactionId.Enemy2, enemy2Data);
+            }
             RestoreBuildings(data.buildings);
             RestoreUnits(data.units);
 

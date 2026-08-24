@@ -49,7 +49,16 @@ namespace KingdomsOfBharat.UI
 
                     if (go.TryGetComponent(out FactionMember factionMember))
                     {
-                        line1 += factionMember.Faction == FactionId.Enemy ? " (Enemy)" : " (Player)";
+                        // Item 48: real faction name instead of a binary
+                        // Player/Enemy ternary (which mislabeled a 3rd
+                        // faction as "Player"), plus an (Allied) suffix
+                        // when relevant so allies read differently from
+                        // hostiles at a glance.
+                        line1 += factionMember.Faction == FactionId.Player
+                            ? " (Player)"
+                            : DiplomacyRegistry.AreAllied(FactionId.Player, factionMember.Faction)
+                                ? $" ({factionMember.Faction} - Allied)"
+                                : $" ({factionMember.Faction})";
                     }
 
                     if (go.TryGetComponent(out Unit unit))

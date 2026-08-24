@@ -128,17 +128,21 @@ namespace KingdomsOfBharat.FogOfWar
         }
 
         // Hides mobile things the player hasn't currently got vision on:
-        // Enemy-faction units/buildings, and wild boars (which wander like
-        // units, so are treated the same way). Static resource nodes
+        // hostile-faction units/buildings, and wild boars (which wander
+        // like units, so are treated the same way). Static resource nodes
         // (trees, farmland, carcasses...) are deliberately left alone here
         // and stay visible once explored - matching how AoE treats terrain
         // features versus units, and simpler than retrofitting every
         // resource spawner with fog awareness for a cosmetic difference.
+        // Item 48: gated on "not Player and not allied with Player" rather
+        // than a literal Enemy check, so an ally's units stay visible (you
+        // can see your ally, same as AoE) while any hostile faction -
+        // Enemy, Enemy2, or a former ally who declared war - still fogs.
         private void UpdateEnemyVisibility()
         {
             foreach (Unit unit in Unit.All)
             {
-                if (unit.TryGetComponent(out FactionMember factionMember) && factionMember.Faction == FactionId.Enemy)
+                if (unit.TryGetComponent(out FactionMember factionMember) && IsFogged(factionMember.Faction))
                 {
                     SetVisibilityByCell(unit.gameObject);
                 }
@@ -146,7 +150,7 @@ namespace KingdomsOfBharat.FogOfWar
 
             foreach (Building building in Building.All)
             {
-                if (building.TryGetComponent(out FactionMember factionMember) && factionMember.Faction == FactionId.Enemy)
+                if (building.TryGetComponent(out FactionMember factionMember) && IsFogged(factionMember.Faction))
                 {
                     SetVisibilityByCell(building.gameObject);
                 }
@@ -156,6 +160,11 @@ namespace KingdomsOfBharat.FogOfWar
             {
                 SetVisibilityByCell(boar.gameObject);
             }
+        }
+
+        private static bool IsFogged(FactionId faction)
+        {
+            return faction != FactionId.Player && !DiplomacyRegistry.AreAllied(FactionId.Player, faction);
         }
 
         private void SetVisibilityByCell(GameObject go)

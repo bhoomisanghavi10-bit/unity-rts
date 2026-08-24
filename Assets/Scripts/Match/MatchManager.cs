@@ -62,19 +62,37 @@ namespace KingdomsOfBharat.Match
             Evaluate();
         }
 
+        // Item 48: Victory now requires every faction hostile to Player to
+        // be eliminated, not just the single Enemy - an allied faction
+        // surviving doesn't block Victory (you didn't need to beat your
+        // own ally), and Enemy2 staying alive does (same as Enemy always
+        // did). Defeat is unchanged - it was never about faction count.
+        private static readonly FactionId[] AllFactions = { FactionId.Player, FactionId.Enemy, FactionId.Enemy2 };
+
         private void Evaluate()
         {
             bool playerAlive = FactionHasForces(FactionId.Player);
-            bool enemyAlive = FactionHasForces(FactionId.Enemy);
 
             if (!playerAlive)
             {
                 Declare(MatchOutcome.Defeat);
+                return;
             }
-            else if (!enemyAlive)
+
+            foreach (FactionId faction in AllFactions)
             {
-                Declare(MatchOutcome.Victory);
+                if (faction == FactionId.Player || DiplomacyRegistry.AreAllied(FactionId.Player, faction))
+                {
+                    continue;
+                }
+
+                if (FactionHasForces(faction))
+                {
+                    return;
+                }
             }
+
+            Declare(MatchOutcome.Victory);
         }
 
         // TargetDummy never counts here: it's tagged Enemy faction as a

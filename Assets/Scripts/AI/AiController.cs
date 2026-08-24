@@ -27,6 +27,14 @@ namespace KingdomsOfBharat.AI
     // leak into the player's fog).
     public class AiController : MonoBehaviour
     {
+        // Item 48: which faction this instance plays as - a scene can now
+        // hold two AiControllers (Enemy and Enemy2) instead of exactly
+        // one. Every FactionId.Enemy self-reference in this file was
+        // replaced with this field; every "the AI's target" reference
+        // (FactionId.Player) was replaced with HostileTargetFaction()
+        // below, which still resolves to Player by default (no
+        // DiplomacyRegistry relations set = today's exact behavior).
+        [SerializeField] private FactionId myFaction = FactionId.Enemy;
         [SerializeField] private Vector3 townCenterPosition = new Vector3(0f, 1f, -8f);
         [SerializeField] private int startingWorkerCount = 4;
         [SerializeField] private float workerSpacing = 2f;
@@ -84,17 +92,46 @@ namespace KingdomsOfBharat.AI
 
             // Item 44: the selected map picks the AI's starting position;
             // RiverValley's matches this field's own default exactly.
-            townCenterPosition = MapRegistry.Current.EnemyTownCenter;
+            // Item 48: Enemy2 reads the map's 3rd spawn slot instead.
+            townCenterPosition = myFaction == FactionId.Enemy2
+                ? MapRegistry.Current.Enemy2TownCenter
+                : MapRegistry.Current.EnemyTownCenter;
 
-            GameObject townCenterGo = TownCenterFactory.Place(townCenterPosition, FactionId.Enemy);
+            GameObject townCenterGo = TownCenterFactory.Place(townCenterPosition, myFaction);
             townCenterGo.TryGetComponent(out _townCenter);
 
             for (int i = 0; i < startingWorkerCount; i++)
             {
                 float x = i * workerSpacing - (startingWorkerCount - 1) * workerSpacing * 0.5f;
                 Vector3 spawnPos = townCenterPosition + new Vector3(x, 0f, -3f);
-                WorkerFactory.Spawn(spawnPos, FactionId.Enemy);
+                WorkerFactory.Spawn(spawnPos, myFaction);
             }
+        }
+
+        // Item 48: which faction this AI currently treats as its combat
+        // focus - resolved fresh (not cached) so a mid-match alliance
+        // change picks a new target instead of continuing to attack a
+        // faction that just became an ally. Candidate order is fixed
+        // (Player, then Enemy, then Enemy2) purely for determinism - this
+        // AI still only ever focuses one faction at a time (see the class
+        // doc comment on "single scripted opponent"), real multi-front
+        // behavior is out of scope here. Falls back to Player when
+        // nothing reads as hostile (e.g. every other faction allied),
+        // matching this AI's pre-diplomacy behavior exactly rather than
+        // leaving it with no target at all.
+        private static readonly FactionId[] CandidateFactions = { FactionId.Player, FactionId.Enemy, FactionId.Enemy2 };
+
+        private FactionId HostileTargetFaction()
+        {
+            foreach (FactionId candidate in CandidateFactions)
+            {
+                if (candidate != myFaction && DiplomacyRegistry.IsHostile(myFaction, candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return FactionId.Player;
         }
 
         // Scales existing timer/threshold fields rather than changing any
@@ -220,12 +257,16 @@ namespace KingdomsOfBharat.AI
             }
         }
 
+        // Item 48: triggers scout-discovery on any hostile faction found
+        // nearby, not just Player specifically - a 3-faction match should
+        // still gate combat on genuine contact, regardless of which
+        // faction that contact is with.
         private bool IsNearAnyPlayerTarget(Vector3 fromPosition)
         {
             foreach (Unit unit in Unit.All)
             {
                 if (unit.TryGetComponent(out FactionMember factionMember)
-                    && factionMember.Faction == FactionId.Player
+                    && DiplomacyRegistry.IsHostile(myFaction, factionMember.Faction)
                     && Vector3.Distance(fromPosition, unit.transform.position) <= scoutDiscoveryRadius)
                 {
                     return true;
@@ -235,7 +276,7 @@ namespace KingdomsOfBharat.AI
             foreach (Building building in Building.All)
             {
                 if (building.TryGetComponent(out FactionMember factionMember)
-                    && factionMember.Faction == FactionId.Player
+                    && DiplomacyRegistry.IsHostile(myFaction, factionMember.Faction)
                     && Vector3.Distance(fromPosition, building.transform.position) <= scoutDiscoveryRadius)
                 {
                     return true;
@@ -352,13 +393,13 @@ namespace KingdomsOfBharat.AI
         // decision of *when* to call it.
         private void TryAgeUp()
         {
-            if (_townCenter == null || _townCenter.IsAgingUp || !AgeProgress.HasNextAge(FactionId.Enemy))
+            if (_townCenter == null || _townCenter.IsAgingUp || !AgeProgress.HasNextAge(myFaction))
             {
                 return;
             }
 
-            AgeProfile nextProfile = AgeProfile.For(AgeProgress.NextAge(FactionId.Enemy));
-            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Enemy);
+            AgeProfile nextProfile = AgeProfile.For(AgeProgress.NextAge(myFaction));
+            ResourceStockpile stockpile = ResourceStockpile.For(myFaction);
             if (stockpile.GetTotal(ResourceType.Wood) < nextProfile.WoodCost * ageUpResourceBuffer
                 || stockpile.GetTotal(ResourceType.Stone) < nextProfile.StoneCost * ageUpResourceBuffer)
             {
@@ -372,7 +413,7 @@ namespace KingdomsOfBharat.AI
         {
             // Symmetric with the Player's own gate in BuildingPlacer -
             // the AI can't build a Barracks before Classical Age either.
-            if (_barracks != null || AgeProgress.CurrentAge(FactionId.Enemy) == AgeId.Ancient)
+            if (_barracks != null || AgeProgress.CurrentAge(myFaction) == AgeId.Ancient)
             {
                 return;
             }
@@ -386,8 +427,8 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
-            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Enemy);
-            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Enemy)).BuildCostMultiplier;
+            ResourceStockpile stockpile = ResourceStockpile.For(myFaction);
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(myFaction)).BuildCostMultiplier;
             if (stockpile.GetTotal(ResourceType.Wood) < barracksWoodCost * multiplier
                 || stockpile.GetTotal(ResourceType.Stone) < barracksStoneCost * multiplier)
             {
@@ -408,7 +449,7 @@ namespace KingdomsOfBharat.AI
             stockpile.Add(ResourceType.Wood, -barracksWoodCost * multiplier);
             stockpile.Add(ResourceType.Stone, -barracksStoneCost * multiplier);
 
-            GameObject go = BarracksFactory.Place(point, FactionId.Enemy, barracksBuildTime);
+            GameObject go = BarracksFactory.Place(point, myFaction, barracksBuildTime);
             go.TryGetComponent(out _barracks);
             go.TryGetComponent(out _barracksSite);
         }
@@ -489,10 +530,10 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
-            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Enemy);
+            ResourceStockpile stockpile = ResourceStockpile.For(myFaction);
 
             if (!_barracks.IsResearchingAttack
-                && UpgradeProgress.HasNextAttackTier(FactionId.Enemy)
+                && UpgradeProgress.HasNextAttackTier(myFaction)
                 && stockpile.GetTotal(ResourceType.Gold) > 150f)
             {
                 _barracks.RequestResearchAttack();
@@ -500,7 +541,7 @@ namespace KingdomsOfBharat.AI
             }
 
             if (!_barracks.IsResearchingArmor
-                && UpgradeProgress.HasNextArmorTier(FactionId.Enemy)
+                && UpgradeProgress.HasNextArmorTier(myFaction)
                 && stockpile.GetTotal(ResourceType.Gold) > 150f)
             {
                 _barracks.RequestResearchArmor();
@@ -515,7 +556,7 @@ namespace KingdomsOfBharat.AI
             // the AI's choice legible/predictable rather than spreading
             // Gold thin across all four classes.
             if (!_barracks.IsResearchingClassAttack
-                && UpgradeProgress.HasNextClassAttackTier(FactionId.Enemy, UnitClass.Cavalry)
+                && UpgradeProgress.HasNextClassAttackTier(myFaction, UnitClass.Cavalry)
                 && stockpile.GetTotal(ResourceType.Gold) > 150f)
             {
                 _barracks.RequestResearchClassAttack(UnitClass.Cavalry);
@@ -523,7 +564,7 @@ namespace KingdomsOfBharat.AI
             }
 
             if (!_barracks.IsResearchingClassArmor
-                && UpgradeProgress.HasNextClassArmorTier(FactionId.Enemy, UnitClass.Archer)
+                && UpgradeProgress.HasNextClassArmorTier(myFaction, UnitClass.Archer)
                 && stockpile.GetTotal(ResourceType.Gold) > 150f)
             {
                 _barracks.RequestResearchClassArmor(UnitClass.Archer);
@@ -537,8 +578,8 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
-            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Enemy);
-            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Enemy)).BuildCostMultiplier;
+            ResourceStockpile stockpile = ResourceStockpile.For(myFaction);
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(myFaction)).BuildCostMultiplier;
             if (stockpile.GetTotal(ResourceType.Wood) < farmWoodCost * multiplier)
             {
                 return;
@@ -557,7 +598,7 @@ namespace KingdomsOfBharat.AI
 
             stockpile.Add(ResourceType.Wood, -farmWoodCost * multiplier);
 
-            GameObject go = FarmFactory.Place(point, FactionId.Enemy, farmBuildTime);
+            GameObject go = FarmFactory.Place(point, myFaction, farmBuildTime);
             go.TryGetComponent(out _farm);
             go.TryGetComponent(out _farmSite);
         }
@@ -641,13 +682,13 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
-            if (Population.Cap(FactionId.Enemy) - Population.Current(FactionId.Enemy) > populationBuffer)
+            if (Population.Cap(myFaction) - Population.Current(myFaction) > populationBuffer)
             {
                 return;
             }
 
-            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Enemy);
-            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Enemy)).BuildCostMultiplier;
+            ResourceStockpile stockpile = ResourceStockpile.For(myFaction);
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(myFaction)).BuildCostMultiplier;
             if (stockpile.GetTotal(ResourceType.Wood) < houseWoodCost * multiplier)
             {
                 return;
@@ -666,7 +707,7 @@ namespace KingdomsOfBharat.AI
 
             stockpile.Add(ResourceType.Wood, -houseWoodCost * multiplier);
 
-            GameObject go = HouseFactory.Place(point, FactionId.Enemy, houseBuildTime);
+            GameObject go = HouseFactory.Place(point, myFaction, houseBuildTime);
             go.TryGetComponent(out _house);
             go.TryGetComponent(out _houseSite);
             _houseCount++;
@@ -747,20 +788,23 @@ namespace KingdomsOfBharat.AI
             }
         }
 
-        // Player units take priority (soldiers wade through defenders
-        // rather than beelining past them for a building), buildings only
-        // considered when no player unit is nearer - both are Attackable
-        // now that buildings carry it too, so the attack squad can raze a
-        // Town Center/Barracks/Farm/House same as it can kill a unit.
-        private static Attackable FindNearestPlayerTarget(Vector3 fromPosition)
+        // Target-faction units take priority (soldiers wade through
+        // defenders rather than beelining past them for a building),
+        // buildings only considered when no unit is nearer - both are
+        // Attackable now that buildings carry it too, so the attack squad
+        // can raze a Town Center/Barracks/Farm/House same as it can kill a
+        // unit. Item 48: targets whichever faction HostileTargetFaction()
+        // currently resolves to, not always Player.
+        private Attackable FindNearestPlayerTarget(Vector3 fromPosition)
         {
+            FactionId targetFaction = HostileTargetFaction();
             Attackable nearest = null;
             float bestDistance = float.MaxValue;
 
             foreach (Unit unit in Unit.All)
             {
                 if (!unit.TryGetComponent(out FactionMember factionMember)
-                    || factionMember.Faction != FactionId.Player)
+                    || factionMember.Faction != targetFaction)
                 {
                     continue;
                 }
@@ -786,7 +830,7 @@ namespace KingdomsOfBharat.AI
             foreach (Building building in Building.All)
             {
                 if (!building.TryGetComponent(out FactionMember factionMember)
-                    || factionMember.Faction != FactionId.Player)
+                    || factionMember.Faction != targetFaction)
                 {
                     continue;
                 }
@@ -807,17 +851,17 @@ namespace KingdomsOfBharat.AI
             return nearest;
         }
 
-        private static bool IsMine(Unit unit)
+        private bool IsMine(Unit unit)
         {
             return unit.TryGetComponent(out FactionMember factionMember)
-                && factionMember.Faction == FactionId.Enemy;
+                && factionMember.Faction == myFaction;
         }
 
         // For EconomyFirst's TryBuildBarracks gate - counts Gatherers
         // specifically (Workers), not every Enemy unit, so an already-
         // trained Soldier/Archer/Cavalry/Siege doesn't count toward the
         // "real worker base" threshold the build order is actually about.
-        private static int CountMyWorkers()
+        private int CountMyWorkers()
         {
             int count = 0;
             foreach (Unit unit in Unit.All)

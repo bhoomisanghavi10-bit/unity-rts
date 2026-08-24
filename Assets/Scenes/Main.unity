@@ -565,6 +565,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dragThreshold: 6
   cycleStanceKey: 118
+  formationSpacing: 1.5
 --- !u!1 &100060
 GameObject:
   m_ObjectHideFlags: 0
@@ -708,7 +709,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c77153fad7d04c728d1cbb5477009f8c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  position: {x: 0, y: 1, z: 8}
 --- !u!1 &100090
 GameObject:
   m_ObjectHideFlags: 0
@@ -781,6 +781,11 @@ MonoBehaviour:
   towerStoneCost: 50
   towerBuildTime: 10
   towerSize: {x: 1.8, y: 4.4, z: 1.8}
+  placeMarketKey: 109
+  marketWoodCost: 100
+  marketGoldCost: 50
+  marketBuildTime: 8
+  marketSize: {x: 2.4, y: 1.6, z: 2.4}
   minClearance: 3
 --- !u!1 &100100
 GameObject:
@@ -1239,6 +1244,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ea304e77545f42ac97c7bea22e2a85ee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  myFaction: 1
   townCenterPosition: {x: 0, y: 1, z: -8}
   startingWorkerCount: 4
   workerSpacing: 2
@@ -1263,6 +1269,9 @@ MonoBehaviour:
   scoutInterval: 15
   scoutDiscoveryRadius: 12
   scoutTimeout: 20
+  difficulty: 1
+  buildOrder: 1
+  economyFirstWorkerThreshold: 6
 --- !u!1 &100170
 GameObject:
   m_ObjectHideFlags: 0
@@ -1404,6 +1413,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   aiCivilization: 1
+  map: 0
+  enableThirdFaction: 0
+  enemy2Civilization: 2
+  enemy2GatedContent:
+  - {fileID: 422976307}
   gatedMatchContent:
   - {fileID: 100040}
   - {fileID: 100080}
@@ -3150,6 +3164,78 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 412581092}
   m_CullTransparentMesh: 1
+--- !u!1 &422976307
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 422976309}
+  - component: {fileID: 422976308}
+  m_Layer: 0
+  m_Name: AiController_Enemy2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &422976308
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 422976307}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea304e77545f42ac97c7bea22e2a85ee, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KingdomsOfBharat.AI.AiController
+  myFaction: 2
+  townCenterPosition: {x: 0, y: 1, z: -8}
+  startingWorkerCount: 4
+  workerSpacing: 2
+  decisionInterval: 2
+  attackCheckInterval: 45
+  attackSquadSize: 3
+  barracksWoodCost: 100
+  barracksStoneCost: 50
+  barracksBuildTime: 8
+  barracksClearance: 3
+  barracksOffset: {x: 6, y: 0, z: 0}
+  farmWoodCost: 60
+  farmBuildTime: 5
+  farmClearance: 3
+  farmOffset: {x: -6, y: 0, z: 0}
+  houseWoodCost: 30
+  houseBuildTime: 4
+  houseClearance: 3
+  houseOffset: {x: 0, y: 0, z: -6}
+  populationBuffer: 2
+  ageUpResourceBuffer: 1.5
+  scoutInterval: 15
+  scoutDiscoveryRadius: 12
+  scoutTimeout: 20
+  difficulty: 1
+  buildOrder: 1
+  economyFirstWorkerThreshold: 6
+--- !u!4 &422976309
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 422976307}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &433293873
 GameObject:
   m_ObjectHideFlags: 0
@@ -9193,3 +9279,4 @@ SceneRoots:
   - {fileID: 2040688873}
   - {fileID: 356115914}
   - {fileID: 210565581}
+  - {fileID: 422976309}

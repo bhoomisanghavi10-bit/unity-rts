@@ -17,6 +17,19 @@ namespace KingdomsOfBharat.Core
         public List<FactionSaveData> factions = new List<FactionSaveData>();
         public List<UnitSaveData> units = new List<UnitSaveData>();
         public List<BuildingSaveData> buildings = new List<BuildingSaveData>();
+        // Item 48: only ever contains Allied pairs - War is DiplomacyRegistry's
+        // default for any pair never explicitly set, so a save from before
+        // diplomacy existed (or a match that never touched it) loads with
+        // an empty list and every faction defaults back to War, matching
+        // the pre-diplomacy save format exactly.
+        public List<AllianceEntry> alliances = new List<AllianceEntry>();
+    }
+
+    [Serializable]
+    public class AllianceEntry
+    {
+        public int factionA;
+        public int factionB;
     }
 
     [Serializable]

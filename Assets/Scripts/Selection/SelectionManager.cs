@@ -427,7 +427,9 @@ namespace KingdomsOfBharat.Selection
 
         // Neutral (no FactionMember) targets/sites are always valid - see
         // TargetDummy, which is deliberately untagged-as-Player so it stays
-        // attackable regardless of the attacker's own faction.
+        // attackable regardless of the attacker's own faction. Item 48:
+        // an allied faction's units/buildings are never a valid attack
+        // target either, same as your own.
         private static bool IsHostileTarget(Unit source, Attackable target)
         {
             if (!target.TryGetComponent(out FactionMember targetFaction))
@@ -440,18 +442,21 @@ namespace KingdomsOfBharat.Selection
                 return true;
             }
 
-            return targetFaction.Faction != sourceFaction.Faction;
+            return DiplomacyRegistry.IsHostile(sourceFaction.Faction, targetFaction.Faction);
         }
 
         // No FactionMember present is treated as friendly here (matches
         // IsSameFaction/IsHostileTarget's fail-open convention) - only
         // used to decide whether a click should be a build-assist/staff
         // action (friendly) or an attack (hostile), and every selected
-        // unit is always Player's own (see IsPlayerControllable).
+        // unit is always Player's own (see IsPlayerControllable). Item 48:
+        // a faction allied with Player reads as friendly too, not just
+        // Player's own units.
         private static bool IsFriendlyToPlayer(Component target)
         {
             return !target.TryGetComponent(out FactionMember targetFaction)
-                || targetFaction.Faction == FactionId.Player;
+                || targetFaction.Faction == FactionId.Player
+                || DiplomacyRegistry.AreAllied(FactionId.Player, targetFaction.Faction);
         }
 
         private static bool IsSameFaction(Unit source, Component target)

@@ -44,6 +44,11 @@ namespace KingdomsOfBharat.Core
 
         public Vector3 PlayerTownCenter;
         public Vector3 EnemyTownCenter;
+        // Item 48: a 3rd starting position for an optional second AI
+        // faction (Enemy2) - unused unless CivilizationSetup's
+        // enableThirdFaction is on, same "additive, changes nothing by
+        // default" pattern as everything else in this struct.
+        public Vector3 Enemy2TownCenter;
         public Vector3 NavMeshBoundsSize;
     }
 
@@ -73,6 +78,7 @@ namespace KingdomsOfBharat.Core
                 ResourceSeed = -1,
                 PlayerTownCenter = new Vector3(0f, 1f, 8f),
                 EnemyTownCenter = new Vector3(0f, 1f, -8f),
+                Enemy2TownCenter = new Vector3(10f, 1f, 0f),
                 NavMeshBoundsSize = new Vector3(44f, 10f, 44f),
             },
             [MapId.Highlands] = new MapDefinitionData
@@ -91,6 +97,7 @@ namespace KingdomsOfBharat.Core
                 ResourceSeed = -1,
                 PlayerTownCenter = new Vector3(0f, 1f, 11f),
                 EnemyTownCenter = new Vector3(0f, 1f, -11f),
+                Enemy2TownCenter = new Vector3(14f, 1f, 0f),
                 NavMeshBoundsSize = new Vector3(58f, 12f, 58f),
             },
         };
