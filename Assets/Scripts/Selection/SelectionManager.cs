@@ -27,6 +27,11 @@ namespace KingdomsOfBharat.Selection
         private Vector2 _dragStart;
         private bool _dragging;
 
+        // Control groups (Ctrl+1-9 to assign the current selection, 1-9 to
+        // reselect it) - 9 fixed slots rather than a Dictionary, since AoE's
+        // own convention is exactly the digit row, no more.
+        private readonly List<Unit>[] _controlGroups = new List<Unit>[9];
+
         // For SelectedUnitPanel / BuildMenu (UI) to read current selection.
         public IReadOnlyList<Unit> Selected => _selected;
 
@@ -38,6 +43,11 @@ namespace KingdomsOfBharat.Selection
         private void Awake()
         {
             _camera = UnityEngine.Camera.main;
+
+            for (int i = 0; i < _controlGroups.Length; i++)
+            {
+                _controlGroups[i] = new List<Unit>();
+            }
         }
 
         private void Update()
@@ -70,6 +80,63 @@ namespace KingdomsOfBharat.Selection
             HandleMoveInput();
             HandleRallyInput();
             HandleStanceHotkey();
+            HandleControlGroupInput();
+        }
+
+        // Ctrl+[1-9] assigns the current unit selection to that group,
+        // replacing whatever was in it before; plain [1-9] reselects it.
+        // Buildings never join a control group (AoE-style - groups are for
+        // maneuvering an army, not a base), matching how SelectedBuilding
+        // is already mutually exclusive with unit selection elsewhere here.
+        private void HandleControlGroupInput()
+        {
+            bool assigning = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+
+            for (int i = 0; i < _controlGroups.Length; i++)
+            {
+                if (!Input.GetKeyDown(KeyCode.Alpha1 + i))
+                {
+                    continue;
+                }
+
+                if (assigning)
+                {
+                    AssignControlGroup(i);
+                }
+                else
+                {
+                    SelectControlGroup(i);
+                }
+            }
+        }
+
+        private void AssignControlGroup(int index)
+        {
+            if (_selected.Count == 0)
+            {
+                return;
+            }
+
+            _controlGroups[index].Clear();
+            _controlGroups[index].AddRange(_selected);
+        }
+
+        private void SelectControlGroup(int index)
+        {
+            // Same destroyed-but-not-yet-null pruning as _selected/
+            // _selectedBuilding above - a grouped unit can die long after
+            // the group was assigned, well before it's ever reselected.
+            _controlGroups[index].RemoveAll(unit => unit == null);
+            if (_controlGroups[index].Count == 0)
+            {
+                return;
+            }
+
+            ClearSelection();
+            foreach (Unit unit in _controlGroups[index])
+            {
+                Select(unit);
+            }
         }
 
         // Right-click while a production building (one with a RallyPoint -
