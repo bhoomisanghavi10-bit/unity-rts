@@ -16,6 +16,16 @@ namespace KingdomsOfBharat.Core
         [SerializeField] private int resolution = 40;
         [SerializeField] private float noiseHeight = 0.6f;
         [SerializeField] private float noiseScale = 0.15f;
+        // Item 49: zero half-extents (RiverValley/Highlands, and this
+        // component's own Inspector default) means "no water" - every
+        // water-related code path below checks HasWater first and is a
+        // pure no-op otherwise, so a map without water builds byte-for-
+        // byte the same mesh as before this feature existed.
+        private Vector3 _waterCenter;
+        private Vector3 _waterHalfExtents;
+        private bool HasWater => _waterHalfExtents.x > 0f && _waterHalfExtents.z > 0f;
+        [SerializeField] private Color waterColor = new Color(0.15f, 0.35f, 0.55f, 0.85f);
+        [SerializeField] private float waterSurfaceY = 0.25f;
         [SerializeField] private Color groundColor = new Color(0.36f, 0.5f, 0.28f);
         [SerializeField] private Color dirtColor = new Color(0.5f, 0.4f, 0.26f);
         [SerializeField] private Color rockColor = new Color(0.42f, 0.38f, 0.34f);
@@ -52,6 +62,11 @@ namespace KingdomsOfBharat.Core
             gameObject.layer = groundLayer >= 0 ? groundLayer : 0;
 
             gameObject.isStatic = true;
+
+            if (HasWater)
+            {
+                BuildWaterPlane();
+            }
         }
 
         // Item 44: pulls ground size/shape from whichever map
@@ -66,6 +81,56 @@ namespace KingdomsOfBharat.Core
             resolution = map.GroundResolution;
             noiseHeight = map.NoiseHeight;
             noiseScale = map.NoiseScale;
+            _waterCenter = map.WaterCenter;
+            _waterHalfExtents = map.WaterHalfExtents;
+        }
+
+        // Item 49: true for any grid cell whose center falls inside the
+        // map's water rectangle - used to skip generating ground
+        // triangles there (see BuildMesh), which is what actually keeps
+        // land units (and the land NavMesh, baked from this same
+        // collider) out of the water: there's simply no ground geometry
+        // to stand on or bake a walkable surface from, no separate
+        // blocking/area-mask system needed.
+        private bool IsWaterCell(float worldX, float worldZ)
+        {
+            if (!HasWater)
+            {
+                return false;
+            }
+
+            return Mathf.Abs(worldX - _waterCenter.x) <= _waterHalfExtents.x
+                && Mathf.Abs(worldZ - _waterCenter.z) <= _waterHalfExtents.z;
+        }
+
+        // A flat, semi-transparent quad covering the water rectangle -
+        // purely visual, no collider (boats get their own movement logic
+        // in a later item-49 pass, not NavMeshAgent/Collider-based like
+        // land units). Sits a little above the ground hole's exposed
+        // bottom so there's no z-fighting and the "lake bed" reads as
+        // being underwater rather than as a flat colored hole.
+        private void BuildWaterPlane()
+        {
+            var waterGo = new GameObject("Water");
+            waterGo.transform.SetParent(transform, false);
+            waterGo.transform.position = new Vector3(_waterCenter.x, waterSurfaceY, _waterCenter.z);
+
+            var mesh = new Mesh { name = "WaterPlane" };
+            float hx = _waterHalfExtents.x;
+            float hz = _waterHalfExtents.z;
+            mesh.vertices = new[]
+            {
+                new Vector3(-hx, 0f, -hz), new Vector3(hx, 0f, -hz),
+                new Vector3(-hx, 0f, hz), new Vector3(hx, 0f, hz),
+            };
+            mesh.uv = new[] { new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 1), new Vector2(1, 1) };
+            mesh.triangles = new[] { 0, 2, 1, 1, 2, 3 };
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+
+            waterGo.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var renderer = waterGo.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = GameplayMaterial.CreateTransparent(waterColor);
         }
 
         // Same worldX/worldZ -> height formula the mesh uses, so the splat
@@ -136,7 +201,12 @@ namespace KingdomsOfBharat.Core
             int vertsPerSide = resolution + 1;
             var vertices = new Vector3[vertsPerSide * vertsPerSide];
             var uvs = new Vector2[vertices.Length];
-            var triangles = new int[resolution * resolution * 6];
+            // Item 49: a List instead of a fixed-size array - a water map
+            // emits fewer than resolution*resolution*6 indices (whole
+            // cells are skipped, see below), and a plain land map (no
+            // water) still emits exactly the old count, just built up
+            // incrementally instead of pre-sized.
+            var triangles = new System.Collections.Generic.List<int>(resolution * resolution * 6);
 
             float half = mapSize * 0.5f;
             float step = mapSize / resolution;
@@ -155,20 +225,29 @@ namespace KingdomsOfBharat.Core
                 }
             }
 
-            int t = 0;
             for (int z = 0; z < resolution; z++)
             {
                 for (int x = 0; x < resolution; x++)
                 {
+                    // Cell center, not a corner - so a water rectangle's
+                    // edge falls where it visually should rather than
+                    // being off by half a cell.
+                    float cellCenterX = -half + (x + 0.5f) * step;
+                    float cellCenterZ = -half + (z + 0.5f) * step;
+                    if (IsWaterCell(cellCenterX, cellCenterZ))
+                    {
+                        continue;
+                    }
+
                     int i = z * vertsPerSide + x;
 
-                    triangles[t++] = i;
-                    triangles[t++] = i + vertsPerSide;
-                    triangles[t++] = i + 1;
+                    triangles.Add(i);
+                    triangles.Add(i + vertsPerSide);
+                    triangles.Add(i + 1);
 
-                    triangles[t++] = i + 1;
-                    triangles[t++] = i + vertsPerSide;
-                    triangles[t++] = i + vertsPerSide + 1;
+                    triangles.Add(i + 1);
+                    triangles.Add(i + vertsPerSide);
+                    triangles.Add(i + vertsPerSide + 1);
                 }
             }
 
@@ -178,7 +257,7 @@ namespace KingdomsOfBharat.Core
                 : UnityEngine.Rendering.IndexFormat.UInt16;
             mesh.vertices = vertices;
             mesh.uv = uvs;
-            mesh.triangles = triangles;
+            mesh.triangles = triangles.ToArray();
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             return mesh;

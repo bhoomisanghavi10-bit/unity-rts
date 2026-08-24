@@ -14,6 +14,12 @@ namespace KingdomsOfBharat.Core
     {
         RiverValley,
         Highlands,
+        // Item 49: the first map with actual water - a strip along the
+        // east edge, land (and every town center/resource) kept west of
+        // it so existing gameplay assumptions (everyone starts on solid
+        // ground) still hold; water is there for whoever chooses to build
+        // a Dock and go naval, not a requirement.
+        Coastal,
     }
 
     // Plain data, not a MonoBehaviour/ScriptableObject - every field here
@@ -50,6 +56,14 @@ namespace KingdomsOfBharat.Core
         // default" pattern as everything else in this struct.
         public Vector3 Enemy2TownCenter;
         public Vector3 NavMeshBoundsSize;
+
+        // Item 49: an axis-aligned water rectangle in world XZ (Y unused).
+        // Zero half-extents (the default, RiverValley/Highlands never set
+        // this) means "no water" - ProceduralGround checks for exactly
+        // that before doing anything water-related, so those two maps are
+        // completely unaffected by this feature's existence.
+        public Vector3 WaterCenter;
+        public Vector3 WaterHalfExtents;
     }
 
     // Faction civ choice has one assignment per match (CivilizationRegistry);
@@ -99,6 +113,32 @@ namespace KingdomsOfBharat.Core
                 EnemyTownCenter = new Vector3(0f, 1f, -11f),
                 Enemy2TownCenter = new Vector3(14f, 1f, 0f),
                 NavMeshBoundsSize = new Vector3(58f, 12f, 58f),
+            },
+            // Item 49: water is a 10-unit-wide strip along the east edge
+            // (x from 15 to 25) - land, every town center, and the
+            // resource ring all stay west of x=15 so nothing about
+            // existing gameplay assumes water is there unless a player
+            // actually goes looking for it (or builds a Dock).
+            [MapId.Coastal] = new MapDefinitionData
+            {
+                GroundSize = 50f,
+                GroundResolution = 50,
+                NoiseHeight = 0.7f,
+                NoiseScale = 0.14f,
+                TreeCount = 7,
+                FarmCount = 5,
+                GoldCount = 6,
+                StoneCount = 6,
+                FruitBushCount = 5,
+                ResourceMinRadius = 6f,
+                ResourceMaxRadius = 13f,
+                ResourceSeed = -1,
+                PlayerTownCenter = new Vector3(0f, 1f, 10f),
+                EnemyTownCenter = new Vector3(0f, 1f, -10f),
+                Enemy2TownCenter = new Vector3(-10f, 1f, 0f),
+                NavMeshBoundsSize = new Vector3(54f, 10f, 54f),
+                WaterCenter = new Vector3(20f, 0f, 0f),
+                WaterHalfExtents = new Vector3(5f, 0f, 25f),
             },
         };
 
