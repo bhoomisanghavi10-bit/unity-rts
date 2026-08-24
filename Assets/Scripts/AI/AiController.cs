@@ -51,6 +51,9 @@ namespace KingdomsOfBharat.AI
         [SerializeField] private float scoutInterval = 15f;
         [SerializeField] private float scoutDiscoveryRadius = 12f;
         [SerializeField] private float scoutTimeout = 20f;
+        [SerializeField] private AiDifficulty difficulty = AiDifficulty.Normal;
+        [SerializeField] private BuildOrderStyle buildOrder = BuildOrderStyle.Balanced;
+        [SerializeField] private int economyFirstWorkerThreshold = 6;
 
         // Local to this controller, not a mutation on ResourceNode itself -
         // keeps the "who's gathering what" bookkeeping contained to one file.
@@ -77,6 +80,8 @@ namespace KingdomsOfBharat.AI
 
         private void Start()
         {
+            ApplyDifficulty();
+
             GameObject townCenterGo = TownCenterFactory.Place(townCenterPosition, FactionId.Enemy);
             townCenterGo.TryGetComponent(out _townCenter);
 
@@ -85,6 +90,33 @@ namespace KingdomsOfBharat.AI
                 float x = i * workerSpacing - (startingWorkerCount - 1) * workerSpacing * 0.5f;
                 Vector3 spawnPos = townCenterPosition + new Vector3(x, 0f, -3f);
                 WorkerFactory.Spawn(spawnPos, FactionId.Enemy);
+            }
+        }
+
+        // Scales existing timer/threshold fields rather than changing any
+        // decision logic - Hard reacts faster and commits to fights with
+        // smaller squads and less margin; Easy is the reverse. Called once
+        // before anything else in Start() so every field it touches is
+        // already at its scaled value by the time the rest of Start() (and
+        // every subsequent Update tick) reads it.
+        private void ApplyDifficulty()
+        {
+            switch (difficulty)
+            {
+                case AiDifficulty.Easy:
+                    decisionInterval *= 1.5f;
+                    attackCheckInterval *= 1.5f;
+                    attackSquadSize += 2;
+                    ageUpResourceBuffer += 0.5f;
+                    populationBuffer -= 1;
+                    break;
+                case AiDifficulty.Hard:
+                    decisionInterval *= 0.75f;
+                    attackCheckInterval *= 0.7f;
+                    attackSquadSize = Mathf.Max(1, attackSquadSize - 1);
+                    ageUpResourceBuffer -= 0.3f;
+                    populationBuffer += 1;
+                    break;
             }
         }
 
@@ -327,6 +359,15 @@ namespace KingdomsOfBharat.AI
             // Symmetric with the Player's own gate in BuildingPlacer -
             // the AI can't build a Barracks before Classical Age either.
             if (_barracks != null || AgeProgress.CurrentAge(FactionId.Enemy) == AgeId.Ancient)
+            {
+                return;
+            }
+
+            // EconomyFirst's actual teeth: every other style builds the
+            // instant resources allow (below), this one waits for a real
+            // worker base first - the whole point of choosing it over
+            // Balanced/RushMilitary.
+            if (buildOrder == BuildOrderStyle.EconomyFirst && CountMyWorkers() < economyFirstWorkerThreshold)
             {
                 return;
             }
@@ -733,6 +774,24 @@ namespace KingdomsOfBharat.AI
         {
             return unit.TryGetComponent(out FactionMember factionMember)
                 && factionMember.Faction == FactionId.Enemy;
+        }
+
+        // For EconomyFirst's TryBuildBarracks gate - counts Gatherers
+        // specifically (Workers), not every Enemy unit, so an already-
+        // trained Soldier/Archer/Cavalry/Siege doesn't count toward the
+        // "real worker base" threshold the build order is actually about.
+        private static int CountMyWorkers()
+        {
+            int count = 0;
+            foreach (Unit unit in Unit.All)
+            {
+                if (IsMine(unit) && unit.TryGetComponent(out Gatherer _))
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         // No mouse input available for the AI - fires its own downward ray
