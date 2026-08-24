@@ -18,7 +18,7 @@ namespace KingdomsOfBharat.Buildings
     // placement, for Barracks and House).
     public class BuildingPlacer : MonoBehaviour
     {
-        private enum BuildingKind { Barracks, Farm, House, Wall, Gate, Tower }
+        private enum BuildingKind { Barracks, Farm, House, Wall, Gate, Tower, Market }
 
         [Header("Barracks")]
         [SerializeField] private KeyCode placeBarracksKey = KeyCode.B;
@@ -63,6 +63,13 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float towerStoneCost = 50f;
         [SerializeField] private float towerBuildTime = 10f;
         [SerializeField] private Vector3 towerSize = new Vector3(1.8f, 4.4f, 1.8f);
+
+        [Header("Market")]
+        [SerializeField] private KeyCode placeMarketKey = KeyCode.M;
+        [SerializeField] private float marketWoodCost = 100f;
+        [SerializeField] private float marketGoldCost = 50f;
+        [SerializeField] private float marketBuildTime = 8f;
+        [SerializeField] private Vector3 marketSize = new Vector3(2.4f, 1.6f, 2.4f);
 
         [SerializeField] private float minClearance = 3f;
 
@@ -135,6 +142,14 @@ namespace KingdomsOfBharat.Buildings
             }
         }
 
+        public void BeginPlacementMarket()
+        {
+            if (!_placing)
+            {
+                StartPlacing(BuildingKind.Market);
+            }
+        }
+
         private void Update()
         {
             if (!_placing)
@@ -162,6 +177,10 @@ namespace KingdomsOfBharat.Buildings
                 else if (Input.GetKeyDown(placeTowerKey))
                 {
                     BeginPlacementTower();
+                }
+                else if (Input.GetKeyDown(placeMarketKey))
+                {
+                    BeginPlacementMarket();
                 }
             }
 
@@ -272,6 +291,11 @@ namespace KingdomsOfBharat.Buildings
                     stockpile.Add(ResourceType.Stone, -towerStoneCost * multiplier);
                     TowerFactory.Place(point, FactionId.Player, towerBuildTime);
                     break;
+                case BuildingKind.Market:
+                    stockpile.Add(ResourceType.Wood, -marketWoodCost * multiplier);
+                    stockpile.Add(ResourceType.Gold, -marketGoldCost * multiplier);
+                    MarketFactory.Place(point, FactionId.Player, marketBuildTime);
+                    break;
             }
 
             CancelPlacing();
@@ -297,6 +321,9 @@ namespace KingdomsOfBharat.Buildings
                 case BuildingKind.Tower:
                     return stockpile.GetTotal(ResourceType.Wood) >= towerWoodCost * multiplier
                         && stockpile.GetTotal(ResourceType.Stone) >= towerStoneCost * multiplier;
+                case BuildingKind.Market:
+                    return stockpile.GetTotal(ResourceType.Wood) >= marketWoodCost * multiplier
+                        && stockpile.GetTotal(ResourceType.Gold) >= marketGoldCost * multiplier;
                 default:
                     return stockpile.GetTotal(ResourceType.Wood) >= farmWoodCost * multiplier;
             }
@@ -311,6 +338,7 @@ namespace KingdomsOfBharat.Buildings
                 case BuildingKind.Wall: return wallSize;
                 case BuildingKind.Gate: return gateSize;
                 case BuildingKind.Tower: return towerSize;
+                case BuildingKind.Market: return marketSize;
                 default: return farmSize;
             }
         }
