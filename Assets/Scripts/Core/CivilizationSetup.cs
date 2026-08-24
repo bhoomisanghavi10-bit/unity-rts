@@ -18,6 +18,7 @@ namespace KingdomsOfBharat.Core
     public class CivilizationSetup : MonoBehaviour
     {
         [SerializeField] private CivilizationId aiCivilization = CivilizationId.Vijayanagara;
+        [SerializeField] private MapId map = MapId.RiverValley;
         [SerializeField] private GameObject[] gatedMatchContent;
 
         // MatchManager reads this so it never evaluates victory/defeat
@@ -32,6 +33,8 @@ namespace KingdomsOfBharat.Core
 
         public void BeginMatch(CivilizationId playerCivilization)
         {
+            MapRegistry.Select(map);
+
             CivilizationRegistry.Assign(FactionId.Player, playerCivilization);
             CivilizationRegistry.Assign(FactionId.Enemy, aiCivilization);
 

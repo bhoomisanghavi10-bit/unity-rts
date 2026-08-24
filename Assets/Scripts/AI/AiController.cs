@@ -82,6 +82,10 @@ namespace KingdomsOfBharat.AI
         {
             ApplyDifficulty();
 
+            // Item 44: the selected map picks the AI's starting position;
+            // RiverValley's matches this field's own default exactly.
+            townCenterPosition = MapRegistry.Current.EnemyTownCenter;
+
             GameObject townCenterGo = TownCenterFactory.Place(townCenterPosition, FactionId.Enemy);
             townCenterGo.TryGetComponent(out _townCenter);
 

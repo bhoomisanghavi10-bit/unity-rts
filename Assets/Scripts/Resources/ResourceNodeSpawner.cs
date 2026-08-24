@@ -4,8 +4,10 @@ using KingdomsOfBharat.Core;
 namespace KingdomsOfBharat.ResourceGathering
 {
     // Milestone-4/8 placeholder: scatters resource nodes around the map so
-    // gathering is testable. A fixed random seed keeps layout reproducible
-    // between runs.
+    // gathering is testable. Counts/radius/seed are overridden per-match
+    // from the selected MapDefinition (see ApplyMapDefinition) - both
+    // built-in maps use a -1 seed, meaning a fresh random layout every
+    // match (item 44) rather than the old permanently-fixed one.
     public class ResourceNodeSpawner : MonoBehaviour
     {
         [SerializeField] private int treeCount = 8;
@@ -21,7 +23,9 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private void Start()
         {
-            Random.InitState(randomSeed);
+            ApplyMapDefinition();
+
+            Random.InitState(randomSeed == -1 ? System.Environment.TickCount : randomSeed);
 
             for (int i = 0; i < treeCount; i++)
             {
@@ -47,6 +51,26 @@ namespace KingdomsOfBharat.ResourceGathering
             {
                 SpawnFruitBush(RandomPointInRing());
             }
+        }
+
+        // Item 44: same pattern as ProceduralGround.ApplyMapDefinition -
+        // pulls counts/radius/seed from the selected map, overriding this
+        // component's Inspector defaults. Also the fix for "basic random
+        // resource placement": both built-in maps set ResourceSeed to -1,
+        // so layout now actually varies match to match instead of the old
+        // permanently-fixed seed 12345 (a map can still pin a specific
+        // seed later if a reproducible layout is ever wanted again).
+        private void ApplyMapDefinition()
+        {
+            MapDefinitionData map = MapRegistry.Current;
+            treeCount = map.TreeCount;
+            farmCount = map.FarmCount;
+            goldCount = map.GoldCount;
+            stoneCount = map.StoneCount;
+            fruitBushCount = map.FruitBushCount;
+            minRadius = map.ResourceMinRadius;
+            maxRadius = map.ResourceMaxRadius;
+            randomSeed = map.ResourceSeed;
         }
 
         private Vector3 RandomPointInRing()

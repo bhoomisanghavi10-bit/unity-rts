@@ -23,6 +23,11 @@ namespace KingdomsOfBharat.Core
 
         private void Bake()
         {
+            // Item 44: bounds must match the selected map's ground extent
+            // or a larger map (e.g. Highlands) would bake a NavMesh that
+            // doesn't cover its own edges.
+            boundsSize = MapRegistry.Current.NavMeshBoundsSize;
+
             Transform groundRoot = GameObject.Find(groundObjectName)?.transform;
 
             var bounds = new Bounds(Vector3.zero, boundsSize);

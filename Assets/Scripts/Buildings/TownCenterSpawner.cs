@@ -3,16 +3,15 @@ using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.Buildings
 {
-    // Places the Player's fixed starting Town Center. Actual GameObject
-    // creation is TownCenterFactory's job (shared with AiController's own
-    // base).
+    // Places the Player's starting Town Center. Actual GameObject creation
+    // is TownCenterFactory's job (shared with AiController's own base).
     public class TownCenterSpawner : MonoBehaviour
     {
-        [SerializeField] private Vector3 position = new Vector3(0f, 1f, 8f);
-
         private void Awake()
         {
-            TownCenterFactory.Place(position, FactionId.Player);
+            // Item 44: the selected map picks the starting position;
+            // RiverValley's matches this field's own default exactly.
+            TownCenterFactory.Place(MapRegistry.Current.PlayerTownCenter, FactionId.Player);
         }
     }
 }

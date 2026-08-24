@@ -23,6 +23,8 @@ namespace KingdomsOfBharat.Core
 
         private void Awake()
         {
+            ApplyMapDefinition();
+
             Mesh mesh = BuildMesh();
 
             var meshFilter = gameObject.AddComponent<MeshFilter>();
@@ -50,6 +52,20 @@ namespace KingdomsOfBharat.Core
             gameObject.layer = groundLayer >= 0 ? groundLayer : 0;
 
             gameObject.isStatic = true;
+        }
+
+        // Item 44: pulls ground size/shape from whichever map
+        // CivilizationSetup.BeginMatch selected, overriding this
+        // component's own Inspector defaults. RiverValley's definition
+        // matches those defaults exactly, so a scene that never calls
+        // BeginMatch (or an older/test scene) behaves exactly as before.
+        private void ApplyMapDefinition()
+        {
+            MapDefinitionData map = MapRegistry.Current;
+            mapSize = map.GroundSize;
+            resolution = map.GroundResolution;
+            noiseHeight = map.NoiseHeight;
+            noiseScale = map.NoiseScale;
         }
 
         // Same worldX/worldZ -> height formula the mesh uses, so the splat
