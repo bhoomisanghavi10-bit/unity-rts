@@ -388,12 +388,13 @@ namespace KingdomsOfBharat.AI
             }
         }
 
-        private int _soldiersTrainedSinceLastArcher;
+        private int _trainRotation;
 
-        // AoE-style mixed composition rather than an all-melee army - one
-        // Archer for every couple of Soldiers, so the enemy's attack squads
-        // actually benefit from armor/damage-type variety instead of only
-        // ever pressuring meleeArmor.
+        // AoE-style mixed composition rather than an all-melee army: two
+        // Soldiers, then an Archer, then a Cavalry, repeating - so the
+        // enemy's attack squads benefit from CombatBonus's full counter
+        // triangle (Infantry > Archer > Cavalry > Infantry) instead of
+        // fielding just one class.
         private void TryTrainSoldiers()
         {
             if (_barracks == null || !_barracks.IsComplete || _barracks.IsTraining)
@@ -401,16 +402,20 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
-            if (_soldiersTrainedSinceLastArcher >= 2)
+            switch (_trainRotation)
             {
-                _barracks.RequestTrainArcher();
-                _soldiersTrainedSinceLastArcher = 0;
+                case 2:
+                    _barracks.RequestTrainArcher();
+                    break;
+                case 3:
+                    _barracks.RequestTrainCavalry();
+                    break;
+                default:
+                    _barracks.RequestTrain();
+                    break;
             }
-            else
-            {
-                _barracks.RequestTrain();
-                _soldiersTrainedSinceLastArcher++;
-            }
+
+            _trainRotation = (_trainRotation + 1) % 4;
         }
 
         // Same early-margin-not-exact-threshold shape as TryAgeUp: research

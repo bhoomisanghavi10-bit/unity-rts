@@ -41,11 +41,23 @@ namespace KingdomsOfBharat.Buildings
     // fired.
     public class Barracks : Building
     {
+        // Which unit type _remaining is counting down for - was a single
+        // _trainingArcher bool before Cavalry made it a three-way choice.
+        private enum TrainingUnit
+        {
+            Soldier,
+            Archer,
+            Cavalry,
+        }
+
+
         [SerializeField] private KeyCode trainKey = KeyCode.T;
         [SerializeField] private float soldierFoodCost = 50f;
         [SerializeField] private float soldierGoldCost = 20f;
         [SerializeField] private float archerFoodCost = 40f;
         [SerializeField] private float archerGoldCost = 35f;
+        [SerializeField] private float cavalryFoodCost = 70f;
+        [SerializeField] private float cavalryGoldCost = 50f;
         [SerializeField] private float trainTime = 5f;
         [SerializeField] private Vector3 rallyOffset = new Vector3(3f, 0f, 3f);
         [SerializeField] private float upgradeGoldCostPerTier = 80f;
@@ -56,7 +68,7 @@ namespace KingdomsOfBharat.Buildings
         private FactionMember _factionMember;
         private RallyPoint _rally;
         private float _remaining = -1f;
-        private bool _trainingArcher;
+        private TrainingUnit _trainingUnit;
         private float _attackResearchRemaining = -1f;
         private float _armorResearchRemaining = -1f;
 
@@ -151,7 +163,7 @@ namespace KingdomsOfBharat.Buildings
 
             stockpile.Add(ResourceType.Food, -soldierFoodCost);
             stockpile.Add(ResourceType.Gold, -soldierGoldCost);
-            _trainingArcher = false;
+            _trainingUnit = TrainingUnit.Soldier;
             _remaining = ScaledTrainTime();
         }
 
@@ -171,7 +183,27 @@ namespace KingdomsOfBharat.Buildings
 
             stockpile.Add(ResourceType.Food, -archerFoodCost);
             stockpile.Add(ResourceType.Gold, -archerGoldCost);
-            _trainingArcher = true;
+            _trainingUnit = TrainingUnit.Archer;
+            _remaining = ScaledTrainTime();
+        }
+
+        public void RequestTrainCavalry()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Food) < cavalryFoodCost
+                || stockpile.GetTotal(ResourceType.Gold) < cavalryGoldCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Food, -cavalryFoodCost);
+            stockpile.Add(ResourceType.Gold, -cavalryGoldCost);
+            _trainingUnit = TrainingUnit.Cavalry;
             _remaining = ScaledTrainTime();
         }
 
@@ -186,9 +218,12 @@ namespace KingdomsOfBharat.Buildings
             _remaining -= Time.deltaTime;
             if (_remaining <= 0f)
             {
-                GameObject spawned = _trainingArcher
-                    ? ArcherFactory.Spawn(transform.position + rallyOffset, Faction)
-                    : SoldierFactory.Spawn(transform.position + rallyOffset, Faction);
+                GameObject spawned = _trainingUnit switch
+                {
+                    TrainingUnit.Archer => ArcherFactory.Spawn(transform.position + rallyOffset, Faction),
+                    TrainingUnit.Cavalry => CavalryFactory.Spawn(transform.position + rallyOffset, Faction),
+                    _ => SoldierFactory.Spawn(transform.position + rallyOffset, Faction),
+                };
                 _rally.ApplyTo(spawned);
                 _remaining = -1f;
             }
