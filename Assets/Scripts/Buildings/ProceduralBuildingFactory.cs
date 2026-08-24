@@ -54,6 +54,15 @@ namespace KingdomsOfBharat.Buildings
                 case "House":
                     BuildHut(container.transform, civColor);
                     break;
+                case "Wall":
+                    BuildWallSegment(container.transform, civColor);
+                    break;
+                case "Gate":
+                    BuildGate(container.transform, civColor);
+                    break;
+                case "Tower":
+                    BuildTower(container.transform, civColor);
+                    break;
                 default:
                     BuildHut(container.transform, civColor);
                     break;
@@ -115,6 +124,48 @@ namespace KingdomsOfBharat.Buildings
         {
             AddTierCube(parent, new Vector3(1.6f, 1f, 1.6f), 0f, color);
             AddPyramid(parent, "Roof", new Vector3(0f, 1f, 0f), 2f, 2f, 0.9f, color);
+        }
+
+        // A single thin fortification slab - just tall/solid enough to
+        // read as a wall segment at RTS camera distance, meant to be
+        // placed edge-to-edge in a chain (see BuildingPlacer).
+        private static void BuildWallSegment(Transform parent, Color color)
+        {
+            AddTierCube(parent, new Vector3(2.4f, 1.8f, 0.4f), 0f, color);
+        }
+
+        // Two posts with a visible gap between them plus a lintel bar on
+        // top, so it silhouettes as an opening even though the actual
+        // pass/block behavior is driven by Gate's NavMeshObstacle toggling,
+        // not this geometry.
+        private static void BuildGate(Transform parent, Color color)
+        {
+            AddOffsetCube(parent, new Vector3(0.4f, 1.8f, 0.4f), new Vector3(-1f, 0f, 0f), color);
+            AddOffsetCube(parent, new Vector3(0.4f, 1.8f, 0.4f), new Vector3(1f, 0f, 0f), color);
+            AddOffsetCube(parent, new Vector3(2.4f, 0.4f, 0.4f), new Vector3(0f, 1.8f, 0f), color);
+        }
+
+        // A tall narrow keep for ranged defense - cylinder shaft with a
+        // pyramid cap, the same combination Barracks' corner towers use,
+        // just singular and scaled up to read as its own building.
+        private static void BuildTower(Transform parent, Color color)
+        {
+            const float shaftHeight = 3.2f;
+            const float shaftRadius = 0.9f;
+            AddCylinder(parent, Vector3.zero, shaftRadius, shaftHeight, color);
+            AddPyramid(parent, "TowerCap", new Vector3(0f, shaftHeight, 0f), shaftRadius * 2.4f, shaftRadius * 2.4f, 1.2f, color);
+        }
+
+        // Same shape as AddTierCube but at an arbitrary local offset -
+        // Gate needs two side posts, not one centered slab.
+        private static void AddOffsetCube(Transform parent, Vector3 size, Vector3 localCenter, Color color)
+        {
+            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localCenter + new Vector3(0f, size.y * 0.5f, 0f);
+            go.transform.localScale = size;
+            Object.Destroy(go.GetComponent<Collider>());
+            go.GetComponent<MeshRenderer>().sharedMaterial = GameplayMaterial.CreateOpaque(color);
         }
 
         // Places a cube so its BOTTOM sits at baseY (matching the

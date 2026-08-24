@@ -18,7 +18,7 @@ namespace KingdomsOfBharat.Buildings
     // placement, for Barracks and House).
     public class BuildingPlacer : MonoBehaviour
     {
-        private enum BuildingKind { Barracks, Farm, House }
+        private enum BuildingKind { Barracks, Farm, House, Wall, Gate, Tower }
 
         [Header("Barracks")]
         [SerializeField] private KeyCode placeBarracksKey = KeyCode.B;
@@ -38,6 +38,31 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float houseWoodCost = 30f;
         [SerializeField] private float houseBuildTime = 4f;
         [SerializeField] private Vector3 houseSize = new Vector3(2f, 1.6f, 2f);
+
+        [Header("Wall")]
+        [SerializeField] private KeyCode placeWallKey = KeyCode.L;
+        [SerializeField] private float wallStoneCost = 5f;
+        [SerializeField] private float wallBuildTime = 3f;
+        [SerializeField] private Vector3 wallSize = new Vector3(2.4f, 1.8f, 0.4f);
+        // Smaller than minClearance so segments can sit edge-to-edge in a
+        // line, same as AoE wall chains - the general minClearance is sized
+        // for full buildings, which would otherwise leave gaps between wall
+        // segments wide enough to walk through.
+        [SerializeField] private float wallClearance = 1.5f;
+
+        [Header("Gate")]
+        [SerializeField] private KeyCode placeGateKey = KeyCode.K;
+        [SerializeField] private float gateStoneCost = 10f;
+        [SerializeField] private float gateWoodCost = 5f;
+        [SerializeField] private float gateBuildTime = 4f;
+        [SerializeField] private Vector3 gateSize = new Vector3(2.4f, 1.8f, 0.4f);
+
+        [Header("Tower")]
+        [SerializeField] private KeyCode placeTowerKey = KeyCode.O;
+        [SerializeField] private float towerWoodCost = 25f;
+        [SerializeField] private float towerStoneCost = 50f;
+        [SerializeField] private float towerBuildTime = 10f;
+        [SerializeField] private Vector3 towerSize = new Vector3(1.8f, 4.4f, 1.8f);
 
         [SerializeField] private float minClearance = 3f;
 
@@ -86,6 +111,30 @@ namespace KingdomsOfBharat.Buildings
             }
         }
 
+        public void BeginPlacementWall()
+        {
+            if (!_placing)
+            {
+                StartPlacing(BuildingKind.Wall);
+            }
+        }
+
+        public void BeginPlacementGate()
+        {
+            if (!_placing)
+            {
+                StartPlacing(BuildingKind.Gate);
+            }
+        }
+
+        public void BeginPlacementTower()
+        {
+            if (!_placing)
+            {
+                StartPlacing(BuildingKind.Tower);
+            }
+        }
+
         private void Update()
         {
             if (!_placing)
@@ -101,6 +150,18 @@ namespace KingdomsOfBharat.Buildings
                 else if (Input.GetKeyDown(placeHouseKey))
                 {
                     BeginPlacementHouse();
+                }
+                else if (Input.GetKeyDown(placeWallKey))
+                {
+                    BeginPlacementWall();
+                }
+                else if (Input.GetKeyDown(placeGateKey))
+                {
+                    BeginPlacementGate();
+                }
+                else if (Input.GetKeyDown(placeTowerKey))
+                {
+                    BeginPlacementTower();
                 }
             }
 
@@ -160,7 +221,7 @@ namespace KingdomsOfBharat.Buildings
             _ghost.transform.position = point + Vector3.up * (size.y * 0.5f);
 
             bool affordable = CanAfford();
-            bool clear = BarracksFactory.IsClear(point, minClearance);
+            bool clear = BarracksFactory.IsClear(point, CurrentClearance());
             var renderer = _ghost.GetComponent<MeshRenderer>();
             renderer.sharedMaterial.color = affordable && clear
                 ? new Color(0.3f, 1f, 0.3f, 0.5f)
@@ -169,7 +230,7 @@ namespace KingdomsOfBharat.Buildings
 
         private void TryConfirmPlacement()
         {
-            if (!TryGetGroundPoint(out Vector3 point) || !BarracksFactory.IsClear(point, minClearance))
+            if (!TryGetGroundPoint(out Vector3 point) || !BarracksFactory.IsClear(point, CurrentClearance()))
             {
                 return;
             }
@@ -197,6 +258,20 @@ namespace KingdomsOfBharat.Buildings
                     stockpile.Add(ResourceType.Wood, -houseWoodCost * multiplier);
                     HouseFactory.Place(point, FactionId.Player, houseBuildTime);
                     break;
+                case BuildingKind.Wall:
+                    stockpile.Add(ResourceType.Stone, -wallStoneCost * multiplier);
+                    WallFactory.Place(point, FactionId.Player, wallBuildTime);
+                    break;
+                case BuildingKind.Gate:
+                    stockpile.Add(ResourceType.Stone, -gateStoneCost * multiplier);
+                    stockpile.Add(ResourceType.Wood, -gateWoodCost * multiplier);
+                    GateFactory.Place(point, FactionId.Player, gateBuildTime);
+                    break;
+                case BuildingKind.Tower:
+                    stockpile.Add(ResourceType.Wood, -towerWoodCost * multiplier);
+                    stockpile.Add(ResourceType.Stone, -towerStoneCost * multiplier);
+                    TowerFactory.Place(point, FactionId.Player, towerBuildTime);
+                    break;
             }
 
             CancelPlacing();
@@ -214,6 +289,14 @@ namespace KingdomsOfBharat.Buildings
                         && stockpile.GetTotal(ResourceType.Stone) >= barracksStoneCost * multiplier;
                 case BuildingKind.House:
                     return stockpile.GetTotal(ResourceType.Wood) >= houseWoodCost * multiplier;
+                case BuildingKind.Wall:
+                    return stockpile.GetTotal(ResourceType.Stone) >= wallStoneCost * multiplier;
+                case BuildingKind.Gate:
+                    return stockpile.GetTotal(ResourceType.Stone) >= gateStoneCost * multiplier
+                        && stockpile.GetTotal(ResourceType.Wood) >= gateWoodCost * multiplier;
+                case BuildingKind.Tower:
+                    return stockpile.GetTotal(ResourceType.Wood) >= towerWoodCost * multiplier
+                        && stockpile.GetTotal(ResourceType.Stone) >= towerStoneCost * multiplier;
                 default:
                     return stockpile.GetTotal(ResourceType.Wood) >= farmWoodCost * multiplier;
             }
@@ -225,8 +308,16 @@ namespace KingdomsOfBharat.Buildings
             {
                 case BuildingKind.Barracks: return barracksSize;
                 case BuildingKind.House: return houseSize;
+                case BuildingKind.Wall: return wallSize;
+                case BuildingKind.Gate: return gateSize;
+                case BuildingKind.Tower: return towerSize;
                 default: return farmSize;
             }
+        }
+
+        private float CurrentClearance()
+        {
+            return _kind == BuildingKind.Wall || _kind == BuildingKind.Gate ? wallClearance : minClearance;
         }
 
         private bool TryGetGroundPoint(out Vector3 point)

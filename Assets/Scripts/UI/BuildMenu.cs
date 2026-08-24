@@ -13,8 +13,8 @@ namespace KingdomsOfBharat.UI
     // buttons are even visible depends on what's currently selected, not
     // just whether they're enabled.
     //  - A Builder-capable unit selected (and no building selected): shows
-    //    Build Barracks/Farm/House - placement still needs that worker to
-    //    walk over and build it afterward.
+    //    Build Barracks/Farm/House/Wall/Gate/Tower - placement still needs
+    //    that worker to walk over and build it afterward.
     //  - The Player's own Town Center selected: shows Train Worker + Advance
     //    Age, acting on that specific Town Center.
     //  - The Player's own Barracks selected: shows Train Soldier, acting on
@@ -31,6 +31,9 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private TMP_Text barracksLabel;
         [SerializeField] private Button farmButton;
         [SerializeField] private Button houseButton;
+        [SerializeField] private Button wallButton;
+        [SerializeField] private Button gateButton;
+        [SerializeField] private Button towerButton;
         [SerializeField] private Button workerButton;
         [SerializeField] private Button soldierButton;
         [SerializeField] private Button archerButton;
@@ -52,6 +55,9 @@ namespace KingdomsOfBharat.UI
             barracksButton.onClick.AddListener(() => _placer.BeginPlacementBarracks());
             farmButton.onClick.AddListener(() => _placer.BeginPlacementFarm());
             houseButton.onClick.AddListener(() => _placer.BeginPlacementHouse());
+            wallButton.onClick.AddListener(() => _placer.BeginPlacementWall());
+            gateButton.onClick.AddListener(() => _placer.BeginPlacementGate());
+            towerButton.onClick.AddListener(() => _placer.BeginPlacementTower());
             workerButton.onClick.AddListener(TrainWorkerAtSelected);
             soldierButton.onClick.AddListener(TrainSoldierAtSelected);
             archerButton.onClick.AddListener(TrainArcherAtSelected);
@@ -88,6 +94,9 @@ namespace KingdomsOfBharat.UI
                     : "Build Barracks (Requires Classical Age)";
                 farmButton.interactable = true;
                 houseButton.interactable = true;
+                wallButton.interactable = true;
+                gateButton.interactable = true;
+                towerButton.interactable = true;
             }
 
             if (townCenter != null)
@@ -147,6 +156,9 @@ namespace KingdomsOfBharat.UI
             barracksButton.gameObject.SetActive(active);
             farmButton.gameObject.SetActive(active);
             houseButton.gameObject.SetActive(active);
+            wallButton.gameObject.SetActive(active);
+            gateButton.gameObject.SetActive(active);
+            towerButton.gameObject.SetActive(active);
         }
 
         private void UpdateTownCenterButtons(TownCenter townCenter)
