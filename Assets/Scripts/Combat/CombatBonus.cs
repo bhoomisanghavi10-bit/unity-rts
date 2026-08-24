@@ -12,6 +12,14 @@ namespace KingdomsOfBharat.Combat
     //    real counterplay, not just "attack it."
     //  - Archer vs Cavalry: ranged fire punishes a charging, lightly-
     //    armored horse and rider before they close the distance.
+    //  - Cavalry vs Archer (the other half of that same matchup, item 43
+    //    balance pass): without this, the 1.5x Archer bonus above doesn't
+    //    actually hold up - Cavalry's speed (6.5) outruns Archer's (3.8),
+    //    so Archer can never kite, and Cavalry's raw stats alone
+    //    (6 dmg/40 HP vs 4 dmg/18 HP, no armor either side) already kill
+    //    an Archer in 3 hits versus the 7 Archer needs unboosted - the
+    //    bonus above wasn't enough to flip that. A flat penalty on
+    //    Cavalry's own hit closes the gap the other way instead.
     //  - Cavalry vs Infantry: a mounted charge overwhelms footmen who
     //    can't outrun or out-position it, closing the triangle
     //    (Infantry > Archer > Cavalry > Infantry).
@@ -35,6 +43,11 @@ namespace KingdomsOfBharat.Combat
             if (attacker == UnitClass.Archer && target == UnitClass.Cavalry)
             {
                 return 1.5f;
+            }
+
+            if (attacker == UnitClass.Cavalry && target == UnitClass.Archer)
+            {
+                return 0.4f;
             }
 
             if (attacker == UnitClass.Cavalry && target == UnitClass.Infantry)
