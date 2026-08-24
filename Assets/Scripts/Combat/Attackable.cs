@@ -34,6 +34,17 @@ namespace KingdomsOfBharat.Combat
             Health = maxHealth;
         }
 
+        // Save/load only - sets current Health directly without touching
+        // maxHealth or re-triggering Awake()'s full-heal reset, unlike
+        // Configure(). Called after Configure() during a load's rebuild
+        // (which always spawns a fresh, full-health unit/building via the
+        // normal Factory first), so a damaged save restores as damaged
+        // instead of silently healing back to full on load.
+        public void RestoreHealth(float savedHealth)
+        {
+            Health = Mathf.Clamp(savedHealth, 0f, maxHealth);
+        }
+
         // Armor is additive on top of whatever Configure(maxHealth) already
         // set - factories call this second, after Configure, so a caller
         // that skips it just gets 0/0 armor (today's pre-armor behavior).

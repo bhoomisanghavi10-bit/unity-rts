@@ -39,6 +39,17 @@ namespace KingdomsOfBharat.Buildings
             _activeBuilders = Mathf.Max(0, _activeBuilders - 1);
         }
 
+        // Save/load only (also handy for tests) - snaps straight to the
+        // finished visual/state instead of ticking Update() toward it, for
+        // a building whose save data says it was already complete. No VFX/
+        // SFX burst, since nothing was actually just built.
+        public void CompleteImmediately()
+        {
+            _progress = 1f;
+            IsComplete = true;
+            ApplyHeight(_finalScale.y);
+        }
+
         private void Awake()
         {
             _finalScale = transform.localScale;

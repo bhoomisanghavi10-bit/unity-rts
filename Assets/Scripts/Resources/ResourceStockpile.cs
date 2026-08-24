@@ -60,5 +60,15 @@ namespace KingdomsOfBharat.ResourceGathering
         {
             _totals[type] += amount;
         }
+
+        // Save/load only - Add() is relative and every other call site
+        // wants that (deposits/costs), but restoring a save needs to land
+        // on an exact saved total regardless of whatever this stockpile
+        // already holds (freshly reset to 0 by the normal match-start flow
+        // that runs before a load rebuilds everything on top of it).
+        public void SetTotal(ResourceType type, float value)
+        {
+            _totals[type] = value;
+        }
     }
 }
