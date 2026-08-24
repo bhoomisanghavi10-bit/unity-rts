@@ -1,5 +1,6 @@
 using UnityEngine;
 using KingdomsOfBharat.Vfx;
+using KingdomsOfBharat.Audio;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -66,6 +67,7 @@ namespace KingdomsOfBharat.Buildings
             if (_progress >= 1f)
             {
                 IsComplete = true;
+                SfxPlayer.PlayBuildComplete(transform.position);
             }
         }
 

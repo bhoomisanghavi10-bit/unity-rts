@@ -13,10 +13,13 @@ namespace KingdomsOfBharat.Combat
     // one over just massing more Soldiers against a Wall/Tower. Balanced by
     // being slow (half a Worker's speed) and dealing unremarkable damage
     // (flat 1x, no bonus) against every unit class - not a stronger
-    // Soldier, a specialist with one job. No siege-engine model/pack
-    // exists yet - reuses the Male Human Character Dummy body like
-    // Soldier/Archer/Cavalry, same placeholder-until-a-real-pack
-    // convention used everywhere else in this project.
+    // Soldier, a specialist with one job. No dedicated siege-engine model
+    // exists yet, so this still reuses the Male Human Character Dummy body
+    // like Soldier/Archer/Cavalry - but carries a Kanabo (a real siege
+    // engine, e.g. a battering ram, would be a better fit long-term; a
+    // hefty wall-breaking weapon reads correctly for now and, more
+    // immediately, actually distinguishes this unit from a bare Soldier at
+    // all, which it previously didn't).
     public static class SiegeFactory
     {
         public static GameObject Spawn(Vector3 position, FactionId faction)
@@ -56,6 +59,13 @@ namespace KingdomsOfBharat.Combat
 
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);
+
+            // Purely cosmetic - see SoldierFactory's identical note. Larger
+            // targetSize than the Soldier's sword since a Kanabo reads as a
+            // two-handed, wall-breaking weapon, not a sidearm.
+            WeaponAttachment.AttachToBone(
+                go, HumanBodyBones.RightHand, "Weapons/Kanabo/scene",
+                targetSize: 1.5f, localPositionOffset: new Vector3(0.05f, 0.1f, 0f), localEulerOffset: new Vector3(0f, 0f, 100f));
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.
             if (faction == FactionId.Player)

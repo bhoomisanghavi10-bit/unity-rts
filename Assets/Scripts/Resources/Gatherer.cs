@@ -3,6 +3,7 @@ using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Vfx;
+using KingdomsOfBharat.Audio;
 
 namespace KingdomsOfBharat.ResourceGathering
 {
@@ -131,6 +132,7 @@ namespace KingdomsOfBharat.ResourceGathering
             {
                 _vfxTimer = 0f;
                 VfxFactory.SpawnBurst(_targetNode.transform.position + Vector3.up * 0.5f, new Color(0.7f, 0.6f, 0.4f), size: 0.1f, count: 3, speed: 0.6f, lifetime: 0.35f);
+                SfxPlayer.PlayGather(_targetNode.transform.position);
             }
 
             if (_carriedAmount >= carryCapacity)

@@ -34,7 +34,16 @@ namespace KingdomsOfBharat.Buildings
         // shape) ends up under it.
         public static GameObject Spawn(string resourceName, Vector3 rootPosition, Vector3 fallbackSize, Color civColor)
         {
-            GameObject prefab = Resources.Load<GameObject>($"Buildings/{resourceName}");
+            // TownCenter/Barracks/Farm/House are flat .prefab assets right
+            // under Resources/Buildings/ (hand-placed there), but models
+            // sourced via the Sketchfab import pipeline land nested as
+            // Buildings/<name>/<name>/scene.gltf (the importer's own
+            // subfolder-per-model convention, same shape HumanModelFactory
+            // already accounts for under Resources/human/) - try the flat
+            // path first so nothing about the 4 original buildings changes,
+            // then fall back to the nested one.
+            GameObject prefab = Resources.Load<GameObject>($"Buildings/{resourceName}")
+                ?? Resources.Load<GameObject>($"Buildings/{resourceName}/{resourceName}/scene");
 
             GameObject root = new GameObject(resourceName);
             root.transform.position = rootPosition;

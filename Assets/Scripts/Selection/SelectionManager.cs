@@ -7,6 +7,7 @@ using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Wildlife;
 using KingdomsOfBharat.Camera;
+using KingdomsOfBharat.Audio;
 
 namespace KingdomsOfBharat.Selection
 {
@@ -239,6 +240,12 @@ namespace KingdomsOfBharat.Selection
                 return;
             }
 
+            // Once per click, not once per unit in the loop below - every
+            // branch there (move/gather/build/attack/staff) is some kind
+            // of "order issued" acknowledgment, same sound regardless of
+            // which.
+            SfxPlayer.PlayMove();
+
             bool hitNode = hit.collider.TryGetComponent(out ResourceNode node);
             // Faction-gated, not just "unfinished"/"finished": an enemy's
             // incomplete building shouldn't offer the "help build" action,
@@ -354,6 +361,7 @@ namespace KingdomsOfBharat.Selection
                 if (hit.collider.TryGetComponent(out Unit unit) && IsPlayerControllable(unit))
                 {
                     Select(unit);
+                    SfxPlayer.PlaySelect();
                     return;
                 }
             }
@@ -367,6 +375,7 @@ namespace KingdomsOfBharat.Selection
                 if (hit.collider.TryGetComponent(out Building building))
                 {
                     SelectBuilding(building);
+                    SfxPlayer.PlaySelect();
                     return;
                 }
             }
@@ -392,6 +401,14 @@ namespace KingdomsOfBharat.Selection
                 {
                     Select(unit);
                 }
+            }
+
+            // Once for the whole box, not once per unit caught inside it -
+            // Select() above is called in a loop, but the sound is one
+            // "selection made" acknowledgment, not one per unit.
+            if (_selected.Count > 0)
+            {
+                SfxPlayer.PlaySelect();
             }
         }
 

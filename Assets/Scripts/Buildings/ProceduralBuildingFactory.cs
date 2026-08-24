@@ -63,6 +63,9 @@ namespace KingdomsOfBharat.Buildings
                 case "Tower":
                     BuildTower(container.transform, civColor);
                     break;
+                case "Market":
+                    BuildMarket(container.transform, civColor);
+                    break;
                 default:
                     BuildHut(container.transform, civColor);
                     break;
@@ -154,6 +157,36 @@ namespace KingdomsOfBharat.Buildings
             const float shaftRadius = 0.9f;
             AddCylinder(parent, Vector3.zero, shaftRadius, shaftHeight, color);
             AddPyramid(parent, "TowerCap", new Vector3(0f, shaftHeight, 0f), shaftRadius * 2.4f, shaftRadius * 2.4f, 1.2f, color);
+        }
+
+        // An open-air trading stall, deliberately NOT a solid hut like
+        // House (the bug that prompted this: Market had no case here at
+        // all, so it silently fell through to BuildHut and was visually
+        // indistinguishable from a House) - a low platform on four corner
+        // posts under a peaked canopy, with a couple of goods baskets on
+        // top to read as "market," not "building you live in."
+        private static void BuildMarket(Transform parent, Color color)
+        {
+            AddTierCube(parent, new Vector3(2.2f, 0.3f, 2.2f), 0f, color);
+
+            const float postHeight = 1.3f;
+            Vector3[] corners =
+            {
+                new Vector3(0.9f, 0f, 0.9f),
+                new Vector3(-0.9f, 0f, 0.9f),
+                new Vector3(0.9f, 0f, -0.9f),
+                new Vector3(-0.9f, 0f, -0.9f),
+            };
+
+            foreach (Vector3 corner in corners)
+            {
+                AddOffsetCube(parent, new Vector3(0.12f, postHeight, 0.12f), corner, color);
+            }
+
+            AddPyramid(parent, "MarketCanopy", new Vector3(0f, 0.3f + postHeight, 0f), 2.6f, 2.6f, 0.7f, color);
+
+            AddCylinder(parent, new Vector3(0.5f, 0.3f, 0.1f), 0.28f, 0.5f, color);
+            AddCylinder(parent, new Vector3(-0.4f, 0.3f, -0.4f), 0.22f, 0.4f, color);
         }
 
         // Same shape as AddTierCube but at an arbitrary local offset -
