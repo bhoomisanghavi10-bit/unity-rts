@@ -50,7 +50,8 @@ namespace KingdomsOfBharat.Match
                     {
                         new MissionObjective(
                             "Destroy the Vijayanagara Barracks",
-                            () => targetAttackable == null || targetAttackable.IsDead),
+                            () => targetAttackable == null || targetAttackable.IsDead,
+                            completeText: "The Barracks burns. Vijayanagara's war machine is broken before it could march."),
                     };
                 },
                 BuildTriggers = () =>
@@ -68,6 +69,8 @@ namespace KingdomsOfBharat.Match
                             () => ResourceStockpile.For(FactionId.Player).Add(ResourceType.Gold, 150f)),
                     };
                 },
+                VictoryText = "The Chola banner flies over the ruins of the enemy camp. The expansion holds.",
+                DefeatText = "The fleet is scattered and the landing is lost. The Chola expansion ends here.",
             };
         }
 
@@ -96,7 +99,8 @@ namespace KingdomsOfBharat.Match
                     {
                         new MissionObjective(
                             "Survive for 3 minutes",
-                            () => Time.time - missionStart >= surviveSeconds),
+                            () => Time.time - missionStart >= surviveSeconds,
+                            completeText: "The raid breaks against Hampi's walls. The frontier holds, for now."),
                     };
                 },
                 BuildTriggers = () =>
@@ -117,6 +121,8 @@ namespace KingdomsOfBharat.Match
                     }
                     return triggers;
                 },
+                VictoryText = "Hampi stands. The raiders withdraw into the hills, their raid broken.",
+                DefeatText = "Hampi falls. The Vijayanagara frontier is breached.",
             };
         }
 
@@ -139,7 +145,8 @@ namespace KingdomsOfBharat.Match
                     {
                         new MissionObjective(
                             $"Build {required} Barracks",
-                            () => CountCompletedPlayerBarracks() >= required),
+                            () => CountCompletedPlayerBarracks() >= required,
+                            completeText: "Two Barracks stand at the frontier's edge. The Rajput answer the call to arms."),
                     };
                 },
                 BuildTriggers = () =>
@@ -157,6 +164,8 @@ namespace KingdomsOfBharat.Match
                             () => ResourceStockpile.For(FactionId.Player).Add(ResourceType.Wood, 100f)),
                     };
                 },
+                VictoryText = "The desert fort is manned and ready. The Chola incursion breaks against it.",
+                DefeatText = "The frontier could not be armed in time. Chola banners advance unopposed.",
             };
         }
 

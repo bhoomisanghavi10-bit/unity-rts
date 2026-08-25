@@ -20,5 +20,14 @@ namespace KingdomsOfBharat.Match
         public MapId Map;
         public System.Func<List<MissionObjective>> BuildObjectives;
         public System.Func<List<MissionTrigger>> BuildTriggers;
+
+        // Item 50 gap-close: optional narrative beats shown as a toast (see
+        // MissionToast) when the match ends while this scenario is active -
+        // null means that outcome shows no extra text beyond the existing
+        // GameOverScreen. Deliberately not required on every mission, same
+        // as CompleteText on MissionObjective - a mission author opts in
+        // only where the extra line is worth writing.
+        public string VictoryText;
+        public string DefeatText;
     }
 }

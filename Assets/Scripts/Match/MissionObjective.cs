@@ -24,11 +24,19 @@ namespace KingdomsOfBharat.Match
         // target you were escorting died."
         public Func<bool> IsFailed;
 
-        public MissionObjective(string description, Func<bool> isComplete, Func<bool> isFailed = null)
+        // Item 50 gap-close: optional one-line narrative beat shown as a
+        // toast (see MissionToast) the moment this objective's IsComplete()
+        // first flips true - null means this objective completes silently
+        // (no toast), same as most triggers in ScenarioRegistry not being
+        // narrative moments either.
+        public string CompleteText;
+
+        public MissionObjective(string description, Func<bool> isComplete, Func<bool> isFailed = null, string completeText = null)
         {
             Description = description;
             IsComplete = isComplete;
             IsFailed = isFailed;
+            CompleteText = completeText;
         }
     }
 }
