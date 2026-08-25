@@ -34,7 +34,13 @@ namespace KingdomsOfBharat.Selection
         // per-unit persistent state, since it's about how *this* move
         // order lays units out, not a standing behavior each unit
         // remembers independently.
-        private FormationType _currentFormation = FormationType.Grid;
+        // Fully-qualified, not just `using KingdomsOfBharat.Units;` - the
+        // user's own Assets/Scripts/Data/Scripts/FormationDefinition.cs
+        // declares an unrelated, unnamespaced global `FormationType` too;
+        // C# resolves enclosing-namespace/global names before `using`
+        // imports, so an unqualified `FormationType` here would silently
+        // bind to the wrong one.
+        private Units.FormationType _currentFormation = Units.FormationType.Grid;
 
         private readonly List<Unit> _selected = new List<Unit>();
         private Building _selectedBuilding;
@@ -51,7 +57,7 @@ namespace KingdomsOfBharat.Selection
         public IReadOnlyList<Unit> Selected => _selected;
 
         // For a HUD indicator to show which formation is currently active.
-        public FormationType CurrentFormation => _currentFormation;
+        public Units.FormationType CurrentFormation => _currentFormation;
 
         // Buildings are single-select only and mutually exclusive with unit
         // selection (AoE-style) - selecting one clears the other. Null when
@@ -118,7 +124,7 @@ namespace KingdomsOfBharat.Selection
                 return;
             }
 
-            _currentFormation = (FormationType)(((int)_currentFormation + 1) % 3);
+            _currentFormation = (Units.FormationType)(((int)_currentFormation + 1) % 3);
             SfxPlayer.PlayMove();
         }
 
