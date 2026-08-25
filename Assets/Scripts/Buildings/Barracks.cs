@@ -307,13 +307,14 @@ namespace KingdomsOfBharat.Buildings
             stockpile.Add(ResourceType.Food, -unique.FoodCost);
             stockpile.Add(ResourceType.Gold, -unique.GoldCost);
             _trainingUnit = TrainingUnit.UniqueUnit;
-            _remaining = ScaledTrainTime();
+            _remaining = ScaledTrainTime(unique.TrainTimeSeconds);
         }
 
-        private float ScaledTrainTime()
+        private float ScaledTrainTime(float baseTrainTime = -1f)
         {
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
-            return trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier * ageTrainMultiplier;
+            float baseTime = baseTrainTime >= 0f ? baseTrainTime : trainTime;
+            return baseTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier * ageTrainMultiplier;
         }
 
         private void TickTraining()
