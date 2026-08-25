@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93c08e177c5a640f1baaa6fe47b4cb79, type: 3}
+  m_Name: maurya_unique_tech
+  m_EditorClassIdentifier: Assembly-CSharp::TechNode
+  techId: maurya_unique_tech
+  displayName: Arthashastra Statecraft
+  description: Arthashastra Statecraft (all Age-up research times -25%)
+  age: 2
+  prerequisites: []
+  cost:
+    food: 0
+    wood: 0
+    gold: 150
+    stone: 0
+  researchTimeSeconds: 30
+  effects: []
+  icon: {fileID: 0}

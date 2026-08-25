@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93c08e177c5a640f1baaa6fe47b4cb79, type: 3}
+  m_Name: shipwrights
+  m_EditorClassIdentifier: Assembly-CSharp::TechNode
+  techId: shipwrights
+  displayName: Shipwrights
+  description: Naval units gain +15% max health
+  age: 3
+  prerequisites: []
+  cost:
+    food: 150
+    wood: 50
+    gold: 100
+    stone: 0
+  researchTimeSeconds: 50
+  effects:
+  - targetCategory: 5
+    applyToAllCategories: 0
+    stat: 0
+    operation: 1
+    value: 1.15
+  icon: {fileID: 0}

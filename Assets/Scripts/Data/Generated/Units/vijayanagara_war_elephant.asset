@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7eb99104ee614065ac1a988bfa29bc6, type: 3}
+  m_Name: vijayanagara_war_elephant
+  m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
+  unitId: vijayanagara_war_elephant
+  displayName: Vijayanagara War Elephant
+  category: 4
+  ageRequirement: 2
+  cost:
+    food: 120
+    wood: 0
+    gold: 90
+    stone: 0
+  trainTimeSeconds: 6
+  maxHP: 90
+  attackDamage: 10
+  attackType: 0
+  meleeArmor: 2
+  pierceArmor: 2
+  attackRange: 2.5
+  attackSpeed: 0
+  moveSpeed: 2.2
+  isUniqueUnit: 1
+  civOwnerId: vijayanagara
+  counterNotes: Durable battering unit, not a strictly-better Siege - port exact
+    from VijayanagaraWarElephantFactory
+  historicalBasis: War elephants used both as shock cavalry and to batter fortifications
+  prefab: {fileID: 0}

@@ -1,4 +1,0 @@
-TechID,DisplayName,Age,PrerequisiteTechIDs,ResearchedAtBuilding,FoodCost,WoodCost,GoldCost,ResearchTime,EffectDescription,EffectType,EffectMagnitude
-iron_tools,Iron Tools,2,,Blacksmith,100,0,50,40,"+1 melee armor to all infantry",MeleeArmor,+1
-double_bit_axe,Double-Bit Axe,2,,Lumber Camp,50,50,0,30,"+20% wood gather rate",ResourceRate,+20%
-composite_bow,Composite Bow,3,iron_tools,Archery Range,150,0,100,50,"+2 attack to all archers",Attack,+2

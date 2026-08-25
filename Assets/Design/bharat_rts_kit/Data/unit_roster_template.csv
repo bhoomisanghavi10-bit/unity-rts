@@ -1,4 +1,0 @@
-UnitID,DisplayName,Category,Age,FoodCost,WoodCost,GoldCost,TrainTime,HP,Attack,AttackType,MeleeArmor,PierceArmor,MoveSpeed,AttackRange,IsUniqueToCiv,CivOwnerID,CounterNotes,HistoricalBasis
-war_elephant,War Elephant,Cavalry,3,0,0,120,30,180,20,Melee,2,1,0.8,1,TRUE,maurya,"Strong vs infantry, weak vs spearmen/pikemen",Mauryan war elephant corps
-chariot_archer,Chariot Archer,Archer,2,60,40,0,22,45,6,Pierce,0,0,1.3,4,FALSE,,"Strong vs infantry, weak vs cavalry",Vedic-era chariot archers
-sword_infantry,Swordsman,Infantry,2,50,0,20,18,55,7,Melee,1,1,1.0,1,FALSE,,"Balanced, weak vs spearmen",Generic line infantry

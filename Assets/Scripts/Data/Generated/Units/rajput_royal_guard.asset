@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7eb99104ee614065ac1a988bfa29bc6, type: 3}
+  m_Name: rajput_royal_guard
+  m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
+  unitId: rajput_royal_guard
+  displayName: Rajput Royal Guard
+  category: 2
+  ageRequirement: 2
+  cost:
+    food: 90
+    wood: 0
+    gold: 70
+    stone: 0
+  trainTimeSeconds: 5
+  maxHP: 55
+  attackDamage: 9
+  attackType: 0
+  meleeArmor: 2
+  pierceArmor: 1
+  attackRange: 1
+  attackSpeed: 0
+  moveSpeed: 6
+  isUniqueUnit: 1
+  civOwnerId: rajput
+  counterNotes: Rajput's best cavalry - port exact from RajputRoyalGuardFactory
+  historicalBasis: Ties warrior-clan flavor to Rajput's historically dominant mounted
+    combat
+  prefab: {fileID: 0}

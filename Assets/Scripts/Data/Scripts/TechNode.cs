@@ -43,5 +43,10 @@ public struct StatModifier
     public float value;
 }
 
-public enum StatType { HP, Attack, MeleeArmor, PierceArmor, MoveSpeed, AttackSpeed, Range, TrainTime, ResourceCost }
+// ResourceRate (gather speed, e.g. Double-Bit Axe/Horticulture) added
+// alongside the original ResourceCost (spend-side changes, e.g. Market
+// spread/Wheelbarrow carry cap) - the CSV data schema (tech_tree_
+// template.csv's EffectType column) distinguishes the two, so the enum
+// needs to as well.
+public enum StatType { HP, Attack, MeleeArmor, PierceArmor, MoveSpeed, AttackSpeed, Range, TrainTime, ResourceCost, ResourceRate }
 public enum ModifierOp { Add, Multiply }

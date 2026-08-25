@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93c08e177c5a640f1baaa6fe47b4cb79, type: 3}
+  m_Name: composite_bow
+  m_EditorClassIdentifier: Assembly-CSharp::TechNode
+  techId: composite_bow
+  displayName: Composite Bow
+  description: +2 attack to all Archer-class units
+  age: 3
+  prerequisites:
+  - {fileID: 11400000, guid: d4bf0d11413504b299853fe86a2c5a7a, type: 2}
+  cost:
+    food: 150
+    wood: 0
+    gold: 100
+    stone: 0
+  researchTimeSeconds: 50
+  effects:
+  - targetCategory: 3
+    applyToAllCategories: 0
+    stat: 1
+    operation: 0
+    value: 2
+  icon: {fileID: 0}

@@ -1,0 +1,74 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d11f6ffe28df44a23b97d1b8d74357ec, type: 3}
+  m_Name: rajput
+  m_EditorClassIdentifier: Assembly-CSharp::CivilizationDefinition
+  civId: rajput
+  displayName: Rajput
+  flavorText: 'Soldiers deal 20% more damage, +15% max health (existing, port as-is
+    from CivilizationProfile.SoldierDamageMultiplier/MaxHealthMultiplier)
+
+    Cavalry
+    cost 15% less Gold (structural - lets Rajput field their signature unit type
+    earlier/in greater numbers than the generic bonus alone would)
+
+    Defeated
+    Cavalry has a 25% chance to leave behind a weakened Infantry survivor instead
+    of dying outright (reflects Rajput martial tradition of dismounted last-stand
+    combat)
+
+    Team bonus: Allied Cavalry get +1 flat damage (diluted version of
+    Rajput Warrior Clans)
+
+    Soldiers deal 20% more damage, +15% max health (existing,
+    port as-is from CivilizationProfile.SoldierDamageMultiplier/MaxHealthMultiplier)
+
+    Cavalry
+    cost 15% less Gold (structural - lets Rajput field their signature unit type
+    earlier/in greater numbers than the generic bonus alone would)
+
+    Defeated
+    Cavalry has a 25% chance to leave behind a weakened Infantry survivor instead
+    of dying outright (reflects Rajput martial tradition of dismounted last-stand
+    combat)
+
+    Team bonus: Allied Cavalry get +1 flat damage (diluted version of
+    Rajput Warrior Clans)'
+  uniqueUnits:
+  - {fileID: 11400000, guid: b3c33e92681fa46308f28b94721f0758, type: 2}
+  - {fileID: 11400000, guid: a2499d437016647b0a5ab82acd28798c, type: 2}
+  uniqueTechs:
+  - {fileID: 11400000, guid: 8e12dcb9d91c84370a9150f8b8ec6614, type: 2}
+  passiveBonuses:
+  - targetCategory: 0
+    applyToAllCategories: 1
+    stat: 0
+    operation: 0
+    value: 0
+  - targetCategory: 0
+    applyToAllCategories: 1
+    stat: 0
+    operation: 0
+    value: 0
+  - targetCategory: 0
+    applyToAllCategories: 1
+    stat: 0
+    operation: 0
+    value: 0
+  freeTechsOnAgeUp: []
+  teamBonus:
+    targetCategory: 0
+    applyToAllCategories: 1
+    stat: 0
+    operation: 0
+    value: 0
+  emblem: {fileID: 0}

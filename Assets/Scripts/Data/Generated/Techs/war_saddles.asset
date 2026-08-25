@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93c08e177c5a640f1baaa6fe47b4cb79, type: 3}
+  m_Name: war_saddles
+  m_EditorClassIdentifier: Assembly-CSharp::TechNode
+  techId: war_saddles
+  displayName: War Saddles
+  description: +1 melee armor to all Cavalry-class units
+  age: 2
+  prerequisites: []
+  cost:
+    food: 120
+    wood: 0
+    gold: 70
+    stone: 0
+  researchTimeSeconds: 45
+  effects:
+  - targetCategory: 2
+    applyToAllCategories: 0
+    stat: 2
+    operation: 0
+    value: 1
+  icon: {fileID: 0}

@@ -1,4 +1,0 @@
-CivID,CivName,BonusDescription,BonusType,NumericEffect,UniqueUnit,UniqueTech,TeamBonus,DesignInspiration
-maurya,Maurya,"Villagers work 10% faster gathering food",Economy,+10% food gather rate,,,,"AoE2 Persians-style eco bonus"
-chola,Chola,"Ships cost 15% less and are built 15% faster",Economy/Naval,-15% ship cost / +15% build speed,,,,"AoE2 Malay/Italians naval eco pattern"
-maratha,Maratha,"Cavalry move 10% faster starting in Age II",Military,+10% cavalry move speed,,,,"AoE2 Huns/Tatars mobility bonus"

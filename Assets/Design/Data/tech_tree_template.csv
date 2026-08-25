@@ -1,4 +1,21 @@
 TechID,DisplayName,Age,PrerequisiteTechIDs,ResearchedAtBuilding,FoodCost,WoodCost,GoldCost,ResearchTime,EffectDescription,EffectType,EffectMagnitude
-iron_tools,Iron Tools,2,,Blacksmith,100,0,50,40,"+1 melee armor to all infantry",MeleeArmor,+1
-double_bit_axe,Double-Bit Axe,2,,Lumber Camp,50,50,0,30,"+20% wood gather rate",ResourceRate,+20%
-composite_bow,Composite Bow,3,iron_tools,Archery Range,150,0,100,50,"+2 attack to all archers",Attack,+2
+wheelbarrow,Wheelbarrow,1,,TownCenter,50,50,0,30,"Workers carry 20% more per trip before returning to deposit",ResourceCost,+20% carry cap
+double_bit_axe,Double-Bit Axe,1,,TownCenter,50,50,0,30,"+15% Wood gather rate",ResourceRate,+15%
+horticulture,Horticulture,1,,TownCenter,60,0,40,35,"Farms produce Food 15% faster",ResourceRate,+15%
+gold_prospecting,Gold Prospecting,1,,TownCenter,50,0,50,35,"+15% Gold gather rate",ResourceRate,+15%
+stone_mining,Stone Mining,1,,TownCenter,50,0,50,35,"+15% Stone gather rate",ResourceRate,+15%
+padded_armor,Padded Armor,1,,Barracks,100,0,30,30,"+1 melee armor to all Infantry-class units",MeleeArmor,+1
+leather_bracers,Leather Bracers,1,,Barracks,80,0,40,30,"+1 range to all Archer-class units",Range,+1
+handcart,Handcart,2,wheelbarrow,TownCenter,120,60,0,45,"Workers carry a further 20% more (stacks with Wheelbarrow, 40% total)",ResourceCost,+20% carry cap
+crop_rotation,Crop Rotation,2,horticulture,TownCenter,150,0,80,45,"Farms produce Food a further 15% faster (stacks, 30% total)",ResourceRate,+15%
+banking,Banking,2,gold_prospecting,Market,100,0,100,50,"Market buy/sell spread narrows by 5 points",ResourceCost,-5pt spread
+iron_tools,Iron Tools,2,padded_armor,Barracks,100,0,50,40,"+1 melee armor to all Infantry-class units (stacks, +2 total)",MeleeArmor,+1
+chain_mail,Chain Mail,2,leather_bracers,Barracks,100,0,60,40,"+1 pierce armor to all Archer-class units",PierceArmor,+1
+war_saddles,War Saddles,2,,Barracks,120,0,70,45,"+1 melee armor to all Cavalry-class units",MeleeArmor,+1
+siege_engineering,Siege Engineering,2,,Barracks,100,0,80,45,"Siege-class units gain +15% attack speed",AttackSpeed,+15%
+composite_bow,Composite Bow,3,chain_mail,Barracks,150,0,100,50,"+2 attack to all Archer-class units",Attack,+2
+plate_armor,Plate Armor,3,iron_tools,Barracks,180,0,120,55,"+2 melee armor to all Infantry-class units (stacks, +4 total)",MeleeArmor,+2
+heavy_cavalry,Heavy Cavalry,3,war_saddles,Barracks,150,0,110,50,"+15% max health to all Cavalry-class units",HP,+15%
+trebuchet_counterweight,Trebuchet Counterweight,3,siege_engineering,Barracks,200,0,150,60,"Siege-class units gain +25% attack vs Building-class targets (stacks with existing 3x Siege-vs-Building bonus)",Attack,+25%
+shipwrights,Shipwrights,3,,Dock,150,50,100,50,"Naval units gain +15% max health",HP,+15%
+guilds,Guilds,3,banking,Market,200,0,150,60,"Market buy/sell spread narrows by a further 5 points (stacks, 10pt total)",ResourceCost,-5pt spread

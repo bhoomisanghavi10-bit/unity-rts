@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7eb99104ee614065ac1a988bfa29bc6, type: 3}
+  m_Name: rajputani_archer
+  m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
+  unitId: rajputani_archer
+  displayName: Rajput Rajputani Archer
+  category: 3
+  ageRequirement: 2
+  cost:
+    food: 45
+    wood: 0
+    gold: 40
+    stone: 0
+  trainTimeSeconds: 5
+  maxHP: 24
+  attackDamage: 5
+  attackType: 1
+  meleeArmor: 0
+  pierceArmor: 0
+  attackRange: 6
+  attackSpeed: 0
+  moveSpeed: 3.8
+  isUniqueUnit: 1
+  civOwnerId: rajput
+  counterNotes: +25% damage specifically vs Cavalry-class targets - a dedicated anti-cavalry
+    specialist, gives Rajput a real answer to being counter-picked - NEW unit
+  historicalBasis: Historical Rajput mounted-archer support alongside heavy cavalry
+  prefab: {fileID: 0}

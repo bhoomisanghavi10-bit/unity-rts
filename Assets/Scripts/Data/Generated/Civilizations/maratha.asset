@@ -1,0 +1,71 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d11f6ffe28df44a23b97d1b8d74357ec, type: 3}
+  m_Name: maratha
+  m_EditorClassIdentifier: Assembly-CSharp::CivilizationDefinition
+  civId: maratha
+  displayName: Maratha
+  flavorText: 'Cavalry move 20% faster (Ganimi Kava guerrilla hit-and-run doctrine)
+
+    Scouted/discovered
+    enemy positions are remembered permanently even after losing vision (structural
+    - Maratha guerrilla warfare relied on terrain/intel knowledge, not brute force)
+
+    Docks
+    cost 25% less Wood and Fishing Boats/War Galleys train 15% faster (Maratha naval
+    power under Kanhoji Angre)
+
+    Team bonus: Allied Cavalry get +10% move speed
+    (diluted version of Maratha''s own mobility identity)
+
+    Cavalry move 20% faster
+    (Ganimi Kava guerrilla hit-and-run doctrine)
+
+    Scouted/discovered enemy positions
+    are remembered permanently even after losing vision (structural - Maratha guerrilla
+    warfare relied on terrain/intel knowledge, not brute force)
+
+    Docks cost 25%
+    less Wood and Fishing Boats/War Galleys train 15% faster (Maratha naval power
+    under Kanhoji Angre)
+
+    Team bonus: Allied Cavalry get +10% move speed (diluted
+    version of Maratha''s own mobility identity)'
+  uniqueUnits:
+  - {fileID: 11400000, guid: 3c32b12c6faba4dc18e2b595bf866ca7, type: 2}
+  - {fileID: 11400000, guid: 54f546717eed341a18ae4cfec47f5dbd, type: 2}
+  uniqueTechs:
+  - {fileID: 11400000, guid: db375e2b0675d4f9ab2f2a134a50e18b, type: 2}
+  passiveBonuses:
+  - targetCategory: 0
+    applyToAllCategories: 1
+    stat: 0
+    operation: 0
+    value: 0
+  - targetCategory: 0
+    applyToAllCategories: 1
+    stat: 0
+    operation: 0
+    value: 0
+  - targetCategory: 0
+    applyToAllCategories: 1
+    stat: 0
+    operation: 0
+    value: 0
+  freeTechsOnAgeUp: []
+  teamBonus:
+    targetCategory: 0
+    applyToAllCategories: 1
+    stat: 0
+    operation: 0
+    value: 0
+  emblem: {fileID: 0}

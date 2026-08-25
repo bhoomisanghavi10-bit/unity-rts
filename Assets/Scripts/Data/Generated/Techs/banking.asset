@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93c08e177c5a640f1baaa6fe47b4cb79, type: 3}
+  m_Name: banking
+  m_EditorClassIdentifier: Assembly-CSharp::TechNode
+  techId: banking
+  displayName: Banking
+  description: Market buy/sell spread narrows by 5 points
+  age: 2
+  prerequisites:
+  - {fileID: 11400000, guid: 4ad20945c03b34d858cce7a7515489c5, type: 2}
+  cost:
+    food: 100
+    wood: 0
+    gold: 100
+    stone: 0
+  researchTimeSeconds: 50
+  effects:
+  - targetCategory: 0
+    applyToAllCategories: 1
+    stat: 8
+    operation: 0
+    value: -5
+  icon: {fileID: 0}

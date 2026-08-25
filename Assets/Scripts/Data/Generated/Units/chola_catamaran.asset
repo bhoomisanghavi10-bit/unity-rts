@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7eb99104ee614065ac1a988bfa29bc6, type: 3}
+  m_Name: chola_catamaran
+  m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
+  unitId: chola_catamaran
+  displayName: Chola Catamaran
+  category: 5
+  ageRequirement: 2
+  cost:
+    food: 30
+    wood: 20
+    gold: 20
+    stone: 0
+  trainTimeSeconds: 5
+  maxHP: 25
+  attackDamage: 5
+  attackType: 1
+  meleeArmor: 0
+  pierceArmor: 0
+  attackRange: 3
+  attackSpeed: 0
+  moveSpeed: 5
+  isUniqueUnit: 1
+  civOwnerId: chola
+  counterNotes: Fast, fragile scout/harassment boat - the actual naval payoff for
+    Chola on Coastal, since Naval Raider deliberately isn't naval - NEW unit
+  historicalBasis: Chola dynasty's real blue-water naval dominance
+  prefab: {fileID: 0}

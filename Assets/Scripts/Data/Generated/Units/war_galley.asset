@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7eb99104ee614065ac1a988bfa29bc6, type: 3}
+  m_Name: war_galley
+  m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
+  unitId: war_galley
+  displayName: War Galley
+  category: 5
+  ageRequirement: 2
+  cost:
+    food: 0
+    wood: 80
+    gold: 60
+    stone: 0
+  trainTimeSeconds: 6
+  maxHP: 45
+  attackDamage: 8
+  attackType: 1
+  meleeArmor: 0
+  pierceArmor: 0
+  attackRange: 4
+  attackSpeed: 0
+  moveSpeed: 3
+  isUniqueUnit: 0
+  civOwnerId: 
+  counterNotes: Naval combat unit, port exact from WarGalleyFactory
+  historicalBasis: Generic war galley
+  prefab: {fileID: 0}

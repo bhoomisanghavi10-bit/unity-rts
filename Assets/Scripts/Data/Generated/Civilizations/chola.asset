@@ -1,0 +1,69 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d11f6ffe28df44a23b97d1b8d74357ec, type: 3}
+  m_Name: chola
+  m_EditorClassIdentifier: Assembly-CSharp::CivilizationDefinition
+  civId: chola
+  displayName: Chola
+  flavorText: 'Villagers/Workers gather 15% faster (existing, port as-is from CivilizationProfile.GatherRateMultiplier)
+
+    Buildings
+    cost 15% less Wood/Stone (existing, port as-is)
+
+    Market building can be placed
+    anywhere, not gated behind an Age requirement other civs might get later (structural
+    head start on trade)
+
+    Team bonus: Allied Markets also get a narrowed 5-point
+    spread (diluted version of Chola''s own unique tech)
+
+    Villagers/Workers gather
+    15% faster (existing, port as-is from CivilizationProfile.GatherRateMultiplier)
+
+    Buildings
+    cost 15% less Wood/Stone (existing, port as-is)
+
+    Market building can be placed
+    anywhere, not gated behind an Age requirement other civs might get later (structural
+    head start on trade)
+
+    Team bonus: Allied Markets also get a narrowed 5-point
+    spread (diluted version of Chola''s own unique tech)'
+  uniqueUnits:
+  - {fileID: 11400000, guid: 372cd2d42f7b14ffd8b202d8894644e3, type: 2}
+  - {fileID: 11400000, guid: 8789eed6c94c948aeb553bbe75cd927d, type: 2}
+  uniqueTechs:
+  - {fileID: 11400000, guid: 9cc6a332503644464b9a9cd73f7b6595, type: 2}
+  passiveBonuses:
+  - targetCategory: 0
+    applyToAllCategories: 1
+    stat: 0
+    operation: 0
+    value: 0
+  - targetCategory: 0
+    applyToAllCategories: 1
+    stat: 0
+    operation: 0
+    value: 0
+  - targetCategory: 0
+    applyToAllCategories: 1
+    stat: 0
+    operation: 0
+    value: 0
+  freeTechsOnAgeUp: []
+  teamBonus:
+    targetCategory: 0
+    applyToAllCategories: 1
+    stat: 0
+    operation: 0
+    value: 0
+  emblem: {fileID: 0}

@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93c08e177c5a640f1baaa6fe47b4cb79, type: 3}
+  m_Name: crop_rotation
+  m_EditorClassIdentifier: Assembly-CSharp::TechNode
+  techId: crop_rotation
+  displayName: Crop Rotation
+  description: Farms produce Food a further 15% faster (stacks, 30% total)
+  age: 2
+  prerequisites:
+  - {fileID: 11400000, guid: f82a18cafeee1402ea290b575c1f590a, type: 2}
+  cost:
+    food: 150
+    wood: 0
+    gold: 80
+    stone: 0
+  researchTimeSeconds: 45
+  effects:
+  - targetCategory: 0
+    applyToAllCategories: 1
+    stat: 9
+    operation: 1
+    value: 1.15
+  icon: {fileID: 0}

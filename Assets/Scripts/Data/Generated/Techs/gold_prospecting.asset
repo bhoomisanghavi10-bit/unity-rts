@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93c08e177c5a640f1baaa6fe47b4cb79, type: 3}
+  m_Name: gold_prospecting
+  m_EditorClassIdentifier: Assembly-CSharp::TechNode
+  techId: gold_prospecting
+  displayName: Gold Prospecting
+  description: +15% Gold gather rate
+  age: 1
+  prerequisites: []
+  cost:
+    food: 50
+    wood: 0
+    gold: 50
+    stone: 0
+  researchTimeSeconds: 35
+  effects:
+  - targetCategory: 0
+    applyToAllCategories: 1
+    stat: 9
+    operation: 1
+    value: 1.15
+  icon: {fileID: 0}

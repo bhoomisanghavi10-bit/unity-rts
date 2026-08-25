@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7eb99104ee614065ac1a988bfa29bc6, type: 3}
+  m_Name: fishing_boat
+  m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
+  unitId: fishing_boat
+  displayName: Fishing Boat
+  category: 5
+  ageRequirement: 1
+  cost:
+    food: 0
+    wood: 50
+    gold: 20
+    stone: 0
+  trainTimeSeconds: 5
+  maxHP: 15
+  attackDamage: 0
+  attackType: 0
+  meleeArmor: 0
+  pierceArmor: 0
+  attackRange: 0
+  attackSpeed: 0
+  moveSpeed: 3
+  isUniqueUnit: 0
+  civOwnerId: 
+  counterNotes: Non-combat naval gatherer, port exact from FishingBoatFactory
+  historicalBasis: Generic fishing vessel
+  prefab: {fileID: 0}

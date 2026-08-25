@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7eb99104ee614065ac1a988bfa29bc6, type: 3}
+  m_Name: chola_naval_raider
+  m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
+  unitId: chola_naval_raider
+  displayName: Chola Naval Raider
+  category: 3
+  ageRequirement: 2
+  cost:
+    food: 55
+    wood: 0
+    gold: 45
+    stone: 0
+  trainTimeSeconds: 5
+  maxHP: 22
+  attackDamage: 6
+  attackType: 1
+  meleeArmor: 0
+  pierceArmor: 1
+  attackRange: 7
+  attackSpeed: 0
+  moveSpeed: 3.9
+  isUniqueUnit: 1
+  civOwnerId: chola
+  counterNotes: Elite Archer, deliberately land-based (not Naval) so it isn't dead
+    weight on non-water maps - port exact from CholaNavalRaiderFactory
+  historicalBasis: Reflects Chola's real naval-power history via an elite raider
+    rather than a water-gated unit
+  prefab: {fileID: 0}
