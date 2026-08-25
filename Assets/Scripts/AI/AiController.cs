@@ -64,6 +64,16 @@ namespace KingdomsOfBharat.AI
         [SerializeField] private BuildOrderStyle buildOrder = BuildOrderStyle.Balanced;
         [SerializeField] private int economyFirstWorkerThreshold = 6;
 
+        // Item 49 gap-closing: AI naval behavior. Dock siting has no fixed
+        // offset like Barracks/Farm/House (water isn't always in the same
+        // place relative to the town center) - see TryFindDockSpot.
+        [SerializeField] private float dockWoodCost = 80f;
+        [SerializeField] private float dockStoneCost = 20f;
+        [SerializeField] private float dockBuildTime = 6f;
+        [SerializeField] private float dockClearance = 3f;
+        [SerializeField] private float dockMaxWaterDistance = 4f;
+        [SerializeField] private int navalAttackSquadSize = 2;
+
         // Local to this controller, not a mutation on ResourceNode itself -
         // keeps the "who's gathering what" bookkeeping contained to one file.
         private readonly HashSet<ResourceNode> _claimedNodes = new HashSet<ResourceNode>();
@@ -83,6 +93,10 @@ namespace KingdomsOfBharat.AI
         private ConstructionSite _houseSite;
         private bool _houseBuilderAssigned;
         private int _houseCount;
+        private Dock _dock;
+        private ConstructionSite _dockSite;
+        private bool _dockBuilderAssigned;
+        private int _dockTrainRotation;
         private float _scoutTimer;
         private float _scoutElapsed;
         private bool _hasScoutedPlayer;
@@ -312,6 +326,10 @@ namespace KingdomsOfBharat.AI
                 TryTrainWorkers();
                 TryResearchUpgrades();
                 UpdateScouting();
+                TryBuildDock();
+                AssignDockBuilderIfNeeded();
+                TryTrainNavalUnits();
+                AssignIdleFishingBoats();
             }
 
             _attackTimer += Time.deltaTime;
@@ -319,6 +337,7 @@ namespace KingdomsOfBharat.AI
             {
                 _attackTimer = 0f;
                 TryAttack();
+                TryNavalAttack();
             }
 
             _diplomacyTimer += Time.deltaTime;
@@ -490,6 +509,12 @@ namespace KingdomsOfBharat.AI
             }
         }
 
+        // Item 49 gap-closing: excludes Fish nodes (see AssignIdleFishingBoats
+        // for their own claim scan) - without this check, a land Worker
+        // could be sent to "gather" a Fish node sitting in the water, walk
+        // to the shore, and get stuck there forever (UnitMover has no path
+        // across water - see WaterMover's own doc comment on why boats
+        // need a separate mover in the first place).
         private ResourceNode FindUnclaimedNode(Vector3 fromPosition, ResourceNode[] allNodes)
         {
             ResourceNode nearest = null;
@@ -497,7 +522,66 @@ namespace KingdomsOfBharat.AI
 
             foreach (ResourceNode node in allNodes)
             {
-                if (_claimedNodes.Contains(node))
+                if (_claimedNodes.Contains(node) || WaterProximity.IsInsideWater(node.transform.position))
+                {
+                    continue;
+                }
+
+                float distance = Vector3.Distance(fromPosition, node.transform.position);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    nearest = node;
+                }
+            }
+
+            return nearest;
+        }
+
+        // Item 49 gap-closing: the naval equivalent of AssignIdleWorkers -
+        // same shape, checks BoatGatherer instead of Gatherer.
+        private void AssignIdleFishingBoats()
+        {
+            List<Unit> idleBoats = new List<Unit>();
+            foreach (Unit unit in Unit.All)
+            {
+                if (IsMine(unit) && unit.TryGetComponent(out BoatGatherer boatGatherer) && !boatGatherer.IsWorking)
+                {
+                    idleBoats.Add(unit);
+                }
+            }
+
+            if (idleBoats.Count == 0)
+            {
+                return;
+            }
+
+            ResourceNode[] allNodes = FindObjectsByType<ResourceNode>(FindObjectsSortMode.None);
+
+            foreach (Unit unit in idleBoats)
+            {
+                ResourceNode nearest = FindUnclaimedFishNode(unit.transform.position, allNodes);
+                if (nearest == null)
+                {
+                    continue;
+                }
+
+                _claimedNodes.Add(nearest);
+                unit.TryGetComponent(out BoatGatherer boatGatherer);
+                boatGatherer.GatherFrom(nearest);
+            }
+        }
+
+        // Mirrors FindUnclaimedNode, restricted to nodes actually inside
+        // the water rectangle - the only ones a boat can reach.
+        private ResourceNode FindUnclaimedFishNode(Vector3 fromPosition, ResourceNode[] allNodes)
+        {
+            ResourceNode nearest = null;
+            float bestDistance = float.MaxValue;
+
+            foreach (ResourceNode node in allNodes)
+            {
+                if (_claimedNodes.Contains(node) || !WaterProximity.IsInsideWater(node.transform.position))
                 {
                     continue;
                 }
@@ -790,6 +874,131 @@ namespace KingdomsOfBharat.AI
             }
         }
 
+        // Item 49 gap-closing: builds one Dock, same single-instance shape
+        // TryBuildBarracks/TryBuildFarm/TryBuildHouse already use, gated
+        // on the map actually having water (WaterProximity.HasWater) - a
+        // no-op on RiverValley/Highlands.
+        private void TryBuildDock()
+        {
+            if (_dock != null || !WaterProximity.HasWater)
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(myFaction);
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(myFaction)).BuildCostMultiplier;
+            if (stockpile.GetTotal(ResourceType.Wood) < dockWoodCost * multiplier
+                || stockpile.GetTotal(ResourceType.Stone) < dockStoneCost * multiplier)
+            {
+                return;
+            }
+
+            if (!TryFindDockSpot(out Vector3 point))
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Wood, -dockWoodCost * multiplier);
+            stockpile.Add(ResourceType.Stone, -dockStoneCost * multiplier);
+
+            GameObject go = DockFactory.Place(point, myFaction, dockBuildTime);
+            go.TryGetComponent(out _dock);
+            go.TryGetComponent(out _dockSite);
+        }
+
+        // Unlike Barracks/Farm/House (a fixed offset from townCenterPosition -
+        // water isn't always in the same place relative to the town center),
+        // this walks from the nearest point on the water rectangle's edge
+        // back toward the town center in small steps, looking for the
+        // first spot that's clear, on dry ground, and within
+        // dockMaxWaterDistance - the same constraint BuildingPlacer.
+        // IsClearForKind enforces for the Player's own Dock placement.
+        private bool TryFindDockSpot(out Vector3 point)
+        {
+            point = Vector3.zero;
+            if (!WaterProximity.HasWater)
+            {
+                return false;
+            }
+
+            MapDefinitionData map = MapRegistry.Current;
+            float clampedX = Mathf.Clamp(townCenterPosition.x, map.WaterCenter.x - map.WaterHalfExtents.x, map.WaterCenter.x + map.WaterHalfExtents.x);
+            float clampedZ = Mathf.Clamp(townCenterPosition.z, map.WaterCenter.z - map.WaterHalfExtents.z, map.WaterCenter.z + map.WaterHalfExtents.z);
+            Vector3 nearestOnWater = new Vector3(clampedX, 0f, clampedZ);
+
+            Vector3 towardLand = townCenterPosition - nearestOnWater;
+            towardLand.y = 0f;
+            if (towardLand.sqrMagnitude < 0.01f)
+            {
+                towardLand = Vector3.back;
+            }
+            towardLand = towardLand.normalized;
+
+            for (float distance = 1f; distance <= dockMaxWaterDistance; distance += 1f)
+            {
+                Vector3 candidateXz = nearestOnWater + towardLand * distance;
+                if (!TryResolveGroundHeight(candidateXz, out Vector3 candidate))
+                {
+                    continue;
+                }
+
+                if (DockFactory.IsClear(candidate, dockClearance) && !WaterProximity.IsInsideWater(candidate))
+                {
+                    point = candidate;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void AssignDockBuilderIfNeeded()
+        {
+            if (_dockSite == null || _dockBuilderAssigned || _dockSite.IsComplete)
+            {
+                return;
+            }
+
+            foreach (Unit unit in Unit.All)
+            {
+                if (!IsMine(unit) || !unit.TryGetComponent(out Builder builder))
+                {
+                    continue;
+                }
+
+                if (unit.TryGetComponent(out Gatherer gatherer))
+                {
+                    gatherer.CancelGather();
+                }
+
+                builder.BuildAt(_dockSite);
+                _dockBuilderAssigned = true;
+                return;
+            }
+        }
+
+        // Mostly Fishing Boats (economy), one War Galley every 4th train -
+        // same "mostly economy, some military" ratio TryTrainSoldiers
+        // already uses for its own rotation.
+        private void TryTrainNavalUnits()
+        {
+            if (_dock == null || !_dock.IsComplete || _dock.IsTraining)
+            {
+                return;
+            }
+
+            if (_dockTrainRotation == 3)
+            {
+                _dock.RequestTrainWarGalley();
+            }
+            else
+            {
+                _dock.RequestTrainFishingBoat();
+            }
+
+            _dockTrainRotation = (_dockTrainRotation + 1) % 4;
+        }
+
         // Population.Cap/Current recompute fresh from Building.All/Unit.All
         // each call (see Population), so no persistent house-count state
         // is needed for the cap math itself - only for tracking the
@@ -915,6 +1124,116 @@ namespace KingdomsOfBharat.AI
                 soldier.TryGetComponent(out MeleeAttacker attacker);
                 attacker.AttackMove(target);
             }
+        }
+
+        // Item 49 gap-closing: the naval equivalent of TryAttack, kept
+        // fully separate rather than merged into it - a naval squad has
+        // its own (smaller) size threshold, and WaterMover has no
+        // pathfinding across land, so it needs its own target search
+        // restricted to things actually reachable from water (see
+        // FindNearestNavalTarget) rather than reusing FindNearestPlayerTarget,
+        // which would happily send a War Galley sailing at a landlocked
+        // Town Center it can never reach.
+        private void TryNavalAttack()
+        {
+            if (!_hasScoutedPlayer)
+            {
+                return;
+            }
+
+            List<Unit> galleys = new List<Unit>();
+            foreach (Unit unit in Unit.All)
+            {
+                if (IsMine(unit) && unit.TryGetComponent(out BoatAttacker _))
+                {
+                    galleys.Add(unit);
+                }
+            }
+
+            if (galleys.Count < navalAttackSquadSize)
+            {
+                return;
+            }
+
+            Attackable target = FindNearestNavalTarget();
+            if (target == null)
+            {
+                return;
+            }
+
+            foreach (Unit galley in galleys)
+            {
+                galley.TryGetComponent(out BoatAttacker attacker);
+                attacker.AttackMove(target);
+            }
+        }
+
+        // Restricted to other naval units (BoatAttacker/BoatGatherer) and
+        // Dock buildings specifically - the only things actually within a
+        // ship's reach given WaterMover's straight-line, water-only
+        // movement (see WaterMover's own doc comment). A land Soldier or
+        // inland Town Center is structurally unreachable, so it's never a
+        // candidate here even if it's the AI's designated
+        // HostileTargetFaction().
+        private Attackable FindNearestNavalTarget()
+        {
+            FactionId targetFaction = HostileTargetFaction();
+            Attackable nearest = null;
+            float bestDistance = float.MaxValue;
+
+            foreach (Unit unit in Unit.All)
+            {
+                if (!unit.TryGetComponent(out FactionMember factionMember) || factionMember.Faction != targetFaction)
+                {
+                    continue;
+                }
+
+                if (!unit.TryGetComponent(out BoatAttacker _) && !unit.TryGetComponent(out BoatGatherer _))
+                {
+                    continue;
+                }
+
+                if (!unit.TryGetComponent(out Attackable attackable) || attackable.IsDead)
+                {
+                    continue;
+                }
+
+                float distance = Vector3.Distance(townCenterPosition, unit.transform.position);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    nearest = attackable;
+                }
+            }
+
+            if (nearest != null)
+            {
+                return nearest;
+            }
+
+            foreach (Building building in Building.All)
+            {
+                if (!(building is Dock)
+                    || !building.TryGetComponent(out FactionMember factionMember)
+                    || factionMember.Faction != targetFaction)
+                {
+                    continue;
+                }
+
+                if (!building.TryGetComponent(out Attackable attackable) || attackable.IsDead)
+                {
+                    continue;
+                }
+
+                float distance = Vector3.Distance(townCenterPosition, building.transform.position);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    nearest = attackable;
+                }
+            }
+
+            return nearest;
         }
 
         // Target-faction units take priority (soldiers wade through
