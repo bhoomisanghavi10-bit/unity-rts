@@ -48,8 +48,15 @@ namespace KingdomsOfBharat.Buildings
             // <name>/<name>/scene convention the other imports use) rather
             // than Assets/Resources/Buildings/, since it's naturally part
             // of the same asset-sourcing pass as the boats.
+            // Phase 5 gap-close (Wall/Gate): a fourth fallback - these two
+            // landed one level shallower (Buildings/<name>/scene.gltf) than
+            // the item-47 imports' Buildings/<name>/<name>/scene.gltf, an
+            // import-tool convention difference rather than anything this
+            // project chose - so a bare Buildings/<name>/scene path is
+            // tried too, after the more specific patterns above.
             GameObject prefab = Resources.Load<GameObject>($"Buildings/{resourceName}")
                 ?? Resources.Load<GameObject>($"Buildings/{resourceName}/{resourceName}/scene")
+                ?? Resources.Load<GameObject>($"Buildings/{resourceName}/scene")
                 ?? Resources.Load<GameObject>($"Ships/{resourceName}");
 
             GameObject root = new GameObject(resourceName);
@@ -140,13 +147,31 @@ namespace KingdomsOfBharat.Buildings
         // already - worth the same upgrade here once a building pack's
         // exact material setup is known, since a runtime Lerp tint is a
         // weaker substitute for hand-authored palette variants.
+        // Phase 5 gap-close: the Gate model's glTFast-imported Shader
+        // Graph material has no "_Color" property at all (Unity's
+        // Material.color is a convenience wrapper around exactly that
+        // name) - every earlier imported pack happened to use a shader
+        // that has one, so this went unnoticed until Gate's import spammed
+        // a "doesn't have a color property '_Color'" console error on
+        // every spawn and silently skipped tinting. glTFast names its own
+        // color property "baseColorFactor" (glTF spec naming, no leading
+        // underscore) instead - tried as a fallback before giving up on a
+        // given material rather than assuming every pack's shader matches.
         private static void TintMaterials(GameObject go, Color civColor)
         {
             foreach (Renderer renderer in go.GetComponentsInChildren<Renderer>(true))
             {
                 foreach (Material material in renderer.materials)
                 {
-                    material.color = Color.Lerp(material.color, civColor, 0.35f);
+                    if (material.HasProperty("_Color"))
+                    {
+                        material.color = Color.Lerp(material.color, civColor, 0.35f);
+                    }
+                    else if (material.HasProperty("baseColorFactor"))
+                    {
+                        Color baseColor = material.GetColor("baseColorFactor");
+                        material.SetColor("baseColorFactor", Color.Lerp(baseColor, civColor, 0.35f));
+                    }
                 }
             }
         }
