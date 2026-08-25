@@ -13,8 +13,11 @@ namespace KingdomsOfBharat.UI
     // buttons are even visible depends on what's currently selected, not
     // just whether they're enabled.
     //  - A Builder-capable unit selected (and no building selected): shows
-    //    Build Barracks/Farm/House/Wall/Gate/Tower - placement still needs
-    //    that worker to walk over and build it afterward.
+    //    Build Barracks/Farm/House/Wall/Gate/Tower/Dock - placement still
+    //    needs that worker to walk over and build it afterward. Dock is
+    //    additionally gated on WaterProximity.HasWater (see
+    //    BuildingPlacer.CanPlaceDock) - no point offering it on a map with
+    //    no water rectangle.
     //  - The Player's own Town Center selected: shows Train Worker + Advance
     //    Age, acting on that specific Town Center.
     //  - The Player's own Barracks selected: shows Train Soldier, acting on
@@ -34,6 +37,8 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button wallButton;
         [SerializeField] private Button gateButton;
         [SerializeField] private Button towerButton;
+        [SerializeField] private Button dockButton;
+        [SerializeField] private TMP_Text dockLabel;
         [SerializeField] private Button workerButton;
         [SerializeField] private Button soldierButton;
         [SerializeField] private Button archerButton;
@@ -58,6 +63,7 @@ namespace KingdomsOfBharat.UI
             wallButton.onClick.AddListener(() => _placer.BeginPlacementWall());
             gateButton.onClick.AddListener(() => _placer.BeginPlacementGate());
             towerButton.onClick.AddListener(() => _placer.BeginPlacementTower());
+            dockButton.onClick.AddListener(() => _placer.BeginPlacementDock());
             workerButton.onClick.AddListener(TrainWorkerAtSelected);
             soldierButton.onClick.AddListener(TrainSoldierAtSelected);
             archerButton.onClick.AddListener(TrainArcherAtSelected);
@@ -97,6 +103,10 @@ namespace KingdomsOfBharat.UI
                 wallButton.interactable = true;
                 gateButton.interactable = true;
                 towerButton.interactable = true;
+                dockButton.interactable = BuildingPlacer.CanPlaceDock;
+                dockLabel.text = BuildingPlacer.CanPlaceDock
+                    ? "Build Dock (80 Wood, 20 Stone)"
+                    : "Build Dock (Requires Water)";
             }
 
             if (townCenter != null)
@@ -159,6 +169,7 @@ namespace KingdomsOfBharat.UI
             wallButton.gameObject.SetActive(active);
             gateButton.gameObject.SetActive(active);
             towerButton.gameObject.SetActive(active);
+            dockButton.gameObject.SetActive(active);
         }
 
         private void UpdateTownCenterButtons(TownCenter townCenter)
