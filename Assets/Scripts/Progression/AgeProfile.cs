@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.Progression
 {
@@ -16,6 +17,12 @@ namespace KingdomsOfBharat.Progression
     // bonus at that age relative to Ancient's baseline (not an incremental
     // delta on top of the previous age), so a read site only ever needs
     // AgeProfile.For(currentAge) - no compounding across skipped ages.
+    //
+    // Phase 2 migration: values come from the CSV-generated
+    // AgeProfileDefinition assets (Assets/Design/Data/age_profile_template.csv
+    // -> DataRegistry) - a schema this session added specifically for this,
+    // since age-up costs/bonuses had no counterpart anywhere in the
+    // original Phase 1 CSV design.
     public readonly struct AgeProfile
     {
         public readonly string DisplayName;
@@ -39,7 +46,10 @@ namespace KingdomsOfBharat.Progression
             TrainTimeMultiplier = trainTimeMultiplier;
         }
 
-        private static readonly Dictionary<AgeId, AgeProfile> Profiles = new Dictionary<AgeId, AgeProfile>
+        // Pre-migration hardcoded fallback (matches what shipped before
+        // this pass) if the generated asset is ever missing - same
+        // defensive pattern as CivilizationProfile/DataRegistry.
+        private static readonly Dictionary<AgeId, AgeProfile> Fallback = new Dictionary<AgeId, AgeProfile>
         {
             {
                 AgeId.Ancient,
@@ -61,9 +71,38 @@ namespace KingdomsOfBharat.Progression
             },
         };
 
+        private static readonly Dictionary<AgeId, string> AgeIds = new Dictionary<AgeId, string>
+        {
+            { AgeId.Ancient, "Ancient" },
+            { AgeId.Classical, "Classical" },
+            { AgeId.Imperial, "Imperial" },
+        };
+
+        private static readonly Dictionary<AgeId, AgeProfile> Cache = new Dictionary<AgeId, AgeProfile>();
+
         public static AgeProfile For(AgeId id)
         {
-            return Profiles[id];
+            if (Cache.TryGetValue(id, out AgeProfile cached))
+            {
+                return cached;
+            }
+
+            AgeProfileDefinition def = DataRegistry.GetAgeProfile(AgeIds[id]);
+            AgeProfile profile;
+            if (def != null)
+            {
+                profile = new AgeProfile(
+                    def.displayName, def.woodCost, def.stoneCost, def.researchTime,
+                    def.gatherRateMultiplier, def.maxHealthMultiplier, def.trainTimeMultiplier);
+            }
+            else
+            {
+                Debug.LogWarning($"AgeProfile: no generated AgeProfileDefinition found for '{AgeIds[id]}' - falling back to hardcoded values. Run BharatRTS/Generate Data Assets From CSV.");
+                profile = Fallback[id];
+            }
+
+            Cache[id] = profile;
+            return profile;
         }
     }
 }

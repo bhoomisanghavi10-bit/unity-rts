@@ -30,6 +30,9 @@ public static class CsvToScriptableObject
     private const string TechTreeCsvPath = "Assets/Design/Data/tech_tree_template.csv";
     private const string UnitRosterCsvPath = "Assets/Design/Data/unit_roster_template.csv";
     private const string CounterMatrixCsvPath = "Assets/Design/Data/counter_matrix_template.csv";
+    // Phase 2 addition - no counterpart in the original Phase 1 CSV set,
+    // see AgeProfileDefinition.cs.
+    private const string AgeProfileCsvPath = "Assets/Design/Data/age_profile_template.csv";
 
     // Under Assets/Resources/ (not Assets/Scripts/Data/) so Phase 2's
     // runtime code can load these via Resources.Load/LoadAll - a build
@@ -39,6 +42,7 @@ public static class CsvToScriptableObject
     private const string TechFolder = RootFolder + "/Techs";
     private const string UnitFolder = RootFolder + "/Units";
     private const string CivFolder = RootFolder + "/Civilizations";
+    private const string AgeFolder = RootFolder + "/Ages";
 
     // Unique techs (civ_bonus_template's UniqueTech column) don't carry
     // structured cost/time data the way tech_tree_template's rows do -
@@ -58,11 +62,13 @@ public static class CsvToScriptableObject
         EnsureFolder(TechFolder);
         EnsureFolder(UnitFolder);
         EnsureFolder(CivFolder);
+        EnsureFolder(AgeFolder);
 
         Dictionary<string, TechNode> techLookup = GenerateTechNodes();
         Dictionary<string, UnitDefinition> unitLookup = GenerateUnitDefinitions();
         GenerateCivilizations(techLookup, unitLookup);
         GenerateCounterMatrix();
+        GenerateAgeProfiles();
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -521,6 +527,26 @@ public static class CsvToScriptableObject
         }
         matrix.BuildLookup();
         EditorUtility.SetDirty(matrix);
+    }
+
+    // --- Age profiles (Phase 2 addition - see AgeProfileDefinition.cs) ---
+
+    private static void GenerateAgeProfiles()
+    {
+        foreach (Dictionary<string, string> row in ReadCsv(AgeProfileCsvPath))
+        {
+            string ageId = row["AgeID"];
+            AgeProfileDefinition age = LoadOrCreate<AgeProfileDefinition>(AgeFolder, ageId);
+            age.ageId = ageId;
+            age.displayName = row["DisplayName"];
+            age.woodCost = ParseFloat(row["WoodCost"], 0f);
+            age.stoneCost = ParseFloat(row["StoneCost"], 0f);
+            age.researchTime = ParseFloat(row["ResearchTime"], 0f);
+            age.gatherRateMultiplier = ParseFloat(row["GatherRateMultiplier"], 1f);
+            age.maxHealthMultiplier = ParseFloat(row["MaxHealthMultiplier"], 1f);
+            age.trainTimeMultiplier = ParseFloat(row["TrainTimeMultiplier"], 1f);
+            EditorUtility.SetDirty(age);
+        }
     }
 
     // --- Effect parsing (tech_tree_template only - unique techs/passive

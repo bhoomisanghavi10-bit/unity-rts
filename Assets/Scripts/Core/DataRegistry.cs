@@ -16,6 +16,7 @@ namespace KingdomsOfBharat.Core
         private static Dictionary<string, CivilizationDefinition> _civilizations;
         private static Dictionary<string, UnitDefinition> _units;
         private static Dictionary<string, TechNode> _techs;
+        private static Dictionary<string, AgeProfileDefinition> _ages;
         private static CounterMatrix _counterMatrix;
 
         public static CivilizationDefinition GetCivilization(string civId)
@@ -34,6 +35,12 @@ namespace KingdomsOfBharat.Core
         {
             EnsureLoaded();
             return _techs.TryGetValue(techId, out TechNode tech) ? tech : null;
+        }
+
+        public static AgeProfileDefinition GetAgeProfile(string ageId)
+        {
+            EnsureLoaded();
+            return _ages.TryGetValue(ageId, out AgeProfileDefinition age) ? age : null;
         }
 
         public static CounterMatrix CounterMatrix
@@ -87,6 +94,12 @@ namespace KingdomsOfBharat.Core
             foreach (TechNode tech in Resources.LoadAll<TechNode>("Data/Generated/Techs"))
             {
                 _techs[tech.techId] = tech;
+            }
+
+            _ages = new Dictionary<string, AgeProfileDefinition>();
+            foreach (AgeProfileDefinition age in Resources.LoadAll<AgeProfileDefinition>("Data/Generated/Ages"))
+            {
+                _ages[age.ageId] = age;
             }
 
             CounterMatrix[] matrices = Resources.LoadAll<CounterMatrix>("Data/Generated");
