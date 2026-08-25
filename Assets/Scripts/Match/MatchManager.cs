@@ -69,8 +69,24 @@ namespace KingdomsOfBharat.Match
         // did). Defeat is unchanged - it was never about faction count.
         private static readonly FactionId[] AllFactions = { FactionId.Player, FactionId.Enemy, FactionId.Enemy2 };
 
+        // Item 50: a scripted mission's win/loss condition takes over
+        // entirely when one is active - a mission like "survive 3 minutes"
+        // or "destroy the enemy Barracks" shouldn't also trigger Victory
+        // just because the AI happened to lose every unit some other way.
+        // A plain skirmish never sets ActiveScenario, so this branch never
+        // fires and the elimination logic below runs exactly as before.
         private void Evaluate()
         {
+            if (ScenarioManager.ActiveScenario != null)
+            {
+                MatchOutcome scenarioOutcome = ScenarioManager.EvaluateOutcome();
+                if (scenarioOutcome != MatchOutcome.Ongoing)
+                {
+                    Declare(scenarioOutcome);
+                }
+                return;
+            }
+
             bool playerAlive = FactionHasForces(FactionId.Player);
 
             if (!playerAlive)

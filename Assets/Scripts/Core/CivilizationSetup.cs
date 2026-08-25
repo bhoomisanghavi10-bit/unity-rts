@@ -1,5 +1,6 @@
 using UnityEngine;
 using KingdomsOfBharat.Progression;
+using KingdomsOfBharat.Match;
 
 namespace KingdomsOfBharat.Core
 {
@@ -41,15 +42,32 @@ namespace KingdomsOfBharat.Core
         private void OnDestroy()
         {
             HasMatchStarted = false;
+            ScenarioManager.EndScenario();
         }
 
         public void BeginMatch(CivilizationId playerCivilization)
         {
-            MapRegistry.Select(map);
+            BeginMatchCore(playerCivilization, aiCivilization, map);
+        }
+
+        // Item 50: same match-start pipeline as BeginMatch, but sourcing
+        // civ/map from a scripted mission instead of this component's own
+        // Inspector defaults, and registering the mission's objectives/
+        // triggers first so they're already in place before any gated
+        // content's Awake()/Start() runs.
+        public void BeginScenarioMatch(ScenarioDefinition scenario)
+        {
+            ScenarioManager.Begin(scenario);
+            BeginMatchCore(scenario.PlayerCivilization, scenario.AiCivilization, scenario.Map);
+        }
+
+        private void BeginMatchCore(CivilizationId playerCivilization, CivilizationId aiCiv, MapId mapId)
+        {
+            MapRegistry.Select(mapId);
             DiplomacyRegistry.Reset();
 
             CivilizationRegistry.Assign(FactionId.Player, playerCivilization);
-            CivilizationRegistry.Assign(FactionId.Enemy, aiCivilization);
+            CivilizationRegistry.Assign(FactionId.Enemy, aiCiv);
 
             AgeProgress.Initialize(FactionId.Player);
             AgeProgress.Initialize(FactionId.Enemy);
