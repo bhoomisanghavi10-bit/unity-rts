@@ -315,6 +315,7 @@ namespace KingdomsOfBharat.AI
                 _decisionTimer = 0f;
                 AssignIdleWorkers();
                 TryAgeUp();
+                TryResearchEconomyTechs();
                 TryBuildBarracks();
                 AssignBuilderIfNeeded();
                 TryTrainSoldiers();
@@ -620,6 +621,56 @@ namespace KingdomsOfBharat.AI
             }
 
             _townCenter.RequestAgeUp();
+        }
+
+        // Phase 6 gap-close (deeper tech tree): fixed priority order
+        // (ImprovedTools -> PackMules -> TradeDiscounts) rather than
+        // cycled/random, same reasoning as the Cavalry/Archer fixed
+        // pairing in TryResearchUpgrades - keeps the AI's choice legible.
+        // Improved gathering compounds the earliest (every worker benefits
+        // for the rest of the match), so it goes first; TradeDiscounts
+        // only pays off once the AI is actually spending on buildings
+        // regularly, so it's last. Shares TownCenter's one economy-tech
+        // slot with itself here (RequestResearchEconomyTech no-ops if
+        // already researching), same "one at a time, real prioritization"
+        // design the slot itself was built around.
+        private void TryResearchEconomyTechs()
+        {
+            if (_townCenter == null || _townCenter.IsResearchingEconomyTech)
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(myFaction);
+
+            if (!_townCenter.HasResearchedEconomyTech(EconomyTech.ImprovedTools))
+            {
+                TryResearchEconomyTech(EconomyTech.ImprovedTools, stockpile);
+                return;
+            }
+
+            if (!_townCenter.HasResearchedEconomyTech(EconomyTech.PackMules))
+            {
+                TryResearchEconomyTech(EconomyTech.PackMules, stockpile);
+                return;
+            }
+
+            if (!_townCenter.HasResearchedEconomyTech(EconomyTech.TradeDiscounts))
+            {
+                TryResearchEconomyTech(EconomyTech.TradeDiscounts, stockpile);
+            }
+        }
+
+        private void TryResearchEconomyTech(EconomyTech tech, ResourceStockpile stockpile)
+        {
+            EconomyTechDefinition definition = EconomyTechDefinition.For(tech);
+            if (stockpile.GetTotal(ResourceType.Wood) < definition.WoodCost
+                || stockpile.GetTotal(ResourceType.Gold) < definition.GoldCost)
+            {
+                return;
+            }
+
+            _townCenter.RequestResearchEconomyTech(tech);
         }
 
         private void TryBuildBarracks()

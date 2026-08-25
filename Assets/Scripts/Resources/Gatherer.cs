@@ -26,6 +26,7 @@ namespace KingdomsOfBharat.ResourceGathering
         private ResourceType _carriedType;
         private float _carriedAmount;
         private float _rateMultiplier = 1f;
+        private float _carryCapacityMultiplier = 1f;
         private float _vfxTimer;
 
         // For SelectedUnitPanel (UI) to show a status line - true for the
@@ -52,6 +53,16 @@ namespace KingdomsOfBharat.ResourceGathering
         public void SetRateMultiplier(float multiplier)
         {
             _rateMultiplier = multiplier;
+        }
+
+        // Phase 6 gap-close: same spawn-time-baked convention, this time
+        // from EconomyTechProgress's ImprovedTools/PackMules techs rather
+        // than the civ profile - non-retroactive like every other bonus in
+        // this project, only benefits Workers trained after the tech
+        // finishes.
+        public void SetCarryCapacityMultiplier(float multiplier)
+        {
+            _carryCapacityMultiplier = multiplier;
         }
 
         public void GatherFrom(ResourceNode node)
@@ -135,7 +146,7 @@ namespace KingdomsOfBharat.ResourceGathering
                 SfxPlayer.PlayGather(_targetNode.transform.position);
             }
 
-            if (_carriedAmount >= carryCapacity)
+            if (_carriedAmount >= carryCapacity * _carryCapacityMultiplier)
             {
                 _dropOff = null;
                 _state = State.MovingToDropOff;

@@ -32,6 +32,17 @@ namespace KingdomsOfBharat.Buildings
         private float _ageUpRemaining = -1f;
         private AgeId _ageUpTarget;
 
+        // Phase 6 gap-close (deeper tech tree): one shared research slot
+        // for economy techs, same "one at a time" shape as Worker training
+        // rather than an independent track per tech - deliberately, so
+        // researching ImprovedTools vs. PackMules vs. TradeDiscounts first
+        // is a real prioritization choice, not something to just start all
+        // three of in parallel. Independent from Worker training and
+        // Age-up (both already run in parallel here) - a faction can train
+        // a Worker, age up, and research an economy tech all at once.
+        private float _economyTechRemaining = -1f;
+        private EconomyTech _economyTechTarget;
+
         // Self-added in Awake (not lazily like ConstructionSite/FactionMember
         // below) rather than requiring a Factory change: RallyPoint only
         // needs this component's own Building/rallyOffset, both already
@@ -64,6 +75,13 @@ namespace KingdomsOfBharat.Buildings
         public bool IsAgingUp => _ageUpRemaining >= 0f;
         public float AgeUpProgress => IsAgingUp ? 1f - (_ageUpRemaining / AgeProfile.For(_ageUpTarget).ResearchTime) : 0f;
 
+        public bool IsResearchingEconomyTech => _economyTechRemaining >= 0f;
+        public EconomyTech EconomyTechTarget => _economyTechTarget;
+        public float EconomyTechResearchProgress => IsResearchingEconomyTech
+            ? 1f - (_economyTechRemaining / EconomyTechDefinition.For(_economyTechTarget).ResearchTime)
+            : 0f;
+        public bool HasResearchedEconomyTech(EconomyTech tech) => EconomyTechProgress.HasResearched(Faction, tech);
+
         private void Update()
         {
             if (IsTraining)
@@ -74,6 +92,11 @@ namespace KingdomsOfBharat.Buildings
             if (IsAgingUp)
             {
                 TickAgeUp();
+            }
+
+            if (IsResearchingEconomyTech)
+            {
+                TickEconomyTech();
             }
 
             if (Faction == FactionId.Player && !IsTraining && Input.GetKeyDown(trainKey))
@@ -141,6 +164,39 @@ namespace KingdomsOfBharat.Buildings
             {
                 AgeProgress.Advance(Faction, _ageUpTarget);
                 _ageUpRemaining = -1f;
+            }
+        }
+
+        // Phase 6: same gating shape as Barracks' unique-tech research -
+        // one-time flag via EconomyTechProgress, not a tiered track.
+        public void RequestResearchEconomyTech(EconomyTech tech)
+        {
+            if (IsResearchingEconomyTech || HasResearchedEconomyTech(tech))
+            {
+                return;
+            }
+
+            EconomyTechDefinition definition = EconomyTechDefinition.For(tech);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Wood) < definition.WoodCost
+                || stockpile.GetTotal(ResourceType.Gold) < definition.GoldCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Wood, -definition.WoodCost);
+            stockpile.Add(ResourceType.Gold, -definition.GoldCost);
+            _economyTechTarget = tech;
+            _economyTechRemaining = definition.ResearchTime;
+        }
+
+        private void TickEconomyTech()
+        {
+            _economyTechRemaining -= Time.deltaTime;
+            if (_economyTechRemaining <= 0f)
+            {
+                EconomyTechProgress.MarkResearched(Faction, _economyTechTarget);
+                _economyTechRemaining = -1f;
             }
         }
     }

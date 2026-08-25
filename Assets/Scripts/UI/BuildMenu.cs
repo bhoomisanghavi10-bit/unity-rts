@@ -54,6 +54,12 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private TMP_Text uniqueTechLabel;
         [SerializeField] private Button ageButton;
         [SerializeField] private TMP_Text ageLabel;
+        [SerializeField] private Button improvedToolsButton;
+        [SerializeField] private TMP_Text improvedToolsLabel;
+        [SerializeField] private Button packMulesButton;
+        [SerializeField] private TMP_Text packMulesLabel;
+        [SerializeField] private Button tradeDiscountsButton;
+        [SerializeField] private TMP_Text tradeDiscountsLabel;
 
         private BuildingPlacer _placer;
         private SelectionManager _selectionManager;
@@ -79,6 +85,9 @@ namespace KingdomsOfBharat.UI
             armorUpgradeButton.onClick.AddListener(ResearchArmorAtSelected);
             uniqueTechButton.onClick.AddListener(ResearchUniqueTechAtSelected);
             ageButton.onClick.AddListener(RequestAgeUpAtSelected);
+            improvedToolsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.ImprovedTools));
+            packMulesButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.PackMules));
+            tradeDiscountsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.TradeDiscounts));
         }
 
         private void Update()
@@ -96,6 +105,9 @@ namespace KingdomsOfBharat.UI
             SetPlacementButtonsActive(showPlacement);
             workerButton.gameObject.SetActive(townCenter != null);
             ageButton.gameObject.SetActive(townCenter != null);
+            improvedToolsButton.gameObject.SetActive(townCenter != null);
+            packMulesButton.gameObject.SetActive(townCenter != null);
+            tradeDiscountsButton.gameObject.SetActive(townCenter != null);
             soldierButton.gameObject.SetActive(barracks != null);
             archerButton.gameObject.SetActive(barracks != null);
             uniqueUnitButton.gameObject.SetActive(barracks != null);
@@ -218,6 +230,10 @@ namespace KingdomsOfBharat.UI
         {
             workerButton.interactable = !townCenter.IsTraining;
 
+            UpdateEconomyTechButton(improvedToolsButton, improvedToolsLabel, townCenter, EconomyTech.ImprovedTools);
+            UpdateEconomyTechButton(packMulesButton, packMulesLabel, townCenter, EconomyTech.PackMules);
+            UpdateEconomyTechButton(tradeDiscountsButton, tradeDiscountsLabel, townCenter, EconomyTech.TradeDiscounts);
+
             if (townCenter.IsAgingUp)
             {
                 ageButton.interactable = false;
@@ -235,6 +251,34 @@ namespace KingdomsOfBharat.UI
             AgeProfile next = AgeProfile.For(AgeProgress.NextAge(FactionId.Player));
             ageButton.interactable = true;
             ageLabel.text = $"Advance to {next.DisplayName} ({(int)next.WoodCost} Wood, {(int)next.StoneCost} Stone)";
+        }
+
+        // Phase 6 gap-close (deeper tech tree): economy techs share one
+        // research slot on TownCenter (see TownCenter.IsResearchingEconomyTech),
+        // so a button for a tech that ISN'T the one currently researching
+        // still shows its own cost but goes non-interactable - "something
+        // else is already using the slot," not "this specific tech is
+        // unavailable."
+        private static void UpdateEconomyTechButton(Button button, TMP_Text label, TownCenter townCenter, EconomyTech tech)
+        {
+            EconomyTechDefinition definition = EconomyTechDefinition.For(tech);
+
+            if (townCenter.IsResearchingEconomyTech && townCenter.EconomyTechTarget == tech)
+            {
+                button.interactable = false;
+                label.text = $"Researching {definition.Name}... {(int)(townCenter.EconomyTechResearchProgress * 100f)}%";
+                return;
+            }
+
+            if (townCenter.HasResearchedEconomyTech(tech))
+            {
+                button.interactable = false;
+                label.text = $"{definition.Name} (Researched)";
+                return;
+            }
+
+            button.interactable = !townCenter.IsResearchingEconomyTech;
+            label.text = $"{definition.Name} ({(int)definition.WoodCost} Wood, {(int)definition.GoldCost} Gold)";
         }
 
         private void TrainWorkerAtSelected()
@@ -304,6 +348,14 @@ namespace KingdomsOfBharat.UI
                 && !townCenter.IsAgingUp && AgeProgress.HasNextAge(FactionId.Player))
             {
                 townCenter.RequestAgeUp();
+            }
+        }
+
+        private void ResearchEconomyTechAtSelected(EconomyTech tech)
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is TownCenter townCenter)
+            {
+                townCenter.RequestResearchEconomyTech(tech);
             }
         }
 

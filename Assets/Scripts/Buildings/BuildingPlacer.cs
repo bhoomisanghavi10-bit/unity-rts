@@ -306,7 +306,12 @@ namespace KingdomsOfBharat.Buildings
             }
 
             ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
-            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).BuildCostMultiplier;
+            // Phase 6 gap-close: EconomyTechProgress's TradeDiscounts tech
+            // stacks multiplicatively with the civ's own build-cost bonus
+            // (e.g. Chola's existing -15%), same "multiply everything
+            // relevant together" convention as every other layered bonus.
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).BuildCostMultiplier
+                * (EconomyTechProgress.HasResearched(FactionId.Player, EconomyTech.TradeDiscounts) ? EconomyTechDefinition.For(EconomyTech.TradeDiscounts).Bonus : 1f);
 
             switch (_kind)
             {
@@ -355,7 +360,12 @@ namespace KingdomsOfBharat.Buildings
         private bool CanAfford()
         {
             ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
-            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).BuildCostMultiplier;
+            // Phase 6 gap-close: EconomyTechProgress's TradeDiscounts tech
+            // stacks multiplicatively with the civ's own build-cost bonus
+            // (e.g. Chola's existing -15%), same "multiply everything
+            // relevant together" convention as every other layered bonus.
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).BuildCostMultiplier
+                * (EconomyTechProgress.HasResearched(FactionId.Player, EconomyTech.TradeDiscounts) ? EconomyTechDefinition.For(EconomyTech.TradeDiscounts).Bonus : 1f);
 
             switch (_kind)
             {

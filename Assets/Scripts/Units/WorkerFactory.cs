@@ -47,7 +47,18 @@ namespace KingdomsOfBharat.Units
             var unit = go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
-            go.AddComponent<Gatherer>().SetRateMultiplier(profile.GatherRateMultiplier * age.GatherRateMultiplier);
+            // Phase 6 gap-close: EconomyTechProgress's ImprovedTools/
+            // PackMules techs layer on top of the civ/age multipliers
+            // already here, same "multiply everything relevant together"
+            // convention every other bonus in this project uses.
+            float gatherRateMultiplier = profile.GatherRateMultiplier * age.GatherRateMultiplier
+                * (EconomyTechProgress.HasResearched(faction, EconomyTech.ImprovedTools) ? EconomyTechDefinition.For(EconomyTech.ImprovedTools).Bonus : 1f);
+            float carryCapacityMultiplier = EconomyTechProgress.HasResearched(faction, EconomyTech.PackMules)
+                ? EconomyTechDefinition.For(EconomyTech.PackMules).Bonus
+                : 1f;
+            var gatherer = go.AddComponent<Gatherer>();
+            gatherer.SetRateMultiplier(gatherRateMultiplier);
+            gatherer.SetCarryCapacityMultiplier(carryCapacityMultiplier);
             go.AddComponent<Builder>();
             go.AddComponent<FarmWorker>();
             go.AddComponent<LivestockWorker>();
