@@ -19,6 +19,15 @@ namespace KingdomsOfBharat.Units
             CivilizationId civilization = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civilization);
             AgeProfile age = AgeProfile.For(AgeProgress.CurrentAge(faction));
+            // Phase 2 migration: see WorkerFactory's identical note. Move
+            // speed isn't wired here - WaterMover's own default (3f)
+            // already matches the CSV's fishing_boat MoveSpeed=3.0 exactly
+            // and WaterMover has no public setter to change it per-spawn.
+            UnitDefinition def = DataRegistry.GetUnit("fishing_boat");
+            if (def == null)
+            {
+                Debug.LogWarning("FishingBoatFactory: no generated UnitDefinition for 'fishing_boat' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
+            }
 
             GameObject go = BoatModelFactory.Spawn("FishingBoat", position, profile.PrimaryColor, isWarGalley: false);
             go.name = faction == FactionId.Player
@@ -30,7 +39,7 @@ namespace KingdomsOfBharat.Units
             go.AddComponent<SelectionIndicator>();
             go.AddComponent<BoatGatherer>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure(15f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure((def != null ? def.maxHP : 15f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureClass(UnitClass.Naval);
             go.AddComponent<HealthBar>();
             go.AddComponent<FactionMember>().Configure(faction);

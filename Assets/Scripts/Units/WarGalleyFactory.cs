@@ -19,6 +19,13 @@ namespace KingdomsOfBharat.Units
             CivilizationId civilization = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civilization);
             AgeProfile age = AgeProfile.For(AgeProgress.CurrentAge(faction));
+            // Phase 2 migration: see WorkerFactory's identical note (and
+            // FishingBoatFactory's on move speed - same reasoning here).
+            UnitDefinition def = DataRegistry.GetUnit("war_galley");
+            if (def == null)
+            {
+                Debug.LogWarning("WarGalleyFactory: no generated UnitDefinition for 'war_galley' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
+            }
 
             // "CombatShip" is the sourced model's actual name (Ships/CombatShip.prefab) -
             // this class/method stays "WarGalley" as the internal gameplay term.
@@ -31,18 +38,18 @@ namespace KingdomsOfBharat.Units
             go.AddComponent<WaterMover>();
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure(45f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure((def != null ? def.maxHP : 45f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
-                meleeArmor: UpgradeProgress.ArmorBonus(faction),
-                pierceArmor: UpgradeProgress.ArmorBonus(faction));
+                meleeArmor: (def != null ? def.meleeArmor : 0f) + UpgradeProgress.ArmorBonus(faction),
+                pierceArmor: (def != null ? def.pierceArmor : 0f) + UpgradeProgress.ArmorBonus(faction));
             attackable.ConfigureClass(UnitClass.Naval);
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<BoatAttacker>();
-            attacker.SetBaseDamage(8f);
+            attacker.SetBaseDamage(def != null ? def.attackDamage : 8f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction));
-            attacker.SetRange(4f);
+            attacker.SetRange(def != null ? def.attackRange : 4f);
 
             go.AddComponent<FactionMember>().Configure(faction);
 

@@ -33,6 +33,17 @@ namespace KingdomsOfBharat.Units
             // ones trained from then on, matching how CivilizationProfile's
             // own bonuses already work here.
             AgeProfile age = AgeProfile.For(AgeProgress.CurrentAge(faction));
+            // Phase 2 migration: base combat/movement stats now come from
+            // the CSV-generated UnitDefinition rather than literals here -
+            // see DataRegistry. Falls back to the pre-migration hardcoded
+            // values (matching what shipped before this pass) if the
+            // generated asset is ever missing, so a stale/un-regenerated
+            // project degrades instead of breaking.
+            UnitDefinition def = DataRegistry.GetUnit("worker");
+            if (def == null)
+            {
+                Debug.LogWarning("WorkerFactory: no generated UnitDefinition for 'worker' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
+            }
 
             GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Female, position, civilization);
             go.name = faction == FactionId.Player
@@ -42,7 +53,7 @@ namespace KingdomsOfBharat.Units
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f;
             agent.height = 2f;
-            agent.speed = 3.5f;
+            agent.speed = def != null ? def.moveSpeed : 3.5f;
 
             var unit = go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();
@@ -63,11 +74,12 @@ namespace KingdomsOfBharat.Units
             go.AddComponent<FarmWorker>();
             go.AddComponent<LivestockWorker>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure(20f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure((def != null ? def.maxHP : 20f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureClass(UnitClass.Infantry);
             go.AddComponent<HealthBar>();
             var attacker = go.AddComponent<MeleeAttacker>();
-            attacker.SetBaseDamage(2f);
+            attacker.SetBaseDamage(def != null ? def.attackDamage : 2f);
+            attacker.SetRange(def != null ? def.attackRange : 1f);
             attacker.SetUnitClass(UnitClass.Infantry);
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Female), agent, unit);
