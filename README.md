@@ -3,9 +3,11 @@
 A historical real-time strategy game set across Indian kingdoms and empires.
 
 This repository holds the first playable prototype: **Age III — Age of Kingdoms
-(c. 650–1526 CE)**. The prototype's only goal is to prove the core RTS loop —
-gather resources, construct buildings, train units, fight — feels good before
-mythology, other ages, multiplayer, or art are added.
+(centered on c. 650–1526 CE, loosely — later additions like the Maurya and
+Maratha civilizations reach outside that window in service of gameplay
+variety, not strict chronology)**. The prototype's only goal is to prove the
+core RTS loop — gather resources, construct buildings, train units, fight —
+feels good before mythology, other ages, multiplayer, or art are added.
 
 ## Scope of this prototype
 
