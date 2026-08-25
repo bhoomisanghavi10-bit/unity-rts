@@ -21,6 +21,24 @@ namespace KingdomsOfBharat.Core
             Bake();
         }
 
+        // Phase 5 gap-close (2026-08-25): this component is always-active
+        // from scene load, so the item-44 comment below ("bounds must
+        // match the selected map") was never actually true in practice -
+        // Start() fires before CivPicker's map choice exists, so
+        // MapRegistry.Current was still the RiverValley default every
+        // time, on every map. Same fix as ProceduralGround.Rebuild():
+        // CivilizationSetup.BeginMatchCore calls this directly right after
+        // ProceduralGround.Rebuild() (this bakes over that mesh's
+        // collider, via CollectSources) and before activating any gated
+        // content that needs real pathfinding (UnitSpawner, AiController).
+        // Clears the stale scene-load bake first - AddNavMeshData doesn't
+        // replace prior data, it stacks another NavMeshData on top of it.
+        public void RebuildNavMesh()
+        {
+            NavMesh.RemoveAllNavMeshData();
+            Bake();
+        }
+
         private void Bake()
         {
             // Item 44: bounds must match the selected map's ground extent

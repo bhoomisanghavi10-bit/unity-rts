@@ -15,14 +15,25 @@ namespace KingdomsOfBharat.Camera
     public class RTSCameraController : MonoBehaviour
     {
         [Header("Pan")]
-        [SerializeField] private float panSpeed = 20f;
+        // Phase 5 map-scale-up: bumped from 20 alongside the x2.5 map size
+        // increase (not a full x2.5 - panSpeed is a UX/feel number, not a
+        // distance being scaled 1:1, so this is a judgment call landing
+        // partway between "unchanged" and "scales with the map") so
+        // crossing a bigger map by keyboard/edge-scroll doesn't feel
+        // glacial compared to before.
+        [SerializeField] private float panSpeed = 32f;
         [SerializeField] private bool edgeScrollEnabled = true;
         [SerializeField] private float edgeScrollBorder = 12f;
 
         [Header("Zoom")]
         [SerializeField] private float zoomSpeed = 400f;
         [SerializeField] private float minHeight = 8f;
-        [SerializeField] private float maxHeight = 35f;
+        // Phase 5 map-scale-up: bumped from 35 so the player can actually
+        // zoom out far enough to see a meaningful fraction of the now-
+        // bigger maps - same "partial, not full x2.5" judgment call as
+        // panSpeed above (a fully proportional 87.5 would be an extreme
+        // top-down view).
+        [SerializeField] private float maxHeight = 60f;
 
         [Header("Smoothing")]
         [SerializeField] private float positionSmoothTime = 0.12f;

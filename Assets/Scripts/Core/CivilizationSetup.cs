@@ -64,6 +64,32 @@ namespace KingdomsOfBharat.Core
         private void BeginMatchCore(CivilizationId playerCivilization, CivilizationId aiCiv, MapId mapId)
         {
             MapRegistry.Select(mapId);
+
+            // Phase 5 gap-close: ProceduralGround/NavMeshBaker are always-
+            // active from scene load, same as RTSCameraController/
+            // FogOfWarManager/MinimapController were before their own
+            // Phase 5 fix - their Awake()/Start() already ran against
+            // whatever MapRegistry.Current was at scene load (the
+            // RiverValley default), before this method's MapRegistry.
+            // Select() above ever ran. Rebuilding both here, synchronously
+            // and in this order (ground geometry before the NavMesh bake
+            // that reads its collider), is what actually makes a picked
+            // map's real size/shape show up - gated content below
+            // (TownCenterSpawner, ResourceNodeSpawner, UnitSpawner,
+            // AiController) all assume both are already correct by the
+            // time they activate.
+            ProceduralGround ground = FindFirstObjectByType<ProceduralGround>();
+            if (ground != null)
+            {
+                ground.Rebuild();
+            }
+
+            NavMeshBaker navMeshBaker = FindFirstObjectByType<NavMeshBaker>();
+            if (navMeshBaker != null)
+            {
+                navMeshBaker.RebuildNavMesh();
+            }
+
             DiplomacyRegistry.Reset();
 
             CivilizationRegistry.Assign(FactionId.Player, playerCivilization);

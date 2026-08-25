@@ -80,70 +80,98 @@ namespace KingdomsOfBharat.Core
     {
         private static readonly Dictionary<MapId, MapDefinitionData> Definitions = new Dictionary<MapId, MapDefinitionData>
         {
+            // Phase 5 map-scale-up (2026-08-25, user-directed: "raise map
+            // size toward real RTS scale"). All 3 maps were tiny by
+            // RTS-genre standards - AoE2's smallest selectable size
+            // ("Tiny") is 120x120, bigger than this game's old largest map
+            // (Highlands, 52). Every distance-scaling field below (ground/
+            // NavMesh footprint, resource ring radii, town center/water
+            // placement) is the old value x2.5, landing the 3 maps at
+            // 100/130/125 - close to AoE2 Tiny while keeping each map's
+            // existing relative sizing (Highlands still largest, Coastal
+            // still in between). NoiseHeight/NoiseScale are deliberately
+            // NOT scaled - they're vertical amplitude and horizontal
+            // noise frequency, independent of footprint size; scaling
+            // them would just stretch/flatten the existing terrain look
+            // rather than adding more of it. Resource counts (not a
+            // distance) are scaled x1.5, not x2.5 - map *area* scales by
+            // 2.5^2=6.25x, and matching that would mean 6.25x the node
+            // count (visual clutter, plus every AI worker-assignment scan
+            // over ResourceNode.All getting proportionally slower) for no
+            // real gameplay benefit; x1.5 keeps a bigger map from feeling
+            // emptier than before without drowning it in nodes. Unit
+            // movement speeds are deliberately left untouched - a genuine
+            // separate balance question (how much longer a match *should*
+            // take to walk across a bigger map), not a distance-scaling
+            // one, and item 43's counter-triangle tuning already leans on
+            // today's exact speed values; flagged as a follow-up for that
+            // ongoing balance pass rather than changed blind here.
             [MapId.RiverValley] = new MapDefinitionData
             {
-                GroundSize = 40f,
-                GroundResolution = 40,
+                GroundSize = 100f,
+                GroundResolution = 100,
                 NoiseHeight = 0.6f,
                 NoiseScale = 0.15f,
-                TreeCount = 8,
-                FarmCount = 5,
-                GoldCount = 5,
-                StoneCount = 5,
-                FruitBushCount = 6,
-                ResourceMinRadius = 6f,
-                ResourceMaxRadius = 16f,
+                TreeCount = 12,
+                FarmCount = 8,
+                GoldCount = 8,
+                StoneCount = 8,
+                FruitBushCount = 9,
+                ResourceMinRadius = 15f,
+                ResourceMaxRadius = 40f,
                 ResourceSeed = -1,
-                PlayerTownCenter = new Vector3(0f, 1f, 8f),
-                EnemyTownCenter = new Vector3(0f, 1f, -8f),
-                Enemy2TownCenter = new Vector3(10f, 1f, 0f),
-                NavMeshBoundsSize = new Vector3(44f, 10f, 44f),
+                PlayerTownCenter = new Vector3(0f, 1f, 20f),
+                EnemyTownCenter = new Vector3(0f, 1f, -20f),
+                Enemy2TownCenter = new Vector3(25f, 1f, 0f),
+                NavMeshBoundsSize = new Vector3(110f, 10f, 110f),
             },
             [MapId.Highlands] = new MapDefinitionData
             {
-                GroundSize = 52f,
-                GroundResolution = 52,
+                GroundSize = 130f,
+                GroundResolution = 130,
                 NoiseHeight = 1.1f,
                 NoiseScale = 0.12f,
-                TreeCount = 6,
-                FarmCount = 4,
-                GoldCount = 8,
-                StoneCount = 8,
-                FruitBushCount = 4,
-                ResourceMinRadius = 7f,
-                ResourceMaxRadius = 21f,
+                TreeCount = 9,
+                FarmCount = 6,
+                GoldCount = 12,
+                StoneCount = 12,
+                FruitBushCount = 6,
+                ResourceMinRadius = 17.5f,
+                ResourceMaxRadius = 52.5f,
                 ResourceSeed = -1,
-                PlayerTownCenter = new Vector3(0f, 1f, 11f),
-                EnemyTownCenter = new Vector3(0f, 1f, -11f),
-                Enemy2TownCenter = new Vector3(14f, 1f, 0f),
-                NavMeshBoundsSize = new Vector3(58f, 12f, 58f),
+                PlayerTownCenter = new Vector3(0f, 1f, 27.5f),
+                EnemyTownCenter = new Vector3(0f, 1f, -27.5f),
+                Enemy2TownCenter = new Vector3(35f, 1f, 0f),
+                NavMeshBoundsSize = new Vector3(145f, 12f, 145f),
             },
-            // Item 49: water is a 10-unit-wide strip along the east edge
-            // (x from 15 to 25) - land, every town center, and the
-            // resource ring all stay west of x=15 so nothing about
-            // existing gameplay assumes water is there unless a player
-            // actually goes looking for it (or builds a Dock).
+            // Item 49: water is a strip along the east edge - land, every
+            // town center, and the resource ring all stay west of it so
+            // nothing about existing gameplay assumes water is there
+            // unless a player actually goes looking for it (or builds a
+            // Dock). Phase 5: water rect scaled x2.5 along with everything
+            // else here, preserving the original 2-unit buffer between
+            // ResourceMaxRadius and the water's inner edge (scaled to 5).
             [MapId.Coastal] = new MapDefinitionData
             {
-                GroundSize = 50f,
-                GroundResolution = 50,
+                GroundSize = 125f,
+                GroundResolution = 125,
                 NoiseHeight = 0.7f,
                 NoiseScale = 0.14f,
-                TreeCount = 7,
-                FarmCount = 5,
-                GoldCount = 6,
-                StoneCount = 6,
-                FruitBushCount = 5,
-                ResourceMinRadius = 6f,
-                ResourceMaxRadius = 13f,
+                TreeCount = 11,
+                FarmCount = 8,
+                GoldCount = 9,
+                StoneCount = 9,
+                FruitBushCount = 8,
+                ResourceMinRadius = 15f,
+                ResourceMaxRadius = 32.5f,
                 ResourceSeed = -1,
-                PlayerTownCenter = new Vector3(0f, 1f, 10f),
-                EnemyTownCenter = new Vector3(0f, 1f, -10f),
-                Enemy2TownCenter = new Vector3(-10f, 1f, 0f),
-                NavMeshBoundsSize = new Vector3(54f, 10f, 54f),
-                WaterCenter = new Vector3(20f, 0f, 0f),
-                WaterHalfExtents = new Vector3(5f, 0f, 25f),
-                FishCount = 5,
+                PlayerTownCenter = new Vector3(0f, 1f, 25f),
+                EnemyTownCenter = new Vector3(0f, 1f, -25f),
+                Enemy2TownCenter = new Vector3(-25f, 1f, 0f),
+                NavMeshBoundsSize = new Vector3(135f, 10f, 135f),
+                WaterCenter = new Vector3(50f, 0f, 0f),
+                WaterHalfExtents = new Vector3(12.5f, 0f, 62.5f),
+                FishCount = 8,
             },
         };
 

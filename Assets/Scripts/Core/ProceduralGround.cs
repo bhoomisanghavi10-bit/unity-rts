@@ -33,23 +33,63 @@ namespace KingdomsOfBharat.Core
 
         private void Awake()
         {
+            Rebuild();
+        }
+
+        // Phase 5 gap-close (2026-08-25): found while raising map sizes -
+        // this component is always-active from scene load (not gated like
+        // TownCenterSpawner/ResourceNodeSpawner), so the original Awake()
+        // body below built the ground mesh using whatever MapRegistry.
+        // Current happened to be at scene-load time (the RiverValley
+        // default), not the map the player actually picks via CivPicker -
+        // the exact same class of bug just fixed in RTSCameraController/
+        // FogOfWarManager/MinimapController. Unlike those three (cheap,
+        // read-only clamp values, fine to lazily recompute in Update()),
+        // rebuilding a whole mesh/texture/collider needs to happen exactly
+        // once and in a specific order relative to NavMeshBaker - so
+        // CivilizationSetup.BeginMatchCore calls this directly and
+        // synchronously right after MapRegistry.Select(), before
+        // activating any gated content that assumes the ground already
+        // has its final size/shape. Split out from Awake() (which still
+        // calls this once, for the CivPicker-overlay-visible default
+        // state) so it can be re-invoked; every AddComponent below is
+        // guarded so a second call reuses the existing component instead
+        // of throwing ("can't add a second MeshFilter").
+        public void Rebuild()
+        {
             ApplyMapDefinition();
 
             Mesh mesh = BuildMesh();
 
-            var meshFilter = gameObject.AddComponent<MeshFilter>();
+            MeshFilter meshFilter = GetComponent<MeshFilter>();
+            if (meshFilter == null)
+            {
+                meshFilter = gameObject.AddComponent<MeshFilter>();
+            }
             meshFilter.sharedMesh = mesh;
 
-            var meshRenderer = gameObject.AddComponent<MeshRenderer>();
-            var material = new Material(FindGroundShader());
-            material.mainTexture = BuildSplatTexture();
-            if (material.HasProperty("_Smoothness"))
+            MeshRenderer meshRenderer = GetComponent<MeshRenderer>();
+            if (meshRenderer == null)
             {
-                material.SetFloat("_Smoothness", 0.05f);
+                meshRenderer = gameObject.AddComponent<MeshRenderer>();
+                var material = new Material(FindGroundShader());
+                if (material.HasProperty("_Smoothness"))
+                {
+                    material.SetFloat("_Smoothness", 0.05f);
+                }
+                meshRenderer.sharedMaterial = material;
             }
-            meshRenderer.sharedMaterial = material;
+            meshRenderer.sharedMaterial.mainTexture = BuildSplatTexture();
 
-            var meshCollider = gameObject.AddComponent<MeshCollider>();
+            MeshCollider meshCollider = GetComponent<MeshCollider>();
+            if (meshCollider == null)
+            {
+                meshCollider = gameObject.AddComponent<MeshCollider>();
+            }
+            // A MeshCollider can cache cooked collision data keyed off the
+            // old mesh - clearing before reassigning forces a re-cook
+            // against the new one instead of silently keeping stale shape.
+            meshCollider.sharedMesh = null;
             meshCollider.sharedMesh = mesh;
 
             // Ground-height raycasts (HumanModelFactory, AiController) are
@@ -62,6 +102,16 @@ namespace KingdomsOfBharat.Core
             gameObject.layer = groundLayer >= 0 ? groundLayer : 0;
 
             gameObject.isStatic = true;
+
+            // A prior Rebuild() may have already added a water plane (or
+            // a differently-sized one, on a map switch) - remove it before
+            // possibly building a fresh one below, rather than stacking
+            // duplicates.
+            Transform existingWater = transform.Find("Water");
+            if (existingWater != null)
+            {
+                Destroy(existingWater.gameObject);
+            }
 
             if (HasWater)
             {
