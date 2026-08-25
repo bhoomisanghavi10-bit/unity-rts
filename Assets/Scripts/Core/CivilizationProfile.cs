@@ -8,6 +8,8 @@ namespace KingdomsOfBharat.Core
         Chola,
         Vijayanagara,
         Rajput,
+        Maurya,
+        Maratha,
     }
 
     // Historically-grounded per-civilization stat multipliers and identity

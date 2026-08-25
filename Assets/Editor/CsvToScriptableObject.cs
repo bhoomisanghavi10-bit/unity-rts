@@ -212,20 +212,17 @@ public static class CsvToScriptableObject
                 }
                 else if (!string.IsNullOrEmpty(row["TeamBonus"]))
                 {
-                    civ.teamBonus = new StatModifier
-                    {
-                        applyToAllCategories = true,
-                        stat = StatType.HP,
-                        operation = ModifierOp.Add,
-                        value = 0f,
-                    };
+                    List<StatModifier> parsed = ParseNumericEffect(row["TeamBonus"], row["TeamBonus"]);
+                    civ.teamBonus = parsed.Count > 0
+                        ? parsed[0]
+                        : new StatModifier { applyToAllCategories = true, stat = StatType.HP, operation = ModifierOp.Add, value = 0f };
                     civ.flavorText = string.IsNullOrEmpty(civ.flavorText)
                         ? $"Team bonus: {row["TeamBonus"]}"
                         : civ.flavorText + $"\nTeam bonus: {row["TeamBonus"]}";
                 }
                 else if (!string.IsNullOrEmpty(row["BonusDescription"]))
                 {
-                    civ.passiveBonuses.Add(BuildPassiveBonus(row));
+                    civ.passiveBonuses.AddRange(BuildPassiveBonus(row));
                     civ.flavorText = string.IsNullOrEmpty(civ.flavorText)
                         ? row["BonusDescription"]
                         : civ.flavorText + "\n" + row["BonusDescription"];
@@ -260,15 +257,200 @@ public static class CsvToScriptableObject
         return node;
     }
 
-    private static StatModifier BuildPassiveBonus(Dictionary<string, string> row)
+    // civ_bonus_template's NumericEffect column carries a short summary
+    // ("+15% gather rate", "+20% dmg / +15% HP") but sometimes lacks the
+    // unit-type context BonusDescription's fuller sentence has (e.g.
+    // NumericEffect "+15% move speed" vs. BonusDescription "Workers move
+    // 15% faster (Mauryan road network)" - only the latter says "Workers"),
+    // so both are consulted, but NOT symmetrically: only NumericEffect gets
+    // split on "/" (its "/" is a genuine multi-effect separator, e.g. "+20%
+    // dmg / +15% HP"), while BonusDescription's prose routinely contains
+    // unrelated "/"s (e.g. "Villagers/Workers", "Fishing Boats/War
+    // Galleys") that would silently fragment into bogus extra entries if
+    // split the same way. BonusDescription is used whole, as read-only
+    // context for unit-category detection and as a stat-keyword fallback
+    // only when a given NumericEffect part carries no keyword of its own.
+    private static List<StatModifier> BuildPassiveBonus(Dictionary<string, string> row)
     {
-        return new StatModifier
+        return ParseNumericEffect(row["NumericEffect"], row["BonusDescription"]);
+    }
+
+    private static readonly Regex PercentPattern = new Regex(@"([+-]?\d+(?:\.\d+)?)\s*%", RegexOptions.IgnoreCase);
+    private static readonly Regex FlatAddPattern = new Regex(@"([+-]?\d+(?:\.\d+)?)\s*flat", RegexOptions.IgnoreCase);
+
+    // Not every civ_bonus_template row is representable as a StatModifier:
+    // UnitCategory has no "Building" entry, so per-building costs (Houses/
+    // Docks/fortifications/Market spread) and flat building stats (Tower
+    // range) have no home here; probabilistic/structural mechanics
+    // (dismount-survival chance, Age-skip, permanent scouted-position
+    // memory) aren't a stat multiplier at all. Those are deliberately left
+    // unrepresented (flavor text only) rather than forced into this
+    // schema - same as this project's existing pattern of handling
+    // one-off mechanics as bespoke code (UniqueTechDefinition) instead of
+    // stretching a generic data schema to cover everything. A future pass
+    // wiring these into live gameplay code will need hand-written hooks
+    // for that remainder, the same way Rajput's dismount-survival and
+    // Vijayanagara's fortification-HP bonus already are.
+    private static List<StatModifier> ParseNumericEffect(string numericEffect, string descriptionContext)
+    {
+        List<StatModifier> results = new List<StatModifier>();
+        if (string.IsNullOrEmpty(numericEffect))
         {
-            applyToAllCategories = true,
-            stat = StatType.HP,
-            operation = ModifierOp.Add,
-            value = 0f,
-        };
+            return results;
+        }
+
+        string descLower = (descriptionContext ?? string.Empty).ToLowerInvariant();
+
+        foreach (string part in numericEffect.Split('/'))
+        {
+            string partLower = part.ToLowerInvariant();
+
+            Match percentMatch = PercentPattern.Match(part);
+            Match flatMatch = FlatAddPattern.Match(part);
+
+            float pct;
+            ModifierOp op;
+            bool haveNumber;
+            if (percentMatch.Success)
+            {
+                pct = float.Parse(percentMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+                op = ModifierOp.Multiply;
+                haveNumber = true;
+            }
+            else if (flatMatch.Success)
+            {
+                pct = float.Parse(flatMatch.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+                op = ModifierOp.Add;
+                haveNumber = true;
+            }
+            else
+            {
+                pct = 0f;
+                op = ModifierOp.Add;
+                haveNumber = false;
+            }
+
+            if (!haveNumber)
+            {
+                continue;
+            }
+
+            // Building-specific phrasing ("Wood cost on Houses", "Dock
+            // cost", "Towers get +15% HP") has no representable target (no
+            // Building entry in UnitCategory) for ANY stat, not just cost/
+            // time - excluded before stat detection runs. Deliberately
+            // checked against this split PART's own text only, not the
+            // shared description: a row like "Docks cost 25% less Wood and
+            // Fishing Boats/War Galleys train 15% faster" mentions "Docks"
+            // for an earlier, unrelated part of the same sentence, and
+            // that mention must not also suppress this part's own naval
+            // train-speed effect.
+            bool partMentionsBuilding = partLower.Contains("house") || partLower.Contains("dock")
+                || partLower.Contains("market") || partLower.Contains("wall")
+                || partLower.Contains("gate") || partLower.Contains("tower");
+            if (partMentionsBuilding)
+            {
+                continue;
+            }
+
+            StatType? stat = DetectStat(partLower);
+            if (stat == null)
+            {
+                // Fall back to the full description only when the part
+                // itself carries no keyword - never lets a keyword that
+                // belongs to a DIFFERENT part of the same multi-effect row
+                // (e.g. "damage" bleeding into the "+15% HP" part) win.
+                stat = DetectStat(descLower);
+            }
+
+            if (stat == null)
+            {
+                continue;
+            }
+
+            float value = op == ModifierOp.Multiply ? 1f + (pct / 100f) : pct;
+            if (stat == StatType.TrainTime && op == ModifierOp.Multiply && (partLower.Contains("faster") || partLower.Contains("speed") || descLower.Contains("faster") || descLower.Contains("speed")) && !(partLower.Contains("time") || descLower.Contains("time")))
+            {
+                // "+15% ... train speed" / "train X% faster" - percent
+                // describes how much faster, i.e. the inverse of time, so
+                // the multiplier is 1 - pct/100 rather than 1 + pct/100.
+                value = 1f - (pct / 100f);
+            }
+
+            string combined = partLower + " " + descLower;
+            UnitCategory category = UnitCategory.Infantry;
+            bool allCategories = true;
+            if (combined.Contains("cavalry"))
+            {
+                category = UnitCategory.Cavalry;
+                allCategories = false;
+            }
+            else if (combined.Contains("naval") || combined.Contains("ship") || combined.Contains("boat"))
+            {
+                category = UnitCategory.Naval;
+                allCategories = false;
+            }
+            else if (combined.Contains("worker"))
+            {
+                category = UnitCategory.Support;
+                allCategories = false;
+            }
+            else if (combined.Contains("archer"))
+            {
+                category = UnitCategory.Archer;
+                allCategories = false;
+            }
+
+            results.Add(new StatModifier
+            {
+                applyToAllCategories = allCategories,
+                targetCategory = category,
+                stat = stat.Value,
+                operation = op,
+                value = value,
+            });
+        }
+
+        return results;
+    }
+
+    // Ordered keyword match - order matters when a sentence mentions more
+    // than one stat word (e.g. "...20% more damage, +15% max health..."
+    // contains both "damage" and "health"); callers pass the narrowest
+    // available text first (one split part) before falling back to the
+    // full sentence, so a keyword belonging to a different part of the
+    // same row doesn't win.
+    private static StatType? DetectStat(string lowerText)
+    {
+        if (lowerText.Contains("gather"))
+        {
+            return StatType.ResourceRate;
+        }
+        if (lowerText.Contains("build cost") || lowerText.Contains("gold cost") || lowerText.Contains("wood cost") || lowerText.Contains("stone cost"))
+        {
+            return StatType.ResourceCost;
+        }
+        if (lowerText.Contains("train") && lowerText.Contains("time"))
+        {
+            return StatType.TrainTime;
+        }
+        if (lowerText.Contains("train") && (lowerText.Contains("faster") || lowerText.Contains("speed")))
+        {
+            return StatType.TrainTime;
+        }
+        if (lowerText.Contains("move") && (lowerText.Contains("faster") || lowerText.Contains("speed")))
+        {
+            return StatType.MoveSpeed;
+        }
+        if (lowerText.Contains("dmg") || lowerText.Contains("damage"))
+        {
+            return StatType.Attack;
+        }
+        if (lowerText.Contains("hp") || lowerText.Contains("health"))
+        {
+            return StatType.HP;
+        }
+        return null;
     }
 
     // civ_bonus_template references unique units by a descriptive phrase
