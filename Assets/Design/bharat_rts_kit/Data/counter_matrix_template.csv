@@ -1,0 +1,8 @@
+Attacker,Defender,DamageMultiplier,DesignInspiration
+Spearman,Cavalry,2.0,"AoE4 spearman-vs-cavalry hard counter"
+Cavalry,Archer,1.5,"AoE4 cavalry-vs-ranged"
+Cavalry,Siege,1.75,"AoE4 cavalry raids siege lines"
+Archer,Infantry,1.25,"AoE2/4 archer-vs-infantry"
+Infantry,Spearman,1.25,"Generic RPS closer, prevents pure spearman spam"
+Siege,Infantry,0.5,"Siege is anti-building/anti-siege, weak vs blobs of infantry without support"
+Siege,Building,3.0,"Core AoE siege-vs-structure role"
