@@ -193,6 +193,14 @@ public static class CsvToScriptableObject
             civ.passiveBonuses.Clear();
             civ.uniqueUnits.Clear();
             civ.uniqueTechs.Clear();
+            // Unlike the 3 lists above, flavorText was never reset here -
+            // every re-run of this idempotent generator kept re-appending
+            // the same rows' text on top of what a PRIOR run had already
+            // written, growing unboundedly. Found via a diff on this pass's
+            // regeneration (chola.asset's flavorText had visibly duplicated
+            // content) - fixed by resetting it the same way the lists above
+            // already are.
+            civ.flavorText = string.Empty;
 
             foreach (Dictionary<string, string> row in entry.Value)
             {
@@ -489,10 +497,25 @@ public static class CsvToScriptableObject
         matrix.entries.Clear();
         foreach (Dictionary<string, string> row in ReadCsv(CounterMatrixCsvPath))
         {
+            // ParseEnum silently falls back to Infantry on an unparseable
+            // value - previously let a "Building" cell (before UnitCategory
+            // had that entry) silently collide with a real Infantry row
+            // instead of erroring, which went undetected through Phase 1's
+            // count-only verification. Explicit warnings now, so a future
+            // schema/CSV mismatch surfaces immediately instead of silently
+            // mis-keying an entry.
+            if (!Enum.TryParse(row["Attacker"].Replace("-", "").Trim(), true, out UnitCategory attacker))
+            {
+                Debug.LogWarning($"BharatRTS CSV import: counter_matrix_template.csv Attacker '{row["Attacker"]}' didn't parse as a UnitCategory - defaulting to Infantry.");
+            }
+            if (!Enum.TryParse(row["Defender"].Replace("-", "").Trim(), true, out UnitCategory defender))
+            {
+                Debug.LogWarning($"BharatRTS CSV import: counter_matrix_template.csv Defender '{row["Defender"]}' didn't parse as a UnitCategory - defaulting to Infantry.");
+            }
             matrix.entries.Add(new CounterMatrix.CounterEntry
             {
-                attacker = ParseEnum(row["Attacker"], UnitCategory.Infantry),
-                defender = ParseEnum(row["Defender"], UnitCategory.Infantry),
+                attacker = attacker,
+                defender = defender,
                 damageMultiplier = ParseFloat(row["DamageMultiplier"], 1f),
             });
         }

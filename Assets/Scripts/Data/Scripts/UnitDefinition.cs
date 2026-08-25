@@ -35,5 +35,5 @@ public class UnitDefinition : ScriptableObject
     public GameObject prefab;
 }
 
-public enum UnitCategory { Infantry, Spearman, Cavalry, Archer, Siege, Naval, Support, Hero }
+public enum UnitCategory { Infantry, Spearman, Cavalry, Archer, Siege, Naval, Support, Hero, Building }
 public enum DamageType { Melee, Pierce, Siege, Fire, Trample }

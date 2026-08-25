@@ -23,54 +23,6 @@ MonoBehaviour:
     move 15% faster (Mauryan road network)
 
     Team bonus: Allied Town Centers also
-    get -25% Wood cost on Houses (weaker version of Maurya''s own bonus)
-
-    Houses
-    cost no Wood (Mauryan urban planning/centralized administration)
-
-    Starts
-    the match already in the Classical Age, skipping the Ancient Age research step
-
-    Workers
-    move 15% faster (Mauryan road network)
-
-    Team bonus: Allied Town Centers also
-    get -25% Wood cost on Houses (weaker version of Maurya''s own bonus)
-
-    Houses
-    cost no Wood (Mauryan urban planning/centralized administration)
-
-    Starts
-    the match already in the Classical Age, skipping the Ancient Age research step
-
-    Workers
-    move 15% faster (Mauryan road network)
-
-    Team bonus: Allied Town Centers also
-    get -25% Wood cost on Houses (weaker version of Maurya''s own bonus)
-
-    Houses
-    cost no Wood (Mauryan urban planning/centralized administration)
-
-    Starts
-    the match already in the Classical Age, skipping the Ancient Age research step
-
-    Workers
-    move 15% faster (Mauryan road network)
-
-    Team bonus: Allied Town Centers also
-    get -25% Wood cost on Houses (weaker version of Maurya''s own bonus)
-
-    Houses
-    cost no Wood (Mauryan urban planning/centralized administration)
-
-    Starts
-    the match already in the Classical Age, skipping the Ancient Age research step
-
-    Workers
-    move 15% faster (Mauryan road network)
-
-    Team bonus: Allied Town Centers also
     get -25% Wood cost on Houses (weaker version of Maurya''s own bonus)'
   uniqueUnits:
   - {fileID: 11400000, guid: 1e2baaeed800a492f8b8dd90dac4b038, type: 2}

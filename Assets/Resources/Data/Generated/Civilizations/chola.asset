@@ -24,58 +24,6 @@ MonoBehaviour:
     head start on trade)
 
     Team bonus: Allied Markets also get a narrowed 5-point
-    spread (diluted version of Chola''s own unique tech)
-
-    Villagers/Workers gather
-    15% faster (existing, port as-is from CivilizationProfile.GatherRateMultiplier)
-
-    Buildings
-    cost 15% less Wood/Stone (existing, port as-is)
-
-    Market building can be placed
-    anywhere, not gated behind an Age requirement other civs might get later (structural
-    head start on trade)
-
-    Team bonus: Allied Markets also get a narrowed 5-point
-    spread (diluted version of Chola''s own unique tech)
-
-    Villagers/Workers gather
-    15% faster (existing, port as-is from CivilizationProfile.GatherRateMultiplier)
-
-    Buildings
-    cost 15% less Wood/Stone (existing, port as-is)
-
-    Market building can be placed
-    anywhere, not gated behind an Age requirement other civs might get later (structural
-    head start on trade)
-
-    Team bonus: Allied Markets also get a narrowed 5-point
-    spread (diluted version of Chola''s own unique tech)
-
-    Villagers/Workers gather
-    15% faster (existing, port as-is from CivilizationProfile.GatherRateMultiplier)
-
-    Buildings
-    cost 15% less Wood/Stone (existing, port as-is)
-
-    Market building can be placed
-    anywhere, not gated behind an Age requirement other civs might get later (structural
-    head start on trade)
-
-    Team bonus: Allied Markets also get a narrowed 5-point
-    spread (diluted version of Chola''s own unique tech)
-
-    Villagers/Workers gather
-    15% faster (existing, port as-is from CivilizationProfile.GatherRateMultiplier)
-
-    Buildings
-    cost 15% less Wood/Stone (existing, port as-is)
-
-    Market building can be placed
-    anywhere, not gated behind an Age requirement other civs might get later (structural
-    head start on trade)
-
-    Team bonus: Allied Markets also get a narrowed 5-point
     spread (diluted version of Chola''s own unique tech)'
   uniqueUnits:
   - {fileID: 11400000, guid: 372cd2d42f7b14ffd8b202d8894644e3, type: 2}

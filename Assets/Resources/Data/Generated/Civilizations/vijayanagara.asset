@@ -24,58 +24,6 @@ MonoBehaviour:
     +1 attack range (Hampi''s watchtowers saw further)
 
     Team bonus: Allied Walls/Gates/Towers
-    get +15% HP (diluted version of Hampi Fortifications)
-
-    Soldiers train 20%
-    faster (existing, port as-is from CivilizationProfile.TrainTimeMultiplier)
-
-    Walls/Gates/Towers
-    cost 20% less Stone (structural - lets Vijayanagara wall up earlier/cheaper than
-    anyone else, reflecting Hampi''s real fortification obsession)
-
-    Towers get
-    +1 attack range (Hampi''s watchtowers saw further)
-
-    Team bonus: Allied Walls/Gates/Towers
-    get +15% HP (diluted version of Hampi Fortifications)
-
-    Soldiers train 20%
-    faster (existing, port as-is from CivilizationProfile.TrainTimeMultiplier)
-
-    Walls/Gates/Towers
-    cost 20% less Stone (structural - lets Vijayanagara wall up earlier/cheaper than
-    anyone else, reflecting Hampi''s real fortification obsession)
-
-    Towers get
-    +1 attack range (Hampi''s watchtowers saw further)
-
-    Team bonus: Allied Walls/Gates/Towers
-    get +15% HP (diluted version of Hampi Fortifications)
-
-    Soldiers train 20%
-    faster (existing, port as-is from CivilizationProfile.TrainTimeMultiplier)
-
-    Walls/Gates/Towers
-    cost 20% less Stone (structural - lets Vijayanagara wall up earlier/cheaper than
-    anyone else, reflecting Hampi''s real fortification obsession)
-
-    Towers get
-    +1 attack range (Hampi''s watchtowers saw further)
-
-    Team bonus: Allied Walls/Gates/Towers
-    get +15% HP (diluted version of Hampi Fortifications)
-
-    Soldiers train 20%
-    faster (existing, port as-is from CivilizationProfile.TrainTimeMultiplier)
-
-    Walls/Gates/Towers
-    cost 20% less Stone (structural - lets Vijayanagara wall up earlier/cheaper than
-    anyone else, reflecting Hampi''s real fortification obsession)
-
-    Towers get
-    +1 attack range (Hampi''s watchtowers saw further)
-
-    Team bonus: Allied Walls/Gates/Towers
     get +15% HP (diluted version of Hampi Fortifications)'
   uniqueUnits:
   - {fileID: 11400000, guid: 2395a3978345e4044915fcd86fd02f7f, type: 2}
