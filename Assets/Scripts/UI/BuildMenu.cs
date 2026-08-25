@@ -44,6 +44,8 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button workerButton;
         [SerializeField] private Button soldierButton;
         [SerializeField] private Button archerButton;
+        [SerializeField] private Button uniqueUnitButton;
+        [SerializeField] private TMP_Text uniqueUnitLabel;
         [SerializeField] private Button attackUpgradeButton;
         [SerializeField] private TMP_Text attackUpgradeLabel;
         [SerializeField] private Button armorUpgradeButton;
@@ -72,6 +74,7 @@ namespace KingdomsOfBharat.UI
             workerButton.onClick.AddListener(TrainWorkerAtSelected);
             soldierButton.onClick.AddListener(TrainSoldierAtSelected);
             archerButton.onClick.AddListener(TrainArcherAtSelected);
+            uniqueUnitButton.onClick.AddListener(TrainUniqueUnitAtSelected);
             attackUpgradeButton.onClick.AddListener(ResearchAttackAtSelected);
             armorUpgradeButton.onClick.AddListener(ResearchArmorAtSelected);
             uniqueTechButton.onClick.AddListener(ResearchUniqueTechAtSelected);
@@ -95,6 +98,7 @@ namespace KingdomsOfBharat.UI
             ageButton.gameObject.SetActive(townCenter != null);
             soldierButton.gameObject.SetActive(barracks != null);
             archerButton.gameObject.SetActive(barracks != null);
+            uniqueUnitButton.gameObject.SetActive(barracks != null);
             attackUpgradeButton.gameObject.SetActive(barracks != null);
             armorUpgradeButton.gameObject.SetActive(barracks != null);
             uniqueTechButton.gameObject.SetActive(barracks != null);
@@ -133,6 +137,8 @@ namespace KingdomsOfBharat.UI
             bool canTrain = barracks.IsComplete && !barracks.IsTraining;
             soldierButton.interactable = canTrain;
             archerButton.interactable = canTrain;
+            uniqueUnitButton.interactable = canTrain;
+            uniqueUnitLabel.text = $"Train {barracks.UniqueUnit.Name} ({(int)barracks.UniqueUnit.FoodCost} Food, {(int)barracks.UniqueUnit.GoldCost} Gold)";
 
             UpdateUpgradeButton(
                 attackUpgradeButton, attackUpgradeLabel, "Attack",
@@ -252,6 +258,14 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
                 CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrainArcher));
+            }
+        }
+
+        private void TrainUniqueUnitAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrainUniqueUnit));
             }
         }
 

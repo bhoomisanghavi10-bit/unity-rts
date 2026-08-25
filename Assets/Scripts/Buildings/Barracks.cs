@@ -50,6 +50,7 @@ namespace KingdomsOfBharat.Buildings
             Archer,
             Cavalry,
             Siege,
+            UniqueUnit,
         }
 
         [SerializeField] private KeyCode trainKey = KeyCode.T;
@@ -160,6 +161,11 @@ namespace KingdomsOfBharat.Buildings
         public float UniqueTechResearchProgress => IsResearchingUniqueTech
             ? 1f - (_uniqueTechResearchRemaining / UniqueTech.ResearchTime)
             : 0f;
+
+        // Phase 6 unique unit: exposed the same way UniqueTech is, so
+        // BuildMenu can show the owning faction's actual civ-specific unit
+        // name/cost without duplicating the CivilizationRegistry lookup.
+        public UniqueUnitDefinition UniqueUnit => UniqueUnitDefinition.For(CivilizationRegistry.For(Faction));
 
         private void Update()
         {
@@ -279,6 +285,31 @@ namespace KingdomsOfBharat.Buildings
             _remaining = ScaledTrainTime();
         }
 
+        // Phase 6: same shape as every other RequestTrain* above, but cost
+        // and the spawn call both come from the owning faction's civ
+        // (UniqueUnitDefinition) instead of a fixed constant - there's
+        // only one unique unit, but which one depends on who's asking.
+        public void RequestTrainUniqueUnit()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            UniqueUnitDefinition unique = UniqueUnitDefinition.For(CivilizationRegistry.For(Faction));
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Food) < unique.FoodCost
+                || stockpile.GetTotal(ResourceType.Gold) < unique.GoldCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Food, -unique.FoodCost);
+            stockpile.Add(ResourceType.Gold, -unique.GoldCost);
+            _trainingUnit = TrainingUnit.UniqueUnit;
+            _remaining = ScaledTrainTime();
+        }
+
         private float ScaledTrainTime()
         {
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
@@ -295,6 +326,7 @@ namespace KingdomsOfBharat.Buildings
                     TrainingUnit.Archer => ArcherFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.Cavalry => CavalryFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.Siege => SiegeFactory.Spawn(transform.position + rallyOffset, Faction),
+                    TrainingUnit.UniqueUnit => UniqueUnitDefinition.For(CivilizationRegistry.For(Faction)).Spawn(transform.position + rallyOffset, Faction),
                     _ => SoldierFactory.Spawn(transform.position + rallyOffset, Faction),
                 };
                 _rally.ApplyTo(spawned);

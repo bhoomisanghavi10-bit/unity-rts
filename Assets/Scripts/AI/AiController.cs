@@ -700,13 +700,17 @@ namespace KingdomsOfBharat.AI
         private int _trainRotation;
 
         // AoE-style mixed composition rather than an all-melee army: two
-        // Soldiers, an Archer, a Cavalry, a Soldier, then a Siege,
-        // repeating - so the enemy's attack squads benefit from
-        // CombatBonus's full counter triangle (Infantry > Archer >
-        // Cavalry > Infantry) instead of fielding just one class. Siege
-        // is deliberately the rarest slot (1 in 6) - its 3x Building bonus
-        // is wasted outside a siege against Walls/Towers/other buildings,
-        // and it's slow and unremarkable against units in the meantime.
+        // Soldiers, an Archer, a Cavalry, a Soldier, a Siege, then the
+        // AI's own civ unique unit, repeating - so the enemy's attack
+        // squads benefit from CombatBonus's full counter triangle
+        // (Infantry > Archer > Cavalry > Infantry) instead of fielding
+        // just one class. Siege is deliberately rare (1 in 7) - its 3x
+        // Building bonus is wasted outside a siege against Walls/Towers/
+        // other buildings, and it's slow and unremarkable against units in
+        // the meantime. The unique unit slot (Phase 6) is equally rare and
+        // last in the cycle - it's the AI's civ-identity piece, worth
+        // fielding regularly but not so often it crowds out the counter
+        // triangle the other 6 slots are built around.
         private void TryTrainSoldiers()
         {
             if (_barracks == null || !_barracks.IsComplete || _barracks.IsTraining)
@@ -725,12 +729,15 @@ namespace KingdomsOfBharat.AI
                 case 5:
                     _barracks.RequestTrainSiege();
                     break;
+                case 6:
+                    _barracks.RequestTrainUniqueUnit();
+                    break;
                 default:
                     _barracks.RequestTrain();
                     break;
             }
 
-            _trainRotation = (_trainRotation + 1) % 6;
+            _trainRotation = (_trainRotation + 1) % 7;
         }
 
         // Same early-margin-not-exact-threshold shape as TryAgeUp: research
