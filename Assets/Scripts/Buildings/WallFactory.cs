@@ -4,6 +4,7 @@ using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.FogOfWar;
+using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -20,7 +21,8 @@ namespace KingdomsOfBharat.Buildings
 
         public static GameObject Place(Vector3 point, FactionId faction, float buildTime)
         {
-            CivilizationProfile profile = CivilizationProfile.For(CivilizationRegistry.For(faction));
+            CivilizationId civ = CivilizationRegistry.For(faction);
+            CivilizationProfile profile = CivilizationProfile.For(civ);
 
             GameObject go = BuildingModelFactory.Spawn("Wall", point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
             go.name = faction == FactionId.Player ? "Wall" : "EnemyWall";
@@ -30,7 +32,14 @@ namespace KingdomsOfBharat.Buildings
             site.Configure(buildTime);
             go.AddComponent<SelectionIndicator>().Configure(1.4f, -Size.y * 0.5f);
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure(MaxHealth);
+            // Phase 6: Vijayanagara's unique tech (Hampi Fortifications)
+            // multiplies defensive-structure HP - same non-retroactive
+            // convention as CivilizationProfile/AgeProfile bonuses (baked
+            // in at spawn, not applied to buildings already standing).
+            float fortificationMultiplier = UniqueTechProgress.HasResearched(faction)
+                ? UniqueTechDefinition.For(civ).FortificationHealthMultiplier
+                : 1f;
+            attackable.Configure(MaxHealth * fortificationMultiplier);
             attackable.ConfigureArmor(meleeArmor: 6f, pierceArmor: 4f);
             attackable.ConfigureClass(UnitClass.Building);
             go.AddComponent<HealthBar>();

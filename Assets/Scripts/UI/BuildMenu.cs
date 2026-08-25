@@ -48,6 +48,8 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private TMP_Text attackUpgradeLabel;
         [SerializeField] private Button armorUpgradeButton;
         [SerializeField] private TMP_Text armorUpgradeLabel;
+        [SerializeField] private Button uniqueTechButton;
+        [SerializeField] private TMP_Text uniqueTechLabel;
         [SerializeField] private Button ageButton;
         [SerializeField] private TMP_Text ageLabel;
 
@@ -72,6 +74,7 @@ namespace KingdomsOfBharat.UI
             archerButton.onClick.AddListener(TrainArcherAtSelected);
             attackUpgradeButton.onClick.AddListener(ResearchAttackAtSelected);
             armorUpgradeButton.onClick.AddListener(ResearchArmorAtSelected);
+            uniqueTechButton.onClick.AddListener(ResearchUniqueTechAtSelected);
             ageButton.onClick.AddListener(RequestAgeUpAtSelected);
         }
 
@@ -94,6 +97,7 @@ namespace KingdomsOfBharat.UI
             archerButton.gameObject.SetActive(barracks != null);
             attackUpgradeButton.gameObject.SetActive(barracks != null);
             armorUpgradeButton.gameObject.SetActive(barracks != null);
+            uniqueTechButton.gameObject.SetActive(barracks != null);
 
             if (showPlacement)
             {
@@ -141,6 +145,33 @@ namespace KingdomsOfBharat.UI
                 barracks.IsComplete, barracks.IsResearchingArmor, barracks.ArmorResearchProgress,
                 UpgradeProgress.ArmorTier(FactionId.Player), UpgradeProgress.HasNextArmorTier(FactionId.Player),
                 barracks.NextArmorUpgradeCost);
+
+            UpdateUniqueTechButton(barracks);
+        }
+
+        // Phase 6: separate from UpdateUpgradeButton since a unique tech
+        // has exactly one level (no tier/hasNextTier concept) - "Max" would
+        // be a confusing label for something that was never tiered at all.
+        private void UpdateUniqueTechButton(Barracks barracks)
+        {
+            UniqueTechDefinition tech = barracks.UniqueTech;
+
+            if (barracks.IsResearchingUniqueTech)
+            {
+                uniqueTechButton.interactable = false;
+                uniqueTechLabel.text = $"Researching {tech.Name}... {(int)(barracks.UniqueTechResearchProgress * 100f)}%";
+                return;
+            }
+
+            if (barracks.HasResearchedUniqueTech)
+            {
+                uniqueTechButton.interactable = false;
+                uniqueTechLabel.text = $"{tech.Name} (Researched)";
+                return;
+            }
+
+            uniqueTechButton.interactable = barracks.IsComplete;
+            uniqueTechLabel.text = $"{tech.Name} ({(int)tech.GoldCost} Gold)";
         }
 
         private static void UpdateUpgradeButton(
@@ -242,6 +273,14 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
                 barracks.RequestResearchArmor();
+            }
+        }
+
+        private void ResearchUniqueTechAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                barracks.RequestResearchUniqueTech();
             }
         }
 

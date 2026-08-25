@@ -1,6 +1,7 @@
 using UnityEngine;
 using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -35,6 +36,15 @@ namespace KingdomsOfBharat.Buildings
 
         public bool IsComplete => !TryGetComponent(out ConstructionSite site) || site.IsComplete;
 
+        // Phase 6: Chola's unique tech narrows the spread symmetrically -
+        // sellRate up, buyRate down by the same amount - rather than being
+        // read once at spawn, since a Market can outlive the moment its
+        // owner's tech finishes researching.
+        private float EffectiveSellRate =>
+            sellRate + (UniqueTechProgress.HasResearched(Faction) ? UniqueTechDefinition.For(CivilizationRegistry.For(Faction)).MarketRateBonus : 0f);
+        private float EffectiveBuyRate =>
+            buyRate - (UniqueTechProgress.HasResearched(Faction) ? UniqueTechDefinition.For(CivilizationRegistry.For(Faction)).MarketRateBonus : 0f);
+
         // Sells `amount` of `type` for Gold, at sellRate. No-op (returns
         // false) if there isn't enough of `type` on hand - never sells a
         // partial amount, same "have it or don't" convention
@@ -53,7 +63,7 @@ namespace KingdomsOfBharat.Buildings
             }
 
             stockpile.Add(type, -amount);
-            stockpile.Add(ResourceType.Gold, amount * sellRate);
+            stockpile.Add(ResourceType.Gold, amount * EffectiveSellRate);
             return true;
         }
 
@@ -67,7 +77,7 @@ namespace KingdomsOfBharat.Buildings
             }
 
             ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            float cost = amount * buyRate;
+            float cost = amount * EffectiveBuyRate;
             if (stockpile.GetTotal(ResourceType.Gold) < cost)
             {
                 return false;

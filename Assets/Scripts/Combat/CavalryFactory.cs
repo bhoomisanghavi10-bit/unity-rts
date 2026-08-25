@@ -47,10 +47,19 @@ namespace KingdomsOfBharat.Combat
             attackable.ConfigureClass(UnitClass.Cavalry);
             go.AddComponent<HealthBar>();
 
+            // Phase 6: Rajput's unique tech (Warrior Clans) adds flat
+            // Cavalry damage on top of the existing flat/per-class
+            // UpgradeProgress bonuses - non-retroactive like every other
+            // spawn-time bonus here, only benefits Cavalry trained after
+            // the tech finishes.
+            float uniqueTechDamageBonus = UniqueTechProgress.HasResearched(faction)
+                ? UniqueTechDefinition.For(civilization).CavalryDamageBonus
+                : 0f;
+
             var attacker = go.AddComponent<MeleeAttacker>();
             attacker.SetBaseDamage(6f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
-            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Cavalry));
+            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Cavalry) + uniqueTechDamageBonus);
             attacker.SetUnitClass(UnitClass.Cavalry);
             go.AddComponent<StanceController>();
 

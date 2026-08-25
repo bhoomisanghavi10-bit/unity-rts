@@ -86,6 +86,12 @@ namespace KingdomsOfBharat.Buildings
         private UnitClass _classAttackTarget;
         private UnitClass _classArmorTarget;
 
+        // Phase 6 (civ asymmetry): one more independent research track,
+        // same "doesn't block the others" shape - but a one-time flag via
+        // UniqueTechProgress rather than a tiered counter, since a unique
+        // tech has exactly one level (see UniqueTechDefinition).
+        private float _uniqueTechResearchRemaining = -1f;
+
         private ConstructionSite Site
         {
             get
@@ -148,6 +154,13 @@ namespace KingdomsOfBharat.Buildings
         public float NextClassArmorUpgradeCost(UnitClass unitClass) =>
             upgradeGoldCostPerTier * (UpgradeProgress.ClassArmorTier(Faction, unitClass) + 1);
 
+        public bool IsResearchingUniqueTech => _uniqueTechResearchRemaining >= 0f;
+        public bool HasResearchedUniqueTech => UniqueTechProgress.HasResearched(Faction);
+        public UniqueTechDefinition UniqueTech => UniqueTechDefinition.For(CivilizationRegistry.For(Faction));
+        public float UniqueTechResearchProgress => IsResearchingUniqueTech
+            ? 1f - (_uniqueTechResearchRemaining / UniqueTech.ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -173,6 +186,11 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingClassArmor)
             {
                 TickClassArmorResearch();
+            }
+
+            if (IsResearchingUniqueTech)
+            {
+                TickUniqueTechResearch();
             }
 
             if (Faction == FactionId.Player && !IsTraining && Input.GetKeyDown(trainKey))
@@ -402,6 +420,37 @@ namespace KingdomsOfBharat.Buildings
             {
                 UpgradeProgress.AdvanceClassArmor(Faction, _classArmorTarget);
                 _classArmorResearchRemaining = -1f;
+            }
+        }
+
+        // Phase 6: one-time civ unique tech - same cost/gating shape as
+        // RequestResearchAttack/Armor, but there's only ever one tier, so
+        // gating is HasResearchedUniqueTech rather than a HasNextTier check.
+        public void RequestResearchUniqueTech()
+        {
+            if (!IsComplete || IsResearchingUniqueTech || HasResearchedUniqueTech)
+            {
+                return;
+            }
+
+            UniqueTechDefinition tech = UniqueTech;
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < tech.GoldCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -tech.GoldCost);
+            _uniqueTechResearchRemaining = tech.ResearchTime;
+        }
+
+        private void TickUniqueTechResearch()
+        {
+            _uniqueTechResearchRemaining -= Time.deltaTime;
+            if (_uniqueTechResearchRemaining <= 0f)
+            {
+                UniqueTechProgress.MarkResearched(Faction);
+                _uniqueTechResearchRemaining = -1f;
             }
         }
     }

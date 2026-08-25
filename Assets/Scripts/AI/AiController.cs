@@ -781,6 +781,20 @@ namespace KingdomsOfBharat.AI
                 && stockpile.GetTotal(ResourceType.Gold) > 150f)
             {
                 _barracks.RequestResearchClassArmor(UnitClass.Archer);
+                return;
+            }
+
+            // Phase 6: the AI's own civ unique tech - last in the priority
+            // order (after the flat/per-class tracks above, which help
+            // every fight immediately) since a unique tech is a one-time,
+            // civ-specific payoff rather than a repeatable stat track: an
+            // AI that never gets around to it just plays without its own
+            // civ's extra identity, not meaningfully weaker overall.
+            if (!_barracks.IsResearchingUniqueTech
+                && !_barracks.HasResearchedUniqueTech
+                && stockpile.GetTotal(ResourceType.Gold) > 150f)
+            {
+                _barracks.RequestResearchUniqueTech();
             }
         }
 
