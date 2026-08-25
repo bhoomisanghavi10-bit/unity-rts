@@ -30,6 +30,12 @@ namespace KingdomsOfBharat.Combat
             CivilizationId civilization = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civilization);
             AgeProfile age = AgeProfile.For(AgeProgress.CurrentAge(faction));
+            // Phase 2 migration: see WorkerFactory's identical note.
+            UnitDefinition def = DataRegistry.GetUnit("rajput_royal_guard");
+            if (def == null)
+            {
+                Debug.LogWarning("RajputRoyalGuardFactory: no generated UnitDefinition for 'rajput_royal_guard' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
+            }
 
             GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
             go.name = faction == FactionId.Player
@@ -39,21 +45,22 @@ namespace KingdomsOfBharat.Combat
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.45f;
             agent.height = 2.1f;
-            agent.speed = 6f;
+            agent.speed = def != null ? def.moveSpeed : 6f;
 
             var unit = go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure(55f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure((def != null ? def.maxHP : 55f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
-                meleeArmor: 2f + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Cavalry),
-                pierceArmor: 1f + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Cavalry));
+                meleeArmor: (def != null ? def.meleeArmor : 2f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Cavalry),
+                pierceArmor: (def != null ? def.pierceArmor : 1f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Cavalry));
             attackable.ConfigureClass(UnitClass.Cavalry);
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
-            attacker.SetBaseDamage(9f);
+            attacker.SetBaseDamage(def != null ? def.attackDamage : 9f);
+            attacker.SetRange(def != null ? def.attackRange : 1f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Cavalry));
             attacker.SetUnitClass(UnitClass.Cavalry);

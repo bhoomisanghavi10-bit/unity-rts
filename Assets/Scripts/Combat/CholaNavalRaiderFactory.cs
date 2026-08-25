@@ -29,6 +29,12 @@ namespace KingdomsOfBharat.Combat
             CivilizationId civilization = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civilization);
             AgeProfile age = AgeProfile.For(AgeProgress.CurrentAge(faction));
+            // Phase 2 migration: see WorkerFactory's identical note.
+            UnitDefinition def = DataRegistry.GetUnit("chola_naval_raider");
+            if (def == null)
+            {
+                Debug.LogWarning("CholaNavalRaiderFactory: no generated UnitDefinition for 'chola_naval_raider' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
+            }
 
             GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
             go.name = faction == FactionId.Player
@@ -38,24 +44,24 @@ namespace KingdomsOfBharat.Combat
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f;
             agent.height = 2f;
-            agent.speed = 3.9f;
+            agent.speed = def != null ? def.moveSpeed : 3.9f;
 
             var unit = go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure(22f * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure((def != null ? def.maxHP : 22f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
-                meleeArmor: 0f,
-                pierceArmor: 1f + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Archer));
+                meleeArmor: def != null ? def.meleeArmor : 0f,
+                pierceArmor: (def != null ? def.pierceArmor : 1f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Archer));
             attackable.ConfigureClass(UnitClass.Archer);
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
-            attacker.SetBaseDamage(6f);
+            attacker.SetBaseDamage(def != null ? def.attackDamage : 6f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Archer));
-            attacker.SetRange(7f);
+            attacker.SetRange(def != null ? def.attackRange : 7f);
             attacker.SetDamageType(DamageType.Pierce);
             attacker.SetUnitClass(UnitClass.Archer);
             go.AddComponent<StanceController>();
