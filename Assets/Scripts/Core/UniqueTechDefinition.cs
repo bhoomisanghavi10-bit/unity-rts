@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace KingdomsOfBharat.Core
 {
@@ -59,38 +60,54 @@ namespace KingdomsOfBharat.Core
             CavalryDamageBonus = cavalryDamageBonus;
         }
 
-        private static readonly Dictionary<CivilizationId, UniqueTechDefinition> Definitions =
-            new Dictionary<CivilizationId, UniqueTechDefinition>
+        // Bespoke per-civ bonus values (MarketRateBonus/FortificationHealth
+        // Multiplier/CavalryDamageBonus) have no structured home in the
+        // generated data: civ_bonus_template.csv's UniqueTech cell is one
+        // free-text sentence per civ (e.g. "Chola Trade Networks (existing,
+        // port as-is: Market spread 70/30 -> 85/15)") that
+        // CsvToScriptableObject.cs deliberately keeps as flavor text rather
+        // than parsing into a structured effect - these three fields mean
+        // three different things per civ, not one generic StatModifier.
+        // Name/GoldCost/ResearchTime DO come from the generated TechNode
+        // (DataRegistry.GetTech) below; only the bonus values stay
+        // hardcoded here, same "bespoke code hook" pattern this project
+        // already uses for mechanics too specific for a generic schema.
+        private static readonly Dictionary<CivilizationId, (string unitId, string description, float marketRateBonus, float fortificationHealthMultiplier, float cavalryDamageBonus)> Bonuses =
+            new Dictionary<CivilizationId, (string, string, float, float, float)>
             {
-                {
-                    CivilizationId.Chola,
-                    new UniqueTechDefinition(
-                        "Chola Trade Networks",
-                        "Market buy/sell spread narrowed by 15 points either way (70/30 -> 85/15).",
-                        goldCost: 150f, researchTime: 30f,
-                        marketRateBonus: 0.15f, fortificationHealthMultiplier: 1f, cavalryDamageBonus: 0f)
-                },
-                {
-                    CivilizationId.Vijayanagara,
-                    new UniqueTechDefinition(
-                        "Hampi Fortifications",
-                        "Wall, Gate, and Tower max health increased by 30%.",
-                        goldCost: 150f, researchTime: 30f,
-                        marketRateBonus: 0f, fortificationHealthMultiplier: 1.3f, cavalryDamageBonus: 0f)
-                },
-                {
-                    CivilizationId.Rajput,
-                    new UniqueTechDefinition(
-                        "Rajput Warrior Clans",
-                        "Cavalry deal 3 additional damage per hit.",
-                        goldCost: 150f, researchTime: 30f,
-                        marketRateBonus: 0f, fortificationHealthMultiplier: 1f, cavalryDamageBonus: 3f)
-                },
+                { CivilizationId.Chola, ("chola_unique_tech", "Market buy/sell spread narrowed by 15 points either way (70/30 -> 85/15).", 0.15f, 1f, 0f) },
+                { CivilizationId.Vijayanagara, ("vijayanagara_unique_tech", "Wall, Gate, and Tower max health increased by 30%.", 0f, 1.3f, 0f) },
+                { CivilizationId.Rajput, ("rajput_unique_tech", "Cavalry deal 3 additional damage per hit.", 0f, 1f, 3f) },
             };
+
+        // Pre-migration hardcoded fallback for GoldCost/ResearchTime if the
+        // generated TechNode is ever missing - same defensive pattern as
+        // everywhere else in this phase. Both were already 150/30 for
+        // every civ before this migration, so this is a no-op today.
+        private const float FallbackGoldCost = 150f;
+        private const float FallbackResearchTime = 30f;
 
         public static UniqueTechDefinition For(CivilizationId id)
         {
-            return Definitions[id];
+            (string unitId, string description, float marketRateBonus, float fortificationHealthMultiplier, float cavalryDamageBonus) bonus = Bonuses[id];
+            TechNode tech = DataRegistry.GetTech(bonus.unitId);
+            if (tech != null)
+            {
+                return new UniqueTechDefinition(
+                    tech.displayName, bonus.description, tech.cost.gold, tech.researchTimeSeconds,
+                    bonus.marketRateBonus, bonus.fortificationHealthMultiplier, bonus.cavalryDamageBonus);
+            }
+
+            Debug.LogWarning($"UniqueTechDefinition: no generated TechNode for '{bonus.unitId}' - using fallback cost/time. Run BharatRTS/Generate Data Assets From CSV.");
+            string fallbackName = id switch
+            {
+                CivilizationId.Chola => "Chola Trade Networks",
+                CivilizationId.Vijayanagara => "Hampi Fortifications",
+                _ => "Rajput Warrior Clans",
+            };
+            return new UniqueTechDefinition(
+                fallbackName, bonus.description, FallbackGoldCost, FallbackResearchTime,
+                bonus.marketRateBonus, bonus.fortificationHealthMultiplier, bonus.cavalryDamageBonus);
         }
     }
 }
