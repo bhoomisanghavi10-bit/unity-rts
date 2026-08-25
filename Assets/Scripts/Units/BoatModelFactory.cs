@@ -13,8 +13,13 @@ namespace KingdomsOfBharat.Units
     {
         public static GameObject Spawn(string resourceName, Vector3 position, Color civColor, bool isWarGalley)
         {
+            // Ships/{resourceName} is where the sourced models actually
+            // landed (flat extracted prefabs) - kept the boats/ paths too
+            // in case a future pack ever uses that nested convention
+            // instead.
             GameObject prefab = Resources.Load<GameObject>($"boats/{resourceName}")
-                ?? Resources.Load<GameObject>($"boats/{resourceName}/{resourceName}/scene");
+                ?? Resources.Load<GameObject>($"boats/{resourceName}/{resourceName}/scene")
+                ?? Resources.Load<GameObject>($"Ships/{resourceName}");
 
             GameObject root = new GameObject(resourceName);
             root.transform.position = position;

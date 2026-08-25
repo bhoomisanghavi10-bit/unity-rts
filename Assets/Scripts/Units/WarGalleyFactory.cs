@@ -20,7 +20,9 @@ namespace KingdomsOfBharat.Units
             CivilizationProfile profile = CivilizationProfile.For(civilization);
             AgeProfile age = AgeProfile.For(AgeProgress.CurrentAge(faction));
 
-            GameObject go = BoatModelFactory.Spawn("WarGalley", position, profile.PrimaryColor, isWarGalley: true);
+            // "CombatShip" is the sourced model's actual name (Ships/CombatShip.prefab) -
+            // this class/method stays "WarGalley" as the internal gameplay term.
+            GameObject go = BoatModelFactory.Spawn("CombatShip", position, profile.PrimaryColor, isWarGalley: true);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} War Galley"
                 : $"Enemy {profile.DisplayName} War Galley";

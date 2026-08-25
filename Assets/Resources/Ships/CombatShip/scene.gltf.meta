@@ -1,0 +1,79 @@
+fileFormatVersion: 2
+guid: fd6e2a11a64c14bd88bbb46941ad97d6
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 715df9372183c47e389bb6e19fbc3b52, type: 3}
+  editorImportSettings:
+    generateSecondaryUVSet: 0
+  importSettings:
+    nodeNameMethod: 1
+    animationMethod: 2
+    generateMipMaps: 1
+    texturesReadable: 0
+    defaultMinFilterMode: 9729
+    defaultMagFilterMode: 9729
+    anisotropicFilterLevel: 1
+  instantiationSettings:
+    mask: -1
+    layer: 0
+    skinUpdateWhenOffscreen: 1
+    lightIntensityFactor: 1
+    sceneObjectCreation: 2
+  assetDependencies:
+  - type: 0
+    originalUri: Assets/Resources/Ships/CombatShip/scene.bin
+    assetPath: Assets/Resources/Ships/CombatShip/scene.bin
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/lighthouse_texture_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/lighthouse_texture_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/barell_texture_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/barell_texture_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/wooden_barell_texture_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/wooden_barell_texture_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/bigship2_texture_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/bigship2_texture_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/buoy_texture_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/buoy_texture_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/Green_Buoy_texture_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/Green_Buoy_texture_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/lifebuoy_texture_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/lifebuoy_texture_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/Cargo_ship_Palette_Material_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/Cargo_ship_Palette_Material_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/FishingBoat_Texture_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/FishingBoat_Texture_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/Greek_fishingboat_textures_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/Greek_fishingboat_textures_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/Boat_texture_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/Boat_texture_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/Paddle_texture_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/Paddle_texture_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/yellow_buoy_texture_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/yellow_buoy_texture_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/blue_buoy_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/blue_buoy_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/gray_buoy_texture_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/gray_buoy_texture_baseColor.png
+  - type: 1
+    originalUri: Assets/Resources/Ships/CombatShip/textures/mini_buoy_baseColor.png
+    assetPath: Assets/Resources/Ships/CombatShip/textures/mini_buoy_baseColor.png
+  reportItems: []

@@ -42,8 +42,15 @@ namespace KingdomsOfBharat.Buildings
             // already accounts for under Resources/human/) - try the flat
             // path first so nothing about the 4 original buildings changes,
             // then fall back to the nested one.
+            // Item 49: a third fallback for Dock specifically - it was
+            // sourced alongside the ship models into Assets/Resources/
+            // Ships/ (a flat extracted prefab, not the nested Buildings/
+            // <name>/<name>/scene convention the other imports use) rather
+            // than Assets/Resources/Buildings/, since it's naturally part
+            // of the same asset-sourcing pass as the boats.
             GameObject prefab = Resources.Load<GameObject>($"Buildings/{resourceName}")
-                ?? Resources.Load<GameObject>($"Buildings/{resourceName}/{resourceName}/scene");
+                ?? Resources.Load<GameObject>($"Buildings/{resourceName}/{resourceName}/scene")
+                ?? Resources.Load<GameObject>($"Ships/{resourceName}");
 
             GameObject root = new GameObject(resourceName);
             root.transform.position = rootPosition;
