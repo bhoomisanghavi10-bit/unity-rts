@@ -22,9 +22,20 @@ Farm/Wall/Gate/Market "still procedural fallback" gaps (Farm and Market
 turned out to already have real models from the Item 47 pass above -
 only Wall and Gate were genuinely missing).
 
+**Superseded same-day, after an in-editor visual check caught a scale
+mismatch:** the original picks below ("Wall 1 low-poly", "New Castle
+Door") turned out to be a whole multi-crenellation rampart and a full
+2-tower gatehouse respectively - both 4-27x bigger than the game's
+intended per-segment footprint. Replaced with `wall_single`/`door_arc`,
+two individually-named pieces extracted from the pack below, much closer
+to the intended scale. Left in this table for provenance/history, not
+currently used in `Assets/Resources/buildings/`.
+
 | Model | Author | Source |
 |---|---|---|
-| Wall (Wall 1 low-poly) | chrismasmanidis3 | https://sketchfab.com/3d-models/wall-1-low-poly-24adfebb64714e80b9c8f0a5eaeaed03 |
-| Gate (New Castle Door) | farooq.smurf | https://sketchfab.com/3d-models/none-c17775043b0a485e844d5f7a2aacce24 |
+| ~~Wall (Wall 1 low-poly)~~ superseded | chrismasmanidis3 | https://sketchfab.com/3d-models/wall-1-low-poly-24adfebb64714e80b9c8f0a5eaeaed03 |
+| ~~Gate (New Castle Door)~~ superseded | farooq.smurf | https://sketchfab.com/3d-models/none-c17775043b0a485e844d5f7a2aacce24 |
+| Wall (wall_single, from Lowpoly Medieval Game Assets Set) | insectscorch (3Dimentional) | https://sketchfab.com/3d-models/none-b6de2aa3b6c1490692f8fccfefcb25f7 |
+| Gate (door_arc, from Lowpoly Medieval Game Assets Set) | insectscorch (3Dimentional) | https://sketchfab.com/3d-models/none-b6de2aa3b6c1490692f8fccfefcb25f7 |
 
 License terms: http://creativecommons.org/licenses/by/4.0/

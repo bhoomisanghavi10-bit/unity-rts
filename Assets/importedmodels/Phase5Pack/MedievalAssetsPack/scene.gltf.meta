@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: a6211397b762740078c62c3f65b3bc06
+guid: 89a889ed1917f44b5bcce671177507d8
 ScriptedImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -26,6 +26,6 @@ ScriptedImporter:
     sceneObjectCreation: 2
   assetDependencies:
   - type: 0
-    originalUri: Assets/Resources/buildings/Wall/scene.bin
-    assetPath: Assets/Resources/buildings/Wall/scene.bin
+    originalUri: Assets/importedmodels/Phase5Pack/MedievalAssetsPack/scene.bin
+    assetPath: Assets/importedmodels/Phase5Pack/MedievalAssetsPack/scene.bin
   reportItems: []

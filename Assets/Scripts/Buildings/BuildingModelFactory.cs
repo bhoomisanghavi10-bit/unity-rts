@@ -154,9 +154,12 @@ namespace KingdomsOfBharat.Buildings
         // that has one, so this went unnoticed until Gate's import spammed
         // a "doesn't have a color property '_Color'" console error on
         // every spawn and silently skipped tinting. glTFast names its own
-        // color property "baseColorFactor" (glTF spec naming, no leading
-        // underscore) instead - tried as a fallback before giving up on a
-        // given material rather than assuming every pack's shader matches.
+        // color property "baseColorFactor" (glTF-spec metallic-roughness
+        // workflow) instead - tried as a fallback. A third variant showed
+        // up on the Wall model's material: glTFast's specular-glossiness
+        // workflow shader instead names it "diffuseFactor" - same problem,
+        // same fix, one more fallback before giving up on a given material
+        // rather than assuming every pack's shader matches.
         private static void TintMaterials(GameObject go, Color civColor)
         {
             foreach (Renderer renderer in go.GetComponentsInChildren<Renderer>(true))
@@ -171,6 +174,11 @@ namespace KingdomsOfBharat.Buildings
                     {
                         Color baseColor = material.GetColor("baseColorFactor");
                         material.SetColor("baseColorFactor", Color.Lerp(baseColor, civColor, 0.35f));
+                    }
+                    else if (material.HasProperty("diffuseFactor"))
+                    {
+                        Color diffuseColor = material.GetColor("diffuseFactor");
+                        material.SetColor("diffuseFactor", Color.Lerp(diffuseColor, civColor, 0.35f));
                     }
                 }
             }
