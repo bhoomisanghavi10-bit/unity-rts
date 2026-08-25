@@ -6,6 +6,7 @@ using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Progression;
+using KingdomsOfBharat.Multiplayer;
 
 namespace KingdomsOfBharat.UI
 {
@@ -199,7 +200,7 @@ namespace KingdomsOfBharat.UI
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is TownCenter townCenter)
             {
-                townCenter.RequestTrain();
+                CommandBus.Enqueue(new TrainCommand(BuildingFaction(townCenter), townCenter, townCenter.RequestTrain));
             }
         }
 
@@ -207,7 +208,7 @@ namespace KingdomsOfBharat.UI
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
-                barracks.RequestTrain();
+                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrain));
             }
         }
 
@@ -215,8 +216,13 @@ namespace KingdomsOfBharat.UI
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
-                barracks.RequestTrainArcher();
+                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrainArcher));
             }
+        }
+
+        private static FactionId BuildingFaction(Component building)
+        {
+            return building.TryGetComponent(out FactionMember member) ? member.Faction : FactionId.Player;
         }
 
         private void ResearchAttackAtSelected()

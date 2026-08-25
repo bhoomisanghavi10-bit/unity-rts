@@ -336,12 +336,18 @@ namespace KingdomsOfBharat.Selection
                     builder?.CancelBuild();
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
-                    attacker.AttackMove(attackable);
+                    FactionId attackFaction = unit.TryGetComponent(out FactionMember attackUnitFaction)
+                        ? attackUnitFaction.Faction
+                        : FactionId.Player;
+                    CommandBus.Enqueue(new AttackCommand(attackFaction, attacker, attackable, attacker.AttackMove));
                 }
                 else if (hitAttackable && boatAttacker != null && IsHostileTarget(unit, attackable))
                 {
                     boatGatherer?.CancelGather();
-                    boatAttacker.AttackMove(attackable);
+                    FactionId attackFaction = unit.TryGetComponent(out FactionMember attackUnitFaction)
+                        ? attackUnitFaction.Faction
+                        : FactionId.Player;
+                    CommandBus.Enqueue(new AttackCommand(attackFaction, boatAttacker, attackable, boatAttacker.AttackMove));
                 }
                 else
                 {
