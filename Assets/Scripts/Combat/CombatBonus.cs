@@ -29,8 +29,19 @@ namespace KingdomsOfBharat.Combat
     //    to crack Walls/Towers a normal army would grind against for
     //    ages, at the cost of being slow and unremarkable (flat 1x, no
     //    special bonus or penalty) against every unit class.
-    // Every other pairing (including anything not listed) is a flat 1x -
-    // no bonus, no penalty.
+    //  - Naval vs Archer (Phase 5 gap-close, 2026-08-25): the one land/
+    //    naval pairing with real evidence of imbalance, found via the same
+    //    numeric-audit approach item 43 used for Cavalry vs Archer. War
+    //    Galley's 8 base damage against Archer's 18 HP/0 pierce armor
+    //    killed an Archer in 3 hits - the exact same number Cavalry's
+    //    unboosted stats hit before item 43's fix, and arguably worse
+    //    here: a Galley parked off a beach has no melee reach to punish,
+    //    so a shore-standing Archer gets none of the counterplay a land
+    //    unit at least has against Cavalry. Softened, not eliminated - a
+    //    boat should still threaten the coastline, just not for free.
+    // Every other pairing (including anything not listed, and every other
+    // Naval matchup - no land/naval CombatBonus pass beyond this one
+    // evidenced pairing) is a flat 1x - no bonus, no penalty.
     public static class CombatBonus
     {
         public static float Multiplier(UnitClass attacker, UnitClass target)
@@ -63,6 +74,11 @@ namespace KingdomsOfBharat.Combat
             if (attacker == UnitClass.Siege && target == UnitClass.Building)
             {
                 return 3f;
+            }
+
+            if (attacker == UnitClass.Naval && target == UnitClass.Archer)
+            {
+                return 0.5f;
             }
 
             return 1f;

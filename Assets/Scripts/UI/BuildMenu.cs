@@ -38,6 +38,7 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button wallButton;
         [SerializeField] private Button gateButton;
         [SerializeField] private Button towerButton;
+        [SerializeField] private Button marketButton;
         [SerializeField] private Button dockButton;
         [SerializeField] private TMP_Text dockLabel;
         [SerializeField] private Button workerButton;
@@ -64,6 +65,7 @@ namespace KingdomsOfBharat.UI
             wallButton.onClick.AddListener(() => _placer.BeginPlacementWall());
             gateButton.onClick.AddListener(() => _placer.BeginPlacementGate());
             towerButton.onClick.AddListener(() => _placer.BeginPlacementTower());
+            marketButton.onClick.AddListener(() => _placer.BeginPlacementMarket());
             dockButton.onClick.AddListener(() => _placer.BeginPlacementDock());
             workerButton.onClick.AddListener(TrainWorkerAtSelected);
             soldierButton.onClick.AddListener(TrainSoldierAtSelected);
@@ -104,6 +106,7 @@ namespace KingdomsOfBharat.UI
                 wallButton.interactable = true;
                 gateButton.interactable = true;
                 towerButton.interactable = true;
+                marketButton.interactable = true;
                 dockButton.interactable = BuildingPlacer.CanPlaceDock;
                 dockLabel.text = BuildingPlacer.CanPlaceDock
                     ? "Build Dock (80 Wood, 20 Stone)"
@@ -170,6 +173,7 @@ namespace KingdomsOfBharat.UI
             wallButton.gameObject.SetActive(active);
             gateButton.gameObject.SetActive(active);
             towerButton.gameObject.SetActive(active);
+            marketButton.gameObject.SetActive(active);
             dockButton.gameObject.SetActive(active);
         }
 
