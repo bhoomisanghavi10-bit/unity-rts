@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.Camera
 {
@@ -29,6 +30,8 @@ namespace KingdomsOfBharat.Camera
 
         private RTSCameraController _mainCameraController;
         private RenderTexture _renderTexture;
+        private UnityEngine.Camera _minimapCamera;
+        private bool _wasMatchStarted;
 
         private void Awake()
         {
@@ -42,20 +45,50 @@ namespace KingdomsOfBharat.Camera
             camGo.transform.position = new Vector3(0f, cameraHeight, 0f);
             camGo.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
 
-            var minimapCamera = camGo.AddComponent<UnityEngine.Camera>();
-            minimapCamera.orthographic = true;
-            minimapCamera.orthographicSize = mapSize * 0.5f;
-            minimapCamera.targetTexture = _renderTexture;
-            minimapCamera.clearFlags = CameraClearFlags.SolidColor;
-            minimapCamera.backgroundColor = new Color(0.05f, 0.05f, 0.05f);
-            minimapCamera.cullingMask = ~0;
-            minimapCamera.nearClipPlane = 0.3f;
-            minimapCamera.farClipPlane = cameraHeight + 20f;
-            minimapCamera.depth = -10f;
+            _minimapCamera = camGo.AddComponent<UnityEngine.Camera>();
+            _minimapCamera.orthographic = true;
+            // Placeholder using the Inspector default (RiverValley-sized) -
+            // corrected in Update() once HasMatchStarted flips true. This
+            // component is always-active from scene load (not gated like
+            // NavMeshBaker/ResourceNodeSpawner), so mapSize can't be read
+            // from MapRegistry.Current here yet - the player hasn't picked
+            // a map through CivPicker at this point.
+            _minimapCamera.orthographicSize = mapSize * 0.5f;
+            _minimapCamera.targetTexture = _renderTexture;
+            _minimapCamera.clearFlags = CameraClearFlags.SolidColor;
+            _minimapCamera.backgroundColor = new Color(0.05f, 0.05f, 0.05f);
+            _minimapCamera.cullingMask = ~0;
+            _minimapCamera.nearClipPlane = 0.3f;
+            _minimapCamera.farClipPlane = cameraHeight + 20f;
+            _minimapCamera.depth = -10f;
         }
 
+        // Phase 5 map-awareness fix: mapSize was previously a fixed 44
+        // (roughly RiverValley's 40-unit ground plus a small margin,
+        // mirroring FogOfWarManager's own quadSize margin) regardless of
+        // which map was actually picked - on Highlands (52)/Coastal (50)
+        // the minimap camera's orthographicSize was smaller than the map's
+        // real half-extent, cropping the true edges, and HandleInput's
+        // click-to-jump math used the same wrong half, so a click near the
+        // minimap's edge on those maps could jump the camera to the wrong
+        // world position. Corrected once, on the same HasMatchStarted
+        // false->true transition FogOfWarManager/SimClock key off of.
         private void Update()
         {
+            if (CivilizationSetup.HasMatchStarted)
+            {
+                if (!_wasMatchStarted)
+                {
+                    _wasMatchStarted = true;
+                    mapSize = MapRegistry.Current.GroundSize;
+                    _minimapCamera.orthographicSize = mapSize * 0.5f;
+                }
+            }
+            else
+            {
+                _wasMatchStarted = false;
+            }
+
             HandleInput();
         }
 

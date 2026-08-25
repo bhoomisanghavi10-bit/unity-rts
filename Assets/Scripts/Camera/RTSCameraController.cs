@@ -1,4 +1,5 @@
 using UnityEngine;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.Camera
 {
@@ -32,6 +33,7 @@ namespace KingdomsOfBharat.Camera
 
         private Vector3 _targetPosition;
         private Vector3 _velocity;
+        private bool _wasMatchStarted;
 
         private void Start()
         {
@@ -47,8 +49,34 @@ namespace KingdomsOfBharat.Camera
             _targetPosition.z = worldZ;
         }
 
+        // Phase 5 map-awareness fix: mapMin/mapMax were previously fixed at
+        // half of RiverValley's 40-unit ground regardless of which map was
+        // actually picked - on Highlands (52)/Coastal (50) the pan clamp
+        // was tighter than the real ground, making the true map edges
+        // unreachable by camera. This component is always-active from
+        // scene load (not gated like NavMeshBaker), so the fix can't just
+        // be an Awake()-time MapRegistry.Current read the way NavMeshBaker
+        // does it - the player hasn't picked a map through CivPicker at
+        // that point yet. Corrected once, on the same HasMatchStarted
+        // false->true transition FogOfWarManager/MinimapController/
+        // SimClock all key off of.
         private void Update()
         {
+            if (CivilizationSetup.HasMatchStarted)
+            {
+                if (!_wasMatchStarted)
+                {
+                    _wasMatchStarted = true;
+                    float half = MapRegistry.Current.GroundSize * 0.5f;
+                    mapMin = new Vector2(-half, -half);
+                    mapMax = new Vector2(half, half);
+                }
+            }
+            else
+            {
+                _wasMatchStarted = false;
+            }
+
             Vector3 move = GetKeyboardInput() + GetEdgeScrollInput();
             _targetPosition += move * panSpeed * Time.deltaTime;
 

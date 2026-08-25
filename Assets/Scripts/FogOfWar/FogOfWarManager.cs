@@ -28,17 +28,32 @@ namespace KingdomsOfBharat.FogOfWar
         private CellState[] _cells;
         private Texture2D _texture;
         private float _timer;
+        private bool _wasMatchStarted;
 
-        private void Awake()
-        {
-            _cells = new CellState[gridSize * gridSize];
-            BuildTexture();
-            BuildQuad();
-            Recompute();
-        }
-
+        // Phase 5 map-awareness fix: this component is always-active from
+        // scene load (not one of CivilizationSetup's gatedMatchContent, the
+        // way NavMeshBaker/ResourceNodeSpawner/etc. are), so an Awake()-time
+        // read of MapRegistry.Current - like NavMeshBaker's own fix - would
+        // still see the stale RiverValley default, since the player hasn't
+        // picked a map through CivPicker yet at that point. Grid/texture/
+        // quad are built lazily instead, on the first Update() after
+        // HasMatchStarted flips true, by which point MapRegistry.Select has
+        // already run (CivilizationSetup.BeginMatchCore calls it before
+        // activating any gated content).
         private void Update()
         {
+            if (!CivilizationSetup.HasMatchStarted)
+            {
+                _wasMatchStarted = false;
+                return;
+            }
+
+            if (!_wasMatchStarted)
+            {
+                _wasMatchStarted = true;
+                InitializeForCurrentMap();
+            }
+
             _timer += Time.deltaTime;
             if (_timer < recomputeInterval)
             {
@@ -46,6 +61,29 @@ namespace KingdomsOfBharat.FogOfWar
             }
 
             _timer = 0f;
+            Recompute();
+        }
+
+        // worldSize/gridSize/quadSize were previously fixed Inspector
+        // defaults sized for RiverValley (40) only - correct there, but
+        // wrong on Highlands (52) and Coastal (50): the world->grid
+        // conversion used the wrong scale, and the fog quad (48) was
+        // literally smaller than either map's actual ground, leaving a
+        // real strip near the edge with no fog overlay at all. gridSize
+        // keeps the same 1-cell-per-world-unit ratio the 40/40f defaults
+        // already implied; quadSize keeps the same +8 margin over ground
+        // size the defaults implied (48 - 40 = 8), so the quad still
+        // extends a bit past the ground edge on every map instead of just
+        // barely covering RiverValley's.
+        private void InitializeForCurrentMap()
+        {
+            worldSize = MapRegistry.Current.GroundSize;
+            gridSize = Mathf.RoundToInt(worldSize);
+            quadSize = worldSize + 8f;
+
+            _cells = new CellState[gridSize * gridSize];
+            BuildTexture();
+            BuildQuad();
             Recompute();
         }
 
