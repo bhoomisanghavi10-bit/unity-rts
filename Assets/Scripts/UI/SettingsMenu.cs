@@ -34,6 +34,7 @@ namespace KingdomsOfBharat.UI
         private static readonly RebindableAction[] Actions =
         {
             new RebindableAction("CycleStance", "Cycle Stance", KeyCode.V),
+            new RebindableAction("CycleFormation", "Cycle Formation", KeyCode.R),
             new RebindableAction("TrainWorker", "Train Worker (Town Center)", KeyCode.G),
             new RebindableAction("TrainUnit", "Train Unit (Barracks)", KeyCode.T),
             new RebindableAction("PlaceBarracks", "Place Barracks", KeyCode.B),

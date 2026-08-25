@@ -22,7 +22,19 @@ namespace KingdomsOfBharat.Selection
     {
         [SerializeField] private float dragThreshold = 6f;
         [SerializeField] private KeyCode cycleStanceKey = KeyCode.V;
+        // Not F - PlaceFarm already owns that key (see SettingsMenu's
+        // rebindable-action list).
+        [SerializeField] private KeyCode cycleFormationKey = KeyCode.R;
         [SerializeField] private float formationSpacing = 1.5f;
+
+        // Phase 6 gap-close: which formation a plain-ground move order
+        // spreads the current selection into - a per-player mode (like
+        // stance's per-unit cycling below, but this lives on the
+        // selection/command layer instead of each Unit) rather than
+        // per-unit persistent state, since it's about how *this* move
+        // order lays units out, not a standing behavior each unit
+        // remembers independently.
+        private FormationType _currentFormation = FormationType.Grid;
 
         private readonly List<Unit> _selected = new List<Unit>();
         private Building _selectedBuilding;
@@ -38,6 +50,9 @@ namespace KingdomsOfBharat.Selection
         // For SelectedUnitPanel / BuildMenu (UI) to read current selection.
         public IReadOnlyList<Unit> Selected => _selected;
 
+        // For a HUD indicator to show which formation is currently active.
+        public FormationType CurrentFormation => _currentFormation;
+
         // Buildings are single-select only and mutually exclusive with unit
         // selection (AoE-style) - selecting one clears the other. Null when
         // nothing/a unit is selected instead.
@@ -46,6 +61,7 @@ namespace KingdomsOfBharat.Selection
         private void Awake()
         {
             cycleStanceKey = GameSettings.GetKey("CycleStance", cycleStanceKey);
+            cycleFormationKey = GameSettings.GetKey("CycleFormation", cycleFormationKey);
 
             _camera = UnityEngine.Camera.main;
 
@@ -85,7 +101,25 @@ namespace KingdomsOfBharat.Selection
             HandleMoveInput();
             HandleRallyInput();
             HandleStanceHotkey();
+            HandleFormationHotkey();
             HandleControlGroupInput();
+        }
+
+        // Cycles the active formation (Grid -> Line -> Box -> Grid) for
+        // future plain-ground move orders - doesn't touch units already
+        // moving, only how the next order spreads them. No selection
+        // requirement (unlike stance cycling) since this is a standing
+        // mode for whatever gets selected next, not an action applied to
+        // the current selection.
+        private void HandleFormationHotkey()
+        {
+            if (!Input.GetKeyDown(cycleFormationKey))
+            {
+                return;
+            }
+
+            _currentFormation = (FormationType)(((int)_currentFormation + 1) % 3);
+            SfxPlayer.PlayMove();
         }
 
         // Ctrl+[1-9] assigns the current unit selection to that group,
@@ -274,12 +308,24 @@ namespace KingdomsOfBharat.Selection
                 && !attackable.IsDead;
 
             // Only the plain-move (else) branch below uses this - a group
-            // ordered onto open ground spreads into a rough grid (see
-            // GroupFormation) instead of every unit pathing to the exact
-            // same point, but gather/build/attack/staff targets are a
-            // single specific thing every selected unit needs to reach,
-            // not open ground to spread across.
+            // ordered onto open ground spreads into the active formation
+            // (see GroupFormation/_currentFormation) instead of every unit
+            // pathing to the exact same point, but gather/build/attack/
+            // staff targets are a single specific thing every selected
+            // unit needs to reach, not open ground to spread across.
             int formationIndex = 0;
+
+            // Centroid of the current selection, computed once - Line's
+            // rank orientation is "which way is the group actually
+            // traveling," not per-unit, so this has to be computed before
+            // the loop rather than from each unit's own position.
+            Vector3 selectionCentroid = Vector3.zero;
+            foreach (Unit selectedUnit in _selected)
+            {
+                selectionCentroid += selectedUnit.transform.position;
+            }
+            selectionCentroid /= _selected.Count;
+            Vector3 formationMoveDirection = hit.point - selectionCentroid;
 
             foreach (Unit unit in _selected)
             {
@@ -360,7 +406,7 @@ namespace KingdomsOfBharat.Selection
                     boatAttacker?.CancelAttack();
                     if (unit.TryGetComponent(out UnitMover mover))
                     {
-                        Vector3 offset = GroupFormation.GetOffset(formationIndex, _selected.Count, formationSpacing);
+                        Vector3 offset = GroupFormation.GetOffset(_currentFormation, formationIndex, _selected.Count, formationSpacing, formationMoveDirection);
                         FactionId faction = unit.TryGetComponent(out FactionMember unitFaction)
                             ? unitFaction.Faction
                             : FactionId.Player;
@@ -369,7 +415,7 @@ namespace KingdomsOfBharat.Selection
                     }
                     else if (unit.TryGetComponent(out WaterMover waterMover))
                     {
-                        Vector3 offset = GroupFormation.GetOffset(formationIndex, _selected.Count, formationSpacing);
+                        Vector3 offset = GroupFormation.GetOffset(_currentFormation, formationIndex, _selected.Count, formationSpacing, formationMoveDirection);
                         waterMover.MoveTo(hit.point + offset);
                         formationIndex++;
                     }
