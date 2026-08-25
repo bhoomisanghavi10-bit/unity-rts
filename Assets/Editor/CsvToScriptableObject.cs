@@ -31,7 +31,11 @@ public static class CsvToScriptableObject
     private const string UnitRosterCsvPath = "Assets/Design/Data/unit_roster_template.csv";
     private const string CounterMatrixCsvPath = "Assets/Design/Data/counter_matrix_template.csv";
 
-    private const string RootFolder = "Assets/Scripts/Data/Generated";
+    // Under Assets/Resources/ (not Assets/Scripts/Data/) so Phase 2's
+    // runtime code can load these via Resources.Load/LoadAll - a build
+    // can't AssetDatabase.LoadAssetAtPath outside the Editor, and these
+    // assets aren't scene-referenced anywhere to pull them in otherwise.
+    private const string RootFolder = "Assets/Resources/Data/Generated";
     private const string TechFolder = RootFolder + "/Techs";
     private const string UnitFolder = RootFolder + "/Units";
     private const string CivFolder = RootFolder + "/Civilizations";
