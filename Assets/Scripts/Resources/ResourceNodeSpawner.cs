@@ -1,5 +1,6 @@
 using UnityEngine;
 using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Multiplayer;
 
 namespace KingdomsOfBharat.ResourceGathering
 {
@@ -23,11 +24,21 @@ namespace KingdomsOfBharat.ResourceGathering
         [SerializeField] private int fishCount;
         [SerializeField] private float fishAmount = 60f;
 
+        // Item 51: a locally-owned DeterministicRandom rather than the
+        // shared DeterministicRandom.Match singleton - this runs in Start(),
+        // before SimClock's first tick reseeds Match for the new match, so
+        // sharing it here would spawn resources against whatever seed was
+        // left over from the previous match (or the app-launch default).
+        // Same InitState/seed semantics as before (-1 = fresh layout every
+        // match), just off the deterministic generator instead of Unity's
+        // global Random state.
+        private DeterministicRandom _rng;
+
         private void Start()
         {
             ApplyMapDefinition();
 
-            Random.InitState(randomSeed == -1 ? System.Environment.TickCount : randomSeed);
+            _rng = new DeterministicRandom(randomSeed == -1 ? System.Environment.TickCount : randomSeed);
 
             for (int i = 0; i < treeCount; i++)
             {
@@ -83,8 +94,8 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private Vector3 RandomPointInRing()
         {
-            Vector2 direction = Random.insideUnitCircle.normalized;
-            float radius = Random.Range(minRadius, maxRadius);
+            Vector2 direction = _rng.InsideUnitCircleNormalized();
+            float radius = _rng.Range(minRadius, maxRadius);
             return new Vector3(direction.x * radius, 0f, direction.y * radius);
         }
 
@@ -96,8 +107,8 @@ namespace KingdomsOfBharat.ResourceGathering
         private Vector3 RandomPointInWater()
         {
             MapDefinitionData map = MapRegistry.Current;
-            float x = map.WaterCenter.x + Random.Range(-map.WaterHalfExtents.x, map.WaterHalfExtents.x);
-            float z = map.WaterCenter.z + Random.Range(-map.WaterHalfExtents.z, map.WaterHalfExtents.z);
+            float x = map.WaterCenter.x + _rng.Range(-map.WaterHalfExtents.x, map.WaterHalfExtents.x);
+            float z = map.WaterCenter.z + _rng.Range(-map.WaterHalfExtents.z, map.WaterHalfExtents.z);
             return new Vector3(x, 0f, z);
         }
 

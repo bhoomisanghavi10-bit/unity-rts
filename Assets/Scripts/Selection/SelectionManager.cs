@@ -8,6 +8,7 @@ using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Wildlife;
 using KingdomsOfBharat.Camera;
 using KingdomsOfBharat.Audio;
+using KingdomsOfBharat.Multiplayer;
 
 namespace KingdomsOfBharat.Selection
 {
@@ -354,7 +355,10 @@ namespace KingdomsOfBharat.Selection
                     if (unit.TryGetComponent(out UnitMover mover))
                     {
                         Vector3 offset = GroupFormation.GetOffset(formationIndex, _selected.Count, formationSpacing);
-                        mover.MoveTo(hit.point + offset);
+                        FactionId faction = unit.TryGetComponent(out FactionMember unitFaction)
+                            ? unitFaction.Faction
+                            : FactionId.Player;
+                        CommandBus.Enqueue(new MoveCommand(faction, mover, hit.point + offset));
                         formationIndex++;
                     }
                     else if (unit.TryGetComponent(out WaterMover waterMover))
