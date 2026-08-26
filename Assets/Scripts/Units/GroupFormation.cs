@@ -12,11 +12,34 @@ namespace KingdomsOfBharat.Units
     // behind a front, or just presenting a wide front rather than a
     // clump), Box for a hollow all-around perimeter (good for escorting
     // something vulnerable in the middle, or not exposing a flank).
+    //
+    // Unified with Data/Scripts/FormationDefinition.cs's own (previously
+    // separate, incompatible) FormationType enum - that file originally
+    // declared its own global {Line, Box, Staggered, Flank, Column,
+    // Skirmish} under the same name, the same silent-collision trap
+    // already hit once with SelectionManager's _currentFormation (fixed
+    // via full qualification, see that file's comment). Rather than fix
+    // the collision again, the two enums are now genuinely one: this is
+    // the sole FormationType in the project, FormationDefinition.type
+    // references this directly, and FormationController (the "runtime
+    // FormationController - not included here, belongs in your existing
+    // unit-control code" that comment asked for) drives its front/back-row
+    // composition on top of these same shapes rather than a parallel set.
+    // Column/Staggered/Flank/Skirmish are real shapes (see below), not
+    // placeholders - SelectionManager's R-hotkey cycle deliberately still
+    // only reaches Grid/Line/Box (the 3 original move-order-spread
+    // choices); the other 4 are reachable via a FormationDefinition
+    // asset + FormationController, not the hotkey, since they're aimed at
+    // pre-composed squads rather than an ad-hoc move-order spread.
     public enum FormationType
     {
         Grid,
         Line,
         Box,
+        Column,
+        Staggered,
+        Flank,
+        Skirmish,
     }
 
     // Spreads a multi-unit move order across real space instead of every
@@ -42,8 +65,12 @@ namespace KingdomsOfBharat.Units
 
             return type switch
             {
-                FormationType.Line => LineOffset(index, total, spacing, moveDirection),
+                FormationType.Line => RankOffset(index, total, spacing, moveDirection, 0f),
                 FormationType.Box => BoxOffset(index, total, spacing),
+                FormationType.Column => ColumnOffset(index, total, spacing, moveDirection),
+                FormationType.Staggered => StaggeredOffset(index, total, spacing, moveDirection),
+                FormationType.Flank => FlankOffset(index, total, spacing, moveDirection),
+                FormationType.Skirmish => SkirmishOffset(index, total, spacing, moveDirection),
                 _ => GridOffset(index, total, spacing),
             };
         }
@@ -75,12 +102,64 @@ namespace KingdomsOfBharat.Units
         // rather than staggered in depth. Falls back to a fixed axis if
         // moveDirection is degenerate (selection already standing on the
         // destination) rather than dividing by ~zero.
-        private static Vector3 LineOffset(int index, int total, float spacing, Vector3 moveDirection)
+        //
+        // Public (not the private LineOffset it used to be) so
+        // FormationController can lay out several ranks at different
+        // depths - one call per row, each with its own depthOffset - to
+        // build genuine front/back-row composition (a front rank at
+        // depthOffset 0, a back rank at depthOffset spacing, etc.)
+        // directly on top of this same "one horizontal rank" primitive,
+        // rather than duplicating the perpendicular-axis math.
+        public static Vector3 RankOffset(int index, int total, float spacing, Vector3 moveDirection, float depthOffset)
         {
             Vector3 forward = moveDirection.sqrMagnitude > 0.0001f ? moveDirection.normalized : Vector3.forward;
             Vector3 right = new Vector3(forward.z, 0f, -forward.x);
-            float offset = (index - (total - 1) * 0.5f) * spacing;
-            return right * offset;
+            float offset = total <= 1 ? 0f : (index - (total - 1) * 0.5f) * spacing;
+            return right * offset - forward * depthOffset;
+        }
+
+        // Single file along the direction of travel - the classic
+        // narrow-column marching order, one unit deep per row.
+        private static Vector3 ColumnOffset(int index, int total, float spacing, Vector3 moveDirection)
+        {
+            Vector3 forward = moveDirection.sqrMagnitude > 0.0001f ? moveDirection.normalized : Vector3.forward;
+            float depth = (index - (total - 1) * 0.5f) * spacing;
+            return -forward * depth;
+        }
+
+        // Two interleaved ranks, alternating units between a near row and
+        // a row one half-spacing further back - avoids every unit sharing
+        // one exact firing line the way a plain Line does (real staggered-
+        // rank formations exist so a single volley/AoE hit can't rake an
+        // entire rank at once).
+        private static Vector3 StaggeredOffset(int index, int total, float spacing, Vector3 moveDirection)
+        {
+            int lane = index % 2;
+            int laneIndex = index / 2;
+            int laneTotal = Mathf.CeilToInt(total / 2f);
+            Vector3 rank = RankOffset(laneIndex, laneTotal, spacing, moveDirection, lane * spacing * 0.5f);
+            return rank;
+        }
+
+        // A shallow forward-facing wedge/chevron - the two flanks angle
+        // forward ahead of the center, presenting an arrowhead rather than
+        // a flat rank. Reuses Box's "size follows the group" side length.
+        private static Vector3 FlankOffset(int index, int total, float spacing, Vector3 moveDirection)
+        {
+            Vector3 forward = moveDirection.sqrMagnitude > 0.0001f ? moveDirection.normalized : Vector3.forward;
+            Vector3 right = new Vector3(forward.z, 0f, -forward.x);
+            float lateral = total <= 1 ? 0f : (index - (total - 1) * 0.5f) * spacing;
+            float depth = Mathf.Abs(lateral) * 0.5f;
+            return right * lateral + forward * depth;
+        }
+
+        // Loose, wide spread rather than a tight rank - deliberately more
+        // spacing than requested (1.5x) so a Skirmish-formation group
+        // isn't standing shoulder-to-shoulder for area attacks to punish,
+        // the actual point of a skirmish line historically.
+        private static Vector3 SkirmishOffset(int index, int total, float spacing, Vector3 moveDirection)
+        {
+            return RankOffset(index, total, spacing * 1.5f, moveDirection, 0f);
         }
 
         // A hollow square perimeter, walked clockwise from the front-left
