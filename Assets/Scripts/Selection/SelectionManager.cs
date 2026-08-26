@@ -27,6 +27,18 @@ namespace KingdomsOfBharat.Selection
         [SerializeField] private KeyCode cycleFormationKey = KeyCode.R;
         [SerializeField] private float formationSpacing = 1.5f;
 
+        // Optional: when assigned, a plain-ground move order is composed
+        // via FormationController (front/back rows by UnitCategory) using
+        // THIS asset's own FormationType/spacing/unitsPerRow instead of the
+        // hotkey-cycled _currentFormation/formationSpacing above - a
+        // FormationDefinition represents a specific composed formation
+        // (e.g. "melee front, ranged back"), not just a shape, so it owns
+        // its own shape choice rather than deferring to the ambient one.
+        // Left null by default - existing move-order behavior (GroupFormation.
+        // GetOffset with the cycled formation/spacing) is completely
+        // unchanged unless a designer/mission explicitly assigns one.
+        [SerializeField] private FormationDefinition composedFormation;
+
         // Phase 6 gap-close: which formation a plain-ground move order
         // spreads the current selection into - a per-player mode (like
         // stance's per-unit cycling below, but this lives on the
@@ -41,6 +53,11 @@ namespace KingdomsOfBharat.Selection
         // imports, so an unqualified `FormationType` here would silently
         // bind to the wrong one.
         private Units.FormationType _currentFormation = Units.FormationType.Grid;
+
+        // Self-added in Awake, same "eager is safe here" reasoning as
+        // Barracks' own RallyPoint - this component has no dependency on
+        // any sibling that might not exist yet.
+        private FormationController _formationController;
 
         private readonly List<Unit> _selected = new List<Unit>();
         private Building _selectedBuilding;
@@ -70,6 +87,7 @@ namespace KingdomsOfBharat.Selection
             cycleFormationKey = GameSettings.GetKey("CycleFormation", cycleFormationKey);
 
             _camera = UnityEngine.Camera.main;
+            _formationController = gameObject.AddComponent<FormationController>();
 
             for (int i = 0; i < _controlGroups.Length; i++)
             {
@@ -333,6 +351,19 @@ namespace KingdomsOfBharat.Selection
             selectionCentroid /= _selected.Count;
             Vector3 formationMoveDirection = hit.point - selectionCentroid;
 
+            // Computed once for the whole selection, same reasoning as
+            // selectionCentroid above - front/back-row composition needs
+            // to see the whole group at once (who's melee vs ranged), not
+            // one unit at a time. Null when no FormationDefinition is
+            // assigned, so the loop below falls back to the original
+            // per-index GroupFormation.GetOffset path untouched.
+            Dictionary<GameObject, Vector3> composedOffsets = null;
+            if (composedFormation != null)
+            {
+                _formationController.Formation = composedFormation;
+                composedOffsets = _formationController.ComputeOffsets(_selected.ConvertAll(u => u.gameObject), formationMoveDirection);
+            }
+
             foreach (Unit unit in _selected)
             {
                 unit.TryGetComponent(out Gatherer gatherer);
@@ -412,7 +443,9 @@ namespace KingdomsOfBharat.Selection
                     boatAttacker?.CancelAttack();
                     if (unit.TryGetComponent(out UnitMover mover))
                     {
-                        Vector3 offset = GroupFormation.GetOffset(_currentFormation, formationIndex, _selected.Count, formationSpacing, formationMoveDirection);
+                        Vector3 offset = composedOffsets != null && composedOffsets.TryGetValue(unit.gameObject, out Vector3 composedOffset)
+                            ? composedOffset
+                            : GroupFormation.GetOffset(_currentFormation, formationIndex, _selected.Count, formationSpacing, formationMoveDirection);
                         FactionId faction = unit.TryGetComponent(out FactionMember unitFaction)
                             ? unitFaction.Faction
                             : FactionId.Player;
@@ -421,7 +454,9 @@ namespace KingdomsOfBharat.Selection
                     }
                     else if (unit.TryGetComponent(out WaterMover waterMover))
                     {
-                        Vector3 offset = GroupFormation.GetOffset(_currentFormation, formationIndex, _selected.Count, formationSpacing, formationMoveDirection);
+                        Vector3 offset = composedOffsets != null && composedOffsets.TryGetValue(unit.gameObject, out Vector3 composedOffset)
+                            ? composedOffset
+                            : GroupFormation.GetOffset(_currentFormation, formationIndex, _selected.Count, formationSpacing, formationMoveDirection);
                         waterMover.MoveTo(hit.point + offset);
                         formationIndex++;
                     }
