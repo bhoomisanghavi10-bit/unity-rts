@@ -13,9 +13,14 @@ namespace KingdomsOfBharat.Progression
     {
         private static readonly Dictionary<FactionId, AgeId> Ages = new Dictionary<FactionId, AgeId>();
 
-        public static void Initialize(FactionId faction)
+        // Phase 6 gap-close: startingAge defaults to Ancient (every call
+        // site's prior unconditional behavior) - Maurya's "starts already
+        // in the Classical Age" bonus is the one case that passes something
+        // else, decided by the caller (CivilizationSetup already knows the
+        // civ at this point).
+        public static void Initialize(FactionId faction, AgeId startingAge = AgeId.Ancient)
         {
-            Ages[faction] = AgeId.Ancient;
+            Ages[faction] = startingAge;
         }
 
         public static AgeId CurrentAge(FactionId faction)

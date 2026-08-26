@@ -16,6 +16,10 @@ namespace KingdomsOfBharat.Buildings
     {
         private static readonly Vector3 Size = new Vector3(1.8f, 4.4f, 1.8f);
         private const float MaxHealth = 300f;
+        // Matches TowerAttacker's own [SerializeField] default - kept here
+        // too so Vijayanagara's +1 bonus below has a base value to add to
+        // without reading TowerAttacker's private field.
+        private const float BaseAttackRange = 9f;
 
         public static GameObject Place(Vector3 point, FactionId faction, float buildTime)
         {
@@ -38,7 +42,9 @@ namespace KingdomsOfBharat.Buildings
             attackable.ConfigureArmor(meleeArmor: 4f, pierceArmor: 6f);
             attackable.ConfigureClass(UnitClass.Building);
             go.AddComponent<HealthBar>();
-            go.AddComponent<TowerAttacker>();
+            // Phase 6 gap-close: Vijayanagara's "Towers get +1 attack range" bonus.
+            go.AddComponent<TowerAttacker>().Configure(
+                civ == CivilizationId.Vijayanagara ? BaseAttackRange + 1f : BaseAttackRange);
             go.AddComponent<FactionMember>().Configure(faction);
 
             var obstacle = go.AddComponent<NavMeshObstacle>();

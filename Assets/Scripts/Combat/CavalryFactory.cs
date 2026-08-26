@@ -41,6 +41,10 @@ namespace KingdomsOfBharat.Combat
             agent.radius = 0.4f;
             agent.height = 2f;
             agent.speed = def != null ? def.moveSpeed : 6.5f;
+            // Phase 6 gap-close: Maratha's Cavalry-only move-speed bonus -
+            // see CivilizationProfile.FindCategoryMultiplier for why this
+            // isn't one of CivilizationProfile's named fields.
+            agent.speed *= CivilizationProfile.FindCategoryMultiplier(civilization, StatType.MoveSpeed, UnitCategory.Cavalry);
 
             var unit = go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();

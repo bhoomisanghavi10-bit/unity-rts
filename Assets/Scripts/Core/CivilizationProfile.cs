@@ -140,5 +140,33 @@ namespace KingdomsOfBharat.Core
             }
             return fallback;
         }
+
+        // The general-purpose counterpart to this struct's 5 named fields -
+        // for narrower, category-specific bonuses (Rajput's Cavalry-only
+        // gold discount, Maurya/Maratha's category-specific move-speed/
+        // train-time bonuses) that don't warrant growing this struct's
+        // field list per the class comment above. Deliberately excludes
+        // applyToAllCategories entries (unlike FindMultiplier) so a civ-wide
+        // bonus already surfaced through one of the 5 named fields is never
+        // picked up here too and double-applied at some category-specific
+        // call site.
+        public static float FindCategoryMultiplier(CivilizationId id, StatType stat, UnitCategory category, float fallback = 1f)
+        {
+            CivilizationDefinition def = DataRegistry.GetCivilization(CivIds[id]);
+            if (def == null)
+            {
+                return fallback;
+            }
+
+            foreach (StatModifier modifier in def.passiveBonuses)
+            {
+                if (modifier.stat == stat && modifier.operation == ModifierOp.Multiply
+                    && !modifier.applyToAllCategories && modifier.targetCategory == category)
+                {
+                    return modifier.value;
+                }
+            }
+            return fallback;
+        }
     }
 }

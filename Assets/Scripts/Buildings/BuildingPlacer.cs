@@ -18,7 +18,10 @@ namespace KingdomsOfBharat.Buildings
     // placement, for Barracks and House).
     public class BuildingPlacer : MonoBehaviour
     {
-        private enum BuildingKind { Barracks, Farm, House, Wall, Gate, Tower, Market, Dock }
+        // Internal (not private) so EditMode tests can exercise
+        // WoodMultiplierFor/StoneMultiplierFor directly - see
+        // Assets/Scripts/AssemblyInfo.cs for the InternalsVisibleTo grant.
+        internal enum BuildingKind { Barracks, Farm, House, Wall, Gate, Tower, Market, Dock }
 
         [Header("Barracks")]
         [SerializeField] private KeyCode placeBarracksKey = KeyCode.B;
@@ -293,6 +296,33 @@ namespace KingdomsOfBharat.Buildings
                 : new Color(1f, 0.3f, 0.3f, 0.5f);
         }
 
+        // Phase 6 gap-close: Maurya's "Houses cost no Wood" bonus. Not
+        // representable as a passiveBonuses StatModifier at all (no
+        // Building entry in UnitCategory - see CsvToScriptableObject.cs's
+        // BuildPassiveBonus), so this is a hand-picked civ check, same
+        // shape as UniqueTechDefinition's per-civ dictionary.
+        internal static float WoodMultiplierFor(BuildingKind kind)
+        {
+            if (kind == BuildingKind.House && CivilizationRegistry.For(FactionId.Player) == CivilizationId.Maurya)
+            {
+                return 0f;
+            }
+            return 1f;
+        }
+
+        // Phase 6 gap-close: Vijayanagara's "Wall/Gate/Tower cost 20% less
+        // Stone" bonus - same non-representable-in-passiveBonuses reasoning
+        // as WoodMultiplierFor above.
+        internal static float StoneMultiplierFor(BuildingKind kind)
+        {
+            bool isFortification = kind == BuildingKind.Wall || kind == BuildingKind.Gate || kind == BuildingKind.Tower;
+            if (isFortification && CivilizationRegistry.For(FactionId.Player) == CivilizationId.Vijayanagara)
+            {
+                return 0.8f;
+            }
+            return 1f;
+        }
+
         private void TryConfirmPlacement()
         {
             if (!TryGetGroundPoint(out Vector3 point) || !IsClearForKind(point))
@@ -325,21 +355,21 @@ namespace KingdomsOfBharat.Buildings
                     FarmFactory.Place(point, FactionId.Player, farmBuildTime);
                     break;
                 case BuildingKind.House:
-                    stockpile.Add(ResourceType.Wood, -houseWoodCost * multiplier);
+                    stockpile.Add(ResourceType.Wood, -houseWoodCost * multiplier * WoodMultiplierFor(_kind));
                     HouseFactory.Place(point, FactionId.Player, houseBuildTime);
                     break;
                 case BuildingKind.Wall:
-                    stockpile.Add(ResourceType.Stone, -wallStoneCost * multiplier);
+                    stockpile.Add(ResourceType.Stone, -wallStoneCost * multiplier * StoneMultiplierFor(_kind));
                     WallFactory.Place(point, FactionId.Player, wallBuildTime);
                     break;
                 case BuildingKind.Gate:
-                    stockpile.Add(ResourceType.Stone, -gateStoneCost * multiplier);
+                    stockpile.Add(ResourceType.Stone, -gateStoneCost * multiplier * StoneMultiplierFor(_kind));
                     stockpile.Add(ResourceType.Wood, -gateWoodCost * multiplier);
                     GateFactory.Place(point, FactionId.Player, gateBuildTime);
                     break;
                 case BuildingKind.Tower:
                     stockpile.Add(ResourceType.Wood, -towerWoodCost * multiplier);
-                    stockpile.Add(ResourceType.Stone, -towerStoneCost * multiplier);
+                    stockpile.Add(ResourceType.Stone, -towerStoneCost * multiplier * StoneMultiplierFor(_kind));
                     TowerFactory.Place(point, FactionId.Player, towerBuildTime);
                     break;
                 case BuildingKind.Market:
@@ -373,15 +403,15 @@ namespace KingdomsOfBharat.Buildings
                     return stockpile.GetTotal(ResourceType.Wood) >= barracksWoodCost * multiplier
                         && stockpile.GetTotal(ResourceType.Stone) >= barracksStoneCost * multiplier;
                 case BuildingKind.House:
-                    return stockpile.GetTotal(ResourceType.Wood) >= houseWoodCost * multiplier;
+                    return stockpile.GetTotal(ResourceType.Wood) >= houseWoodCost * multiplier * WoodMultiplierFor(_kind);
                 case BuildingKind.Wall:
-                    return stockpile.GetTotal(ResourceType.Stone) >= wallStoneCost * multiplier;
+                    return stockpile.GetTotal(ResourceType.Stone) >= wallStoneCost * multiplier * StoneMultiplierFor(_kind);
                 case BuildingKind.Gate:
-                    return stockpile.GetTotal(ResourceType.Stone) >= gateStoneCost * multiplier
+                    return stockpile.GetTotal(ResourceType.Stone) >= gateStoneCost * multiplier * StoneMultiplierFor(_kind)
                         && stockpile.GetTotal(ResourceType.Wood) >= gateWoodCost * multiplier;
                 case BuildingKind.Tower:
                     return stockpile.GetTotal(ResourceType.Wood) >= towerWoodCost * multiplier
-                        && stockpile.GetTotal(ResourceType.Stone) >= towerStoneCost * multiplier;
+                        && stockpile.GetTotal(ResourceType.Stone) >= towerStoneCost * multiplier * StoneMultiplierFor(_kind);
                 case BuildingKind.Market:
                     return stockpile.GetTotal(ResourceType.Wood) >= marketWoodCost * multiplier
                         && stockpile.GetTotal(ResourceType.Gold) >= marketGoldCost * multiplier;

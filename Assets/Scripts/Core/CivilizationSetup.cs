@@ -95,8 +95,8 @@ namespace KingdomsOfBharat.Core
             CivilizationRegistry.Assign(FactionId.Player, playerCivilization);
             CivilizationRegistry.Assign(FactionId.Enemy, aiCiv);
 
-            AgeProgress.Initialize(FactionId.Player);
-            AgeProgress.Initialize(FactionId.Enemy);
+            AgeProgress.Initialize(FactionId.Player, StartingAgeFor(playerCivilization));
+            AgeProgress.Initialize(FactionId.Enemy, StartingAgeFor(aiCiv));
 
             // Item 48: only touches Enemy2's registries when the 3rd
             // faction is actually on - an untouched CivilizationRegistry/
@@ -107,7 +107,7 @@ namespace KingdomsOfBharat.Core
             if (enableThirdFaction)
             {
                 CivilizationRegistry.Assign(FactionId.Enemy2, enemy2Civilization);
-                AgeProgress.Initialize(FactionId.Enemy2);
+                AgeProgress.Initialize(FactionId.Enemy2, StartingAgeFor(enemy2Civilization));
 
                 foreach (GameObject content in enemy2GatedContent)
                 {
@@ -121,6 +121,16 @@ namespace KingdomsOfBharat.Core
             }
 
             HasMatchStarted = true;
+        }
+
+        // Phase 6 gap-close: Maurya's "starts the match already in the
+        // Classical Age" bonus - not representable as a passiveBonuses
+        // StatModifier (it's not a stat multiplier at all), so this is a
+        // hand-picked civ check, same shape as BuildingPlacer's
+        // WoodMultiplierFor/StoneMultiplierFor.
+        private static AgeId StartingAgeFor(CivilizationId civ)
+        {
+            return civ == CivilizationId.Maurya ? AgeId.Classical : AgeId.Ancient;
         }
     }
 }

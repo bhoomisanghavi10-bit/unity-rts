@@ -94,6 +94,7 @@ namespace KingdomsOfBharat.Combat
                 else
                 {
                     SfxPlayer.PlayUnitDeath(transform.position);
+                    RajputDefianceHook.TrySpawnSurvivor(this);
                 }
                 Destroy(gameObject);
             }

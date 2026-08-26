@@ -253,15 +253,23 @@ namespace KingdomsOfBharat.Buildings
                 return;
             }
 
+            // Phase 6 gap-close: Rajput's "Cavalry cost 15% less Gold" bonus.
+            // StatModifier has no resource-type field (Wood/Gold/Stone/Food
+            // are indistinguishable in the data), so applying this to Gold
+            // specifically is a hand-picked reading of the CSV's own
+            // description text, not something the data itself encodes.
+            float goldCost = cavalryGoldCost * CivilizationProfile.FindCategoryMultiplier(
+                CivilizationRegistry.For(Faction), StatType.ResourceCost, UnitCategory.Cavalry);
+
             ResourceStockpile stockpile = ResourceStockpile.For(Faction);
             if (stockpile.GetTotal(ResourceType.Food) < cavalryFoodCost
-                || stockpile.GetTotal(ResourceType.Gold) < cavalryGoldCost)
+                || stockpile.GetTotal(ResourceType.Gold) < goldCost)
             {
                 return;
             }
 
             stockpile.Add(ResourceType.Food, -cavalryFoodCost);
-            stockpile.Add(ResourceType.Gold, -cavalryGoldCost);
+            stockpile.Add(ResourceType.Gold, -goldCost);
             _trainingUnit = TrainingUnit.Cavalry;
             _remaining = ScaledTrainTime();
         }

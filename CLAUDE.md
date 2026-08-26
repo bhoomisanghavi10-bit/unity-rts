@@ -7,13 +7,12 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- Currently on: next unstarted item from Section 5 — item 2, "wire remaining per-civ
-  passive bonuses live."
-- Last completed: Section 5 item 1, training/trade UI batch (Cavalry, Siege, Dock,
-  Spearman, Market) — see `docs/SESSION_LOG.md` for details. Along the way, the project
-  also got its first `.asmdef` split (`KingdomsOfBharat.Runtime`/`.Editor`/`.Tests`) and
-  first automated tests, since none existed before and were required to test the new
-  training/trade paths.
+- Currently on: next unstarted item from Section 5 — item 3, "build the 4 missing
+  unique-unit factories" (Maurya/Maratha).
+- Last completed: Section 5 item 2, per-civ passive bonuses. Wired all 4 data-backed
+  bonuses (`CivilizationProfile.FindCategoryMultiplier`) plus 6 structural mechanics
+  that aren't `passiveBonuses` data at all (hand-written civ checks) — see
+  `docs/SESSION_LOG.md` for the full list and verification.
 
 ## Engine & architecture
 - Unity version: [fill in]

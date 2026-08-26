@@ -26,6 +26,16 @@ namespace KingdomsOfBharat.Combat
         // For SelectedUnitPanel/HoverTooltip, same role as MeleeAttacker's.
         public bool IsAttacking { get; private set; }
 
+        // Phase 6 gap-close: lets TowerFactory apply Vijayanagara's
+        // "Towers get +1 attack range" bonus at spawn time - not
+        // representable as a passiveBonuses StatModifier (no Building
+        // entry in UnitCategory), so a hand-picked civ check at the
+        // factory call site, same shape as Attackable.Configure.
+        public void Configure(float newRange)
+        {
+            range = newRange;
+        }
+
         private FactionMember Faction
         {
             get

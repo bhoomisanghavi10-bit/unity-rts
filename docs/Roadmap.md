@@ -65,12 +65,23 @@ entirely. What follows is the real remaining list.
   (`maurya_war_elephant`, `pillar_edict_scholar`, `maratha_mavla_raider`,
   `maratha_durg_garrison`), but they're not spawnable yet. This is the main reason
   Maurya/Maratha, while selectable, aren't yet on par with the original 3 civs.
-- [ ] **Narrower per-civ passive bonuses aren't live** — Rajput's cavalry-only gold
+- [x] **Narrower per-civ passive bonuses aren't live** — Rajput's cavalry-only gold
   discount, Maurya/Maratha's specific move-speed bonuses, etc. exist in
   `CivilizationDefinition.passiveBonuses` but nothing reads them; only the legacy
   5-field `CivilizationProfile` subset is wired. Closing this is what makes the 2 new
   civs (and Chola/Vijayanagara/Rajput's fuller bonus sets) actually function as
   designed rather than just as flavor text.
+  **Closed** — audited every civ's generated `passiveBonuses` against what
+  `CivilizationProfile` actually read; the real data-backed gap was 4 entries across
+  Rajput/Maurya/Maratha (Chola/Vijayanagara had none). Added
+  `CivilizationProfile.FindCategoryMultiplier` and wired all 4
+  (`CavalryFactory`/`WorkerFactory` move speed, `Barracks` Cavalry gold cost, `Dock`
+  Naval train time). Also wired the 6 bonuses that aren't `passiveBonuses` data at all
+  (non-representable per `CsvToScriptableObject.cs`'s own comment) as hand-written
+  hooks: Maurya's free Houses + Classical-Age start, Vijayanagara's fortification
+  Stone discount + Tower range, Rajput's Cavalry dismount-survival, Maratha's
+  permanent scouted-position memory (building permanence + unit ghost markers in
+  `FogOfWarManager`). See `docs/SESSION_LOG.md` for the full audit and verification.
 - [ ] **Balance pass (item 43) is still explicitly ongoing** — the Cavalry-vs-Archer
   fix is real and verified, but civ/age/upgrade multiplier stacking, training
   cost-vs-power ratios, and actual sustained live playtesting haven't happened.
@@ -239,9 +250,9 @@ buying, or making an asset yourself:
 1. ~~**Batch-close the training/trade UI gaps** (Cavalry, Siege, Dock, Spearman,
    Market trade) — same category of fix, same BuildMenu pattern already established
    repeatedly, highest value-for-effort item on this whole list.~~ **Done.**
-2. **Wire the remaining per-civ passive bonuses live** — this is what makes Maurya/
+2. ~~**Wire the remaining per-civ passive bonuses live** — this is what makes Maurya/
    Maratha (and the fuller bonus sets on the original 3) actually functional, not just
-   selectable.
+   selectable.~~ **Done.**
 3. **Build the 4 missing unique-unit factories** — closes the last real content gap
    in the 5-civ roster.
 4. **Re-verify every "confirmed by reflection/config only, not live" item** now that

@@ -30,6 +30,25 @@ namespace KingdomsOfBharat.FogOfWar
         private float _timer;
         private bool _wasMatchStarted;
 
+        // Phase 6 gap-close: Maratha's "scouted/discovered enemy positions
+        // are remembered permanently" bonus. Terrain memory is already
+        // permanent for everyone (Explored cells never revert to
+        // Unexplored above) - this is specifically about enemy units/
+        // buildings, which today vanish outright the instant their cell
+        // stops being Visible (see SetVisibilityByCell). Buildings don't
+        // move, so "remembered" just means "never re-hide it once seen".
+        // Units do move, so a live GameObject can't just stay visible
+        // (that would show real-time position, not "last known") - a
+        // frozen marker is spawned at the position it was last actually
+        // seen instead, matching AoE's own remembered-scouting bonus.
+        private readonly HashSet<GameObject> _permanentlyRevealedBuildings = new HashSet<GameObject>();
+        private readonly HashSet<GameObject> _everSeenUnits = new HashSet<GameObject>();
+        private readonly Dictionary<GameObject, GameObject> _unitGhosts = new Dictionary<GameObject, GameObject>();
+        private Material _ghostMaterial;
+
+        private static bool MarathaScoutMemoryActive =>
+            CivilizationRegistry.For(FactionId.Player) == CivilizationId.Maratha;
+
         // Phase 5 map-awareness fix: this component is always-active from
         // scene load (not one of CivilizationSetup's gatedMatchContent, the
         // way NavMeshBaker/ResourceNodeSpawner/etc. are), so an Awake()-time
@@ -178,9 +197,20 @@ namespace KingdomsOfBharat.FogOfWar
         // Enemy, Enemy2, or a former ally who declared war - still fogs.
         private void UpdateEnemyVisibility()
         {
+            bool scoutMemory = MarathaScoutMemoryActive;
+
             foreach (Unit unit in Unit.All)
             {
-                if (unit.TryGetComponent(out FactionMember factionMember) && IsFogged(factionMember.Faction))
+                if (!unit.TryGetComponent(out FactionMember factionMember) || !IsFogged(factionMember.Faction))
+                {
+                    continue;
+                }
+
+                if (scoutMemory)
+                {
+                    UpdateUnitGhost(unit.gameObject);
+                }
+                else
                 {
                     SetVisibilityByCell(unit.gameObject);
                 }
@@ -188,10 +218,17 @@ namespace KingdomsOfBharat.FogOfWar
 
             foreach (Building building in Building.All)
             {
-                if (building.TryGetComponent(out FactionMember factionMember) && IsFogged(factionMember.Faction))
+                if (!building.TryGetComponent(out FactionMember factionMember) || !IsFogged(factionMember.Faction))
                 {
-                    SetVisibilityByCell(building.gameObject);
+                    continue;
                 }
+
+                if (scoutMemory && RevealBuildingPermanentlyIfSeen(building.gameObject))
+                {
+                    continue;
+                }
+
+                SetVisibilityByCell(building.gameObject);
             }
 
             foreach (WildBoar boar in FindObjectsByType<WildBoar>(FindObjectsSortMode.None))
@@ -205,11 +242,19 @@ namespace KingdomsOfBharat.FogOfWar
             return faction != FactionId.Player && !DiplomacyRegistry.AreAllied(FactionId.Player, faction);
         }
 
+        private bool IsCellVisible(Vector3 worldPosition)
+        {
+            (int x, int z) = WorldToCell(worldPosition);
+            return _cells[z * gridSize + x] == CellState.Visible;
+        }
+
         private void SetVisibilityByCell(GameObject go)
         {
-            (int x, int z) = WorldToCell(go.transform.position);
-            bool visible = _cells[z * gridSize + x] == CellState.Visible;
+            SetRenderersEnabled(go, IsCellVisible(go.transform.position));
+        }
 
+        private static void SetRenderersEnabled(GameObject go, bool visible)
+        {
             foreach (Renderer r in go.GetComponentsInChildren<Renderer>(true))
             {
                 r.enabled = visible;
@@ -219,6 +264,92 @@ namespace KingdomsOfBharat.FogOfWar
             {
                 c.enabled = visible;
             }
+        }
+
+        // Buildings don't move - once ever seen, just stop re-fogging the
+        // real GameObject instead of hiding/showing it every recompute.
+        // Returns true once the building has ever been seen (whether that
+        // happened just now or earlier), so the caller can skip the normal
+        // per-cell hide/show entirely.
+        private bool RevealBuildingPermanentlyIfSeen(GameObject building)
+        {
+            if (!_permanentlyRevealedBuildings.Contains(building) && IsCellVisible(building.transform.position))
+            {
+                _permanentlyRevealedBuildings.Add(building);
+            }
+
+            if (!_permanentlyRevealedBuildings.Contains(building))
+            {
+                return false;
+            }
+
+            SetRenderersEnabled(building, true);
+            return true;
+        }
+
+        // Units move, so leaving the live GameObject visible would show
+        // real-time position, not "last known" - the real object still
+        // hides/shows normally with vision, and a frozen ghost marker
+        // stands in at its last-visible position whenever it's fogged,
+        // exactly once per fogged stretch (not updated again until the
+        // unit is actually reseen, matching AoE's remembered-scouting
+        // bonus rather than granting live tracking through fog).
+        private void UpdateUnitGhost(GameObject enemy)
+        {
+            bool visible = IsCellVisible(enemy.transform.position);
+            SetRenderersEnabled(enemy, visible);
+
+            if (visible)
+            {
+                _everSeenUnits.Add(enemy);
+                if (_unitGhosts.TryGetValue(enemy, out GameObject ghost) && ghost != null)
+                {
+                    Destroy(ghost);
+                }
+                _unitGhosts.Remove(enemy);
+                return;
+            }
+
+            if (!_everSeenUnits.Contains(enemy))
+            {
+                return; // never actually scouted - nothing to remember yet
+            }
+
+            if (!_unitGhosts.TryGetValue(enemy, out GameObject existingGhost) || existingGhost == null)
+            {
+                _unitGhosts[enemy] = CreateGhostMarker(enemy.transform.position);
+            }
+        }
+
+        // Plain primitive, no new art/assets - same reasoning as this
+        // file's own top comment about the fog quad: any GameObject this
+        // spawns must not carry a live Collider, or it'll intercept
+        // SelectionManager's/BuildingPlacer's unfiltered raycasts.
+        private GameObject CreateGhostMarker(Vector3 position)
+        {
+            GameObject ghost = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            ghost.name = "ScoutedPositionGhost";
+            ghost.transform.SetParent(transform);
+            ghost.transform.position = position;
+            ghost.transform.localScale = new Vector3(0.6f, 0.6f, 0.6f);
+
+            if (ghost.TryGetComponent(out Collider ghostCollider))
+            {
+                Destroy(ghostCollider);
+            }
+
+            if (_ghostMaterial == null)
+            {
+                _ghostMaterial = GameplayMaterial.CreateTransparent(new Color(0.6f, 0.6f, 0.6f, 0.5f));
+            }
+
+            if (ghost.TryGetComponent(out Renderer ghostRenderer))
+            {
+                ghostRenderer.sharedMaterial = _ghostMaterial;
+                ghostRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+
+            return ghost;
         }
 
         private void BuildTexture()

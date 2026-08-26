@@ -139,7 +139,14 @@ namespace KingdomsOfBharat.Buildings
         private float ScaledTrainTime()
         {
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
-            return trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier * ageTrainMultiplier;
+            // Phase 6 gap-close: Maratha's Naval-only train-time bonus, an
+            // independent factor alongside the existing civ-wide
+            // TrainTimeMultiplier (not a replacement for it) - see
+            // CivilizationProfile.FindCategoryMultiplier.
+            float navalTrainMultiplier = CivilizationProfile.FindCategoryMultiplier(
+                CivilizationRegistry.For(Faction), StatType.TrainTime, UnitCategory.Naval);
+            return trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier
+                * ageTrainMultiplier * navalTrainMultiplier;
         }
 
         private void TickTraining()
