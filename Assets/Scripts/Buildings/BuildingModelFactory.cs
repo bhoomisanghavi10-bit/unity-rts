@@ -120,6 +120,46 @@ namespace KingdomsOfBharat.Buildings
                 Object.Destroy(leftover);
             }
 
+            // TownCenter.prefab was found to have TownCenter/FactionMember/
+            // VisionSource baked into it - its root was even still named
+            // "TownCenter(Clone)" inside the saved asset, meaning it was
+            // created by saving an already-live, already-Instantiate()'d
+            // runtime object as a prefab instead of just its visual mesh.
+            // Every one of those components only makes sense on the root
+            // this method returns (added moments later, once - Faction,
+            // VisionSource.Configure, etc. all assume exactly one), never
+            // on the purely-visual child under it - a second copy here
+            // means two TownCenters/FactionMembers/etc coexisting under
+            // one root, contesting the same faction/rally logic. Stripped
+            // generally (any MonoBehaviour, not just this specific asset's
+            // known offenders) so the same mistake in a future imported
+            // pack fails safe instead of silently duplicating gameplay
+            // state again.
+            // Plain Destroy() on all of them in one pass left TownCenter
+            // itself behind (confirmed live) - RallyPoint's [RequireComponent
+            // (typeof(Building))] is checked synchronously against the
+            // object's CURRENT components, and Destroy() only defers the
+            // actual removal to end-of-frame, so at the moment this loop
+            // reached TownCenter, RallyPoint (queued for destruction a few
+            // iterations earlier, not yet actually gone) still counted as
+            // depending on it and blocked the destroy. DestroyImmediate in
+            // dependency-safe passes (destroy whatever's still there each
+            // pass, stop once nothing changes) removes dependents like
+            // RallyPoint before their requirement is ever checked again.
+            for (int pass = 0; pass < 4; pass++)
+            {
+                MonoBehaviour[] remaining = model.GetComponentsInChildren<MonoBehaviour>(true);
+                if (remaining.Length == 0)
+                {
+                    break;
+                }
+
+                foreach (MonoBehaviour leftover in remaining)
+                {
+                    Object.DestroyImmediate(leftover);
+                }
+            }
+
             // Ground level under a center-pivoted building of this size -
             // approximate for TownCenter specifically (its spawn Y
             // predates milestone 14's terrain height variation, same
