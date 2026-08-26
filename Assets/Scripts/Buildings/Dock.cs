@@ -27,7 +27,16 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float warGalleyFoodCost = 60f;
         [SerializeField] private float warGalleyGoldCost = 60f;
         [SerializeField] private float trainTime = 6f;
-        [SerializeField] private Vector3 rallyOffset = new Vector3(0f, 0f, 3f);
+        // Was a fixed Vector3(0,0,3) - always spawned/rallied boats 3
+        // units north regardless of which shore the Dock was actually
+        // built on. A Dock built on the west shore (water to its east)
+        // would send every trained boat north into dry land instead of
+        // toward the water - the exact "ship is on land" bug this fixes.
+        // Now a plain distance; the direction is computed at Awake from
+        // WaterProximity.DirectionToNearestWater(transform.position),
+        // since that's the one thing that actually varies per Dock.
+        [SerializeField] private float rallyDistance = 3f;
+        private Vector3 _rallyOffset;
 
         private ConstructionSite _site;
         private bool _siteResolved;
@@ -65,8 +74,10 @@ namespace KingdomsOfBharat.Buildings
         {
             trainKey = GameSettings.GetKey("TrainDockUnit", trainKey);
 
+            _rallyOffset = WaterProximity.DirectionToNearestWater(transform.position) * rallyDistance;
+
             _rally = gameObject.AddComponent<RallyPoint>();
-            _rally.Configure(rallyOffset);
+            _rally.Configure(_rallyOffset);
         }
 
         public bool IsComplete => Site == null || Site.IsComplete;
@@ -138,8 +149,8 @@ namespace KingdomsOfBharat.Buildings
             {
                 GameObject spawned = _trainingUnit switch
                 {
-                    TrainingUnit.WarGalley => WarGalleyFactory.Spawn(transform.position + rallyOffset, Faction),
-                    _ => FishingBoatFactory.Spawn(transform.position + rallyOffset, Faction),
+                    TrainingUnit.WarGalley => WarGalleyFactory.Spawn(transform.position + _rallyOffset, Faction),
+                    _ => FishingBoatFactory.Spawn(transform.position + _rallyOffset, Faction),
                 };
                 _rally.ApplyTo(spawned);
                 _remaining = -1f;

@@ -37,5 +37,27 @@ namespace KingdomsOfBharat.Core
             float dz = Mathf.Max(0f, Mathf.Abs(point.z - map.WaterCenter.z) - map.WaterHalfExtents.z);
             return Mathf.Sqrt(dx * dx + dz * dz);
         }
+
+        // Horizontal (XZ) unit vector from `point` toward the nearest edge
+        // of the water rectangle - a Dock can be built on any shore of the
+        // water body (west edge, south edge, etc.), so "which way is the
+        // water" depends on the Dock's own position, not a single fixed
+        // direction. Falls back to Vector3.forward if the map has no water
+        // (caller shouldn't be asking) or the point is already inside it
+        // (degenerate zero-length direction).
+        public static Vector3 DirectionToNearestWater(Vector3 point)
+        {
+            if (!HasWater)
+            {
+                return Vector3.forward;
+            }
+
+            MapDefinitionData map = MapRegistry.Current;
+            float clampedX = Mathf.Clamp(point.x, map.WaterCenter.x - map.WaterHalfExtents.x, map.WaterCenter.x + map.WaterHalfExtents.x);
+            float clampedZ = Mathf.Clamp(point.z, map.WaterCenter.z - map.WaterHalfExtents.z, map.WaterCenter.z + map.WaterHalfExtents.z);
+            Vector3 nearestOnWater = new Vector3(clampedX, 0f, clampedZ);
+            Vector3 direction = nearestOnWater - new Vector3(point.x, 0f, point.z);
+            return direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector3.forward;
+        }
     }
 }

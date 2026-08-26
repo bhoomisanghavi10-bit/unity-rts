@@ -11,6 +11,27 @@ namespace KingdomsOfBharat.Units
     // read differently at a glance before any real model exists.
     public static class BoatModelFactory
     {
+        // Both sourced ship models render standing on end (their tallest
+        // measured dimension was Y, not X/Z - a ship's height should never
+        // be its longest axis) when spawned at identity rotation, the same
+        // "force rotation to identity, discarding whatever orientation the
+        // source file actually needs" gap this project already has in
+        // BuildingModelFactory/HumanModelFactory/AnimalModelFactory (real
+        // user-reported bug: a War Galley rendering vertically, standing
+        // on land instead of lying on the water). -90 degrees on X lays
+        // both flat - verified empirically (measured world bounds before/
+        // after, then a scene-view screenshot to confirm right-side-up,
+        // not just "shorter"), same "measure, don't guess" convention
+        // WeaponAttachment already uses for its own prop corrections.
+        // Keyed by resourceName since a future third ship might need a
+        // different (or no) correction - not assumed universal.
+        private static readonly System.Collections.Generic.Dictionary<string, Quaternion> ImportRotationCorrections =
+            new System.Collections.Generic.Dictionary<string, Quaternion>
+            {
+                { "CombatShip", Quaternion.Euler(-90f, 0f, 0f) },
+                { "FishingBoat", Quaternion.Euler(-90f, 0f, 0f) },
+            };
+
         public static GameObject Spawn(string resourceName, Vector3 position, Color civColor, bool isWarGalley)
         {
             // Ships/{resourceName} is where the sourced models actually
@@ -28,7 +49,9 @@ namespace KingdomsOfBharat.Units
             {
                 GameObject model = Object.Instantiate(prefab, root.transform);
                 model.transform.localPosition = Vector3.zero;
-                model.transform.localRotation = Quaternion.identity;
+                model.transform.localRotation = ImportRotationCorrections.TryGetValue(resourceName, out Quaternion correction)
+                    ? correction
+                    : Quaternion.identity;
                 TintMaterials(model, civColor);
             }
             else
