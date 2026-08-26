@@ -61,7 +61,10 @@ namespace KingdomsOfBharat.Core
             { CivilizationId.Chola, new Color(0.55f, 0.2f, 0.08f) },
             { CivilizationId.Vijayanagara, new Color(0.85f, 0.6f, 0.1f) },
             { CivilizationId.Rajput, new Color(0.15f, 0.25f, 0.6f) },
-            { CivilizationId.Maurya, new Color(0.75f, 0.55f, 0.15f) },
+            // Was too close to Vijayanagara's gold (0.85, 0.6, 0.1) on the
+            // CivPicker cards - a muted stone-grey (Ashokan pillar/edict
+            // theme) reads clearly distinct from every other civ's color.
+            { CivilizationId.Maurya, new Color(0.5f, 0.47f, 0.4f) },
             { CivilizationId.Maratha, new Color(0.15f, 0.45f, 0.2f) },
         };
 
