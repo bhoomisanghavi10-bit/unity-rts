@@ -110,6 +110,13 @@ namespace KingdomsOfBharat.Combat
             {
                 float baseDamage = damage * _damageMultiplier + _damageBonus;
                 float bonus = CombatBonus.Multiplier(unitClass, _target.Class);
+                // Roadmap Section 5 item 3: a Durg Garrison unit inside
+                // this building strips Siege's usual 3x anti-building
+                // bonus down to a flat 1x - see Attackable.SiegeImmune.
+                if (unitClass == UnitClass.Siege && _target.SiegeImmune)
+                {
+                    bonus = 1f;
+                }
                 _target.TakeDamage(baseDamage * bonus, damageType);
                 _cooldown = attackInterval;
             }

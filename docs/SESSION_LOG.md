@@ -5,6 +5,74 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-27 — 4 missing unique-unit factories (Roadmap Section 5, item 3)
+
+**Scope**: Built the 4 unique-unit factories CSV data already had
+(`maurya_war_elephant`, `pillar_edict_scholar`, `maratha_mavla_raider`,
+`maratha_durg_garrison`). Verified every unit's stats/cost/train-time against its
+`unit_roster_template.csv` row before writing any code, per the user's explicit ask.
+
+**Conflicts flagged and confirmed with the user before implementing** (both resolved
+toward the fuller option, not stats-only stubs):
+1. `UniqueUnitDefinition`/`Barracks`/`BuildMenu` only supported ONE unique unit per
+   civ (single dict entry, single `TrainingUnit.UniqueUnit` slot, single button) —
+   Maurya and Maratha each need 2. Extended `UniqueUnitDefinition.Sources` to a
+   per-civ `List` (`For(civId, slot)`/`CountFor(civId)`), added
+   `TrainingUnit.UniqueUnit2`/`Barracks.RequestTrainUniqueUnit(int)`, and a 2nd
+   button+label in `BuildMenu`/`Main.unity` (via UnityMCP, duplicating the existing
+   `UniqueUnitButton`), gated on `UniqueUnitCount > 1` so Chola/Vijayanagara/Rajput's
+   UI is unchanged.
+2. `pillar_edict_scholar` and `maratha_durg_garrison` both turned out to be real
+   combat-shaped Infantry units (CSV Category, not Support) so they follow the same
+   factory pattern as the existing 3 unique units — but each also carries a genuine
+   new mechanic:
+   - **Pillar Edict Scholar**: +50% gather-rate aura to nearby Workers. New
+     `PillarEdictAura` (static registry, same convention as `Building.All`) +
+     `Gatherer._auraMultiplier`, polled every 0.5s (self-correcting as a worker
+     walks in/out of range, no enter/exit events needed).
+   - **Maratha Durg Garrison**: immune to Siege's 3x anti-building bonus while
+     garrisoned inside a Wall/Tower. New `Garrison` component (added by
+     `WallFactory`/`TowerFactory`, single-slot) + `DurgGarrisonWorker` (mirrors
+     `FarmWorker`'s walk-then-join shape) + `Attackable.SiegeImmune`, checked as a
+     target-side override in `MeleeAttacker` (deliberately NOT folded into
+     `CombatBonus` itself, keeping that system's existing "don't merge with
+     CounterMatrix" precedent intact). `SelectionManager` gained a `hitGarrison`
+     branch (right-click an owned Wall/Tower with a Durg Garrison unit selected),
+     `BuildMenu` gained an "Ungarrison" button (Wall/Tower had no panel before this).
+
+**A real EditMode-test-only bug found and fixed along the way**: `Garrison`
+originally resolved its `Attackable` sibling in `Awake()` and `PillarEdictAura`
+registered itself in `OnEnable()` — both failed silently in EditMode tests because
+Unity doesn't invoke `Awake`/`OnEnable` outside Play Mode for AddComponent-created
+objects (only destruction callbacks like `OnDisable` are unreliable there too, it
+turns out — confirmed via a `MissingReferenceException` from a stale destroyed
+`PillarEdictAura` still sitting in the static registry across two tests). Fixed by
+switching `Garrison` to lazy `GetComponent` resolution (same convention `Barracks`
+already documents for Site/FactionMember) and `PillarEdictAura` to register on
+`Configure()` instead of `OnEnable()`; `Gatherer`'s aura scan also now skips a
+destroyed (fake-null) aura defensively rather than assuming `OnDisable` cleaned it
+up in time. None of this affects real Play Mode behavior (`Awake`/`OnEnable`/
+`OnDisable` all fire normally there) — it only made the EditMode tests trustworthy.
+
+**Verification**: 27/27 EditMode tests pass (10 new, in
+`Assets/Tests/EditMode/UniqueUnitsTests.cs`). Play Mode, via UnityMCP `execute_code`:
+spawned all 4 factories directly and confirmed class/HP/components; spawned a Wall,
+garrisoned a Durg Garrison unit, and confirmed a Siege `MeleeAttacker`'s actual hit
+dropped from 39 to 9 damage (garrisoned vs. not) on the same wall type; confirmed a
+Gatherer's `AuraMultiplier` reads 1.5x near a Pillar Edict Scholar and 1x far away.
+Did not fully step through Barracks' real multi-second training timer in Play Mode
+(EditMode tests cover `RequestTrainUniqueUnit`'s cost/slot logic; the Play Mode pass
+covers the actual spawn path `TickTraining` calls into, which is the part that
+couldn't be exercised without either playing).
+
+**Assets**: no models exist for any of the 4 — all spawn on the shared Human
+Character Dummy body (Male), matching the "stats distinguish it before art catches
+up" convention. **All 4 still need real models from the user** before they visually
+stand out from each other or from the existing roster; not sourced this session per
+CLAUDE.md/Roadmap Section 4 (that's explicitly not this session's job).
+
+---
+
 ## 2026-08-27 — Per-civ passive bonuses (Roadmap Section 5, item 2)
 
 **Scope**: Wired every civ's passive bonus live, not just the 4 data-backed entries

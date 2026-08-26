@@ -28,6 +28,8 @@ namespace KingdomsOfBharat.ResourceGathering
         private float _rateMultiplier = 1f;
         private float _carryCapacityMultiplier = 1f;
         private float _vfxTimer;
+        private float _auraMultiplier = 1f;
+        private float _auraCheckTimer;
 
         // For SelectedUnitPanel (UI) to show a status line - true for the
         // whole round trip (walking to the node, gathering, walking back),
@@ -88,6 +90,13 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private void Update()
         {
+            _auraCheckTimer -= Time.deltaTime;
+            if (_auraCheckTimer <= 0f)
+            {
+                _auraCheckTimer = 0.5f;
+                RefreshAuraMultiplier();
+            }
+
             switch (_state)
             {
                 case State.MovingToNode:
@@ -100,6 +109,38 @@ namespace KingdomsOfBharat.ResourceGathering
                     TickMovingToDropOff();
                     break;
             }
+        }
+
+        // For SelectedUnitPanel/tests to read the aura's current effect.
+        public float AuraMultiplier => _auraMultiplier;
+
+        // Polled rather than event-driven (see PillarEdictAura) - a worker
+        // that walks out of a scholar's range simply reads 1x on its next
+        // check, no explicit "left the aura" notification required. Public
+        // so a test can force an immediate check instead of waiting on the
+        // 0.5s timer.
+        public void RefreshAuraMultiplier()
+        {
+            float multiplier = 1f;
+            FactionId faction = MyFaction();
+
+            foreach (PillarEdictAura aura in PillarEdictAura.All)
+            {
+                // A destroyed aura can briefly outlive its removal from
+                // All (e.g. OnDisable ordering) - skip rather than throw.
+                if (aura == null || aura.Faction != faction)
+                {
+                    continue;
+                }
+
+                if (Vector3.Distance(transform.position, aura.transform.position) <= PillarEdictAura.Radius)
+                {
+                    multiplier = PillarEdictAura.Multiplier;
+                    break;
+                }
+            }
+
+            _auraMultiplier = multiplier;
         }
 
         private void TickMovingToNode()
@@ -136,7 +177,7 @@ namespace KingdomsOfBharat.ResourceGathering
             }
 
             _carriedType = _targetNode.ResourceType;
-            _carriedAmount += _targetNode.Harvest(gatherRate * _rateMultiplier * Time.deltaTime);
+            _carriedAmount += _targetNode.Harvest(gatherRate * _rateMultiplier * _auraMultiplier * Time.deltaTime);
 
             _vfxTimer += Time.deltaTime;
             if (_vfxTimer >= 0.4f)

@@ -378,8 +378,16 @@ namespace KingdomsOfBharat.Selection
             Livestock livestock = null;
             bool hitLivestock = !hitNode && !hitSite && !hitFarm
                 && hit.collider.TryGetComponent(out livestock);
+            // Roadmap Section 5 item 3: right-clicking an owned Wall/Tower
+            // with a Durg Garrison unit selected garrisons it - same
+            // "friendly-only, falls through to attack otherwise" gating as
+            // hitFarm/hitLivestock above.
+            Garrison garrison = null;
+            bool hitGarrison = !hitNode && !hitSite && !hitFarm && !hitLivestock
+                && hit.collider.TryGetComponent(out garrison)
+                && IsFriendlyToPlayer(garrison);
             Attackable attackable = null;
-            bool hitAttackable = !hitNode && !hitSite && !hitFarm && !hitLivestock
+            bool hitAttackable = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison
                 && hit.collider.TryGetComponent(out attackable)
                 && !attackable.IsDead;
 
@@ -423,6 +431,7 @@ namespace KingdomsOfBharat.Selection
                 unit.TryGetComponent(out MeleeAttacker attacker);
                 unit.TryGetComponent(out FarmWorker farmWorker);
                 unit.TryGetComponent(out LivestockWorker livestockWorker);
+                unit.TryGetComponent(out DurgGarrisonWorker durgWorker);
                 // Item 49: a boat has none of the land components above -
                 // Gatherer/Builder/MeleeAttacker/FarmWorker/LivestockWorker
                 // are all null for it - so it needs its own equivalents
@@ -464,6 +473,15 @@ namespace KingdomsOfBharat.Selection
                     attacker?.CancelAttack();
                     farmWorker?.CancelWork();
                     livestockWorker.StaffAt(livestock);
+                }
+                else if (hitGarrison && durgWorker != null && IsSameFaction(unit, garrison))
+                {
+                    gatherer?.CancelGather();
+                    builder?.CancelBuild();
+                    attacker?.CancelAttack();
+                    farmWorker?.CancelWork();
+                    livestockWorker?.CancelWork();
+                    durgWorker.GarrisonAt(garrison);
                 }
                 else if (hitAttackable && attacker != null && IsHostileTarget(unit, attackable))
                 {

@@ -50,6 +50,12 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button spearmanButton;
         [SerializeField] private Button uniqueUnitButton;
         [SerializeField] private TMP_Text uniqueUnitLabel;
+        // Roadmap Section 5 item 3: Maurya/Maratha each have a 2nd unique
+        // unit (see UniqueUnitDefinition/Barracks.UniqueUnitCount) - hidden
+        // entirely for the 3 civs that only have 1 (see Update()).
+        [SerializeField] private Button uniqueUnitButton2;
+        [SerializeField] private TMP_Text uniqueUnitLabel2;
+        [SerializeField] private Button ungarrisonButton;
         [SerializeField] private Button fishingBoatButton;
         [SerializeField] private Button warGalleyButton;
         [SerializeField] private Button sellWoodButton;
@@ -107,6 +113,8 @@ namespace KingdomsOfBharat.UI
             siegeButton.onClick.AddListener(TrainSiegeAtSelected);
             spearmanButton.onClick.AddListener(TrainSpearmanAtSelected);
             uniqueUnitButton.onClick.AddListener(TrainUniqueUnitAtSelected);
+            uniqueUnitButton2.onClick.AddListener(TrainUniqueUnit2AtSelected);
+            ungarrisonButton.onClick.AddListener(UngarrisonAtSelected);
             fishingBoatButton.onClick.AddListener(TrainFishingBoatAtSelected);
             warGalleyButton.onClick.AddListener(TrainWarGalleyAtSelected);
             sellWoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Wood, sell: true));
@@ -137,6 +145,11 @@ namespace KingdomsOfBharat.UI
             Barracks barracks = ownsSelected ? selected as Barracks : null;
             Dock dock = ownsSelected ? selected as Dock : null;
             Market market = ownsSelected ? selected as Market : null;
+            // Roadmap Section 5 item 3: Wall/Tower didn't show any panel
+            // before this - Garrison is the only reason either needs one.
+            Garrison garrison = (ownsSelected && (selected is Wall || selected is Tower))
+                ? selected.GetComponent<Garrison>()
+                : null;
 
             SetPlacementButtonsActive(showPlacement);
             workerButton.gameObject.SetActive(townCenter != null);
@@ -150,6 +163,8 @@ namespace KingdomsOfBharat.UI
             siegeButton.gameObject.SetActive(barracks != null);
             spearmanButton.gameObject.SetActive(barracks != null);
             uniqueUnitButton.gameObject.SetActive(barracks != null);
+            uniqueUnitButton2.gameObject.SetActive(barracks != null && barracks.UniqueUnitCount > 1);
+            ungarrisonButton.gameObject.SetActive(garrison != null && garrison.HasDurgGarrison);
             attackUpgradeButton.gameObject.SetActive(barracks != null);
             armorUpgradeButton.gameObject.SetActive(barracks != null);
             uniqueTechButton.gameObject.SetActive(barracks != null);
@@ -211,6 +226,13 @@ namespace KingdomsOfBharat.UI
             spearmanButton.interactable = canTrain;
             uniqueUnitButton.interactable = canTrain;
             uniqueUnitLabel.text = $"Train {barracks.UniqueUnit.Name} ({(int)barracks.UniqueUnit.FoodCost} Food, {(int)barracks.UniqueUnit.GoldCost} Gold)";
+
+            if (barracks.UniqueUnitCount > 1)
+            {
+                UniqueUnitDefinition unique2 = barracks.UniqueUnitAt(1);
+                uniqueUnitButton2.interactable = canTrain;
+                uniqueUnitLabel2.text = $"Train {unique2.Name} ({(int)unique2.FoodCost} Food, {(int)unique2.GoldCost} Gold)";
+            }
 
             UpdateUpgradeButton(
                 attackUpgradeButton, attackUpgradeLabel, "Attack",
@@ -429,6 +451,25 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
                 CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrainUniqueUnit));
+            }
+        }
+
+        private void TrainUniqueUnit2AtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, () => barracks.RequestTrainUniqueUnit(1)));
+            }
+        }
+
+        // Roadmap Section 5 item 3: no train cost/command needed - same
+        // direct-call convention TradeAtSelected uses for Market.Sell/Buy.
+        private void UngarrisonAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding != null
+                && _selectionManager.SelectedBuilding.TryGetComponent(out Garrison garrison))
+            {
+                garrison.Ungarrison();
             }
         }
 

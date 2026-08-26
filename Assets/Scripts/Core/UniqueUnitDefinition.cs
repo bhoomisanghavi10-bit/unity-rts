@@ -38,28 +38,64 @@ namespace KingdomsOfBharat.Core
         // else's 5s), so this couldn't just reuse Barracks' shared
         // trainTime field the way the fallback constructor below implies -
         // each entry needs its own value.
-        private static readonly Dictionary<CivilizationId, (string civId, string unitId, string name, Func<Vector3, FactionId, GameObject> spawn)> Sources =
-            new Dictionary<CivilizationId, (string, string, string, Func<Vector3, FactionId, GameObject>)>
+        //
+        // Roadmap Section 5 item 3: each civ can have MORE than one unique
+        // unit (Maurya/Maratha both have 2 in the CSV) - a plain
+        // Dictionary<CivilizationId, single-entry> couldn't represent
+        // that, so this is now a per-civ List, indexed by slot. Chola/
+        // Vijayanagara/Rajput still only have 1 entry each - their
+        // behavior (and Barracks' single unique-unit button) is unchanged.
+        private static readonly Dictionary<CivilizationId, List<(string unitId, string name, Func<Vector3, FactionId, GameObject> spawn)>> Sources =
+            new Dictionary<CivilizationId, List<(string, string, Func<Vector3, FactionId, GameObject>)>>
             {
-                { CivilizationId.Chola, ("chola", "chola_naval_raider", "Chola Naval Raider", CholaNavalRaiderFactory.Spawn) },
-                { CivilizationId.Vijayanagara, ("vijayanagara", "vijayanagara_war_elephant", "Vijayanagara War Elephant", VijayanagaraWarElephantFactory.Spawn) },
-                { CivilizationId.Rajput, ("rajput", "rajput_royal_guard", "Rajput Royal Guard", RajputRoyalGuardFactory.Spawn) },
+                { CivilizationId.Chola, new List<(string, string, Func<Vector3, FactionId, GameObject>)>
+                    { ("chola_naval_raider", "Chola Naval Raider", CholaNavalRaiderFactory.Spawn) } },
+                { CivilizationId.Vijayanagara, new List<(string, string, Func<Vector3, FactionId, GameObject>)>
+                    { ("vijayanagara_war_elephant", "Vijayanagara War Elephant", VijayanagaraWarElephantFactory.Spawn) } },
+                { CivilizationId.Rajput, new List<(string, string, Func<Vector3, FactionId, GameObject>)>
+                    { ("rajput_royal_guard", "Rajput Royal Guard", RajputRoyalGuardFactory.Spawn) } },
+                { CivilizationId.Maurya, new List<(string, string, Func<Vector3, FactionId, GameObject>)>
+                    {
+                        ("maurya_war_elephant", "Maurya War Elephant", MauryaWarElephantFactory.Spawn),
+                        ("pillar_edict_scholar", "Pillar Edict Scholar", PillarEdictScholarFactory.Spawn),
+                    } },
+                { CivilizationId.Maratha, new List<(string, string, Func<Vector3, FactionId, GameObject>)>
+                    {
+                        ("maratha_mavla_raider", "Maratha Mavla Raider", MarathaMavlaRaiderFactory.Spawn),
+                        ("maratha_durg_garrison", "Maratha Durg Garrison", MarathaDurgGarrisonFactory.Spawn),
+                    } },
             };
 
         // Pre-migration hardcoded fallback (matches what shipped before
         // this pass) if the generated UnitDefinition is ever missing - see
         // CivilizationProfile/DataRegistry for the same defensive pattern.
-        private static readonly Dictionary<CivilizationId, (float food, float gold, float trainTime)> Fallback =
-            new Dictionary<CivilizationId, (float, float, float)>
+        // Keyed by (civId, slot) rather than nested per-civ lists - a flat
+        // dictionary reads more directly against Sources' per-slot lookup
+        // than a matching List<> would.
+        private static readonly Dictionary<(CivilizationId, int), (float food, float gold, float trainTime)> Fallback =
+            new Dictionary<(CivilizationId, int), (float, float, float)>
             {
-                { CivilizationId.Chola, (55f, 45f, 5f) },
-                { CivilizationId.Vijayanagara, (120f, 90f, 5f) },
-                { CivilizationId.Rajput, (90f, 70f, 5f) },
+                { (CivilizationId.Chola, 0), (55f, 45f, 5f) },
+                { (CivilizationId.Vijayanagara, 0), (120f, 90f, 5f) },
+                { (CivilizationId.Rajput, 0), (90f, 70f, 5f) },
+                { (CivilizationId.Maurya, 0), (130f, 100f, 6f) },
+                { (CivilizationId.Maurya, 1), (40f, 10f, 5f) },
+                { (CivilizationId.Maratha, 0), (60f, 45f, 5f) },
+                { (CivilizationId.Maratha, 1), (50f, 30f, 5f) },
             };
 
-        public static UniqueUnitDefinition For(CivilizationId id)
+        // Number of unique units the given civ actually has - Barracks/
+        // BuildMenu use this to decide whether a second training slot/
+        // button should even exist for this civ.
+        public static int CountFor(CivilizationId id)
         {
-            (string civId, string unitId, string name, Func<Vector3, FactionId, GameObject> spawn) = Sources[id];
+            return Sources.TryGetValue(id, out var list) ? list.Count : 0;
+        }
+
+        public static UniqueUnitDefinition For(CivilizationId id, int slot = 0)
+        {
+            List<(string unitId, string name, Func<Vector3, FactionId, GameObject> spawn)> list = Sources[id];
+            (string unitId, string name, Func<Vector3, FactionId, GameObject> spawn) = list[slot];
             UnitDefinition def = DataRegistry.GetUnit(unitId);
             if (def != null)
             {
@@ -67,7 +103,7 @@ namespace KingdomsOfBharat.Core
             }
 
             Debug.LogWarning($"UniqueUnitDefinition: no generated UnitDefinition for '{unitId}' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
-            (float food, float gold, float trainTime) fallback = Fallback[id];
+            (float food, float gold, float trainTime) fallback = Fallback[(id, slot)];
             return new UniqueUnitDefinition(name, fallback.food, fallback.gold, fallback.trainTime, spawn);
         }
     }

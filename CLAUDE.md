@@ -7,12 +7,16 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- Currently on: next unstarted item from Section 5 — item 3, "build the 4 missing
-  unique-unit factories" (Maurya/Maratha).
-- Last completed: Section 5 item 2, per-civ passive bonuses. Wired all 4 data-backed
-  bonuses (`CivilizationProfile.FindCategoryMultiplier`) plus 6 structural mechanics
-  that aren't `passiveBonuses` data at all (hand-written civ checks) — see
-  `docs/SESSION_LOG.md` for the full list and verification.
+- Currently on: next unstarted item from Section 5 — item 4, "re-verify every
+  'confirmed by reflection/config only, not live' item" (Wall carving is the
+  flagged one; check for others across the log).
+- Last completed: Section 5 item 3, the 4 missing Maurya/Maratha unique-unit
+  factories. Extended `UniqueUnitDefinition`/`Barracks`/`BuildMenu` to a 2-slot-per-
+  civ system, plus real new mechanics for 2 of the 4 (Pillar Edict Scholar's
+  gather-rate aura, Durg Garrison's Wall/Tower siege-immunity) rather than
+  stats-only stubs — see `docs/SESSION_LOG.md` for the full writeup, the
+  architectural conflicts flagged/confirmed before implementing, and verification.
+  No models exist for any of the 4 yet (shared Human Dummy body pending real art).
 
 ## Engine & architecture
 - Unity version: [fill in]

@@ -23,10 +23,22 @@ namespace KingdomsOfBharat.Combat
         [SerializeField] private float pierceArmor;
         [SerializeField] private UnitClass unitClass = UnitClass.Infantry;
 
+        [SerializeField] private bool siegeImmune;
+
         public float Health { get; private set; }
         public float MaxHealth => maxHealth;
         public bool IsDead => Health <= 0f;
         public UnitClass Class => unitClass;
+        // Roadmap Section 5 item 3 (Maratha Durg Garrison): a building
+        // with a Durg Garrison unit inside is immune to Siege's normal 3x
+        // anti-building bonus - see Garrison.TryGarrison/Ungarrison, which
+        // set this, and MeleeAttacker's bonus computation, which reads it.
+        public bool SiegeImmune => siegeImmune;
+
+        public void SetSiegeImmune(bool value)
+        {
+            siegeImmune = value;
+        }
 
         public void Configure(float newMaxHealth)
         {

@@ -44,6 +44,9 @@ namespace KingdomsOfBharat.Buildings
             attackable.ConfigureClass(UnitClass.Building);
             go.AddComponent<HealthBar>();
             go.AddComponent<FactionMember>().Configure(faction);
+            // Roadmap Section 5 item 3: lets a Maratha Durg Garrison unit
+            // enter this Wall - see Garrison.
+            go.AddComponent<Garrison>();
 
             var obstacle = go.AddComponent<NavMeshObstacle>();
             obstacle.shape = NavMeshObstacleShape.Box;

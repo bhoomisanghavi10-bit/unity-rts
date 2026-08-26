@@ -46,6 +46,9 @@ namespace KingdomsOfBharat.Buildings
             go.AddComponent<TowerAttacker>().Configure(
                 civ == CivilizationId.Vijayanagara ? BaseAttackRange + 1f : BaseAttackRange);
             go.AddComponent<FactionMember>().Configure(faction);
+            // Roadmap Section 5 item 3: lets a Maratha Durg Garrison unit
+            // enter this Tower - see Garrison.
+            go.AddComponent<Garrison>();
 
             var obstacle = go.AddComponent<NavMeshObstacle>();
             obstacle.shape = NavMeshObstacleShape.Box;
