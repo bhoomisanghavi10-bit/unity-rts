@@ -102,6 +102,50 @@ namespace KingdomsOfBharat.AI
         private bool _hasScoutedPlayer;
         private Unit _scoutUnit;
 
+        // Guards against a leftover test/scaffolding AiController (found
+        // active in Main.unity as "TestAi_MultiFront", claiming the same
+        // myFaction/position as the real Enemy AiController) silently
+        // running as a second, competing brain for the same faction -
+        // spawning its own TownCenter+workers on top of the real one's.
+        // Deliberately checked here in script rather than by removing the
+        // object from the scene asset directly, so this holds regardless
+        // of what test/debug objects end up saved into the scene.
+        //
+        // Done in Awake() rather than Start(), and keyed off the
+        // GameObject's own name rather than "whoever claims the faction
+        // first" - Unity guarantees every already-active object's Awake()
+        // runs before any of their Start()s, but does NOT guarantee Awake
+        // order between objects, so a first-claim-wins check in Start()
+        // can (and did, confirmed live) disable the real AiController
+        // instead of the test one if the test object simply happened to
+        // sit earlier in the Hierarchy. Naming is the one signal that
+        // reliably identifies which instance is the scaffolding rather
+        // than depending on execution order.
+        private void Awake()
+        {
+            if (!name.ToLowerInvariant().Contains("test"))
+            {
+                return;
+            }
+
+            // Include inactive: the real AiController for a faction is
+            // gated (inactive until CivilizationSetup.BeginMatchCore
+            // activates it), but a leftover test object like this one can
+            // sit active in the scene from the start - excluding inactive
+            // objects here meant this check ran before the real sibling
+            // it needed to compare against even existed yet.
+            foreach (AiController other in FindObjectsByType<AiController>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (other != this && other.myFaction == myFaction && !other.name.ToLowerInvariant().Contains("test"))
+                {
+                    Debug.LogWarning($"AiController on '{name}' disabled: faction {myFaction} is already " +
+                        $"controlled by '{other.name}' (this object's name marks it as a test/scaffolding duplicate).");
+                    enabled = false;
+                    return;
+                }
+            }
+        }
+
         private void Start()
         {
             ApplyDifficulty();
