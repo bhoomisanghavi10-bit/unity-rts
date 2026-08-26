@@ -7,6 +7,7 @@ using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Progression;
 using KingdomsOfBharat.Multiplayer;
+using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.UI
 {
@@ -44,8 +45,25 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button workerButton;
         [SerializeField] private Button soldierButton;
         [SerializeField] private Button archerButton;
+        [SerializeField] private Button cavalryButton;
+        [SerializeField] private Button siegeButton;
+        [SerializeField] private Button spearmanButton;
         [SerializeField] private Button uniqueUnitButton;
         [SerializeField] private TMP_Text uniqueUnitLabel;
+        [SerializeField] private Button fishingBoatButton;
+        [SerializeField] private Button warGalleyButton;
+        [SerializeField] private Button sellWoodButton;
+        [SerializeField] private TMP_Text sellWoodLabel;
+        [SerializeField] private Button buyWoodButton;
+        [SerializeField] private TMP_Text buyWoodLabel;
+        [SerializeField] private Button sellFoodButton;
+        [SerializeField] private TMP_Text sellFoodLabel;
+        [SerializeField] private Button buyFoodButton;
+        [SerializeField] private TMP_Text buyFoodLabel;
+        [SerializeField] private Button sellStoneButton;
+        [SerializeField] private TMP_Text sellStoneLabel;
+        [SerializeField] private Button buyStoneButton;
+        [SerializeField] private TMP_Text buyStoneLabel;
         [SerializeField] private Button attackUpgradeButton;
         [SerializeField] private TMP_Text attackUpgradeLabel;
         [SerializeField] private Button armorUpgradeButton;
@@ -60,6 +78,11 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private TMP_Text packMulesLabel;
         [SerializeField] private Button tradeDiscountsButton;
         [SerializeField] private TMP_Text tradeDiscountsLabel;
+
+        // Fixed per-click trade increment - Market.Buy/Sell take an arbitrary
+        // amount but nothing in the project has established a convention for
+        // letting the player choose one, so BuildMenu picks a flat number.
+        private const float MarketTradeAmount = 50f;
 
         private BuildingPlacer _placer;
         private SelectionManager _selectionManager;
@@ -80,7 +103,18 @@ namespace KingdomsOfBharat.UI
             workerButton.onClick.AddListener(TrainWorkerAtSelected);
             soldierButton.onClick.AddListener(TrainSoldierAtSelected);
             archerButton.onClick.AddListener(TrainArcherAtSelected);
+            cavalryButton.onClick.AddListener(TrainCavalryAtSelected);
+            siegeButton.onClick.AddListener(TrainSiegeAtSelected);
+            spearmanButton.onClick.AddListener(TrainSpearmanAtSelected);
             uniqueUnitButton.onClick.AddListener(TrainUniqueUnitAtSelected);
+            fishingBoatButton.onClick.AddListener(TrainFishingBoatAtSelected);
+            warGalleyButton.onClick.AddListener(TrainWarGalleyAtSelected);
+            sellWoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Wood, sell: true));
+            buyWoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Wood, sell: false));
+            sellFoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Food, sell: true));
+            buyFoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Food, sell: false));
+            sellStoneButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Stone, sell: true));
+            buyStoneButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Stone, sell: false));
             attackUpgradeButton.onClick.AddListener(ResearchAttackAtSelected);
             armorUpgradeButton.onClick.AddListener(ResearchArmorAtSelected);
             uniqueTechButton.onClick.AddListener(ResearchUniqueTechAtSelected);
@@ -101,6 +135,8 @@ namespace KingdomsOfBharat.UI
                 && _placer != null && !BuildingPlacer.IsPlacing && HasBuilderSelected();
             TownCenter townCenter = ownsSelected ? selected as TownCenter : null;
             Barracks barracks = ownsSelected ? selected as Barracks : null;
+            Dock dock = ownsSelected ? selected as Dock : null;
+            Market market = ownsSelected ? selected as Market : null;
 
             SetPlacementButtonsActive(showPlacement);
             workerButton.gameObject.SetActive(townCenter != null);
@@ -110,10 +146,21 @@ namespace KingdomsOfBharat.UI
             tradeDiscountsButton.gameObject.SetActive(townCenter != null);
             soldierButton.gameObject.SetActive(barracks != null);
             archerButton.gameObject.SetActive(barracks != null);
+            cavalryButton.gameObject.SetActive(barracks != null);
+            siegeButton.gameObject.SetActive(barracks != null);
+            spearmanButton.gameObject.SetActive(barracks != null);
             uniqueUnitButton.gameObject.SetActive(barracks != null);
             attackUpgradeButton.gameObject.SetActive(barracks != null);
             armorUpgradeButton.gameObject.SetActive(barracks != null);
             uniqueTechButton.gameObject.SetActive(barracks != null);
+            fishingBoatButton.gameObject.SetActive(dock != null);
+            warGalleyButton.gameObject.SetActive(dock != null);
+            sellWoodButton.gameObject.SetActive(market != null);
+            buyWoodButton.gameObject.SetActive(market != null);
+            sellFoodButton.gameObject.SetActive(market != null);
+            buyFoodButton.gameObject.SetActive(market != null);
+            sellStoneButton.gameObject.SetActive(market != null);
+            buyStoneButton.gameObject.SetActive(market != null);
 
             if (showPlacement)
             {
@@ -142,6 +189,16 @@ namespace KingdomsOfBharat.UI
             {
                 UpdateBarracksButtons(barracks);
             }
+
+            if (dock != null)
+            {
+                UpdateDockButtons(dock);
+            }
+
+            if (market != null)
+            {
+                UpdateMarketButtons(market);
+            }
         }
 
         private void UpdateBarracksButtons(Barracks barracks)
@@ -149,6 +206,9 @@ namespace KingdomsOfBharat.UI
             bool canTrain = barracks.IsComplete && !barracks.IsTraining;
             soldierButton.interactable = canTrain;
             archerButton.interactable = canTrain;
+            cavalryButton.interactable = canTrain;
+            siegeButton.interactable = canTrain;
+            spearmanButton.interactable = canTrain;
             uniqueUnitButton.interactable = canTrain;
             uniqueUnitLabel.text = $"Train {barracks.UniqueUnit.Name} ({(int)barracks.UniqueUnit.FoodCost} Food, {(int)barracks.UniqueUnit.GoldCost} Gold)";
 
@@ -165,6 +225,41 @@ namespace KingdomsOfBharat.UI
                 barracks.NextArmorUpgradeCost);
 
             UpdateUniqueTechButton(barracks);
+        }
+
+        private void UpdateDockButtons(Dock dock)
+        {
+            bool canTrain = dock.IsComplete && !dock.IsTraining;
+            fishingBoatButton.interactable = canTrain;
+            warGalleyButton.interactable = canTrain;
+        }
+
+        // Market trade panel: gating reads the owning faction's stockpile
+        // directly rather than adding read-only accessors to Market, same
+        // "BuildMenu reaches into the sim state it needs" approach already
+        // used for TownCenter/Barracks cost labels above - Market.Sell/Buy
+        // stay the only mutators.
+        private void UpdateMarketButtons(Market market)
+        {
+            FactionId faction = BuildingFaction(market);
+            ResourceStockpile stockpile = ResourceStockpile.For(faction);
+            float goldCost = MarketTradeAmount * market.EffectiveBuyRate;
+            float goldPayout = MarketTradeAmount * market.EffectiveSellRate;
+
+            UpdateTradeButton(sellWoodButton, sellWoodLabel, "Sell", "Wood", stockpile.GetTotal(ResourceType.Wood) >= MarketTradeAmount, goldPayout);
+            UpdateTradeButton(buyWoodButton, buyWoodLabel, "Buy", "Wood", stockpile.GetTotal(ResourceType.Gold) >= goldCost, goldCost);
+            UpdateTradeButton(sellFoodButton, sellFoodLabel, "Sell", "Food", stockpile.GetTotal(ResourceType.Food) >= MarketTradeAmount, goldPayout);
+            UpdateTradeButton(buyFoodButton, buyFoodLabel, "Buy", "Food", stockpile.GetTotal(ResourceType.Gold) >= goldCost, goldCost);
+            UpdateTradeButton(sellStoneButton, sellStoneLabel, "Sell", "Stone", stockpile.GetTotal(ResourceType.Stone) >= MarketTradeAmount, goldPayout);
+            UpdateTradeButton(buyStoneButton, buyStoneLabel, "Buy", "Stone", stockpile.GetTotal(ResourceType.Gold) >= goldCost, goldCost);
+        }
+
+        private static void UpdateTradeButton(Button button, TMP_Text label, string verb, string resourceName, bool canAfford, float goldAmount)
+        {
+            button.interactable = canAfford;
+            label.text = verb == "Sell"
+                ? $"Sell {(int)MarketTradeAmount} {resourceName} ({(int)goldAmount} Gold)"
+                : $"Buy {(int)MarketTradeAmount} {resourceName} ({(int)goldAmount} Gold)";
         }
 
         // Phase 6: separate from UpdateUpgradeButton since a unique tech
@@ -305,11 +400,68 @@ namespace KingdomsOfBharat.UI
             }
         }
 
+        private void TrainCavalryAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrainCavalry));
+            }
+        }
+
+        private void TrainSiegeAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrainSiege));
+            }
+        }
+
+        private void TrainSpearmanAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrainSpearman));
+            }
+        }
+
         private void TrainUniqueUnitAtSelected()
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
                 CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrainUniqueUnit));
+            }
+        }
+
+        private void TrainFishingBoatAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Dock dock)
+            {
+                CommandBus.Enqueue(new TrainCommand(BuildingFaction(dock), dock, dock.RequestTrainFishingBoat));
+            }
+        }
+
+        private void TrainWarGalleyAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Dock dock)
+            {
+                CommandBus.Enqueue(new TrainCommand(BuildingFaction(dock), dock, dock.RequestTrainWarGalley));
+            }
+        }
+
+        private void TradeAtSelected(ResourceType type, bool sell)
+        {
+            if (_selectionManager == null || _selectionManager.SelectedBuilding is not Market market)
+            {
+                return;
+            }
+
+            if (sell)
+            {
+                market.Sell(type, MarketTradeAmount);
+            }
+            else
+            {
+                market.Buy(type, MarketTradeAmount);
             }
         }
 

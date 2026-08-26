@@ -40,9 +40,12 @@ namespace KingdomsOfBharat.Buildings
         // sellRate up, buyRate down by the same amount - rather than being
         // read once at spawn, since a Market can outlive the moment its
         // owner's tech finishes researching.
-        private float EffectiveSellRate =>
+        // Exposed so BuildMenu's trade-button labels/gating read the same
+        // live rate Sell/Buy actually charge, instead of duplicating the
+        // unique-tech bonus lookup and risking drift.
+        public float EffectiveSellRate =>
             sellRate + (UniqueTechProgress.HasResearched(Faction) ? UniqueTechDefinition.For(CivilizationRegistry.For(Faction)).MarketRateBonus : 0f);
-        private float EffectiveBuyRate =>
+        public float EffectiveBuyRate =>
             buyRate - (UniqueTechProgress.HasResearched(Faction) ? UniqueTechDefinition.For(CivilizationRegistry.For(Faction)).MarketRateBonus : 0f);
 
         // Sells `amount` of `type` for Gold, at sellRate. No-op (returns

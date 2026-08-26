@@ -803,10 +803,11 @@ namespace KingdomsOfBharat.AI
         // Spearman took over what used to be a third plain-Soldier slot
         // (case 4) - added here because without it, the AI never trained
         // one at all despite it being a real, live-verified unit (see
-        // playtest_log.csv's Spearman-vs-Cavalry entry) - every human
-        // player already had access to it via Barracks.RequestTrainSpearman,
-        // but the AI opponent structurally couldn't field the one unit
-        // that hard-counters its own Cavalry slot. Siege is deliberately
+        // playtest_log.csv's Spearman-vs-Cavalry entry) - the AI opponent
+        // structurally couldn't field the one unit that hard-counters its
+        // own Cavalry slot. (Human players now train it via BuildMenu's
+        // Spearman button; before that button existed, this rotation was
+        // the AI's only access to it too.) Siege is deliberately
         // rare (1 in 7) - its 3x Building bonus is wasted outside a siege
         // against Walls/Towers/other buildings, and it's slow and
         // unremarkable against units in the meantime. The unique unit slot
