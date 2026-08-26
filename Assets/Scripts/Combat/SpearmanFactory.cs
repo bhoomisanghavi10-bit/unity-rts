@@ -61,13 +61,17 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);
 
-            // No spear model exists in Assets/Resources/Weapons/ (only
-            // Sword/Bow/Kanabo) - deliberately left bare-handed rather than
-            // reusing one of those and implying a false visual distinction
-            // (a sword-armed Spearman would look identical to Soldier).
-            // Real known gap, same category as Farm/Wall's old procedural-
-            // fallback state before a real pack was sourced - worth a
-            // targeted ask once/if a spear asset is sourced.
+            // Sourced from Sketchfab's "Spear Infantryman" (CC-BY, Avijoy.L
+            // - see Assets/importedmodels CREDITS convention) - the full
+            // 30-submesh character import wasn't used directly (no
+            // animations, unverified rig, same risk this project already
+            // flagged for the 2 unused Crusader Knight body swaps), only
+            // its spear mesh was extracted out to its own standalone
+            // prefab (Assets/Resources/Weapons/Spear/scene.prefab, single
+            // renderer) and attached the same way Sword/Bow/Kanabo are.
+            WeaponAttachment.AttachToBone(
+                go, HumanBodyBones.RightHand, "Weapons/Spear/scene",
+                targetSize: 2.4f, localPositionOffset: new Vector3(0.05f, 0.3f, 0f), localEulerOffset: new Vector3(-15f, 0f, 0f));
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.
             if (faction == FactionId.Player)
