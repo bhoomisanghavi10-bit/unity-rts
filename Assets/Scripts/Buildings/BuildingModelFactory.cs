@@ -24,6 +24,24 @@ namespace KingdomsOfBharat.Buildings
     {
         private const float GroundClearance = 0.02f;
 
+        // Full visual sweep (2026-08-26, following the ship/Dock bug
+        // report): Tower's world bounds at identity rotation were
+        // (25.88, 3.78, 7.01) - wider than a highway, barely taller than
+        // a House. A tower's height should dominate its footprint, not
+        // the other way around. -90 on Z gives (3.78, 25.88, 7.01) - tall
+        // and narrow, confirmed visually via scene-view screenshot
+        // (upright crenellated tower, not on its side) before committing.
+        // Every other building's bounds were sane (footprint > height, or
+        // legitimately tall-and-narrow like TownCenter's tiered-temple
+        // design, which was already visually confirmed correct in an
+        // earlier live Play mode screenshot this session) - Tower was the
+        // only real rotation bug among the 9 sourced building models.
+        private static readonly System.Collections.Generic.Dictionary<string, Quaternion> ImportRotationCorrections =
+            new System.Collections.Generic.Dictionary<string, Quaternion>
+            {
+                { "Tower", Quaternion.Euler(0f, 0f, -90f) },
+            };
+
         // rootPosition is the same "vertical center of the building"
         // convention every factory already computed for its primitive
         // cube (point + Vector3.up * (size.y * 0.5f), or TownCenterFactory's
@@ -78,7 +96,15 @@ namespace KingdomsOfBharat.Buildings
             }
 
             model.transform.localPosition = Vector3.zero;
-            model.transform.localRotation = Quaternion.identity;
+            // Only a real imported model can need an import-orientation
+            // correction - a procedural fallback shape is already built
+            // correctly oriented, so applying a correction meant for a
+            // specific sourced model to it (if that model's Resources
+            // asset were ever removed) would wrongly rotate a perfectly
+            // fine primitive shape instead.
+            model.transform.localRotation = prefab != null && ImportRotationCorrections.TryGetValue(resourceName, out Quaternion correction)
+                ? correction
+                : Quaternion.identity;
 
             // Imported packs (TownCenter in particular) ship their own
             // Collider baked into the model, sized by whoever authored the
