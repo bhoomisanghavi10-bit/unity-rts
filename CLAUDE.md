@@ -7,16 +7,26 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- Currently on: next unstarted item from Section 5 — item 4, "re-verify every
-  'confirmed by reflection/config only, not live' item" (Wall carving is the
-  flagged one; check for others across the log).
-- Last completed: Section 5 item 3, the 4 missing Maurya/Maratha unique-unit
-  factories. Extended `UniqueUnitDefinition`/`Barracks`/`BuildMenu` to a 2-slot-per-
-  civ system, plus real new mechanics for 2 of the 4 (Pillar Edict Scholar's
-  gather-rate aura, Durg Garrison's Wall/Tower siege-immunity) rather than
-  stats-only stubs — see `docs/SESSION_LOG.md` for the full writeup, the
-  architectural conflicts flagged/confirmed before implementing, and verification.
-  No models exist for any of the 4 yet (shared Human Dummy body pending real art).
+- Currently on: next unstarted item from Section 5 — item 5, "resume the balance
+  pass properly" (start actually logging to `playtest_log.csv`, then tackle
+  civ/age/upgrade stacking).
+- Last completed: Section 5 item 4, re-verifying every "confirmed by reflection/
+  config only, not live" item now that the Editor flakiness fix exists. Found 3
+  candidates across the dev history (Wall carving item 35, control-groups dead-unit
+  pruning item 34, Highlands/Coastal ground+NavMesh rebuild item 44), confirmed the
+  user's scope before running anything, then live-verified all 3 in a genuinely,
+  naturally-ticking Play mode session (not reflection-forced ticks). All 3 checked
+  out correct — no code fix needed. One real, previously-undocumented (non-bug)
+  nuance found on Wall: an unbuilt wall foundation (`ConstructionSite`'s
+  pre-construction `scale.y = 0.01` visual state) doesn't carve, since the
+  near-zero-height obstacle box no longer overlaps the walkable NavMesh surface —
+  only a fully-built Wall carves, which is what real gameplay actually relies on.
+  See `docs/SESSION_LOG.md` for full methodology.
+- Also still open: Section 5 item 3 (4 Maurya/Maratha unique-unit factories) is
+  backend-complete but **not fully closed** — no models exist for any of the 4 yet
+  (shared Human Dummy body pending real art per Roadmap Section 4.3). When a model
+  is ready, it gets wired in as its own separate session, not folded into whatever
+  item is active then.
 
 ## Engine & architecture
 - Unity version: [fill in]

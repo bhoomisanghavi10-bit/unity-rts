@@ -5,6 +5,113 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-27 — Re-verify reflection/config-only items live (Roadmap Section 5, item 4)
+
+**Scope**: Item 3 (4 unique-unit factories) marked backend-complete-not-fully-closed
+in the roadmap/CLAUDE.md first (models still pending from the user's asset pipeline,
+per Roadmap Section 4.3 — not this session's job, and not touched further). Then item
+4: re-verify every item in the dev history that was previously confirmed only via
+reflection/config-inspection or reflection-forced ticks, not a real live-ticking Play
+mode check, now that the "Editor frame stuck" flakiness has a real fix.
+
+**Search method**: grepped the full detailed dev log
+(`1787767106136_plan-it-out-and-dynamic-wolf.md`, referenced as source-of-truth by
+Roadmap.md) for every variant of "reflection only", "not live", "config inspection",
+"blocked by flakiness", "isolated reflection tests", "ambiguous/stale", etc. Found 3
+genuine candidates (not just any mention of "verified via reflection", which is this
+project's normal verification method and often paired with a real Play mode smoke
+test too — only cases where a live check was explicitly blocked, skipped, or worked
+around via reflection-forced ticks before the real fix existed):
+
+1. **Wall's NavMeshObstacle carving** (item 35) — the one already flagged in
+   Roadmap.md; config-inspection only, live check blocked by the flakiness.
+2. **Control-groups dead-unit pruning** (item 34) — the `RemoveAll(unit => unit ==
+   null)` path in `SelectionManager.SelectControlGroup` hit the flakiness mid-test and
+   was accepted on the strength of being copied from already-proven code elsewhere in
+   the file, not its own live confirmation.
+3. **Highlands/Coastal ground+NavMesh rebuild** (item 44) —
+   `ProceduralGround.Rebuild()`/`NavMeshBaker.RebuildNavMesh()` (called from
+   `CivilizationSetup.BeginMatchCore`) were verified twice, but both times via
+   reflection-forced `Start()`/`Update()` invocation while working around the stuck
+   frame, before the real fix existed.
+
+Presented this list to the user before running anything (per their explicit ask); all
+3 confirmed in scope.
+
+**Method**: entered Play mode, applied the fix (`Application.runInBackground = true`
++ `EditorApplication.QueuePlayerLoopUpdate()` + `SceneView.RepaintAll()` + GameView
+repaint), confirmed `Time.frameCount`/`Time.time` actually advancing across real wall-
+clock sleeps (not reflection-forced single ticks) before testing anything. All 3
+tests ran against the real, naturally-ticking frame loop via UnityMCP `execute_code`,
+polling live state across real `sleep` waits between checks — not single reflection
+snapshots.
+
+**1. Wall carving — confirmed correct, one real (non-bug) nuance found.** Built a
+6-segment wall row (RiverValley) and used `NavMesh.CalculatePath`/`NavMesh.SamplePosition`
+plus an actual `SoldierFactory`-spawned unit's live `MoveTo` order. First pass (walls
+left at default just-placed state) showed the path cutting straight through the wall
+row with zero detour — looked like a real bug, until found the cause: `WallFactory.Place`
+was called with `buildTime=0`/no builder assigned, and `ConstructionSite.Awake()`
+deliberately squashes a not-yet-built wall to `localScale.y = 0.01` (the "foundation"
+visual state) until a Builder is actively working it. `NavMeshObstacle.size` scales
+with the object's own transform, so at `scale.y=0.01` the obstacle's box no longer
+vertically overlaps the walkable NavMesh surface at all — an unbuilt foundation
+doesn't block pathing. This is a real, previously-undocumented mechanical
+consequence of the construction-visual system, not something anyone verified before
+(reflection-only or otherwise) — but it's arguably correct behavior (a foundation
+shouldn't act as a full wall) and nothing in the game currently depends on it either
+way, so documenting rather than changing it. Called `ConstructionSite.CompleteImmediately()`
+on all 6 segments (full height, `scale=(1,1,1)`) and re-ran both tests: `NavMesh.SamplePosition`
+at the wall's exact center now correctly finds nothing within 0.05 units (real hole),
+`NavMesh.CalculatePath` from one side to the other correctly detours around the
+wall's end (via `x=7.7`, past the row's `x=±7.2` extent) instead of cutting through,
+and a real live unit's `MoveTo` order physically walked that same detour and arrived
+exactly at its destination. **Confirmed live: a completed Wall's carving works
+correctly.** Roadmap Section 1's Wall bullet closed.
+
+**2. Control-groups dead-unit pruning — confirmed correct.** Spawned 2 real Soldiers,
+populated `SelectionManager`'s private `_selected` list via reflection (matching this
+project's established verification convention), invoked the private
+`AssignControlGroup(0)` to put both in group 1. Destroyed one unit
+(`GameObject.Destroy`) and let real frames pass so it actually left the scene (not
+just queued) before checking — confirmed the group still held 2 entries with a Unity
+fake-null in it. Invoked the private `SelectControlGroup(0)` (the exact reselect path
+containing the `RemoveAll(unit => unit == null)` line) — no exception, group correctly
+pruned to 1 entry, and `_selected` ended up holding only the surviving unit. No
+regression.
+
+**3. Highlands/Coastal ground+NavMesh rebuild — confirmed correct.** Invoked the
+private `CivilizationSetup.BeginMatchCore(Chola, Vijayanagara, MapId.Highlands)` via
+reflection (public `BeginMatch` has no map parameter). Measured the real `Ground`
+GameObject's `Renderer.bounds` (130×130, exact match to `MapDefinitionData.GroundSize`)
+and `NavMesh.CalculateTriangulation()`'s real walkable extent (~128.7×128.7, consistent
+with the 145×145 bake-bounds parameter minus normal voxel/edge margin). Spawned a
+real Soldier at one edge (`x=-60`) and sent a live `MoveTo` to the opposite edge
+(`x=60`) — watched it progress across multiple real-time polls and arrive exactly at
+`(60, 0.94, 0)`, confirming the full 120-unit span is genuinely walkable, not just
+mesh-sized. Repeated for Coastal: `Renderer.bounds` 125×125 (exact match), NavMesh
+extent asymmetric (98.7×123.7 — expected, since Coastal's water rectangle cuts into
+one edge's walkable X range per item 49), and a live unit crossed the full 110-unit
+north-south land span (`z=-55` to `z=55`, away from water) end to end. Both maps
+confirmed genuinely rebuilt at their real scaled size, not stale reflection-forced
+snapshots.
+
+**Console**: a handful of pre-existing, already-documented noise (RallyPoint/
+TownCenter component-strip ordering during `BuildingModelFactory`'s prefab load, and
+transient NavMeshAgent-not-yet-placed warnings during map-switch spawn timing) — none
+newly introduced by this session's testing, none affecting the actual verified
+behavior.
+
+**No code changes were needed** — all 3 items check out correct in live Play mode.
+This session's only changes are documentation (Roadmap.md, this log, CLAUDE.md
+status).
+
+**Roadmap**: Section 1's Wall bullet and Section 5 item 4 marked done. Section 5
+item 3's changelog line updated to reflect its backend-complete/visual-pending state
+explicitly, per the user's ask at the top of this session.
+
+---
+
 ## 2026-08-27 — 4 missing unique-unit factories (Roadmap Section 5, item 3)
 
 **Scope**: Built the 4 unique-unit factories CSV data already had

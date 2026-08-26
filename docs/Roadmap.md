@@ -52,19 +52,37 @@ entirely. What follows is the real remaining list.
 - [ ] **WaterMover has no obstacle avoidance** — straight-line movement only. Fine for
   the current single-rectangle water body; will break the moment any map gets a
   non-trivial coastline. Worth fixing before adding more naval-heavy maps.
-- [ ] **Wall's NavMeshObstacle carving was never confirmed live** — only verified by
-  config inspection, blocked repeatedly by the Editor "frame stuck" flakiness. That
-  flakiness now has a real fix (`Application.runInBackground` +
-  `EditorApplication.QueuePlayerLoopUpdate()` + forced repaint, found late in the log)
-  — worth going back and live-confirming this and any other "verified by reflection
-  only, not live" item now that the blocker is actually solved.
+- [x] **Wall's NavMeshObstacle carving was never confirmed live** — only verified by
+  config inspection, blocked repeatedly by the Editor "frame stuck" flakiness.
+  **Closed** — live-confirmed in a genuinely, naturally-ticking Play mode session
+  (via the `Application.runInBackground` + `QueuePlayerLoopUpdate()` + forced-repaint
+  fix): a fully-constructed Wall correctly carves a hole in the NavMesh and a live
+  unit's move order actually detours around it end-to-end, not just a config check.
+  **Real nuance found along the way, not a bug**: a Wall's `NavMeshObstacle.size` is
+  read at its current `transform.localScale`, and `ConstructionSite` deliberately
+  keeps a not-yet-built wall squashed to `scale.y = 0.01` (the "foundation" visual) —
+  at that height the obstacle's box no longer vertically overlaps the walkable
+  NavMesh surface, so an unbuilt wall foundation doesn't block pathing at all. Only
+  matters until a Builder is actually assigned to it (`ConstructionSite.BeginBuilding`);
+  a completed Wall (the only state that matters for real gameplay) carves correctly.
+  See `docs/SESSION_LOG.md` for the full test methodology.
 
 ### Medium priority — real content/design work, not bug fixes
 
-- [ ] **4 unique units for Maurya/Maratha have no live factory** — CSV data exists
+- [x] **4 unique units for Maurya/Maratha have no live factory** — CSV data exists
   (`maurya_war_elephant`, `pillar_edict_scholar`, `maratha_mavla_raider`,
   `maratha_durg_garrison`), but they're not spawnable yet. This is the main reason
   Maurya/Maratha, while selectable, aren't yet on par with the original 3 civs.
+  **Backend-complete, not fully closed** — all 4 spawnable via
+  `Barracks.RequestTrainUniqueUnit(int slot)`, now a 2-slot-per-civ system
+  (`UniqueUnitDefinition.CountFor`/`For(civId, slot)`). Pillar Edict Scholar and
+  Durg Garrison also got real new mechanics (a gather-rate aura and a Wall/Tower
+  garrison siege-immunity system, respectively), not just stats — see
+  `docs/SESSION_LOG.md`. **Visual closure still pending**: no models exist for any
+  of the 4 yet — all spawn on the shared Human Dummy body. Per Section 4.3, asset
+  sourcing/creation is the user's task, arranged outside the coding session; when a
+  model is ready it gets wired in as its own separate session, not folded into
+  whatever item is active then.
 - [x] **Narrower per-civ passive bonuses aren't live** — Rajput's cavalry-only gold
   discount, Maurya/Maratha's specific move-speed bonuses, etc. exist in
   `CivilizationDefinition.passiveBonuses` but nothing reads them; only the legacy
@@ -253,11 +271,16 @@ buying, or making an asset yourself:
 2. ~~**Wire the remaining per-civ passive bonuses live** — this is what makes Maurya/
    Maratha (and the fuller bonus sets on the original 3) actually functional, not just
    selectable.~~ **Done.**
-3. **Build the 4 missing unique-unit factories** — closes the last real content gap
-   in the 5-civ roster.
-4. **Re-verify every "confirmed by reflection/config only, not live" item** now that
+3. ~~**Build the 4 missing unique-unit factories** — closes the last real content gap
+   in the 5-civ roster.~~ **Backend-complete; visual closure (4 models) pending,
+   tracked separately per Section 4.3 — not blocking, not part of this item's scope.**
+4. ~~**Re-verify every "confirmed by reflection/config only, not live" item** now that
    the Editor flakiness fix exists (Wall carving is the flagged one, but check for
-   others across the log).
+   others across the log).~~ **Done.** Found 3 candidates across the dev history (Wall
+   carving item 35, control-groups dead-unit pruning item 34, Highlands/Coastal
+   ground+NavMesh rebuild item 44) and live-confirmed all 3 in a genuinely,
+   naturally-ticking Play mode session — no regressions found, one real (non-bug)
+   nuance documented on Wall. See `docs/SESSION_LOG.md`.
 5. **Resume the balance pass properly** — start actually logging to
    `playtest_log.csv`, then tackle civ/age/upgrade stacking.
 6. Everything else (music, tutorial, performance profiling, UI skin, store assets) is
