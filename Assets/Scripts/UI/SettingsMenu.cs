@@ -53,7 +53,7 @@ namespace KingdomsOfBharat.UI
         private GameObject _panel;
         private TMP_Text _difficultyValueText;
         private TMP_Text _colorblindValueText;
-        private readonly TMP_Text[] _keyButtonTexts = new TMP_Text[Actions.Length];
+        private TMP_Text[] _keyButtonTexts = new TMP_Text[Actions.Length];
         private string _rebindingActionId;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -122,6 +122,31 @@ namespace KingdomsOfBharat.UI
 
         private void RefreshDisplayedValues()
         {
+            // _keyButtonTexts is a plain (non-serialized) array of Object
+            // references - if a script recompiles while this DontDestroy
+            // OnLoad instance is still alive in a running Play session (a
+            // routine part of iterating in the Editor, not something an
+            // actual build ever does), Unity's domain-reload state backup
+            // doesn't restore array elements the way it restores single
+            // reference fields like _panel, leaving every entry null even
+            // though the underlying UI GameObjects are still there and
+            // still visible - this NREd on exactly that stale-reference
+            // read. The existing UI is intact, just unreachable through
+            // this array, so tearing it down and calling BuildUi() again
+            // (which repopulates the array from scratch) is enough - no
+            // need to hunt down and reuse the orphaned hierarchy.
+            if (_keyButtonTexts.Length > 0 && _keyButtonTexts[0] == null)
+            {
+                bool wasOpen = _panel != null && _panel.activeSelf;
+                if (_panel != null)
+                {
+                    Destroy(_panel.transform.parent.gameObject);
+                }
+                BuildUi();
+                _panel.SetActive(wasOpen);
+                return;
+            }
+
             _difficultyValueText.text = GameSettings.Difficulty.ToString();
             _colorblindValueText.text = GameSettings.ColorblindMode ? "On" : "Off";
 
