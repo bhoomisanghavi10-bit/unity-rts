@@ -147,9 +147,24 @@ namespace KingdomsOfBharat.Buildings
                 bounds.Encapsulate(renderers[i].bounds);
             }
 
-            float correction = groundY + GroundClearance - bounds.min.y;
-            model.transform.position += new Vector3(0f, correction, 0f);
-            bounds.center += new Vector3(0f, correction, 0f);
+            // Some Sketchfab imports (House/Medieval Tavern in particular)
+            // ship with their mesh's local origin nowhere near the mesh
+            // itself - one baked-in offset was ~13 world units away once
+            // scaled. Only correcting Y here left the root (and every
+            // system that reads it - Collider, click detection, rally,
+            // camera framing) pointing at the model's origin while the
+            // visible mesh rendered a dozen units off to the side, which
+            // reads as "walked inside broken giant geometry" up close.
+            // Recentering X/Z on the root too, not just aligning Y to the
+            // ground, makes root position and visible silhouette agree
+            // regardless of how a given pack's pivot was authored.
+            Vector3 rootPosition = model.transform.parent.position;
+            Vector3 correction = new Vector3(
+                rootPosition.x - bounds.center.x,
+                groundY + GroundClearance - bounds.min.y,
+                rootPosition.z - bounds.center.z);
+            model.transform.position += correction;
+            bounds.center += correction;
 
             return bounds;
         }
