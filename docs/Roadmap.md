@@ -100,11 +100,22 @@ entirely. What follows is the real remaining list.
   Stone discount + Tower range, Rajput's Cavalry dismount-survival, Maratha's
   permanent scouted-position memory (building permanence + unit ghost markers in
   `FogOfWarManager`). See `docs/SESSION_LOG.md` for the full audit and verification.
-- [ ] **Balance pass (item 43) is still explicitly ongoing** — the Cavalry-vs-Archer
-  fix is real and verified, but civ/age/upgrade multiplier stacking, training
-  cost-vs-power ratios, and actual sustained live playtesting haven't happened.
-  `playtest_log.csv` process exists but is still empty per the log — start actually
-  using it.
+- [x] **Balance pass (item 43) resumed** — `playtest_log.csv` now has 15 real
+  logged 1v1 forced-melee fights (up from the 1 existing row): every roster gap the
+  roadmap flagged as unaudited (Siege vs Infantry/Archer/Cavalry, Spearman vs
+  Infantry/Spearman, War Galley vs Infantry/Spearman), all 4 new unique units'
+  factories live-confirmed fighting correctly for the first time, the Durg Garrison
+  siege-immunity mechanic live-measured exactly (39/hit at 3x → 9/hit at 1x, not
+  approximate), and a dedicated civ/age/upgrade/unique-tech stacking audit. Stacking
+  audit result: HP/armor/damage combine exactly as coded (multiplicative HP/train-time,
+  additive armor/damage bonuses, counter-matrix multiplier applied once) with no
+  double-counting found anywhere across 6 factories checked - a large enough tech gap
+  (Imperial+maxed-upgrades+unique-tech vs Ancient+unupgraded) can overwhelm even a 2x
+  hard counter, which is intended AoE-style tech-tree behavior, not a bug. No code
+  changes were needed. Training cost-vs-power ratios and further sustained live
+  playtesting remain open for a future balance session - this pass closed the
+  specific "start logging + audit stacking" scope of item 5, not the whole ongoing
+  balance-pass item. See `docs/SESSION_LOG.md` for full methodology and results.
 - [ ] **Naval balance is one evidenced fix, not a full pass** — only Naval→Archer was
   tuned; every other naval matchup is unaudited flat 1x.
 - [ ] **UI skin (item 47's second half) hasn't started at all** — building/unit
@@ -281,8 +292,11 @@ buying, or making an asset yourself:
    ground+NavMesh rebuild item 44) and live-confirmed all 3 in a genuinely,
    naturally-ticking Play mode session — no regressions found, one real (non-bug)
    nuance documented on Wall. See `docs/SESSION_LOG.md`.
-5. **Resume the balance pass properly** — start actually logging to
-   `playtest_log.csv`, then tackle civ/age/upgrade stacking.
+5. ~~**Resume the balance pass properly** — start actually logging to
+   `playtest_log.csv`, then tackle civ/age/upgrade stacking.~~ **Done for this
+   session's scope** — 15 real fights logged, roster coverage gaps filled, stacking
+   audited and confirmed correct (no code fix needed). Training cost-vs-power ratios
+   and continued sustained playtesting remain open for a future balance session.
 6. Everything else (music, tutorial, performance profiling, UI skin, store assets) is
    real but lower-urgency — sequence after the above based on what you want to
    prioritize next, not by default order.

@@ -7,21 +7,24 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- Currently on: next unstarted item from Section 5 — item 5, "resume the balance
-  pass properly" (start actually logging to `playtest_log.csv`, then tackle
-  civ/age/upgrade stacking).
-- Last completed: Section 5 item 4, re-verifying every "confirmed by reflection/
-  config only, not live" item now that the Editor flakiness fix exists. Found 3
-  candidates across the dev history (Wall carving item 35, control-groups dead-unit
-  pruning item 34, Highlands/Coastal ground+NavMesh rebuild item 44), confirmed the
-  user's scope before running anything, then live-verified all 3 in a genuinely,
-  naturally-ticking Play mode session (not reflection-forced ticks). All 3 checked
-  out correct — no code fix needed. One real, previously-undocumented (non-bug)
-  nuance found on Wall: an unbuilt wall foundation (`ConstructionSite`'s
-  pre-construction `scale.y = 0.01` visual state) doesn't carve, since the
-  near-zero-height obstacle box no longer overlaps the walkable NavMesh surface —
-  only a fully-built Wall carves, which is what real gameplay actually relies on.
-  See `docs/SESSION_LOG.md` for full methodology.
+- Currently on: nothing started yet for the next session — item 5's specific scope
+  (start logging to `playtest_log.csv`, audit civ/age/upgrade stacking) is done; next
+  up is item 6 ("everything else"), or continued balance work (training cost-vs-power
+  ratios, further sustained playtesting) if that's prioritized instead — user's call.
+- Last completed: Section 5 item 5, resuming the balance pass. Logged 15 real 1v1
+  forced-melee fights to `playtest_log.csv` (proposed the matchup list to the user
+  and got explicit confirmation before running anything) covering every previously
+  unaudited roster pairing (Siege vs Infantry/Archer/Cavalry, Spearman vs
+  Infantry/Spearman, War Galley vs Infantry/Spearman), first-ever live combat checks
+  for all 4 new unique-unit factories, an exact live before/after damage measurement
+  of the Durg Garrison siege-immunity mechanic (39/hit at 3x → 9/hit at 1x, precisely
+  matching the coded formula), and a dedicated civ/age/upgrade/unique-tech stacking
+  audit. Stacking audit found every layer combines exactly as coded (multiplicative
+  HP/train-time, additive armor/damage, counter-matrix applied once) with zero
+  double-counting across all 6 factories checked — a large enough tech-level gap can
+  overwhelm even a 2x hard counter, which is the intended AoE-style tech-tree
+  outcome, not a bug. No code changes were needed. See `docs/SESSION_LOG.md` for full
+  methodology and results.
 - Also still open: Section 5 item 3 (4 Maurya/Maratha unique-unit factories) is
   backend-complete but **not fully closed** — no models exist for any of the 4 yet
   (shared Human Dummy body pending real art per Roadmap Section 4.3). When a model

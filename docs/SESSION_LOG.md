@@ -5,6 +5,98 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-27 — Resume the balance pass (Roadmap Section 5, item 5)
+
+**Scope**: Item 5 - start actually using `playtest_log.csv` (documented as "process
+exists, still empty" - one row existed from item 43's original work), and audit
+civ/age/upgrade multiplier stacking. Proposed a specific 15-matchup test list to the
+user before running anything (per their explicit ask); user confirmed to proceed as-is.
+
+**Pre-test code audit**: Before running anything, read how HP/armor/damage combine at
+spawn time across all 6 melee-unit factories (Soldier/Archer/Cavalry/Spearman/Siege/
+Worker) plus Barracks/TownCenter/Dock train-time calculations. Pattern is consistent
+everywhere: HP and train time multiply (base × civ × age, by design per `AgeProfile`'s
+own doc comment); armor and damage bonuses add (flat Attack/Armor tier +
+per-class tier + unique-tech bonus); the `CombatBonus` counter-matrix multiplier is
+applied exactly once, at hit time, on top of that. No double-application found in the
+code itself.
+
+**Method**: Entered Play mode via UnityMCP, applied the documented flakiness fix
+(`Application.runInBackground` + `QueuePlayerLoopUpdate()` + `SceneView.RepaintAll()`),
+confirmed `Time.time`/`Time.frameCount` genuinely advancing across real wall-clock
+sleeps before testing anything. All fights ran as real 1v1 forced-melee matches
+(`execute_code`-spawned units, `AttackMove` called directly, full HP, placed within
+immediate attack range - same convention as the one existing playtest_log.csv row) -
+not reflection-forced ticks. Used `UnityEngine.Time.time` (not wall-clock/tool-latency
+estimates, which turned out to run much longer than expected between tool
+round-trips) as the authoritative clock for the stacking-audit's damage-rate
+measurements, since MCP tool-call overhead made short real-time sleeps unreliable for
+isolating a single hit.
+
+**Results** (all 15 rows logged to `Assets/Design/playtest_log.csv` with full detail):
+
+1. **Roster coverage gaps** (7 fights): Siege vs Infantry/Archer/Cavalry all confirmed
+   flat 1x as documented. Spearman vs Infantry: Soldier actually won (2/30 HP) -
+   verified against real CSV stats (not fallback constants), Infantry's 1.25x bonus
+   vs Spearman narrowly outweighs Spearman's raw stat edge once armor is factored in,
+   exactly matching the CombatBonus.cs comment's claim that "a Spearman blob without
+   support dies fast to plain Infantry." Spearman mirror match: symmetric, no
+   asymmetry bug. War Galley vs Infantry/Spearman: Galley won both but took real
+   damage (44%/33% HP lost) - a raw-stat win, not a free one, consistent with the
+   roadmap's existing note that only Naval-vs-Archer has real balance evidence.
+2. **Unique-unit factory live checks** (3 fights, first-ever live combat confirmation
+   for these): Maurya War Elephant beat Cavalry on raw stats as designed; Pillar
+   Edict Scholar lost to a dedicated Soldier as intended (support unit, "not a
+   fighter"); Maratha Mavla Raider narrowly beat generic Cavalry as the
+   higher-damage/lower-HP raider archetype it's designed to be.
+3. **Durg Garrison siege-immunity mechanic** (1 measurement, not a win/loss fight):
+   built a real Wall via `WallFactory.Place` + `ConstructionSite.CompleteImmediately()`,
+   measured Siege's actual live damage-per-hit against it before/after
+   `Garrison.TryGarrison()`. Ungarrisoned: exactly 39 dmg/hit (15 base × 3x Siege-vs-
+   Building − 6 wall armor). Garrisoned: exactly 9 dmg/hit (15 × 1x − 6 armor). Confirms
+   the coded 3x-to-1x immunity strip is exact, live, not just present in the code -
+   this mechanic had never been given a live before/after damage measurement before.
+4. **Stacking audit** (4 fights): re-confirmed baseline Cavalry-vs-Archer (Archer won
+   narrowly, 1.2/18 HP - first playtest_log entry for this specific pairing, matches
+   hand-calculated math exactly). Then stacked every non-retroactive bonus at once on
+   one side (Rajput civ, Imperial age, max flat + max per-class Attack/Armor tiers,
+   unique tech) and ran that Cavalry against both a baseline Archer and a baseline
+   Spearman (the hard 2x anti-cavalry counter). In both cases the fully-stacked
+   Cavalry won overwhelmingly (52.2/55.2 HP and 50.7/55.2 HP respectively). Checked
+   the actual numbers against the coded formula by hand each time - every result
+   matched exactly, confirming no double-counting across civ/age/upgrade/unique-tech
+   layers. **Conclusion: this is not a stacking bug** - a large enough tech-level gap
+   overwhelming a hard counter is the intended, designed consequence of an AoE-style
+   tech tree, not silent double-application. The counter multiplier itself (0.4x/2x)
+   still applied correctly in both fights; it was just outweighed by the flat
+   damage/armor gap. No code changes were needed anywhere in this session.
+
+**One non-bug side note found and documented (not fixed)**: `CombatBonus.cs`'s
+Spearman doc comment describes Infantry's bonus against Spearman as Spearman
+receiving "weak 0.8x" - the actual coded multiplier (1.25x extra damage dealt by
+Infantry) is functionally identical but described backwards in the comment text.
+Comment-only, zero behavior impact - noted in the playtest_log.csv row and here
+rather than touched this session (out of scope: not a numeric balance issue).
+
+**Console**: A few `NavMeshAgent`/`SetDestination` warnings from later test-position
+spawns landing near the edge of/outside the baked NavMesh area - a test-harness
+artifact (spawn coordinates chosen for convenience, not on the actual walkable mesh),
+not a game bug; `MeleeAttacker`'s damage pipeline doesn't depend on `NavMeshAgent`
+placement when the target is already in range, and every fight's result matched hand-
+calculated expected values exactly regardless, confirming this had no effect on any
+result.
+
+**Roadmap/CLAUDE.md**: Section 5 item 5 marked done for this session's scope (training
+cost-vs-power ratios and continued sustained playtesting remain explicitly open for a
+future balance session, not silently closed). `playtest_log.csv` now has 16 total
+rows (1 pre-existing + 15 new).
+
+**No code changes landed this session** - every system audited checked out correct.
+This session's changes are `Assets/Design/playtest_log.csv`, `docs/ROADMAP.md`,
+`docs/SESSION_LOG.md`, and `CLAUDE.md`'s status section.
+
+---
+
 ## 2026-08-27 — Re-verify reflection/config-only items live (Roadmap Section 5, item 4)
 
 **Scope**: Item 3 (4 unique-unit factories) marked backend-complete-not-fully-closed
