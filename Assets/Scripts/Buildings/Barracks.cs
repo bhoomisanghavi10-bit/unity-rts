@@ -51,6 +51,7 @@ namespace KingdomsOfBharat.Buildings
             Cavalry,
             Siege,
             UniqueUnit,
+            Spearman,
         }
 
         [SerializeField] private KeyCode trainKey = KeyCode.T;
@@ -285,6 +286,38 @@ namespace KingdomsOfBharat.Buildings
             _remaining = ScaledTrainTime();
         }
 
+        // Spearman (Phase 2 content addition): the first Barracks-trained
+        // unit with a real Wood cost, so unlike Soldier/Archer/Cavalry/
+        // Siege above (whose Food/Gold costs are fixed [SerializeField]
+        // literals already matching the CSV) this reads cost straight from
+        // DataRegistry rather than adding yet another pair of Inspector
+        // fields for a single unit. Falls back to unit_roster_template.csv's
+        // known values (35 Food / 15 Wood) if the generated asset is ever
+        // missing, same defensive pattern used everywhere else in Phase 2.
+        public void RequestTrainSpearman()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            UnitDefinition def = DataRegistry.GetUnit("spearman");
+            float foodCost = def != null ? def.cost.food : 35f;
+            float woodCost = def != null ? def.cost.wood : 15f;
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Food) < foodCost
+                || stockpile.GetTotal(ResourceType.Wood) < woodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Food, -foodCost);
+            stockpile.Add(ResourceType.Wood, -woodCost);
+            _trainingUnit = TrainingUnit.Spearman;
+            _remaining = ScaledTrainTime();
+        }
+
         // Phase 6: same shape as every other RequestTrain* above, but cost
         // and the spawn call both come from the owning faction's civ
         // (UniqueUnitDefinition) instead of a fixed constant - there's
@@ -328,6 +361,7 @@ namespace KingdomsOfBharat.Buildings
                     TrainingUnit.Cavalry => CavalryFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.Siege => SiegeFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.UniqueUnit => UniqueUnitDefinition.For(CivilizationRegistry.For(Faction)).Spawn(transform.position + rallyOffset, Faction),
+                    TrainingUnit.Spearman => SpearmanFactory.Spawn(transform.position + rallyOffset, Faction),
                     _ => SoldierFactory.Spawn(transform.position + rallyOffset, Faction),
                 };
                 _rally.ApplyTo(spawned);

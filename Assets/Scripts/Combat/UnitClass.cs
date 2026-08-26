@@ -17,5 +17,10 @@ namespace KingdomsOfBharat.Combat
         // land/naval balance is a separate concern from just having ships
         // exist and fight.
         Naval,
+        // Phase 2 content addition: the anti-cavalry specialist
+        // unit_roster_template.csv/counter_matrix_template.csv designed
+        // but which had no live factory - see CombatBonus for its 2
+        // matchups, sourced from CounterMatrix's own data.
+        Spearman,
     }
 }

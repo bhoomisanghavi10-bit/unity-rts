@@ -81,6 +81,24 @@ namespace KingdomsOfBharat.Combat
                 return 0.5f;
             }
 
+            // Spearman (Phase 2 content addition, unit_roster_template.csv/
+            // counter_matrix_template.csv): the anti-cavalry specialist -
+            // hard-counters Cavalry, but a Spearman blob without support
+            // dies fast to plain Infantry. Values match CounterMatrix's own
+            // Spearman->Cavalry/Infantry->Spearman entries exactly (see
+            // CsvToScriptableObject's CombatBonus/CounterMatrix resolution
+            // note) - this is the "add its pairs once Spearman actually
+            // exists" case that resolution predicted, not a new design.
+            if (attacker == UnitClass.Spearman && target == UnitClass.Cavalry)
+            {
+                return 2f;
+            }
+
+            if (attacker == UnitClass.Infantry && target == UnitClass.Spearman)
+            {
+                return 1.25f;
+            }
+
             return 1f;
         }
     }
