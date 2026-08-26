@@ -267,9 +267,25 @@ namespace KingdomsOfBharat.FogOfWar
             var meshRenderer = gameObject.AddComponent<MeshRenderer>();
             meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             meshRenderer.receiveShadows = false;
-            Material material = new Material(GameplayMaterial.FindUnlitShader());
-            material.mainTexture = _texture;
-            GameplayMaterial.ForceTransparent(material);
+
+            // Was GameplayMaterial.FindUnlitShader() (URP/Unlit) + ForceTransparent
+            // - confirmed live (after ruling out every other suspect: Ground's own
+            // material/texture, RenderSettings.fog, post-processing, HDR, GPU
+            // Resident Drawer, gizmos) that this specific combination renders
+            // every "fully visible" cell (alpha 0, meant to show the ground
+            // through untouched) as solid opaque white instead, even though the
+            // texture's actual pixel data was verified correct at every mip level
+            // and editing it live had zero effect on the rendered output - URP's
+            // Unlit shader graph isn't respecting this material's alpha-blend
+            // properties/keywords the way ForceTransparent sets them up, at least
+            // not for a runtime-painted RGBA32 texture like this one. Sprites/
+            // Default is a much older, simpler, battle-tested shader built for
+            // exactly this "unlit textured quad, alpha blended, no lighting"
+            // case - swapping to it fixed the bug immediately with no other
+            // changes, including correctly showing the explored-but-not-visible
+            // dim ring that the broken shader was also hiding entirely.
+            Shader shader = Shader.Find("Sprites/Default") ?? GameplayMaterial.FindUnlitShader();
+            Material material = new Material(shader) { mainTexture = _texture, color = Color.white };
             meshRenderer.sharedMaterial = material;
 
             transform.position = new Vector3(0f, quadHeight, 0f);
