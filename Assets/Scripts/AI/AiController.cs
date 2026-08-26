@@ -751,17 +751,24 @@ namespace KingdomsOfBharat.AI
         private int _trainRotation;
 
         // AoE-style mixed composition rather than an all-melee army: two
-        // Soldiers, an Archer, a Cavalry, a Soldier, a Siege, then the
+        // Soldiers, an Archer, a Cavalry, a Spearman, a Siege, then the
         // AI's own civ unique unit, repeating - so the enemy's attack
-        // squads benefit from CombatBonus's full counter triangle
-        // (Infantry > Archer > Cavalry > Infantry) instead of fielding
-        // just one class. Siege is deliberately rare (1 in 7) - its 3x
-        // Building bonus is wasted outside a siege against Walls/Towers/
-        // other buildings, and it's slow and unremarkable against units in
-        // the meantime. The unique unit slot (Phase 6) is equally rare and
-        // last in the cycle - it's the AI's civ-identity piece, worth
-        // fielding regularly but not so often it crowds out the counter
-        // triangle the other 6 slots are built around.
+        // squads benefit from CombatBonus's full counter web
+        // (Infantry > Archer > Cavalry > Infantry, plus Spearman's 2x
+        // hard counter vs Cavalry) instead of fielding just one class.
+        // Spearman took over what used to be a third plain-Soldier slot
+        // (case 4) - added here because without it, the AI never trained
+        // one at all despite it being a real, live-verified unit (see
+        // playtest_log.csv's Spearman-vs-Cavalry entry) - every human
+        // player already had access to it via Barracks.RequestTrainSpearman,
+        // but the AI opponent structurally couldn't field the one unit
+        // that hard-counters its own Cavalry slot. Siege is deliberately
+        // rare (1 in 7) - its 3x Building bonus is wasted outside a siege
+        // against Walls/Towers/other buildings, and it's slow and
+        // unremarkable against units in the meantime. The unique unit slot
+        // (Phase 6) is equally rare and last in the cycle - it's the AI's
+        // civ-identity piece, worth fielding regularly but not so often it
+        // crowds out the counter web the other 6 slots are built around.
         private void TryTrainSoldiers()
         {
             if (_barracks == null || !_barracks.IsComplete || _barracks.IsTraining)
@@ -776,6 +783,9 @@ namespace KingdomsOfBharat.AI
                     break;
                 case 3:
                     _barracks.RequestTrainCavalry();
+                    break;
+                case 4:
+                    _barracks.RequestTrainSpearman();
                     break;
                 case 5:
                     _barracks.RequestTrainSiege();
