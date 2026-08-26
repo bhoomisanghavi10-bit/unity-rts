@@ -1,1 +1,2 @@
 Date,MapID,CivA,UnitA,CivB,UnitB,WinnerUnit,Notes
+2026-08-26,RiverValley,Chola,Spearman,Vijayanagara,Cavalry,Spearman,"1v1 forced melee fight in Play mode, both units full-HP at spawn and placed in immediate range (no pathing/chase). Spearman won at 30/35 HP remaining (Cavalry dealt 1 hit before dying). Confirms CombatBonus.Multiplier(Spearman,Cavalry)=2x hard counter holds in an actual fight, not just as a multiplier constant."
