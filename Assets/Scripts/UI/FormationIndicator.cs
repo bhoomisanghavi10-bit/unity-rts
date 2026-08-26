@@ -47,7 +47,10 @@ namespace KingdomsOfBharat.UI
                 }
             }
 
-            _text.text = $"Formation: {_selectionManager.CurrentFormation} (R to cycle)";
+            string composedSuffix = _selectionManager.IsComposedFormationActive
+                ? $" | {_selectionManager.ComposedFormationName} ON (C to toggle off)"
+                : " (C to toggle composed formation)";
+            _text.text = $"Formation: {_selectionManager.CurrentFormation} (R to cycle){composedSuffix}";
         }
 
         private void BuildUi()

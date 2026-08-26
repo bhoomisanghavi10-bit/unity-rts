@@ -35,6 +35,7 @@ namespace KingdomsOfBharat.UI
         {
             new RebindableAction("CycleStance", "Cycle Stance", KeyCode.V),
             new RebindableAction("CycleFormation", "Cycle Formation", KeyCode.R),
+            new RebindableAction("ToggleComposedFormation", "Toggle Composed Formation", KeyCode.C),
             new RebindableAction("TrainWorker", "Train Worker (Town Center)", KeyCode.G),
             new RebindableAction("TrainUnit", "Train Unit (Barracks)", KeyCode.T),
             new RebindableAction("PlaceBarracks", "Place Barracks", KeyCode.B),

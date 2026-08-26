@@ -26,6 +26,15 @@ namespace KingdomsOfBharat.Selection
         // rebindable-action list).
         [SerializeField] private KeyCode cycleFormationKey = KeyCode.R;
         [SerializeField] private float formationSpacing = 1.5f;
+        // C for "Composed formation" - not F/T/B/H/L/K/O/M/N/G/V/R, all
+        // already taken (see SettingsMenu's rebindable-action list).
+        [SerializeField] private KeyCode toggleComposedFormationKey = KeyCode.C;
+        // Loaded by path rather than a direct Inspector reference, so this
+        // works the same way in any scene without a manual per-scene
+        // assignment - matches DataRegistry's own Resources.Load
+        // convention for CSV-generated assets, even though this one isn't
+        // CSV-generated.
+        private const string DefaultComposedFormationPath = "Formations/MeleeFrontRangedBack";
 
         // Optional: when assigned, a plain-ground move order is composed
         // via FormationController (front/back rows by UnitCategory) using
@@ -36,7 +45,8 @@ namespace KingdomsOfBharat.Selection
         // its own shape choice rather than deferring to the ambient one.
         // Left null by default - existing move-order behavior (GroupFormation.
         // GetOffset with the cycled formation/spacing) is completely
-        // unchanged unless a designer/mission explicitly assigns one.
+        // unchanged unless a designer/mission explicitly assigns one, or
+        // the player toggles it on via toggleComposedFormationKey below.
         [SerializeField] private FormationDefinition composedFormation;
 
         // Phase 6 gap-close: which formation a plain-ground move order
@@ -76,6 +86,12 @@ namespace KingdomsOfBharat.Selection
         // For a HUD indicator to show which formation is currently active.
         public Units.FormationType CurrentFormation => _currentFormation;
 
+        // For FormationIndicator to show whether a composed formation
+        // (front/back rows by UnitCategory) is currently active on top of
+        // the plain Grid/Line/Box spread above, and which one.
+        public bool IsComposedFormationActive => composedFormation != null;
+        public string ComposedFormationName => composedFormation != null ? composedFormation.displayName : null;
+
         // Buildings are single-select only and mutually exclusive with unit
         // selection (AoE-style) - selecting one clears the other. Null when
         // nothing/a unit is selected instead.
@@ -85,6 +101,7 @@ namespace KingdomsOfBharat.Selection
         {
             cycleStanceKey = GameSettings.GetKey("CycleStance", cycleStanceKey);
             cycleFormationKey = GameSettings.GetKey("CycleFormation", cycleFormationKey);
+            toggleComposedFormationKey = GameSettings.GetKey("ToggleComposedFormation", toggleComposedFormationKey);
 
             _camera = UnityEngine.Camera.main;
             _formationController = gameObject.AddComponent<FormationController>();
@@ -126,6 +143,7 @@ namespace KingdomsOfBharat.Selection
             HandleRallyInput();
             HandleStanceHotkey();
             HandleFormationHotkey();
+            HandleComposedFormationHotkey();
             HandleControlGroupInput();
         }
 
@@ -143,6 +161,40 @@ namespace KingdomsOfBharat.Selection
             }
 
             _currentFormation = (Units.FormationType)(((int)_currentFormation + 1) % 3);
+            SfxPlayer.PlayMove();
+        }
+
+        // Simplest version of the "give the player an actual way to reach
+        // composedFormation" gap - a single on/off toggle against the one
+        // FormationDefinition asset that exists so far
+        // (Formations/MeleeFrontRangedBack), not a picker across several.
+        // Loaded via Resources rather than an Inspector reference so this
+        // works in any scene without per-scene wiring, same reasoning as
+        // DataRegistry's own CSV-generated-asset loading. No selection
+        // requirement, same as HandleFormationHotkey above - this is a
+        // standing mode for whatever gets selected next, not an action
+        // applied to the current selection.
+        private void HandleComposedFormationHotkey()
+        {
+            if (!Input.GetKeyDown(toggleComposedFormationKey))
+            {
+                return;
+            }
+
+            if (composedFormation != null)
+            {
+                composedFormation = null;
+            }
+            else
+            {
+                composedFormation = Resources.Load<FormationDefinition>(DefaultComposedFormationPath);
+                if (composedFormation == null)
+                {
+                    Debug.LogWarning($"SelectionManager: no FormationDefinition found at Resources/{DefaultComposedFormationPath} - composed formation toggle has nothing to turn on.");
+                    return;
+                }
+            }
+
             SfxPlayer.PlayMove();
         }
 
