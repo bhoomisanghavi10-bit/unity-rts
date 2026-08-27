@@ -7,41 +7,30 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- **Note**: this update landed alongside a concurrent Claude Code session working
-  the same repo (item 7, per-civ architectural differentiation groundwork) — flagged
-  here per the single-session-discipline gotcha below; this session's own changes are
-  scoped to the 4 unique-unit models only (see immediately below) and didn't touch
-  `BuildingModelFactory`/civ-building work.
-- Currently on: nothing started yet for the next session — Section 5 item 3's visual
-  closure (this session) and item 7 (per-civ architectural differentiation, code
-  groundwork, concurrent session) are both done. Remaining: civ-specific building
-  models (Section 4.3 has the priority order/spec, arranged by the user separately),
-  "everything else" (music, tutorial, performance profiling, UI skin, store assets),
-  or continued balance work (training cost-vs-power ratios, further sustained
-  playtesting) — user's call.
-- Last completed (this session): **Section 5 item 3's visual closure** — the 4
-  Maurya/Maratha unique units (backend-complete since an earlier session) now have
-  real rigged models instead of the shared Human Dummy fallback. The user drove this
-  via Blender command-line Python scripting (`blender --background --python`), not
-  manual Editor steps: Pillar Edict Scholar/Mavla Raider/Durg Garrison got their
-  Meshy-sourced meshes bound onto the existing shared Human Character Dummy rig
-  (reuses its Idle/Walk/Attack clips directly, no new animation needed); the War
-  Elephant got its Meshy-sourced mesh bound onto a real third-party elephant
-  skeleton+animations (CC-BY, see `Assets/Resources/UniqueUnits/CREDITS.md`) instead
-  of the originally-planned "extend the wild boar's skeleton" approach (dropped once
-  a real elephant rig became available). `HumanModelFactory.Spawn` gained two
-  backward-compatible optional parameters (`prefabPathOverride`,
-  `applyPaletteMaterial`) to let the 3 humanoid factories point at their own model
-  instead of the generic dummy; a new `ElephantAnimationDriver`/`ElephantAnimationSet`
-  (mirroring `BoarAnimationDriver`'s Generic-rig Playables pattern) drives the
-  elephant. All 4 live-tested spawning correctly in Play mode (valid Animator/Avatar,
-  correct textures, no console errors, real NavMeshAgent movement confirmed). One
-  known first-pass limitation, not fixed this session: the elephant's Die clip's
-  automatic-weight bind strains visibly in the more extreme back half of that
-  animation. See `docs/SESSION_LOG.md` for the full rigging methodology, including
-  several real Unity/Blender interop bugs found and fixed along the way (a spurious
-  object-scale=0.01 animation-export artifact, a missing intermediate bone-hierarchy
-  node the Humanoid Avatar validator required, etc).
+- Currently on: nothing started yet for the next session. Section 5 items 1-2, 4-5,
+  7-8 are all done; item 3 (unique-unit visual closure) done. Remaining real options:
+  civ-specific building models (Section 4.3 has the priority order/spec, arranged by
+  the user separately), UI skin's actual art pass (spec + technical scaffold done
+  this session, art itself still needs to be arranged), other "everything else" items
+  (music, tutorial, performance profiling, store assets), or continued balance work
+  (training cost-vs-power ratios, further sustained playtesting) — user's call.
+- Last completed (this session): **UI skin audit + technical scaffold** (Roadmap
+  Section 4.3). Audited all 10 UI scripts — confirmed zero UI art anywhere in the
+  project, no cursor-state code, and a real bug: the 4 runtime-code-generated menus
+  (Settings/Diplomacy/MissionSelect/Objective) had drifted into 2 different ad hoc
+  dark palettes with no shared source. Proposed (not yet sourced — user's call, same
+  as items 3/6) a prioritized ~35-40 asset spec sequenced by visibility. Per the
+  user's explicit follow-up choice, also scaffolded the technical side ahead of art:
+  new `Assets/Scripts/UI/UIStyleTheme.cs` (a `ScriptableObject` style-token source,
+  `Resources.Load`-with-hardcoded-default-fallback pattern matching `DataRegistry`),
+  wired into `SettingsMenu`/`DiplomacyMenu`/`MissionSelectMenu`/`ObjectivePanel`/
+  `BuildMenu`/`SelectedUnitPanel`/`HoverTooltip` — fixes the palette drift today with
+  zero art, and picks up real 9-slice sprites automatically once a theme asset exists.
+  `ResourceHUD` deliberately left out of scope (no background element to theme
+  without a scene edit). 4 new EditMode tests, all 32 pass; live-verified in Play
+  mode via UnityMCP that Settings/Diplomacy now share one identical panel color and
+  BuildMenu buttons share one identical button color. No scene edits this session.
+  See `docs/SESSION_LOG.md` for the full audit findings and verification.
 
 ## Engine & architecture
 - Unity version: [fill in]

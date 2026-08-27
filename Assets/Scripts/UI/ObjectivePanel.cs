@@ -113,7 +113,7 @@ namespace KingdomsOfBharat.UI
                 _rows[i].text = complete
                     ? $"<s>{objective.Description}</s>"
                     : $"• {objective.Description}";
-                _rows[i].color = complete ? new Color(0.55f, 0.85f, 0.55f) : Color.white;
+                _rows[i].color = complete ? UIStyleTheme.Current.TextSuccess : UIStyleTheme.Current.TextPrimary;
             }
         }
 
@@ -132,7 +132,7 @@ namespace KingdomsOfBharat.UI
             _panel = new GameObject("Panel");
             _panel.transform.SetParent(canvasGo.transform, false);
             var boxImage = _panel.AddComponent<Image>();
-            boxImage.color = new Color(0.05f, 0.05f, 0.08f, 0.75f);
+            UIStyleTheme.Current.ApplyPanel(boxImage);
             var boxRect = _panel.GetComponent<RectTransform>();
             boxRect.anchorMin = new Vector2(0f, 1f);
             boxRect.anchorMax = new Vector2(0f, 1f);
@@ -167,7 +167,7 @@ namespace KingdomsOfBharat.UI
             tmp.text = text;
             tmp.fontSize = fontSize;
             tmp.fontStyle = FontStyles.Bold;
-            tmp.color = Color.white;
+            tmp.color = UIStyleTheme.Current.TextPrimary;
             tmp.alignment = alignment;
             return tmp;
         }
@@ -185,7 +185,7 @@ namespace KingdomsOfBharat.UI
 
             var tmp = go.AddComponent<TextMeshProUGUI>();
             tmp.fontSize = 15;
-            tmp.color = Color.white;
+            tmp.color = UIStyleTheme.Current.TextPrimary;
             tmp.alignment = TextAlignmentOptions.TopLeft;
             tmp.textWrappingMode = TextWrappingModes.Normal;
             return tmp;

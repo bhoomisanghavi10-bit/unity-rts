@@ -260,6 +260,26 @@ to the existing shared model, so these can be added one at a time.
 - [ ] **UI skin** — full HUD/menu visual pass; currently functional-only, genuinely
   unstarted. Needs its own style sheet (panel art, icon set, cursor set) consistent
   with the 3D art direction above, not sourced piecemeal per element.
+  **Audit + technical scaffold done 2026-08-27** (art itself not started — arranged
+  separately by the user, same as items 3/6). Audited every UI script
+  (`ResourceHUD`/`SelectedUnitPanel`/`BuildMenu`/`HoverTooltip`/`MinimapController`/
+  `CivPicker`/`ObjectivePanel`/`MissionSelectMenu`/`SettingsMenu`/`DiplomacyMenu`):
+  zero UI art exists anywhere in the project, no cursor-state code at all, and — a
+  concrete bug found along the way — the 4 runtime-code-generated menus had already
+  drifted into 2 different ad hoc dark palettes before any real art landed. Added
+  `Assets/Scripts/UI/UIStyleTheme.cs`, a `ScriptableObject` style-token source
+  (`UIStyleTheme.Current`, `Resources.Load`-with-hardcoded-default-fallback, same
+  pattern as `DataRegistry`) and wired every panel/button across all 7 affected
+  scripts to it — fixes the palette drift today with zero art, and once a real
+  `UIStyleTheme.asset` with 9-slice `PanelFrameSprite`/`ButtonBackgroundSprite` exists,
+  every panel picks it up automatically (`ApplyPanel`/`ApplyButton` already check for
+  a non-null sprite). `ResourceHUD` deliberately left out of scope — it has no
+  background element in code or scene to theme without a scene edit. Live-verified in
+  Play mode via UnityMCP: `SettingsMenu`/`DiplomacyMenu` boxes now read the identical
+  `(0.05, 0.05, 0.08, 0.97)` instead of 2 different colors; `BuildMenu` buttons now
+  read the shared `(0.25, 0.25, 0.3, 1)` instead of Unity's default gray. A prioritized
+  asset spec (icons/9-slice frames/cursors, ~35-40 assets, sequenced by visibility) was
+  proposed separately for the user to arrange/commission. See `docs/SESSION_LOG.md`.
 - [x] **4 Maurya/Maratha unique units** (`maurya_war_elephant`, `pillar_edict_scholar`,
   `maratha_mavla_raider`, `maratha_durg_garrison`) — **done 2026-08-27**, real Meshy-
   sourced models rigged and wired in for all 4 (see Section 1's matching item and

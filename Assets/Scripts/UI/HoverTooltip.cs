@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Combat;
@@ -31,6 +32,11 @@ namespace KingdomsOfBharat.UI
         private void Awake()
         {
             _camera = UnityEngine.Camera.main;
+
+            if (panelRoot.TryGetComponent(out Image background))
+            {
+                UIStyleTheme.Current.ApplyPanel(background);
+            }
         }
 
         private void Update()

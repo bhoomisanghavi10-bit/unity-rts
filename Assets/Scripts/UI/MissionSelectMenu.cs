@@ -74,7 +74,7 @@ namespace KingdomsOfBharat.UI
             var panel = new GameObject("Panel");
             panel.transform.SetParent(canvasGo.transform, false);
             var backdropImage = panel.AddComponent<Image>();
-            backdropImage.color = new Color(0.05f, 0.05f, 0.08f, 0.97f);
+            backdropImage.color = UIStyleTheme.Current.PanelBackground;
             var backdropRect = panel.GetComponent<RectTransform>();
             backdropRect.anchorMin = Vector2.zero;
             backdropRect.anchorMax = Vector2.one;
@@ -125,7 +125,7 @@ namespace KingdomsOfBharat.UI
             var tmp = go.AddComponent<TextMeshProUGUI>();
             tmp.text = text;
             tmp.fontSize = fontSize;
-            tmp.color = new Color(0.85f, 0.85f, 0.85f);
+            tmp.color = UIStyleTheme.Current.TextSecondary;
             tmp.alignment = alignment;
             tmp.textWrappingMode = TextWrappingModes.Normal;
             return tmp;
@@ -142,7 +142,7 @@ namespace KingdomsOfBharat.UI
             rect.anchoredPosition = position;
 
             var image = go.AddComponent<Image>();
-            image.color = new Color(0.22f, 0.2f, 0.16f, 1f);
+            UIStyleTheme.Current.ApplyButton(image);
 
             var button = go.AddComponent<Button>();
             button.onClick.AddListener(() => onClick());
@@ -158,7 +158,7 @@ namespace KingdomsOfBharat.UI
             var tmp = textGo.AddComponent<TextMeshProUGUI>();
             tmp.text = text;
             tmp.fontSize = 17;
-            tmp.color = Color.white;
+            tmp.color = UIStyleTheme.Current.TextPrimary;
             tmp.alignment = TextAlignmentOptions.Center;
             return tmp;
         }

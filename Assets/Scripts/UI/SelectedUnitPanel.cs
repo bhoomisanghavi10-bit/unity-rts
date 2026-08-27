@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.Units;
@@ -28,6 +29,11 @@ namespace KingdomsOfBharat.UI
         private void Awake()
         {
             _selectionManager = FindFirstObjectByType<SelectionManager>();
+
+            if (panelRoot.TryGetComponent(out Image background))
+            {
+                UIStyleTheme.Current.ApplyPanel(background);
+            }
         }
 
         private void Update()

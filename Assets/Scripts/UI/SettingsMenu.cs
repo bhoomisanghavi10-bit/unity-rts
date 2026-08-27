@@ -196,7 +196,7 @@ namespace KingdomsOfBharat.UI
             _panel = new GameObject("Panel");
             _panel.transform.SetParent(canvasGo.transform, false);
             var backdropImage = _panel.AddComponent<Image>();
-            backdropImage.color = new Color(0f, 0f, 0f, 0.6f);
+            backdropImage.color = UIStyleTheme.Current.PanelBackdrop;
             var backdropRect = _panel.GetComponent<RectTransform>();
             backdropRect.anchorMin = Vector2.zero;
             backdropRect.anchorMax = Vector2.one;
@@ -206,7 +206,7 @@ namespace KingdomsOfBharat.UI
             var boxGo = new GameObject("Box");
             boxGo.transform.SetParent(_panel.transform, false);
             var boxImage = boxGo.AddComponent<Image>();
-            boxImage.color = new Color(0.12f, 0.12f, 0.14f, 0.97f);
+            UIStyleTheme.Current.ApplyPanel(boxImage);
             var boxRect = boxGo.GetComponent<RectTransform>();
             boxRect.anchorMin = new Vector2(0.5f, 0.5f);
             boxRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -257,7 +257,7 @@ namespace KingdomsOfBharat.UI
             var tmp = go.AddComponent<TextMeshProUGUI>();
             tmp.text = text;
             tmp.fontSize = fontSize;
-            tmp.color = Color.white;
+            tmp.color = UIStyleTheme.Current.TextPrimary;
             tmp.alignment = alignment;
             return tmp;
         }
@@ -273,7 +273,7 @@ namespace KingdomsOfBharat.UI
             rect.anchoredPosition = position;
 
             var image = go.AddComponent<Image>();
-            image.color = new Color(0.25f, 0.25f, 0.3f, 1f);
+            UIStyleTheme.Current.ApplyButton(image);
 
             var button = go.AddComponent<Button>();
             button.onClick.AddListener(() => onClick());
@@ -289,7 +289,7 @@ namespace KingdomsOfBharat.UI
             var tmp = textGo.AddComponent<TextMeshProUGUI>();
             tmp.text = text;
             tmp.fontSize = 15;
-            tmp.color = Color.white;
+            tmp.color = UIStyleTheme.Current.TextPrimary;
             tmp.alignment = TextAlignmentOptions.Center;
             return tmp;
         }

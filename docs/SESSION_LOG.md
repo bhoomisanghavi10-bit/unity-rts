@@ -5,6 +5,82 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-27 — UI skin audit + style-theme scaffold (Roadmap Section 4.3 "UI skin")
+
+**Note on the request's item numbering**: the session was framed as "item 6 (per-civ
+architectural differentiation)" and "moving to item 7: UI skin," but that doesn't
+match Section 5's actual numbering — item 7 there is per-civ architectural groundwork
+and item 8 is unique-unit visual closure, both already done (verified live this
+session, see below). UI skin isn't its own numbered Section 5 item; it's one of five
+things bundled into item 6's "everything else" and its own standalone bullet in
+Section 4.3. Flagged to the user directly before proceeding rather than guessing;
+confirmed the actual next unstarted work is UI skin either way.
+
+**Scope**: Audit of the current UI implementation (Section 4.3's "UI skin" item),
+plus — per the user's explicit follow-up choice — a technical scaffold ahead of any
+art arriving.
+
+**Verification of prior claims (per CLAUDE.md's single-session-discipline gotcha)**:
+confirmed live in the repo, not just trusted from CLAUDE.md's status text, that
+`BuildingModelFactory.Spawn` (`Assets/Scripts/Buildings/BuildingModelFactory.cs:84`)
+really does probe `Buildings/{civId}/{resourceName}` before falling back — item 7's
+groundwork is genuinely done.
+
+**Audit findings**: read every UI script (`ResourceHUD`, `SelectedUnitPanel`,
+`BuildMenu`, `HoverTooltip`, `MinimapController`, `CivPicker`, `ObjectivePanel`,
+`MissionSelectMenu`, `SettingsMenu`, `DiplomacyMenu`). Confirmed: zero UI art
+anywhere in the project (no icon/sprite files outside `Assets/Screenshots`), no
+cursor-state code at all (`Cursor.SetCursor` never called — default OS arrow
+throughout), and no separate tech/age tree viewer (upgrades are inline BuildMenu
+text buttons). Concrete bug found: the 4 runtime-code-generated menus
+(`SettingsMenu`/`DiplomacyMenu`/`MissionSelectMenu`/`ObjectivePanel`) had already
+drifted into 2 different ad hoc dark palettes with no shared source — panel bg
+`(0.05,0.05,0.08)` vs `(0.12,0.12,0.14)`, button `(0.22,0.2,0.16)` vs
+`(0.25,0.25,0.3)` — before any real art had even landed.
+
+**Proposed to the user, not implemented (per Section 4's asset-sourcing rule)**: a
+prioritized, spec'd asset list (~35-40 assets: command-card button background +
+~18 action icons + 4 resource icons as Tier 1, selected-unit/tooltip panels + 5
+cursor states as Tier 2, shared modal panel/button + civ-select cards as Tier 3,
+minimap frame/portraits as Tier 4), plus a 9-slice + shared-style-token technical
+approach — the user will arrange/commission the art separately, same as items 3/6.
+
+**What changed (code, user-confirmed scope expansion to scaffold ahead of art)**:
+- New `Assets/Scripts/UI/UIStyleTheme.cs`: a `ScriptableObject` style-token source
+  (`PanelBackground`/`PanelBackdrop`/`ButtonNormal`/`TextPrimary`/`TextSecondary`/
+  `TextSuccess`, plus nullable `PanelFrameSprite`/`ButtonBackgroundSprite` for later).
+  `UIStyleTheme.Current` lazy-loads `Resources.Load<UIStyleTheme>("UI/UIStyleTheme")`
+  and falls back to hardcoded defaults if no asset exists yet — same caching pattern
+  as `DataRegistry`, same "hardcoded until a real reason to change" precedent as
+  `AgeProfile`/`UpgradeProgress`. `ApplyPanel`/`ApplyButton` set color today and will
+  pick up a real 9-slice sprite automatically the moment one is assigned on a theme
+  asset, with zero further code changes.
+- Wired to the theme: `SettingsMenu.cs`, `DiplomacyMenu.cs`, `MissionSelectMenu.cs`,
+  `ObjectivePanel.cs` (their ad hoc panel/button/text colors replaced), `BuildMenu.cs`
+  (new `ApplyTheme()` in `Awake()` sets all ~31 command-card buttons' `Image.color`,
+  previously left on Unity's default gray), `SelectedUnitPanel.cs`/`HoverTooltip.cs`
+  (theme applied to `panelRoot`'s `Image` if one exists, via defensive
+  `TryGetComponent` — no scene edit needed).
+- **Deliberately left out of scope**: `ResourceHUD.cs` has no panel background in
+  code or scene at all (bare labels only) — nothing to theme without a scene edit,
+  which this pass avoided entirely (pure code scaffold, zero scene changes).
+
+**Tests**: `Assets/Tests/EditMode/UIStyleThemeTests.cs` — `Current` non-null and
+stable/cached, default colors sane (opaque except the deliberately-translucent
+`PanelBackdrop`/near-opaque `PanelBackground`), `ApplyPanel`/`ApplyButton` null-safe.
+All 32 EditMode tests (28 pre-existing + 4 new) pass.
+
+**Manual verification**: Play Mode via UnityMCP `execute_code` — confirmed
+`SettingsMenu`/`DiplomacyMenu` boxes now read the identical `(0.05, 0.05, 0.08, 0.97)`
+(previously 2 different colors) and a `BuildMenu` button (`barracksButton`) now reads
+the shared `(0.25, 0.25, 0.3, 1)` instead of Unity's default gray. Zero new
+console errors/warnings from compile or Play mode entry.
+
+**Roadmap**: Section 4.3's UI skin bullet updated with the audit + scaffold status
+(art still not started, as intended). CLAUDE.md's Current status updated.
+
+---
+
 ## 2026-08-27 — Visual closure for the 4 unique units (Roadmap Section 5, item 8 / Section 1's matching item)
 
 **Note**: a concurrent Claude Code session worked this same repo during this

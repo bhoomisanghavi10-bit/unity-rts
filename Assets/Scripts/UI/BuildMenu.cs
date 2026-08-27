@@ -98,6 +98,8 @@ namespace KingdomsOfBharat.UI
             _placer = FindFirstObjectByType<BuildingPlacer>();
             _selectionManager = FindFirstObjectByType<SelectionManager>();
 
+            ApplyTheme();
+
             barracksButton.onClick.AddListener(() => _placer.BeginPlacementBarracks());
             farmButton.onClick.AddListener(() => _placer.BeginPlacementFarm());
             houseButton.onClick.AddListener(() => _placer.BeginPlacementHouse());
@@ -130,6 +132,28 @@ namespace KingdomsOfBharat.UI
             improvedToolsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.ImprovedTools));
             packMulesButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.PackMules));
             tradeDiscountsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.TradeDiscounts));
+        }
+
+        // Command-card buttons currently rely on Unity's default gray Button
+        // sprite/color - listed explicitly rather than reflected over the
+        // fields so a future button doesn't silently opt out just because
+        // it wasn't added here.
+        private void ApplyTheme()
+        {
+            Button[] buttons =
+            {
+                barracksButton, farmButton, houseButton, wallButton, gateButton, towerButton,
+                marketButton, dockButton, workerButton, soldierButton, archerButton, cavalryButton,
+                siegeButton, spearmanButton, uniqueUnitButton, uniqueUnitButton2, ungarrisonButton,
+                fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
+                buyFoodButton, sellStoneButton, buyStoneButton, attackUpgradeButton, armorUpgradeButton,
+                uniqueTechButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
+            };
+
+            foreach (Button button in buttons)
+            {
+                UIStyleTheme.Current.ApplyButton(button.image);
+            }
         }
 
         private void Update()
