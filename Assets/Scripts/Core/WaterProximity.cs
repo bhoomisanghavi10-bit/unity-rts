@@ -52,12 +52,28 @@ namespace KingdomsOfBharat.Core
                 return Vector3.forward;
             }
 
+            Vector3 nearestOnWater = ClampToWater(point);
+            Vector3 direction = new Vector3(nearestOnWater.x, 0f, nearestOnWater.z) - new Vector3(point.x, 0f, point.z);
+            return direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector3.forward;
+        }
+
+        // WaterMover's fix for the "boat sails onto land" bug: the current
+        // water region is a single axis-aligned rectangle (convex), so
+        // clamping any destination point into it before storing it is
+        // enough to guarantee a straight-line path never leaves water, for
+        // every water shape the data model supports today. Returns `point`
+        // unchanged if the map has no water at all.
+        public static Vector3 ClampToWater(Vector3 point)
+        {
+            if (!HasWater)
+            {
+                return point;
+            }
+
             MapDefinitionData map = MapRegistry.Current;
             float clampedX = Mathf.Clamp(point.x, map.WaterCenter.x - map.WaterHalfExtents.x, map.WaterCenter.x + map.WaterHalfExtents.x);
             float clampedZ = Mathf.Clamp(point.z, map.WaterCenter.z - map.WaterHalfExtents.z, map.WaterCenter.z + map.WaterHalfExtents.z);
-            Vector3 nearestOnWater = new Vector3(clampedX, 0f, clampedZ);
-            Vector3 direction = nearestOnWater - new Vector3(point.x, 0f, point.z);
-            return direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector3.forward;
+            return new Vector3(clampedX, point.y, clampedZ);
         }
     }
 }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.Units
 {
@@ -7,11 +8,16 @@ namespace KingdomsOfBharat.Units
     // way land code drives a NavMeshAgent, but boats don't have a NavMesh to
     // path on (see ProceduralGround - water is a literal hole in the land
     // mesh, not a walkable surface for any agent type). Moves in a straight
-    // line toward the destination instead - no obstacle avoidance, no
-    // pathfinding around other boats. A real limitation, not hidden: fine
-    // for a first pass on a simple rectangular water body, would need actual
-    // water-surface pathfinding (a second NavMesh agent type baked over the
-    // water region) to hold up on a complex coastline.
+    // line toward the destination instead - no pathfinding around other
+    // boats. Roadmap Section 1 fix: destinations are clamped to the current
+    // map's water rectangle (WaterProximity.ClampToWater) before being
+    // stored, so a move order/rally point/attack-move that lands on dry
+    // land no longer sails the boat onto it - the water region is a single
+    // convex rectangle today, so clamping the endpoint is enough to keep
+    // the whole straight-line path inside it. Still a real limitation, not
+    // hidden: no avoidance between boats, and a genuinely non-convex
+    // coastline (islands, bays) would need real water-surface pathfinding -
+    // not built here since no map defines a non-convex water shape yet.
     public class WaterMover : MonoBehaviour
     {
         [SerializeField] private float speed = 3f;
@@ -23,7 +29,7 @@ namespace KingdomsOfBharat.Units
 
         public void MoveTo(Vector3 destination)
         {
-            _destination = destination;
+            _destination = WaterProximity.ClampToWater(destination);
             _hasDestination = true;
         }
 
@@ -33,6 +39,8 @@ namespace KingdomsOfBharat.Units
         }
 
         public bool HasArrived => !_hasDestination;
+
+        public Vector3 Destination => _destination;
 
         private void Update()
         {

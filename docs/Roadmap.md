@@ -49,9 +49,21 @@ entirely. What follows is the real remaining list.
   determinism is flagged as unverified and a known risk of the lockstep choice — this
   needs real testing once (if) an actual network transport is added, not just
   single-process proof.
-- [ ] **WaterMover has no obstacle avoidance** — straight-line movement only. Fine for
+- [x] **WaterMover has no obstacle avoidance** — straight-line movement only. Fine for
   the current single-rectangle water body; will break the moment any map gets a
   non-trivial coastline. Worth fixing before adding more naval-heavy maps.
+  **Closed** — the real, reachable-today bug wasn't a future non-convex-coastline
+  problem: `WaterMover.MoveTo` stored any destination with zero bounds checking, so a
+  player right-click, rally point, or attack-move past the shoreline sailed a boat
+  straight onto land right now, on the existing Coastal map. Since the water region is
+  a single convex rectangle, clamping the destination into it before storing
+  (`WaterProximity.ClampToWater`, called from `WaterMover.MoveTo`) is sufficient to
+  guarantee the whole straight-line path stays in water — real pathfinding for a
+  non-convex coastline stays out of scope since no map defines one. 5 new EditMode
+  tests (`WaterMovementTests.cs`), all 37 pass. Live-verified in Play mode via
+  UnityMCP: a boat ordered onto dry land stopped exactly at the shoreline instead of
+  sailing onto it, confirmed across several real ticked frames. See
+  `docs/SESSION_LOG.md`.
 - [x] **Wall's NavMeshObstacle carving was never confirmed live** — only verified by
   config inspection, blocked repeatedly by the Editor "frame stuck" flakiness.
   **Closed** — live-confirmed in a genuinely, naturally-ticking Play mode session

@@ -7,30 +7,29 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- Currently on: nothing started yet for the next session. Section 5 items 1-2, 4-5,
-  7-8 are all done; item 3 (unique-unit visual closure) done. Remaining real options:
-  civ-specific building models (Section 4.3 has the priority order/spec, arranged by
-  the user separately), UI skin's actual art pass (spec + technical scaffold done
-  this session, art itself still needs to be arranged), other "everything else" items
-  (music, tutorial, performance profiling, store assets), or continued balance work
-  (training cost-vs-power ratios, further sustained playtesting) — user's call.
-- Last completed (this session): **UI skin audit + technical scaffold** (Roadmap
-  Section 4.3). Audited all 10 UI scripts — confirmed zero UI art anywhere in the
-  project, no cursor-state code, and a real bug: the 4 runtime-code-generated menus
-  (Settings/Diplomacy/MissionSelect/Objective) had drifted into 2 different ad hoc
-  dark palettes with no shared source. Proposed (not yet sourced — user's call, same
-  as items 3/6) a prioritized ~35-40 asset spec sequenced by visibility. Per the
-  user's explicit follow-up choice, also scaffolded the technical side ahead of art:
-  new `Assets/Scripts/UI/UIStyleTheme.cs` (a `ScriptableObject` style-token source,
-  `Resources.Load`-with-hardcoded-default-fallback pattern matching `DataRegistry`),
-  wired into `SettingsMenu`/`DiplomacyMenu`/`MissionSelectMenu`/`ObjectivePanel`/
-  `BuildMenu`/`SelectedUnitPanel`/`HoverTooltip` — fixes the palette drift today with
-  zero art, and picks up real 9-slice sprites automatically once a theme asset exists.
-  `ResourceHUD` deliberately left out of scope (no background element to theme
-  without a scene edit). 4 new EditMode tests, all 32 pass; live-verified in Play
-  mode via UnityMCP that Settings/Diplomacy now share one identical panel color and
-  BuildMenu buttons share one identical button color. No scene edits this session.
-  See `docs/SESSION_LOG.md` for the full audit findings and verification.
+- Currently on: nothing started yet for the next session. Section 5 items 1-5, 7-8
+  are all done. Remaining real options: civ-specific building models (Section 4.3 has
+  the priority order/spec, arranged by the user separately), UI skin's actual art pass
+  (spec + technical scaffold done in an earlier session, art itself still needs to be
+  arranged), other "everything else" items (music, tutorial, performance profiling,
+  store assets, naval balance beyond Naval→Archer, Crusader Knight rig verification,
+  multiplayer determinism gaps, README drift), or continued balance work (training
+  cost-vs-power ratios, further sustained playtesting) — user's call.
+- Last completed (this session): **WaterMover obstacle avoidance** (Roadmap Section
+  1). The real, reachable-today bug wasn't the "future non-convex coastline" framing
+  the roadmap note implied — `WaterMover.MoveTo` stored any destination with zero
+  bounds checking, so a player right-click, rally point, or attack-move past the
+  Coastal map's shoreline sailed a boat straight onto dry land right now. Fix: since
+  the water region is a single convex rectangle, clamping the destination into it
+  before storing (new `WaterProximity.ClampToWater`, called from `WaterMover.MoveTo`)
+  guarantees the whole straight-line path stays in water — no speculative
+  polygon/NavMesh pathfinding built for a non-convex coastline that doesn't exist in
+  `MapDefinitionData` yet. `DirectionToNearestWater` refactored to reuse the same
+  clamp math instead of duplicating it. 5 new EditMode tests
+  (`Assets/Tests/EditMode/WaterMovementTests.cs`), all 37 pass. Live-verified in Play
+  mode via UnityMCP: a boat ordered onto dry land stopped exactly at the shoreline
+  instead of sailing onto it, confirmed across several real ticked frames, zero
+  console errors/warnings. No scene edits this session. See `docs/SESSION_LOG.md`.
 
 ## Engine & architecture
 - Unity version: [fill in]

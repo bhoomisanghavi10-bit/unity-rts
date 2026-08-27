@@ -5,6 +5,64 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-28 — WaterMover obstacle avoidance (Roadmap Section 1)
+
+**Scope**: Close the roadmap's "WaterMover has no obstacle avoidance" item. The
+roadmap framed this as a future-proofing concern ("will break the moment any map gets
+a non-trivial coastline"), but investigation before implementing found the actual bug
+was narrower and already reachable today, not hypothetical.
+
+**Root cause**: `WaterMover.MoveTo(Vector3)` (`Assets/Scripts/Units/WaterMover.cs`)
+stored whatever destination it was given with zero bounds checking, and nothing else
+in the call chain clamped it either — confirmed by reading every call site:
+`SelectionManager.cs` (player right-click move order + formation offset),
+`RallyPoint.cs` (rally point), `BoatAttacker.AttackMove`, `BoatGatherer`'s
+gather/return-to-dock state machine. Since the water plane has no collider
+(`ProceduralGround.BuildWaterPlane`) and there's no water NavMesh, nothing stopped a
+boat sailing straight onto land — reproducible right now on the existing Coastal map
+by right-clicking past the shoreline, not just a hypothetical multi-shape-coastline
+problem for some future map.
+
+**Fix**: The current water region (`MapDefinitionData.WaterCenter`/`WaterHalfExtents`)
+is a single axis-aligned rectangle — convex. That means clamping any destination point
+into it before storing is sufficient to guarantee a boat's straight-line path never
+crosses onto land, for every water shape the data model actually supports today.
+Added `WaterProximity.ClampToWater(Vector3)` (`Assets/Scripts/Core/WaterProximity.cs`),
+reusing the exact clamp math that was already written inline inside
+`DirectionToNearestWater` (refactored to call the new method instead of duplicating
+it). `WaterMover.MoveTo` now clamps through it before storing `_destination`, and a
+new `Destination` read-only getter exposes the stored value for testing (mirrors the
+existing `HasArrived` pattern). Deliberately did **not** build real polygon/NavMesh
+pathfinding for a non-convex coastline — no map defines one in `MapDefinitionData`
+today, and CLAUDE.md is explicit about not designing for hypothetical future
+requirements; the class doc comment on `WaterMover` was updated to say so honestly
+(still no avoidance between boats, still would need real pathfinding if a non-convex
+coastline is ever added).
+
+**Tests**: New `Assets/Tests/EditMode/WaterMovementTests.cs` (5 tests), following
+`CivPassiveBonusTests.cs`'s established convention (`_spawned` GameObject list +
+`[TearDown]`, explicit restore of `MapRegistry.Select(MapId.RiverValley)` since it's
+shared static state across the EditMode run): `ClampToWater` on a point already inside
+water, past each of the 4 edges individually, past both axes at once (a corner), and
+on a no-water map (passthrough unchanged); `WaterMover.MoveTo` with a destination far
+inland ends up inside `WaterProximity.IsInsideWater`. All 37 EditMode tests pass (32
+pre-existing + 5 new).
+
+**Manual verification**: Play Mode via UnityMCP. Entered Play mode, selected the
+Coastal map (`MapRegistry.Select`), spawned a `WaterMover`-driven test GameObject just
+inside the western shoreline, and issued `MoveTo` toward a point 80 units past the
+shore on dry land. Confirmed via `execute_code`: the stored `Destination` was clamped
+to the shoreline edge and reported inside water immediately; after several real ticked
+frames (`Time.time` advanced ~4.5s), the boat's actual `transform.position` had moved
+to and stopped exactly at the clamped shoreline point — never toward the on-land
+target, never left `WaterProximity.IsInsideWater`. Zero console errors/warnings
+through compile, the test run, and the Play mode session.
+
+**Roadmap**: Section 1's WaterMover item checked off with the fix summary. CLAUDE.md's
+Current status updated.
+
+---
+
 ## 2026-08-27 — UI skin audit + style-theme scaffold (Roadmap Section 4.3 "UI skin")
 
 **Note on the request's item numbering**: the session was framed as "item 6 (per-civ
