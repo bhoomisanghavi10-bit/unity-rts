@@ -19,9 +19,10 @@ namespace KingdomsOfBharat.Buildings
 
         public static GameObject Place(Vector3 point, FactionId faction, float buildTime)
         {
-            CivilizationProfile profile = CivilizationProfile.For(CivilizationRegistry.For(faction));
+            CivilizationId civ = CivilizationRegistry.For(faction);
+            CivilizationProfile profile = CivilizationProfile.For(civ);
 
-            GameObject go = BuildingModelFactory.Spawn("Dock", point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
+            GameObject go = BuildingModelFactory.Spawn("Dock", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
             go.name = faction == FactionId.Player ? "Dock" : "EnemyDock";
 
             go.AddComponent<Dock>();

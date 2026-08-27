@@ -50,8 +50,17 @@ namespace KingdomsOfBharat.Buildings
         // rallyOffset, etc.) keeps reading the same position it always
         // has, unaffected by whichever visual (real model or procedural
         // shape) ends up under it.
-        public static GameObject Spawn(string resourceName, Vector3 rootPosition, Vector3 fallbackSize, Color civColor)
+        public static GameObject Spawn(string resourceName, CivilizationId civId, Vector3 rootPosition, Vector3 fallbackSize, Color civColor)
         {
+            // Roadmap Section 4.1: each civ should eventually read as a
+            // distinct architectural tradition rather than one shared
+            // building set with tint. A civ-specific model (once sourced)
+            // lands at Buildings/<CivId>/<resourceName> and is tried first;
+            // no manifest/registry to maintain - Resources.Load returning
+            // null for a civ that doesn't have a model yet just falls
+            // through to the shared lookup chain below unchanged, so
+            // models can land one civ/building at a time.
+            //
             // TownCenter/Barracks/Farm/House are flat .prefab assets right
             // under Resources/Buildings/ (hand-placed there), but models
             // sourced via the Sketchfab import pipeline land nested as
@@ -72,7 +81,8 @@ namespace KingdomsOfBharat.Buildings
             // import-tool convention difference rather than anything this
             // project chose - so a bare Buildings/<name>/scene path is
             // tried too, after the more specific patterns above.
-            GameObject prefab = Resources.Load<GameObject>($"Buildings/{resourceName}")
+            GameObject prefab = Resources.Load<GameObject>($"Buildings/{civId}/{resourceName}")
+                ?? Resources.Load<GameObject>($"Buildings/{resourceName}")
                 ?? Resources.Load<GameObject>($"Buildings/{resourceName}/{resourceName}/scene")
                 ?? Resources.Load<GameObject>($"Buildings/{resourceName}/scene")
                 ?? Resources.Load<GameObject>($"Ships/{resourceName}");

@@ -16,9 +16,10 @@ namespace KingdomsOfBharat.Buildings
 
         public static GameObject Place(Vector3 position, FactionId faction)
         {
-            CivilizationProfile profile = CivilizationProfile.For(CivilizationRegistry.For(faction));
+            CivilizationId civ = CivilizationRegistry.For(faction);
+            CivilizationProfile profile = CivilizationProfile.For(civ);
 
-            GameObject go = BuildingModelFactory.Spawn("TownCenter", position, Size, profile.PrimaryColor);
+            GameObject go = BuildingModelFactory.Spawn("TownCenter", civ, position, Size, profile.PrimaryColor);
             go.name = faction == FactionId.Player ? "TownCenter" : "EnemyTownCenter";
 
             go.AddComponent<TownCenter>();

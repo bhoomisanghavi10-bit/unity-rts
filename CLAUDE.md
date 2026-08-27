@@ -7,24 +7,27 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- Currently on: nothing started yet for the next session — item 5's specific scope
-  (start logging to `playtest_log.csv`, audit civ/age/upgrade stacking) is done; next
-  up is item 6 ("everything else"), or continued balance work (training cost-vs-power
-  ratios, further sustained playtesting) if that's prioritized instead — user's call.
-- Last completed: Section 5 item 5, resuming the balance pass. Logged 15 real 1v1
-  forced-melee fights to `playtest_log.csv` (proposed the matchup list to the user
-  and got explicit confirmation before running anything) covering every previously
-  unaudited roster pairing (Siege vs Infantry/Archer/Cavalry, Spearman vs
-  Infantry/Spearman, War Galley vs Infantry/Spearman), first-ever live combat checks
-  for all 4 new unique-unit factories, an exact live before/after damage measurement
-  of the Durg Garrison siege-immunity mechanic (39/hit at 3x → 9/hit at 1x, precisely
-  matching the coded formula), and a dedicated civ/age/upgrade/unique-tech stacking
-  audit. Stacking audit found every layer combines exactly as coded (multiplicative
-  HP/train-time, additive armor/damage, counter-matrix applied once) with zero
-  double-counting across all 6 factories checked — a large enough tech-level gap can
-  overwhelm even a 2x hard counter, which is the intended AoE-style tech-tree
-  outcome, not a bug. No code changes were needed. See `docs/SESSION_LOG.md` for full
-  methodology and results.
+- Currently on: nothing started yet for the next session — item 7 (per-civ
+  architectural differentiation, code groundwork) is done. Actual civ-specific
+  building models are their own content project (Section 4.3 has the priority order
+  and spec) — arranged by the user separately, same as the 4 unique-unit models.
+  Otherwise, remaining "everything else" (music, tutorial, performance profiling, UI
+  skin, store assets) or continued balance work (training cost-vs-power ratios,
+  further sustained playtesting) — user's call.
+- Last completed: Section 5 item 7, per-civ architectural differentiation groundwork.
+  Audited `BuildingModelFactory.Spawn` (the single chokepoint all 9 building
+  factories call through) and confirmed civ ID is already in scope at every call
+  site. Added a `CivilizationId` parameter and a new first-probed lookup path,
+  `Buildings/<CivId>/<resourceName>`, ahead of the existing shared-model chain — a
+  civ/building with no model there falls through to today's shared model
+  automatically, so models can be sourced incrementally, one civ/building at a time,
+  with zero code changes needed per asset. Updated all 9 call sites
+  (TownCenter/Barracks/Tower/Wall/Gate/Market/Dock/Farm/House factories). Added
+  `BuildingModelFactoryTests.cs` (new — spawns each of the 5 civs' Barracks and
+  confirms the fallback path still produces a valid model+collider); full EditMode
+  suite (28 tests) passes with no regressions. No civ-specific models were sourced —
+  that's explicitly out of scope for a coding session per Section 4.3/4.4. See
+  `docs/SESSION_LOG.md` for full detail.
 - Also still open: Section 5 item 3 (4 Maurya/Maratha unique-unit factories) is
   backend-complete but **not fully closed** — no models exist for any of the 4 yet
   (shared Human Dummy body pending real art per Roadmap Section 4.3). When a model

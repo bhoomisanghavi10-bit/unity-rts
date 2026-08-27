@@ -5,6 +5,61 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-27 — Per-civ architectural differentiation, code groundwork (Roadmap Section 5, item 7)
+
+**Scope**: Confirmed item 5 (balance pass resumption) was already fully closed per
+CLAUDE.md/roadmap before starting — no open work there. Then addressed the "all 5
+civs share one visual building set" gap flagged in Roadmap Section 4.1/4.2: audit
+`BuildingModelFactory` for what civ-specific model support would take, propose the
+architecture, produce a prioritized asset list, and implement only the code
+groundwork (no models, per Section 4.3/4.4 - asset sourcing is the user's task).
+
+**Audit**: `BuildingModelFactory.Spawn(string resourceName, Vector3 rootPosition,
+Vector3 fallbackSize, Color civColor)` is the single chokepoint all 9 building
+factories (`TownCenterFactory`, `BarracksFactory`, `TowerFactory`, `WallFactory`,
+`GateFactory`, `MarketFactory`, `DockFactory`, `FarmFactory`, `HouseFactory`) call
+through. Every factory already resolves `CivilizationId` via
+`CivilizationRegistry.For(faction)` immediately before calling `Spawn` - civ ID was
+in scope at every call site, just not passed through. Buildings aren't CSV-driven
+(no building rows in `Assets/Design/Data/`), so there's no generated-asset layer to
+touch. Tinting (`TintMaterials`) is a separate post-instantiation step regardless of
+model source, so it composes cleanly with a civ-specific model too. Minimap
+(`MinimapController`, real top-down camera over scene geometry) and `BuildMenu` (no
+icon fields) are both already civ-agnostic and needed no changes.
+
+**Architecture implemented**: `Spawn` now takes a `CivilizationId civId` parameter.
+The existing 4-deep Resources.Load fallback chain gained one new candidate, tried
+first: `Buildings/{civId}/{resourceName}` (e.g. `Buildings/Chola/Barracks`). Because
+a missing `Resources.Load` result already falls through to the next candidate (this
+was the existing pattern for the shared-vs-procedural fallback), a civ with no model
+yet costs nothing and falls through to today's shared model automatically - no
+manifest/registry needed, and models can be sourced one civ/building at a time. All
+9 factories updated to pass their already-resolved `civId` through.
+
+**Testing**: New `Assets/Tests/EditMode/BuildingModelFactoryTests.cs` - spawns a
+Barracks for all 5 `CivilizationId` values (none of which have a civ-specific model
+yet) and asserts the fallback still produces a valid model + collider for every one,
+confirming the new lookup doesn't break the existing path. (Suppressed an edit-mode-
+only "material leak" log Unity emits from `TintMaterials`' `renderer.materials`
+call when run synchronously in a test - not a real issue, doesn't occur at actual
+runtime spawn.) Full EditMode suite: 28/28 passing, no regressions, verified via
+UnityMCP `run_tests`/`get_test_job`.
+
+**Asset list proposed to user** (not sourced this session, per Section 4.3/4.4):
+9 building types × 5 civs = 45 models for full coverage. Priority: Tier 1 (TownCenter
++ Barracks, 10 models) first - highest camera-time, smallest set that makes all 5
+civs read as distinct from match start; Tier 2 (Tower/Wall/Gate) next - tall forms
+read architecturally distinct fastest; Tier 3 (Market/Dock); Tier 4 (Farm/House,
+lowest individual visual weight) last. Full spec (poly/texture targets, style
+references per civ) logged in Roadmap Section 4.3.
+
+**Note on peer sessions**: 4 other Claude Code sessions were observed active on this
+same repo mid-session (`ListAgents`). Flagged to the user per CLAUDE.md's
+single-session-discipline gotcha; this session made no assumptions about concurrent
+edits and only touched files directly relevant to its own scoped change.
+
+---
+
 ## 2026-08-27 — Resume the balance pass (Roadmap Section 5, item 5)
 
 **Scope**: Item 5 - start actually using `playtest_log.csv` (documented as "process
