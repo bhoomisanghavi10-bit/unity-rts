@@ -5,6 +5,132 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-27 — Visual closure for the 4 unique units (Roadmap Section 5, item 8 / Section 1's matching item)
+
+**Note**: a concurrent Claude Code session worked this same repo during this
+session (item 7, per-civ architectural differentiation groundwork - logged
+separately, immediately below). Flagged per CLAUDE.md's single-session-discipline
+gotcha; this session's own changes are scoped entirely to the 4 unique-unit models
+and didn't touch `BuildingModelFactory`/civ-building work.
+
+**Scope**: Section 5 item 3 (the 4 Maurya/Maratha unique units) was backend-complete
+from an earlier session but explicitly not fully closed - no models existed, all 4
+spawned on the shared Human Dummy body. The user had 4 raw Meshy AI FBX exports ready
+(Pillar Edict Scholar, Mavla Raider, Durg Garrison, War Elephant) and asked to drive
+the entire rigging pipeline via Blender's `--background --python` scripting, not
+manual Editor steps - an explicit, deliberate override of this project's standing
+"asset sourcing/creation is not Claude Code's job" rule for this specific task, given
+directly in chat.
+
+**Humanoid pipeline (Scholar/Raider/Garrison)**: each raw Meshy mesh (~1M vertices)
+was decimated to ~7,000 tris (Roadmap 4.1's unit budget), scaled to match the shared
+Human Character Dummy rig's height, and bound via Blender's `ARMATURE_AUTO`
+(automatic weights). All 3 got all 51 vertex groups populated and deformed cleanly
+under the rig's real Idle/Walk/Attack clips in a Blender-side render test (with the
+caveat that Blender's raw bone-fcurve playback is an approximation of Unity's actual
+Mecanim humanoid retargeting, not a guarantee - confirmed identical in Unity below).
+User confirmed go on renders before export.
+
+**War Elephant pipeline - two attempts**: first attempt extended a copy of the wild
+boar's 19-bone generic quadruped armature with 3 new trunk bones, per the original
+plan discussed with the user. Bind and a hand-posed walk-cycle sanity test both
+worked, but literally reusing the boar's actual Unity `.anim` clip data failed with
+mangled/exploded poses - a real Unity-to-Blender bone-local-rotation-axis convention
+mismatch (Blender's FBX import discards the joint orientation Unity/Maya preserve),
+not a rig or gait defect. Rather than solve that axis conversion, the user redirected
+mid-session: use real elephant animation from two Sketchfab CC-BY models (Asian
+elephant, African bush elephant) instead of the boar-based approach entirely. After
+inspecting both (different, incompatible skeletons - 51 vs 106 bones, no shared rig
+despite the same author), and starting a cross-rig retarget of the African model's
+Death animation onto the Asian model's skeleton via bone-constraint baking, the user
+simplified further: use only the Asian elephant, which already had all 4 needed clips
+(`Idle1`, `walk`, `Attack1`, `Die`) natively - dropping the African model and the
+retarget work entirely. Final approach: discard the boar-skeleton work, bind the
+Meshy elephant mesh directly onto the Asian elephant's own 51-bone rig.
+
+**Real bugs found and fixed in the final elephant pipeline** (all confirmed via
+direct Blender-side investigation, not assumed):
+1. Blender's FBX importer auto-assigns whatever action happened to be first in a
+   multi-take file (`Attack1`) to the armature's `animation_data.action` on import -
+   binding against this un-cleared, already-posed skeleton produced a garbage
+   automatic-weight solve. Fixed by explicitly clearing the pose to rest before
+   binding.
+2. Every action in this file (an old 3ds Max Biped export) carries two Biped-export
+   artifacts, neither of them real animation: an **object-level** `scale` channel
+   pinned to a constant `0.01` (shrinks the whole mesh to a dot the instant any
+   action is assigned - this was the "tiny dot" render bug), and a large spurious
+   `location` value baked onto every bone (Biped bones deform via rotation only).
+   Fixed by stripping everything except bone rotation curves - consistent with how
+   this project already drives unit movement via `NavMeshAgent`, not baked root
+   motion (`AnimationDriver`'s own `applyRootMotion=false` convention).
+3. With those fixed, Idle/Walk/Attack deformed cleanly; the Die clip looked broken
+   only in its more extreme late-clip poses (confirmed clean earlier in the same
+   clip) - a genuine automatic-weight-under-large-rotation limitation, not another
+   export bug. Flagged to the user as a known first-pass limitation, not silently
+   accepted as fine.
+
+**Wiring into Unity**: copied all 4 final FBX + albedo textures to
+`Assets/Resources/UniqueUnits/<Name>/`. Configuring the 3 humanoid FBX imports as
+Humanoid rig type hit a real, precisely-diagnosed chain of Unity avatar-validator
+errors, each fixed in turn by reading the exact `Rig Error:` console message rather
+than guessing: (a) "Copy From Other Avatar" failed on a transform-hierarchy mismatch
+(Blender's export collapsed the original rig's `Rig -> B-root -> B-hips` wrapper
+chain down to a bare `B-hips`) - added both empty wrapper objects back in Blender and
+re-exported; (b) a name collision meant the new `B-root` empty silently exported as
+`B-root.001` - fixed by removing any stale same-named datablock before creating it;
+(c) with the hierarchy now matching, switched from "Copy From Other Avatar" (still
+failed - likely the FBX root object's own name differing per file) to explicitly
+copying the source rig's full `HumanDescription` (bone-name mapping + skeleton) onto
+each new importer with `CreateFromThisModel`, which succeeded cleanly
+(`avatar.isHuman == true`) for all 3. The War Elephant's Generic-rig import needed
+`avatarSetup` explicitly set away from its `NoAvatar` default before an
+Animator/Avatar would generate at all - all 4 baked animation takes (Idle/Walk/
+Attack/Die) split correctly into named clips automatically once that was set.
+
+`HumanModelFactory.Spawn` gained two backward-compatible optional parameters
+(`prefabPathOverride`, `applyPaletteMaterial`, both defaulting to today's dummy-body
+behavior - every existing caller unaffected) plus a new public
+`ApplyCustomTexture` helper, so the 3 humanoid factories could point at their own
+model/texture instead of the generic dummy/civ palette. New
+`ElephantAnimationSet`/`ElephantAnimationDriver` (mirroring `BoarAnimationDriver`'s
+Generic-rig Playables pattern, not `AnimationDriver`'s Humanoid one) drive the
+elephant's 4 clips from `MeleeAttacker`/`Attackable` state. `MauryaWarElephantFactory`
+was rewritten to spawn the new model directly (ground alignment, collider,
+`GroundFollower`, all mirroring `HumanModelFactory`'s own pattern) instead of routing
+through the human dummy at all. Old cosmetic `WeaponAttachment` calls (sword/Kanabo)
+were removed from all 4 factories since the new meshes already sculpt their own held
+weapons/armor; Mavla Raider keeps its cosmetic horse-mount attachment since the
+sourced mesh is a standing foot-soldier pose with no horse geometry, and it's still a
+Cavalry-class unit.
+
+**Testing**: clean compile, then live Play mode via UnityMCP (documented flakiness
+fix applied). All 4 units spawned via their real factories with no console errors;
+verified live (not assumed) that each has a valid Animator+Avatar, the correct
+model/texture (not the old dummy), and - for the War Elephant - genuine NavMeshAgent
+movement across the scene. Two Enemy-faction spawns briefly vanished during testing;
+confirmed via a Player-faction respawn that this was pre-existing scene/AI test
+scaffolding interference (likely from the concurrent session's own test setup active
+in the same running Editor), not a defect in the new factories.
+
+**Licensing**: Meshy-generated meshes/textures are project-owned (no attribution
+needed). The War Elephant's skeleton+animation set is a real third-party CC-BY
+Sketchfab model (Asian Elephant, planeta-elefante) - added
+`Assets/Resources/UniqueUnits/CREDITS.md` per Roadmap 4.4's standing rule, including
+a note that the African Bush Elephant model (also downloaded, also CC-BY) was
+evaluated but not used in the final asset.
+
+**Roadmap/CLAUDE.md**: Section 1's unique-units item and Section 4.3's matching
+checklist item both marked fully closed (were "backend-complete, visual pending").
+Section 5 gained item 8 (done). CLAUDE.md status updated, noting the concurrent
+session explicitly.
+
+**Commit**: one scoped commit covering the 4 new/changed factory scripts, the 2 new
+`Elephant*` scripts, the `HumanModelFactory` extension, the 4 new
+`Assets/Resources/UniqueUnits/` model+texture folders, `CREDITS.md`, and the 3 doc
+files above.
+
+---
+
 ## 2026-08-27 — Per-civ architectural differentiation, code groundwork (Roadmap Section 5, item 7)
 
 **Scope**: Confirmed item 5 (balance pass resumption) was already fully closed per

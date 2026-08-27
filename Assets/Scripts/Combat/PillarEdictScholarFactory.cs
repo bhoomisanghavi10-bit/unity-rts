@@ -15,9 +15,15 @@ namespace KingdomsOfBharat.Combat
     // the same combat-factory shape as every other unique unit -
     // UnitClass.Infantry, kept in line with Soldier's own weapon/armor
     // shape - plus one addition: PillarEdictAura, giving nearby friendly
-    // Workers +50% gather rate (see PillarEdictAura/Gatherer). No model
-    // exists, so this reuses the Male Human Character Dummy body/
-    // animations like every other unique unit pending a real pack.
+    // Workers +50% gather rate (see PillarEdictAura/Gatherer).
+    //
+    // Visual closure (2026-08-27 rigging session): a real Meshy-sourced
+    // mesh (project-owned) bound onto the same shared Human Character
+    // Dummy rig every other human unit uses (Blender, ARMATURE_AUTO
+    // weights) - reuses this rig's existing Idle/Walk/Attack clips
+    // directly, no new animation source needed. The mesh already sculpts
+    // its own held book/robes, so the old cosmetic sword attachment (a
+    // placeholder for the shared dummy body) is gone.
     public static class PillarEdictScholarFactory
     {
         public static GameObject Spawn(Vector3 position, FactionId faction)
@@ -31,7 +37,10 @@ namespace KingdomsOfBharat.Combat
                 Debug.LogWarning("PillarEdictScholarFactory: no generated UnitDefinition for 'pillar_edict_scholar' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
-            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
+            GameObject go = HumanModelFactory.Spawn(
+                HumanModelFactory.Gender.Male, position, civilization,
+                prefabPathOverride: "UniqueUnits/PillarEdictScholar/PillarEdictScholar", applyPaletteMaterial: false);
+            HumanModelFactory.ApplyCustomTexture(go, "UniqueUnits/PillarEdictScholar/PillarEdictScholar_albedo");
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} Pillar Edict Scholar"
                 : $"Enemy {profile.DisplayName} Pillar Edict Scholar";
@@ -63,11 +72,6 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);
             go.AddComponent<PillarEdictAura>().Configure(faction);
-
-            WeaponAttachment.AttachToBone(
-                go, HumanBodyBones.RightHand, "Weapons/Sword/scene",
-                targetSize: 1f, localPositionOffset: new Vector3(0.05f, 0.05f, 0f), localEulerOffset: new Vector3(0f, 0f, 100f),
-                trimToFirstMesh: true);
 
             if (faction == FactionId.Player)
             {

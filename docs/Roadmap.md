@@ -73,16 +73,20 @@ entirely. What follows is the real remaining list.
   (`maurya_war_elephant`, `pillar_edict_scholar`, `maratha_mavla_raider`,
   `maratha_durg_garrison`), but they're not spawnable yet. This is the main reason
   Maurya/Maratha, while selectable, aren't yet on par with the original 3 civs.
-  **Backend-complete, not fully closed** — all 4 spawnable via
-  `Barracks.RequestTrainUniqueUnit(int slot)`, now a 2-slot-per-civ system
-  (`UniqueUnitDefinition.CountFor`/`For(civId, slot)`). Pillar Edict Scholar and
-  Durg Garrison also got real new mechanics (a gather-rate aura and a Wall/Tower
-  garrison siege-immunity system, respectively), not just stats — see
-  `docs/SESSION_LOG.md`. **Visual closure still pending**: no models exist for any
-  of the 4 yet — all spawn on the shared Human Dummy body. Per Section 4.3, asset
-  sourcing/creation is the user's task, arranged outside the coding session; when a
-  model is ready it gets wired in as its own separate session, not folded into
-  whatever item is active then.
+  **Fully closed** — backend was already complete (all 4 spawnable via
+  `Barracks.RequestTrainUniqueUnit(int slot)`, 2-slot-per-civ system, Pillar Edict
+  Scholar/Durg Garrison have real mechanics beyond stats). **Visual closure landed
+  2026-08-27**: real rigged models for all 4, replacing the shared Human Dummy
+  fallback. The 3 humanoids (Scholar/Raider/Garrison) got Meshy-sourced meshes bound
+  onto the existing shared rig (reuses its Idle/Walk/Attack clips as-is); the War
+  Elephant got its Meshy-sourced mesh bound onto a real third-party elephant
+  skeleton+animation set (CC-BY, see `Assets/Resources/UniqueUnits/CREDITS.md`). The
+  user drove the actual rigging via Blender command-line Python scripting
+  (`blender --background --python`), not manual Editor work. All 4 live-tested
+  spawning correctly in Play mode. See `docs/SESSION_LOG.md` for the full
+  methodology, several real Unity/Blender interop bugs hit and fixed along the way,
+  and one known first-pass limitation (the elephant Die clip strains visibly in its
+  more extreme back-half poses under automatic-weight skinning).
 - [x] **Narrower per-civ passive bonuses aren't live** — Rajput's cavalry-only gold
   discount, Maurya/Maratha's specific move-speed bonuses, etc. exist in
   `CivilizationDefinition.passiveBonuses` but nothing reads them; only the legacy
@@ -234,14 +238,32 @@ pass, not silent replacement:
 Specced to the 4.1 standard, so whatever you arrange or create has a concrete target
 rather than "something reasonable":
 
+**Civ-specific building models — priority order and count**: 9 spawnable building
+types (TownCenter, Barracks, Tower, Market, Farm, House, Wall, Gate, Dock) × 5 civs =
+45 models for full coverage. Recommended sequencing, highest visual impact first:
+1. **TownCenter, Barracks** — every match has exactly one TC (the civ's visual
+   anchor) and Barracks is the first production building; smallest set (10 models)
+   that makes all 5 civs read as visually distinct from the start of a match.
+2. **Tower, Wall, Gate** — tall/vertical fortification forms read architecturally
+   distinct fastest (gopuram towers vs. chhatris vs. hill-fort silhouettes).
+3. **Market, Dock** — mid-game economy buildings, moderate visibility.
+4. **Farm, House** — small, numerous, lowest individual visual weight; can
+   reasonably stay on the shared model longest.
+
+Each model: 8,000–20,000 tris (per-tier per 4.1), 2048×2048–4096×4096 PBR
+(metallic/roughness), civ style per the 4.1 reference list. Lands at
+`Assets/Resources/Buildings/<CivId>/<BuildingResourceName>` (e.g.
+`Buildings/Chola/Barracks`) — `BuildingModelFactory.Spawn` already probes this path
+first as of Section 5 item 7; a civ/building with no model there just falls through
+to the existing shared model, so these can be added one at a time.
+
 - [ ] **UI skin** — full HUD/menu visual pass; currently functional-only, genuinely
   unstarted. Needs its own style sheet (panel art, icon set, cursor set) consistent
   with the 3D art direction above, not sourced piecemeal per element.
-- [ ] **4 Maurya/Maratha unique units** (`maurya_war_elephant`, `pillar_edict_scholar`,
-  `maratha_mavla_raider`, `maratha_durg_garrison`) — need real models at the 4.1
-  unit spec; currently would fall back to the shared generic body with no
-  distinguishing silhouette, which undercuts exactly the "civs feel distinct" goal
-  these units exist for.
+- [x] **4 Maurya/Maratha unique units** (`maurya_war_elephant`, `pillar_edict_scholar`,
+  `maratha_mavla_raider`, `maratha_durg_garrison`) — **done 2026-08-27**, real Meshy-
+  sourced models rigged and wired in for all 4 (see Section 1's matching item and
+  `docs/SESSION_LOG.md`).
 - [ ] **Base human body decision** (see 4.2) — resolve deliberately, don't leave it
   as a deferred "someday" item indefinitely.
 - [ ] **Per-civ architectural differentiation** — the single biggest visual-fidelity
@@ -300,3 +322,16 @@ buying, or making an asset yourself:
 6. Everything else (music, tutorial, performance profiling, UI skin, store assets) is
    real but lower-urgency — sequence after the above based on what you want to
    prioritize next, not by default order.
+7. ~~**Per-civ architectural differentiation, architecture groundwork** — audited
+   `BuildingModelFactory` and wired it (plus all 9 building factories) to probe a
+   civ-keyed model path before falling back to today's shared model, so civ-specific
+   building models can land incrementally, one civ/building at a time, with no code
+   changes needed per asset.~~ **Code groundwork done.** Actual civ-specific models
+   are a separate content project (see Section 4.3) — not started, and not this
+   session's scope.
+8. ~~**Visual closure for the 4 Maurya/Maratha unique units** — real Meshy-sourced
+   models, rigged via Blender command-line scripting (3 onto the existing shared
+   human rig, the War Elephant onto a real third-party elephant skeleton+animation
+   set) and wired into their factories.~~ **Done** (2026-08-27). See Section 1's
+   matching item and `docs/SESSION_LOG.md` for full methodology and the one known
+   first-pass limitation (elephant Die clip).

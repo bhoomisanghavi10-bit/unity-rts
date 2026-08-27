@@ -30,10 +30,20 @@ namespace KingdomsOfBharat.Units
         // range, MeleeAttacker range, NavMeshAgent, the Collider) working
         // unchanged, since they all read the root's transform, not the
         // visual child's.
-        public static GameObject Spawn(Gender gender, Vector3 position, CivilizationId civilization)
+        // prefabPathOverride/applyPaletteMaterial: added for the 3 Meshy-
+        // sourced unique units (Pillar Edict Scholar, Mavla Raider, Durg
+        // Garrison) that reuse this same shared rig/animation set but need
+        // their own painted mesh instead of the generic dummy body/civ
+        // palette - both default to the original dummy-body behavior, so
+        // every existing caller (Soldier/Archer/Cavalry/Siege/Spearman/
+        // Worker) is unaffected.
+        public static GameObject Spawn(
+            Gender gender, Vector3 position, CivilizationId civilization,
+            string prefabPathOverride = null, bool applyPaletteMaterial = true)
         {
             string genderTag = gender == Gender.Male ? "M" : "F";
-            GameObject prefab = Resources.Load<GameObject>($"human/Human Character Dummy/Prefabs/HumanDummy_{genderTag} White");
+            string prefabPath = prefabPathOverride ?? $"human/Human Character Dummy/Prefabs/HumanDummy_{genderTag} White";
+            GameObject prefab = Resources.Load<GameObject>(prefabPath);
 
             GameObject root = new GameObject(prefab.name);
             root.transform.position = position;
@@ -75,7 +85,10 @@ namespace KingdomsOfBharat.Units
                 animator.applyRootMotion = false;
             }
 
-            ApplyPaletteMaterial(model, PaletteNameFor(civilization));
+            if (applyPaletteMaterial)
+            {
+                ApplyPaletteMaterial(model, PaletteNameFor(civilization));
+            }
 
             // Two independent problems were compounding here: the model's
             // pivot convention wasn't known (fixed by measuring rendered
@@ -166,6 +179,26 @@ namespace KingdomsOfBharat.Units
                 material.mainTexture = source.mainTexture;
                 material.mainTextureOffset = source.mainTextureOffset;
                 material.mainTextureScale = source.mainTextureScale;
+            }
+
+            foreach (Renderer renderer in go.GetComponentsInChildren<Renderer>(true))
+            {
+                renderer.sharedMaterial = material;
+            }
+        }
+
+        // For the 3 Meshy-sourced unique units spawned via
+        // prefabPathOverride/applyPaletteMaterial:false above - their own
+        // painted texture is the model's real identity (armor, robes),
+        // not a trim-sheet palette to retint per civ like the generic
+        // dummy body.
+        public static void ApplyCustomTexture(GameObject go, string texturePath)
+        {
+            Material material = GameplayMaterial.CreateOpaque(Color.white);
+            Texture2D albedo = Resources.Load<Texture2D>(texturePath);
+            if (albedo != null)
+            {
+                material.mainTexture = albedo;
             }
 
             foreach (Renderer renderer in go.GetComponentsInChildren<Renderer>(true))

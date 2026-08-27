@@ -7,32 +7,41 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- Currently on: nothing started yet for the next session — item 7 (per-civ
-  architectural differentiation, code groundwork) is done. Actual civ-specific
-  building models are their own content project (Section 4.3 has the priority order
-  and spec) — arranged by the user separately, same as the 4 unique-unit models.
-  Otherwise, remaining "everything else" (music, tutorial, performance profiling, UI
-  skin, store assets) or continued balance work (training cost-vs-power ratios,
-  further sustained playtesting) — user's call.
-- Last completed: Section 5 item 7, per-civ architectural differentiation groundwork.
-  Audited `BuildingModelFactory.Spawn` (the single chokepoint all 9 building
-  factories call through) and confirmed civ ID is already in scope at every call
-  site. Added a `CivilizationId` parameter and a new first-probed lookup path,
-  `Buildings/<CivId>/<resourceName>`, ahead of the existing shared-model chain — a
-  civ/building with no model there falls through to today's shared model
-  automatically, so models can be sourced incrementally, one civ/building at a time,
-  with zero code changes needed per asset. Updated all 9 call sites
-  (TownCenter/Barracks/Tower/Wall/Gate/Market/Dock/Farm/House factories). Added
-  `BuildingModelFactoryTests.cs` (new — spawns each of the 5 civs' Barracks and
-  confirms the fallback path still produces a valid model+collider); full EditMode
-  suite (28 tests) passes with no regressions. No civ-specific models were sourced —
-  that's explicitly out of scope for a coding session per Section 4.3/4.4. See
-  `docs/SESSION_LOG.md` for full detail.
-- Also still open: Section 5 item 3 (4 Maurya/Maratha unique-unit factories) is
-  backend-complete but **not fully closed** — no models exist for any of the 4 yet
-  (shared Human Dummy body pending real art per Roadmap Section 4.3). When a model
-  is ready, it gets wired in as its own separate session, not folded into whatever
-  item is active then.
+- **Note**: this update landed alongside a concurrent Claude Code session working
+  the same repo (item 7, per-civ architectural differentiation groundwork) — flagged
+  here per the single-session-discipline gotcha below; this session's own changes are
+  scoped to the 4 unique-unit models only (see immediately below) and didn't touch
+  `BuildingModelFactory`/civ-building work.
+- Currently on: nothing started yet for the next session — Section 5 item 3's visual
+  closure (this session) and item 7 (per-civ architectural differentiation, code
+  groundwork, concurrent session) are both done. Remaining: civ-specific building
+  models (Section 4.3 has the priority order/spec, arranged by the user separately),
+  "everything else" (music, tutorial, performance profiling, UI skin, store assets),
+  or continued balance work (training cost-vs-power ratios, further sustained
+  playtesting) — user's call.
+- Last completed (this session): **Section 5 item 3's visual closure** — the 4
+  Maurya/Maratha unique units (backend-complete since an earlier session) now have
+  real rigged models instead of the shared Human Dummy fallback. The user drove this
+  via Blender command-line Python scripting (`blender --background --python`), not
+  manual Editor steps: Pillar Edict Scholar/Mavla Raider/Durg Garrison got their
+  Meshy-sourced meshes bound onto the existing shared Human Character Dummy rig
+  (reuses its Idle/Walk/Attack clips directly, no new animation needed); the War
+  Elephant got its Meshy-sourced mesh bound onto a real third-party elephant
+  skeleton+animations (CC-BY, see `Assets/Resources/UniqueUnits/CREDITS.md`) instead
+  of the originally-planned "extend the wild boar's skeleton" approach (dropped once
+  a real elephant rig became available). `HumanModelFactory.Spawn` gained two
+  backward-compatible optional parameters (`prefabPathOverride`,
+  `applyPaletteMaterial`) to let the 3 humanoid factories point at their own model
+  instead of the generic dummy; a new `ElephantAnimationDriver`/`ElephantAnimationSet`
+  (mirroring `BoarAnimationDriver`'s Generic-rig Playables pattern) drives the
+  elephant. All 4 live-tested spawning correctly in Play mode (valid Animator/Avatar,
+  correct textures, no console errors, real NavMeshAgent movement confirmed). One
+  known first-pass limitation, not fixed this session: the elephant's Die clip's
+  automatic-weight bind strains visibly in the more extreme back half of that
+  animation. See `docs/SESSION_LOG.md` for the full rigging methodology, including
+  several real Unity/Blender interop bugs found and fixed along the way (a spurious
+  object-scale=0.01 animation-export artifact, a missing intermediate bone-hierarchy
+  node the Humanoid Avatar validator required, etc).
 
 ## Engine & architecture
 - Unity version: [fill in]

@@ -14,9 +14,17 @@ namespace KingdomsOfBharat.Combat
     // (CSV: lower HP but much higher move speed than Rajput's Royal
     // Guard). Kept as UnitClass.Cavalry, same reasoning as
     // RajputRoyalGuardFactory - the existing counter triangle already
-    // applies correctly with zero new balance entries needed. No model
-    // exists, so this reuses the Male Human Character Dummy body/
-    // animations like every other unique unit pending a real pack.
+    // applies correctly with zero new balance entries needed.
+    //
+    // Visual closure (2026-08-27 rigging session): a real Meshy-sourced
+    // mesh (project-owned) bound onto the same shared Human Character
+    // Dummy rig every other human unit uses (Blender, ARMATURE_AUTO
+    // weights) - reuses this rig's existing Idle/Walk/Attack clips
+    // directly. The sourced model is a standing foot-soldier pose (no
+    // horse geometry), so the cosmetic horse mount stays attached
+    // separately exactly as it did on the old dummy body, to keep this
+    // unit reading as Cavalry; the old cosmetic sword attachment is gone
+    // since the new mesh already sculpts its own sword/spear/shield.
     public static class MarathaMavlaRaiderFactory
     {
         public static GameObject Spawn(Vector3 position, FactionId faction)
@@ -30,7 +38,10 @@ namespace KingdomsOfBharat.Combat
                 Debug.LogWarning("MarathaMavlaRaiderFactory: no generated UnitDefinition for 'maratha_mavla_raider' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
-            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
+            GameObject go = HumanModelFactory.Spawn(
+                HumanModelFactory.Gender.Male, position, civilization,
+                prefabPathOverride: "UniqueUnits/MavlaRaider/MavlaRaider", applyPaletteMaterial: false);
+            HumanModelFactory.ApplyCustomTexture(go, "UniqueUnits/MavlaRaider/MavlaRaider_albedo");
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} Mavla Raider"
                 : $"Enemy {profile.DisplayName} Mavla Raider";
@@ -62,9 +73,6 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);
 
-            WeaponAttachment.AttachToBone(
-                go, HumanBodyBones.RightHand, "Weapons/Sword/scene",
-                targetSize: 1.1f, localPositionOffset: new Vector3(0.05f, 0.1f, 0f), localEulerOffset: new Vector3(0f, 0f, 90f));
             WeaponAttachment.AttachBeside(
                 go, "Mounts/Horse/scene",
                 targetSize: 2.4f, localPositionOffset: new Vector3(0f, 0f, -0.6f), localEulerOffset: Vector3.zero);
