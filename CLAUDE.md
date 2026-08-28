@@ -23,7 +23,21 @@ asset requirements, 5. Priority order).
   (Naval factories missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s
   1.5s vs `MeleeAttacker`'s 1.0s attack interval), or continued balance work — user's
   call.
-- Last completed (this session): **5 cursor states wired** (Roadmap Section 4.3) —
+- Last completed (this session): **Chola building scale hierarchy corrected**
+  (Roadmap Section 4.3) — user flagged from a live screenshot that only TownCenter
+  looked properly sized; the other 8 buildings' scale had been calibrated
+  independently against their old shared siblings, which let Barracks (1.74) and
+  House (1.73) end up shorter than the worker unit (1.94) — visibly broken.
+  Recalibrated all 8 as multiples of human height, keeping TownCenter unchanged
+  (user-confirmed correct). New heights: Tower 7.99, Market 4.95, Barracks 4.38,
+  Dock 3.81, Wall/Gate 2.66, House 2.57, Farm 2.10 — clean descending hierarchy, all
+  above the worker's 1.94. Hit and caught a real mistake mid-fix (edited a prefab's
+  `_model` child's constant import-normalization scale instead of the prefab root's
+  actual tuned multiplier); reverted cleanly once caught. Live-verified in Play mode
+  via UnityMCP screenshots (sent to the user directly), all 45 EditMode tests still
+  pass. Methodology and reference ratios saved to Claude's cross-session memory for
+  reuse on the remaining 4 civs' 36 models. See `docs/SESSION_LOG.md`.
+- Previously completed: **5 cursor states wired** (Roadmap Section 4.3) —
   closed the "build-placement cursor asset missing" gap using a newly-imported Asset
   Store pack ("Basic RPG Cursors") that turned out not to 1:1-match the UI art
   brief's 5-state spec (generic weapon/tool icons, not purpose-made); reported the

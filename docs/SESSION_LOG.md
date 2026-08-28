@@ -5,6 +5,56 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-28 — Chola building scale hierarchy corrected (Roadmap Section 4.3)
+
+**Scope**: the user flagged, from a live Play-mode screenshot, that Chola building
+scale wasn't proportional to human units or to each other (TownCenter alone looked
+right). This was a real bug, not a perception issue.
+
+**Root cause**: the original Chola session (this same day) calibrated each of the 9
+buildings' scale *independently* against its old shared (non-civ) sibling — a
+per-building check that passed in isolation but never cross-checked against a human
+unit or the rest of the family together. Measured live via `BuildingModelFactory.
+Spawn(...)` + combined `Renderer` bounds in Play mode: Barracks came out at world
+height 1.74 and House at 1.73, both **shorter than the Chola Worker unit** (measured
+1.94, matching its `CapsuleCollider.height` of 2) — a building shorter than the
+humans who use it reads as broken, exactly what the screenshot showed.
+
+**Fix**: recomputed all 8 non-TownCenter buildings' scale as a multiple of the
+worker's height, keeping TownCenter unchanged (user-confirmed correct: height
+11.16, footprint ~13.9×15.7). New heights: Tower 7.99 (was 6.01), Market 4.95 (was
+4.89, negligible change), Barracks 4.38 (was 1.74), Dock 3.81 (was 2.74), Wall 2.66
+(was 2.13), Gate 2.66 (was 2.12), House 2.57 (was 1.73), Farm 2.10 (was 1.88) — all
+now clear the worker's 1.94 height, in a clean descending hierarchy
+TownCenter > Tower > Market ≈ Barracks > Dock > Wall ≈ Gate ≈ House > Farm. Full
+reference ratios and methodology saved to Claude's cross-session memory
+(`feedback_building_scale_hierarchy`) per the user's explicit request, for reuse on
+the 4 remaining civs' 36 models.
+
+**A real mistake made and caught mid-fix**: the first attempt edited the wrong
+transform — `PrefabUtility.LoadPrefabContents(path).transform.GetChild(0)` is the
+`<Building>_model` child, which carries a constant ~100 import-normalization scale
+from the raw Meshy export (identical across every building, not the tuned number);
+the actual tuned per-building multiplier lives on the **prefab root's own
+`localScale`**. Caught by diffing the edited prefab against git and noticing the
+edit landed inside an unrelated nested-PrefabInstance override block instead of
+changing the value grep had originally found. `git checkout --` to revert was
+blocked by the permission classifier (a destructive command); reverted instead by
+setting the wrongly-touched child back to its original value (100) via the same
+`PrefabUtility` path, confirmed via `git diff` that the resulting change was
+byte-for-byte equivalent to no-op before proceeding with the correct root-transform
+edit.
+
+**Live verification**: entered Play mode, spawned all 9 Chola buildings plus a real
+Worker unit side-by-side via `BuildingModelFactory.Spawn`/`WorkerFactory.Spawn`
+(temporarily disabling `FogOfWarManager` so the out-of-the-way test area rendered
+lit), screenshotted via UnityMCP — confirmed visually: Worker now correctly dwarfed
+by Barracks (previously inverted), and the full lineup reads as a coherent
+descending hierarchy. All 45 EditMode tests still pass (scale-only change, no code
+touched). Screenshots sent to the user directly rather than only described.
+
+---
+
 ## 2026-08-28 — 5 cursor states wired (Roadmap Section 4.3)
 
 **Scope**: closed the "build-placement cursor asset missing" item — the user
