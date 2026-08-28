@@ -5,6 +5,90 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-28 — 5 cursor states wired (Roadmap Section 4.3)
+
+**Scope**: closed the "build-placement cursor asset missing" item — the user
+imported a new cursor icon pack (`Assets/Cursors/Cursors 64/` + `Cursors 256/`,
+2 resolutions of the same 20 icons) hoping it filled the roadmap's known gap.
+
+**Pack identification, not assumed**: `.meta` `AssetOrigin` metadata identified it as
+the Unity Asset Store package **"Basic RPG Cursors"** — a generic fantasy-RPG icon
+set (sword, axe+hammer, shield, potion, grasping hand, loot hand, crossbow, book,
+gear, ship, plain arrows in bronze/gold recolors, some also in green/red), imported
+as Sprite (not Cursor) type. Actually opened and visually inspected the candidate
+images (not just filenames) before proposing a mapping: none of the 20 concepts are
+purpose-labeled for the brief's 5 states, and every "action" icon is a plain arrow
+pointer with a small icon badge attached (arrow-tip hotspot baked into the
+composition), structurally different from the brief's spec'd standalone centered
+icon for 4 of the 5 states. Reported this mismatch to the user with a table of
+best-available substitutes before touching anything; user chose to proceed with the
+approximations (see below) over holding off or partial use.
+
+**Mapping used** (all cropped to content bbox from the 256px source, resized to the
+spec'd 32×32, saved as RGBA PNG via Python/Pillow — not in-Editor
+`Texture2D.GetPixels`, per the known Editor-crash gotcha from the Chola building
+session):
+- Default → `Arrow.png` (clean match)
+- Attack-move → `Cursor_Attack.png` (single sword, not literal crossed-swords)
+- Invalid → `Arrow_R.png` (red arrow — the pack has **no** circle-slash/prohibition
+  icon at all, closest available)
+- Gather → `Cursor_loot.png` (hand + coins, user's pick over the closed-fist
+  `Cursor_Hand.png`)
+- Build-placement → `Cursor_Production.png` (axe+hammer, not literal
+  hammer-and-nail)
+
+Confirmed via pixel inspection (`PIL` alpha-channel check) that all 5 sources
+already have real alpha transparency — no border-flood-fill fix needed this time,
+unlike the prior UI-art-delivery session.
+
+**Also found and fixed while auditing existing cursor code** (not part of the pack
+work, but directly adjacent): the 3 already-wired cursors (`default`/`gather`/
+`attack_move`) were imported at **2048×2048**, wildly off the brief's 32×32 spec —
+corrected in the same pass. `invalid.png` existed as a delivered asset from a prior
+session but was **never referenced by any code** — there was no invalid-hover
+detection logic anywhere in the codebase at all. Added real detection logic instead
+of just wiring the texture: `HoverTooltip.cs` now checks whether the actual
+selection can attack (`MeleeAttacker`/`BoatAttacker`, mirroring
+`SelectionManager`'s own attack-dispatch check) before showing Attack-move, and
+whether it can gather (`Gatherer`) before showing Gather — falling to Invalid
+otherwise. This fixes a real latent bug: previously, hovering a hostile target
+*always* showed the Attack-move cursor regardless of whether the selection could
+actually attack (e.g. a pure economy selection), and hovering a resource node with a
+non-gathering selection silently showed the default cursor with no signal at all.
+
+**Testable design**: extracted the state decision into `HoverTooltip.
+ResolveCursorState` — a pure `internal static` method (mirrors the
+`CivilizationProfile.FindCategoryMultiplier`-style testable-helper pattern already
+used elsewhere), covered by 6 new EditMode tests in the new
+`HoverCursorStateTests.cs`. All 45 EditMode tests pass (39 previous + 6 new).
+
+**Live verification (Play mode, via UnityMCP, not just tests)**: entered Play mode
+on the `Main` scene, confirmed all 5 textures load at runtime (via reflection on the
+live `HoverTooltip` instance — none null, all 32×32). The scene was sitting at
+`MissionSelectMenu` with spawners inactive; activated `UnitSpawner`/
+`ResourceNodeSpawner`/`TownCenterSpawner`/`AiController` directly to get real
+Player/Enemy workers, resource nodes, and town centers into the scene (Play-mode-only
+changes, discarded automatically on Stop — no persistent scene edit). Verified
+against real objects and the real live methods (via reflection, not a
+reimplementation): empty selection hovering a hostile worker or a resource node both
+correctly resolve to Invalid (confirming the bug fix above); a real Player worker
+selected (which carries both `Gatherer` and `MeleeAttacker`) correctly resolves to
+AttackMove/Gather on the respective hovers; `BuildingPlacer.IsPlacing = true`
+correctly resolves to BuildPlacement regardless of what's under the cursor.
+**Caveat, disclosed rather than glossed over**: Unity's `Cursor.SetCursor` is a
+write-only OS API with no readback, and available tooling can't capture the
+OS-rendered hardware cursor bitmap in a screenshot — so "live-verified" here means
+confirming the real decision logic and real texture assignment against actual scene
+state and components, not a visual screenshot of the pointer itself. (The prior
+session's cursor-wiring claims had the same limitation and didn't claim otherwise
+either, on inspection.)
+
+**Docs**: `docs/UI_ART_BRIEF.md`'s Tier 2 cursor checklist item and wiring note
+updated with the approximation caveats; `docs/ROADMAP.md` Section 4.3's
+"Build-placement cursor asset missing" item closed.
+
+---
+
 ## 2026-08-28 — Chola civ-specific building models wired (Roadmap Section 4.3)
 
 **Scope**: first content delivered against Section 4.3's civ-specific building spec.

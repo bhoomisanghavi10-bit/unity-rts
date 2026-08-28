@@ -31,16 +31,20 @@ namespace KingdomsOfBharat.UI
         private UnityEngine.Camera _camera;
         private SelectionManager _selectionManager;
 
+        // Cursor states this hover can resolve to. Internal (not private) so
+        // EditMode tests can exercise ResolveCursorState directly - see
+        // Assets/Scripts/AssemblyInfo.cs for the InternalsVisibleTo grant.
+        internal enum HoverCursorState { Default, AttackMove, Gather, Invalid, BuildPlacement }
+
         // Cursor textures, not sprites - Cursor.SetCursor takes a Texture2D
         // directly. Loaded once; hotspot is the texture center for the
-        // symmetric gather/attack-move icons, top-left for the arrow. Only 4
-        // of the spec'd 5 states exist (no build-placement cursor was ever
-        // generated - see docs/UI_ART_BRIEF.md) - BuildingPlacer.IsPlacing is
-        // checked below and deliberately left on the default cursor rather
-        // than silently doing nothing.
+        // symmetric gather/attack-move/invalid/build-placement icons,
+        // top-left for the arrow.
         private Texture2D _cursorDefault;
         private Texture2D _cursorGather;
         private Texture2D _cursorAttackMove;
+        private Texture2D _cursorInvalid;
+        private Texture2D _cursorBuildPlacement;
 
         private void Awake()
         {
@@ -65,6 +69,8 @@ namespace KingdomsOfBharat.UI
             _cursorDefault = Resources.Load<Texture2D>("UI/Cursors/default");
             _cursorGather = Resources.Load<Texture2D>("UI/Cursors/gather");
             _cursorAttackMove = Resources.Load<Texture2D>("UI/Cursors/attack_move");
+            _cursorInvalid = Resources.Load<Texture2D>("UI/Cursors/invalid");
+            _cursorBuildPlacement = Resources.Load<Texture2D>("UI/Cursors/build_placement");
         }
 
         private void SetCursor(Texture2D texture)
@@ -77,6 +83,47 @@ namespace KingdomsOfBharat.UI
 
             Vector2 hotspot = texture == _cursorDefault ? Vector2.zero : new Vector2(texture.width / 2f, texture.height / 2f);
             Cursor.SetCursor(texture, hotspot, CursorMode.Auto);
+        }
+
+        private Texture2D TextureFor(HoverCursorState state)
+        {
+            switch (state)
+            {
+                case HoverCursorState.AttackMove: return _cursorAttackMove;
+                case HoverCursorState.Gather: return _cursorGather;
+                case HoverCursorState.Invalid: return _cursorInvalid;
+                case HoverCursorState.BuildPlacement: return _cursorBuildPlacement;
+                default: return _cursorDefault;
+            }
+        }
+
+        // Pure and testable on purpose (see HoverCursorStateTests.cs) -
+        // mirrors the CivilizationProfile.FindCategoryMultiplier-style
+        // testable-helper pattern already used elsewhere in this codebase.
+        // hoveringHostileTarget/hoveringResourceNode are mutually exclusive
+        // in practice (Update()'s raycast hits one collider), but the
+        // isPlacingBuilding check always wins regardless.
+        internal static HoverCursorState ResolveCursorState(
+            bool isPlacingBuilding,
+            bool hoveringHostileTarget, bool selectionCanAttack,
+            bool hoveringResourceNode, bool selectionCanGather)
+        {
+            if (isPlacingBuilding)
+            {
+                return HoverCursorState.BuildPlacement;
+            }
+
+            if (hoveringHostileTarget)
+            {
+                return selectionCanAttack ? HoverCursorState.AttackMove : HoverCursorState.Invalid;
+            }
+
+            if (hoveringResourceNode)
+            {
+                return selectionCanGather ? HoverCursorState.Gather : HoverCursorState.Invalid;
+            }
+
+            return HoverCursorState.Default;
         }
 
         private bool SelectionCanGather()
@@ -97,17 +144,35 @@ namespace KingdomsOfBharat.UI
             return false;
         }
 
+        // Same MeleeAttacker/BoatAttacker pair SelectionManager's attack
+        // dispatch already checks - a selection needs one or the other to
+        // actually be able to attack a hostile target.
+        private bool SelectionCanAttack()
+        {
+            if (_selectionManager == null)
+            {
+                return false;
+            }
+
+            foreach (Unit unit in _selectionManager.Selected)
+            {
+                if (unit.TryGetComponent(out MeleeAttacker _) || unit.TryGetComponent(out BoatAttacker _))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private void Update()
         {
             string line1 = null;
             string line2 = null;
             string line3 = null;
-            Texture2D cursor = _cursorDefault;
+            bool hoveringHostileTarget = false;
+            bool hoveringResourceNode = false;
 
-            // BuildingPlacer.IsPlacing is exactly where a build-placement
-            // cursor belongs - no asset exists for it (see field comments
-            // above), so this deliberately falls through to the default
-            // cursor rather than a dedicated one.
             if (!BuildingPlacer.IsPlacing && !MinimapController.IsPointerOverMinimap)
             {
                 Ray ray = _camera.ScreenPointToRay(Input.mousePosition);
@@ -132,7 +197,7 @@ namespace KingdomsOfBharat.UI
                         if (factionMember.Faction != FactionId.Player
                             && !DiplomacyRegistry.AreAllied(FactionId.Player, factionMember.Faction))
                         {
-                            cursor = _cursorAttackMove;
+                            hoveringHostileTarget = true;
                         }
                     }
 
@@ -147,10 +212,7 @@ namespace KingdomsOfBharat.UI
                     else if (go.TryGetComponent(out ResourceNode node))
                     {
                         line2 = node.ResourceType.ToString();
-                        if (SelectionCanGather())
-                        {
-                            cursor = _cursorGather;
-                        }
+                        hoveringResourceNode = true;
                     }
 
                     if (go.TryGetComponent(out Attackable attackable))
@@ -159,6 +221,12 @@ namespace KingdomsOfBharat.UI
                     }
                 }
             }
+
+            HoverCursorState cursorState = ResolveCursorState(
+                BuildingPlacer.IsPlacing,
+                hoveringHostileTarget, SelectionCanAttack(),
+                hoveringResourceNode, SelectionCanGather());
+            Texture2D cursor = TextureFor(cursorState);
 
             SetCursor(cursor);
 

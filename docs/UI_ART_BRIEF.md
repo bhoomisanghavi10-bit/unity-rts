@@ -188,7 +188,17 @@ Use this to track sourcing progress — check off as art lands and gets wired in
 - [ ] Selected-unit panel frame
 - [ ] HP bar frame + fill (2 sprites)
 - [ ] Hover-tooltip panel frame
-- [ ] 5 cursor states (default/attack-move/invalid/gather/build-placement)
+- [x] 5 cursor states (default/attack-move/invalid/gather/build-placement) — **done
+  2026-08-28, via approximate matches, not purpose-made art.** Sourced from an
+  imported Asset Store pack ("Basic RPG Cursors", `Assets/Cursors/`), not commissioned
+  to this spec — none of its icons are literal crossed-swords/circle-slash/sickle/
+  hammer-and-nail. Closest available substitutes used instead: Default = plain arrow,
+  Attack-move = single sword, Invalid = red arrow (no prohibition/slash icon exists in
+  the pack), Gather = hand-with-coins, Build-placement = axe+hammer. Cropped to
+  content and resized to the spec'd 32×32 (Python/Pillow, not in-Editor
+  `Texture2D.GetPixels` — see the known Editor-crash gotcha). If a closer-fitting set
+  is ever sourced, swap the 5 files at `Assets/Resources/UI/Cursors/` — no code change
+  needed.
 
 **Tier 3 (menu screens)**
 - [ ] Shared modal panel frame
@@ -215,10 +225,12 @@ files.
   `ApplyButton` (`Assets/Scripts/UI/UIStyleTheme.cs`) already check for a non-null
   sprite and switch every wired panel/button to `Image.Type.Sliced` automatically,
   no other code change needed.
-- Cursors: `Cursor.SetCursor(texture, hotspot, CursorMode.Auto)` at the existing
-  input-mode transition points (`BuildingPlacer.IsPlacing`, attack-move keybind,
-  invalid-target hover) — not yet wired, will need a small new script once cursor
-  textures exist.
+- Cursors: **done 2026-08-28.** `HoverTooltip.cs` calls `Cursor.SetCursor(texture,
+  hotspot, CursorMode.Auto)` for all 5 states, resolved via the pure/testable
+  `HoverTooltip.ResolveCursorState` (see `HoverCursorStateTests.cs`) at
+  `BuildingPlacer.IsPlacing`, hostile-target hover (only when the selection can
+  actually attack — otherwise Invalid), and resource-node hover (only when the
+  selection can actually gather — otherwise Invalid).
 - Civ-select cards: swap `CivPicker.cs`'s current flat-color `Image` background for
   the crest sprite (add an `Image` for the crest layered over the existing color
   swatch, or replace the swatch's sprite directly).

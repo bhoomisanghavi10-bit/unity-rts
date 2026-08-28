@@ -9,20 +9,37 @@ asset requirements, 5. Priority order).
 - Working from Roadmap Section 5's priority order.
 - Currently on: nothing started yet for the next session. Section 5 items 1-5, 7-8
   are all done. Remaining real options: **civ-specific building models for the other
-  4 civs** (Chola's 9/9 landed this session — see immediately below; Vijayanagara/
-  Rajput/Maurya/Maratha, 36 models, are unstarted; `Assets/Editor/MeshyBuildingImporter.cs`
-  is reusable but each asset needs its own live scale/rotation verification, not
-  blind reuse of Chola's numbers), **UI skin polish** (art + display wiring both
-  landed a prior session; remaining work is cosmetic 9-slice/multiplier refinement
-  plus the 2 known content gaps: no build-placement cursor asset, Maurya crest
-  off-palette), **wiring in a Crusader Knight body** (rig-compatibility verified
-  positive in a concurrent session — scale normalization + weapon re-parenting still
-  unstarted), other "everything else" items (music, tutorial, performance profiling,
-  store assets, multiplayer determinism gaps, README drift), two adjacent findings
-  from a concurrent Naval balance session (Naval factories missing
-  `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs `MeleeAttacker`'s
-  1.0s attack interval), or continued balance work — user's call.
-- Last completed (this session): **Chola civ-specific building models** (Roadmap
+  4 civs** (Chola's 9/9 landed a prior session; Vijayanagara/Rajput/Maurya/Maratha,
+  36 models, are unstarted; `Assets/Editor/MeshyBuildingImporter.cs` is reusable but
+  each asset needs its own live scale/rotation verification, not blind reuse of
+  Chola's numbers), **UI skin polish** (art + display wiring + cursor wiring have all
+  landed; remaining work is cosmetic 9-slice/multiplier refinement plus the 1
+  remaining known content gap: Maurya crest off-palette — the build-placement-cursor
+  gap closed this session, see immediately below), **wiring in a Crusader Knight
+  body** (rig-compatibility verified positive in a concurrent session — scale
+  normalization + weapon re-parenting still unstarted), other "everything else" items
+  (music, tutorial, performance profiling, store assets, multiplayer determinism
+  gaps, README drift), two adjacent findings from a concurrent Naval balance session
+  (Naval factories missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s
+  1.5s vs `MeleeAttacker`'s 1.0s attack interval), or continued balance work — user's
+  call.
+- Last completed (this session): **5 cursor states wired** (Roadmap Section 4.3) —
+  closed the "build-placement cursor asset missing" gap using a newly-imported Asset
+  Store pack ("Basic RPG Cursors") that turned out not to 1:1-match the UI art
+  brief's 5-state spec (generic weapon/tool icons, not purpose-made); reported the
+  mismatch with pixel-verified evidence before assuming a match, then proceeded with
+  user-confirmed closest-available substitutes per state. Wired all 5 in
+  `HoverTooltip.cs` via a new pure/testable `ResolveCursorState` helper (6 new
+  EditMode tests, all 45 pass), also fixing a real latent bug found along the way:
+  Attack-move previously showed regardless of whether the selection could actually
+  attack, and Gather never signaled anything when it couldn't gather — both now
+  correctly fall to the (also newly-wired) Invalid state. Corrected the 3
+  already-wired cursor textures from 2048×2048 down to the spec'd 32×32 in the same
+  pass. Live-verified in Play mode via UnityMCP against real scene objects/components
+  (not just EditMode tests) — see `docs/SESSION_LOG.md` for the full methodology and
+  a disclosed tooling limitation (no readback for the OS-rendered cursor bitmap
+  itself).
+- Previously completed: **Chola civ-specific building models** (Roadmap
   Section 4.3) — all 9 buildings (TownCenter, Barracks, Tower, Market, Farm, House,
   Wall, Gate, Dock) wired from raw Meshy AI exports the user supplied, with real PBR
   materials (not the flat-albedo shortcut the unique-unit session used), per-building
