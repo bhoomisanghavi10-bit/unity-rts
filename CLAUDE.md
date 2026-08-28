@@ -7,37 +7,50 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Note**: this update landed alongside a concurrent session doing a Naval balance
+  pass (see immediately below) — flagged per the single-session-discipline gotcha;
+  this session's own changes are scoped entirely to `Assets/Resources/UI/` art files
+  and didn't touch combat/balance code.
 - Currently on: nothing started yet for the next session. Section 5 items 1-5, 7-8
   are all done. Remaining real options: civ-specific building models (Section 4.3 has
-  the priority order/spec, arranged by the user separately), UI skin's actual art pass
-  (spec + technical scaffold done in an earlier session, art itself still needs to be
-  arranged), other "everything else" items (music, tutorial, performance profiling,
-  store assets, Crusader Knight rig verification, multiplayer determinism gaps,
-  README drift), two adjacent findings flagged this session (Naval factories missing
-  `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs `MeleeAttacker`'s
-  1.0s attack interval), or continued balance work (training cost-vs-power ratios,
-  further sustained playtesting) — user's call.
-- Last completed (this session): **Naval balance pass** (Roadmap Section 1). Audited
-  the 4 genuinely unaudited/unlogged Naval matchups (`CombatBonus.cs` has exactly one
-  Naval entry, Naval→Archer=0.5x — every other pairing was flat 1x, and even the
-  tuned Archer pairing had never actually been live-tested). 4 live 1v1 forced-fights
-  via UnityMCP, same methodology as the prior balance session, logged to
-  `Assets/Design/playtest_log.csv`: War Galley vs Archer (won 21/45 HP, confirms the
-  0.5x fix softens but doesn't flip the matchup), vs Cavalry (won 9/45 HP, closest
-  naval win yet but still a real win, no fix needed), vs Siege (Galley destroyed,
-  Siege at 34/50 — judged working-as-designed, not a bug: Siege has no unit-vs-unit
-  penalty anywhere and Naval's real counterplay is its range/speed edge over Siege,
-  which a static forced-melee test can't capture), and a War-Galley mirror match
-  (symmetric, no asymmetry bug). No `CombatBonus` changes made — every result either
-  confirmed an existing fix or matched the "real win/loss, not a bug" bar already
-  established. Two adjacent findings surfaced but deliberately not fixed (flagged for
-  a future session, not silently expanded into this one's scope): Naval factories
-  never call `ClassArmorBonus`/`ClassDamageBonus` (every land factory does), and
-  `BoatAttacker`'s attack interval (1.5s, never overridden per-unit) vs
-  `MeleeAttacker`'s (1.0s) is a real structural asymmetry independent of
-  `CombatBonus`. Also fixed 2 stale doc comments (`UnitClass.cs`, `WarGalleyFactory.cs`)
-  claiming "no CombatBonus entries yet" for Naval. No EditMode test changes needed
-  (no code/multiplier changes to cover). See `docs/SESSION_LOG.md`.
+  the priority order/spec, arranged by the user separately), **UI skin's actual code
+  wiring** (Tiers 1-3 art now delivered and alpha-fixed/renamed at
+  `Assets/Resources/UI/` — see immediately below — but the `UIStyleTheme.asset`
+  creation, Sprite import settings/9-slice borders, and the `BuildMenu`/
+  `ResourceHUD`/`SelectedUnitPanel`/`CivPicker`/cursor code to actually display any of
+  it are still unstarted), other "everything else" items (music, tutorial, performance
+  profiling, store assets, Crusader Knight rig verification, multiplayer determinism
+  gaps, README drift), two adjacent findings flagged in the concurrent Naval session
+  (Naval factories missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s
+  vs `MeleeAttacker`'s 1.0s attack interval), or continued balance work (training
+  cost-vs-power ratios, further sustained playtesting) — user's call.
+- Last completed (this session): **UI art delivered — alpha-fix + rename pass**
+  (Roadmap Section 4.3 "UI skin"). The user dropped Tier 1-3 art (per the asset spec
+  from the earlier audit session) into `Assets/Resources/UI/` as jpg/png from Canva/
+  Gemini. Audited it against the spec (essentially complete — 4/5 cursors, all action/
+  resource icons, both button-background sets, HP bar, all panel frames, all civ
+  crests; missing the 5th cursor and the Maurya crest is off-palette blue instead of
+  gray/stone). Found every file had a fully **opaque baked-in background instead of
+  real alpha** (checkerboard-fake or flat-cream, confirmed by direct pixel sampling,
+  not just preview) — wrote `Tools/ui_art_alpha_key.py` (border-flood-fill alpha key
+  with corner-color sampling + dilation-bridging) to fix it, verified every output by
+  compositing onto magenta (caught that `panel_selected_unit.png` has no real
+  background at all and would have been destroyed by the same treatment — copied
+  through unmodified instead). Renamed all ~40 files from auto-generated prompt-text
+  filenames to stable short names; raw pre-fix originals preserved at
+  `UI_RawOriginals_backup/` (repo root, outside `Assets/`). One file
+  (`resource_stone.png`) is only ~85% cleaned after tuning attempts — flagged for a
+  manual touch-up. Deliberately did **not** create the theme asset or write any of the
+  display-wiring code this session (scoped down per explicit user choice) — that's
+  the next UI-skin session's job. See `docs/SESSION_LOG.md`.
+- Also landed around the same time (concurrent session, Roadmap Section 1): a
+  **Naval balance pass** — audited the 4 previously-unaudited Naval matchups via 4
+  live forced-fights (War Galley vs Archer/Cavalry/Siege, plus a mirror match), no
+  `CombatBonus` changes needed, all results either confirmed the existing 0.5x
+  Naval→Archer fix or were judged working-as-designed. Two adjacent (unfixed, flagged)
+  findings: Naval factories never call `ClassArmorBonus`/`ClassDamageBonus`, and
+  `BoatAttacker`'s 1.5s attack interval vs `MeleeAttacker`'s 1.0s is a real structural
+  asymmetry. Full detail in `docs/SESSION_LOG.md`.
 
 ## Engine & architecture
 - Unity version: [fill in]

@@ -5,6 +5,81 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-28 — UI art delivered: alpha-fix + rename pass (Roadmap Section 4.3 "UI skin")
+
+**Note**: another Claude Code session logged a Naval balance pass to this same repo
+around this session (see entry immediately below) — flagged per CLAUDE.md's
+single-session-discipline gotcha. This session's changes are scoped entirely to
+`Assets/Resources/UI/` (art files only) and didn't touch combat/balance code.
+
+**Scope**: The user delivered Tier 1-3 UI art (per the asset spec proposed in the
+2026-08-27 UI-skin-audit entry below) into `Assets/Resources/UI/`, generated via
+Canva/Gemini in jpg/png. Asked to locate it, confirm what was actually delivered
+against the spec, and report what's needed to wire it in. Scoped down to just the
+alpha-fix + rename pass this session; theme-asset creation and the actual icon/HP-bar/
+crest/cursor wiring code were deferred to a planned session (user's explicit choice).
+
+**Audit against the spec**: read/viewed every delivered file. Essentially complete:
+4 of 5 cursors (missing build-placement), all 19 action icons, all 4 resource icons,
+both button-background sets (command-card + menu), both HP-bar pieces, all 3 panel
+frames, all 3 menu-button states, all 5 civ crests. Two content gaps flagged (not
+fixable by this pass, still open): the missing 5th cursor, and the Maurya crest
+rendering in Rajput's blue instead of the spec'd warm gray/stone.
+
+**Critical technical finding**: checked pixel data, not just preview thumbnails —
+every single delivered file had a **fully opaque baked-in background** instead of
+real alpha, confirmed via direct alpha-channel sampling (`frac_alpha==255` at 100%
+on every file checked). Two failure modes by source: the Gemini-generated PNGs had a
+*painted-on fake checkerboard* imitating a transparency preview (not real alpha —
+verified by sampling corner pixels: alpha=255, RGB matching the checker's light-gray
+tone); the Canva-generated JPGs had a flat cream/parchment background baked in (JPEG
+can't carry alpha at all). Left as-is, every icon/cursor/crest would have rendered as
+a solid opaque square in-game instead of blending onto the themed UI.
+
+**Fix**: wrote a border-flood-fill alpha-key script (`alpha_key.py` — corner-block
+color sampling, per-pixel color-distance matching, binary dilation before connected-
+component labeling to bridge anti-aliasing/JPEG-noise gaps, then intersected back
+against the true match mask so dilation doesn't eat real edges). Iterated twice on
+methodology after live failures: v1 (sampling the full border ring for reference
+colors) corrupted 2 files where real artwork touched the canvas edge, poisoning the
+reference palette; v2 (corner-only sampling) fixed that. Verified every output by
+compositing onto solid magenta (not trusting the tool's own transparency-preview
+rendering, which turned out to render some fully-transparent PNGs against white
+regardless) — caught that `panel_selected_unit.png` (`Panels/Gemini..39v2pk..png`)
+has **no real background at all** (fully painted edge-to-edge); running the flood-
+fill on it destroyed ~93% of the real frame art before this was caught, so it's
+copied through unmodified instead of alpha-fixed.
+
+**What changed**: ~40 files alpha-fixed and renamed from auto-generated prompt-text
+filenames (e.g. `Generate _Flat 2D hand-painted game UI icon for a historical...
+representing BUILD DOCK_ one .jpg`) to stable short names (`build_dock.png`, etc.)
+across `Cursors/`, `Icons/` (+ `Icons/CommandCardButton/`), `Panels/`, and a renamed
+`Menu/` folder (was `tier 3/`). One file, `resource_stone.png`, is only ~85% cleaned
+after several tuning attempts (isolated background patches resisted the flood-fill
+even at high tolerance/dilation) — used the best available version and flagged it as
+needing a manual touch-up or regeneration rather than continuing to tune. One other
+file (`resource_wood.png`) has a few cosmetically-negligible stray unremoved pixels.
+Raw pre-fix originals preserved at `UI_RawOriginals_backup/` (repo root, deliberately
+outside `Assets/` so Unity's AssetDatabase never imports the backup as real project
+content).
+
+**Verification**: spot-checked ~15 of the ~40 processed files individually (composited
+onto magenta to reveal true transparency, not just preview) plus a full contact-sheet
+pass over the remaining ones — all clean except the two noted above. Refreshed Unity
+via UnityMCP after the restructure: zero console errors/warnings, every file has a
+valid `.meta`.
+
+**Not done this session (explicitly deferred)**: creating the actual
+`UIStyleTheme.asset` and assigning the new sprites to it, Sprite import-type/9-slice
+Border setup, and the new code (`BuildMenu` icon slots, `ResourceHUD`/`SelectedUnitPanel`
+HP-bar, `CivPicker` crest layer, `Cursor.SetCursor` wiring) needed to actually display
+any of this in a running match. That's Section 4.3's "UI skin" item's remaining scope
+for a future planned session.
+
+**Roadmap**: Section 4.3's UI skin bullet updated with this delivery's status.
+
+---
+
 ## 2026-08-28 — Naval balance pass (Roadmap Section 1)
 
 **Scope**: Close the roadmap's "Naval balance is one evidenced fix, not a full pass"

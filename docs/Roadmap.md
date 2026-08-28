@@ -308,6 +308,25 @@ to the existing shared model, so these can be added one at a time.
   read the shared `(0.25, 0.25, 0.3, 1)` instead of Unity's default gray. A prioritized
   asset spec (icons/9-slice frames/cursors, ~35-40 assets, sequenced by visibility) was
   proposed separately for the user to arrange/commission. See `docs/SESSION_LOG.md`.
+  **Tiers 1-3 art delivered 2026-08-28** to `Assets/Resources/UI/` (Cursors/Icons/
+  Panels/Menu) — audited against the spec (essentially complete: 4/5 cursors, all 19
+  action icons, all 4 resource icons, both button-background sets, both HP-bar pieces,
+  all 3 panel frames, all 3 menu-button states, all 5 civ crests). Found every asset
+  had an opaque baked-in background instead of real alpha (confirmed via pixel
+  sampling, not just preview) — fixed with a purpose-built border-flood-fill script
+  (samples corner reference colors, flood-fills matching background inward from the
+  border, dilates first to bridge anti-aliasing gaps) rather than trusting Canva/
+  Gemini's "transparent" output at face value. All ~40 files renamed from
+  auto-generated prompt-text filenames to stable short names in the process; raw
+  pre-fix originals preserved at `UI_RawOriginals_backup/` (repo root, outside
+  `Assets/` so Unity never imports it). Two known gaps carried over from the audit
+  (still open, not fixable by this pass): the 5th cursor (build-placement) was never
+  generated, and the Maurya crest renders in Rajput's blue instead of the spec'd warm
+  gray/stone. One image (`resource_stone.png`) is only ~85% cleaned (a few residual
+  background patches resisted the flood-fill) — needs a manual touch-up or
+  regeneration. Theme-asset creation, Sprite import settings/9-slice borders, and the
+  actual icon/HP-bar/crest/cursor wiring code remain for a planned session (Section
+  4.3's item, not yet started).
 - [x] **4 Maurya/Maratha unique units** (`maurya_war_elephant`, `pillar_edict_scholar`,
   `maratha_mavla_raider`, `maratha_durg_garrison`) — **done 2026-08-27**, real Meshy-
   sourced models rigged and wired in for all 4 (see Section 1's matching item and
