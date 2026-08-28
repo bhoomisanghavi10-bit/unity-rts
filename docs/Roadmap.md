@@ -77,9 +77,98 @@ entirely. What follows is the real remaining list.
   NavMesh surface, so an unbuilt wall foundation doesn't block pathing at all. Only
   matters until a Builder is actually assigned to it (`ConstructionSite.BeginBuilding`);
   a completed Wall (the only state that matters for real gameplay) carves correctly.
-  See `docs/SESSION_LOG.md` for the full test methodology.
+  See `docs/SESSION_LOG.md` for the full test methodology. **This exact nuance is
+  fixed as a side effect of the AoE building-footprint item below** (2026-08-28) -
+  `ConstructionSite`'s squash now targets the visual child only, so a foundation's
+  root (and any NavMeshObstacle on it) keeps a stable scale from placement onward.
+- [x] **AoE-style building footprint rules** (ad hoc request, 2026-08-28) — audit
+  found placement/collision had no grid concept at all: `BuildingPlacer` used a
+  circle-distance clearance check (not a square/tile overlap), and only Wall/Gate/
+  Tower carved a `NavMeshObstacle` - Barracks/House/Farm/Market/Dock/TownCenter
+  blocked no movement whatsoever, units walked straight through them. New
+  `BuildingFootprint.cs`: a 1-world-unit-per-tile table (House/Farm/Tower 2x2,
+  Market 3x3, Barracks 4x4, TownCenter 6x6), a `BuildingFootprintTag` component so
+  the new AABB placement-overlap check (`BuildingFootprint.IsClear`, replacing the
+  old circle check) sees every building's real shape, and a `NavMeshObstacle` shrunk
+  by a fixed 0.5-unit `Margin` on every side (the "thin walkable edge" every
+  building leaves per the AoE spec this was modeled on). Wall/Gate are the one
+  exemption (full footprint, no margin, unchanged modular chain-placement system) -
+  Dock is a second, narrower exemption from the *square* requirement only (stays its
+  existing 2.2x4 rectangle, a functional need to reach water) but still gets the
+  margin treatment and, new this session, an actual `NavMeshObstacle` (previously
+  had none at all). `ConstructionSite`'s squash-to-grow animation was moved from the
+  root transform to the visual child specifically so this holds from the instant a
+  foundation is placed, not only once a Builder starts working it (see the Wall item
+  above - this incidentally fixes that exact documented gap for Wall/Gate/Tower too).
+  11 new EditMode tests (`BuildingFootprintTests.cs`, `ConstructionSiteTests.cs`),
+  all pass. See `docs/SESSION_LOG.md` for the full tile-size table, world-unit
+  conversion, and live-verification methodology.
 
 ### Medium priority — real content/design work, not bug fixes
+
+- [x] **Worker mechanics audit vs. AoE reference behavior** (2026-08-29) — audited
+  Gatherer, Farm/FarmWorker, LivestockWorker, Builder/ConstructionSite, and
+  worker combat/boar-hunting against 6 AoE reference mechanics. Results: resource
+  walking (nearest-drop-off) and carry capacity already match; multi-builder
+  construction was flat-linear, not diminishing (fixed this session, see below);
+  repair and general garrisoning are missing entirely (see the two new items
+  below); self-defense partially matches (workers have a weak `MeleeAttacker` and
+  can fight/hunt boars, but it's always an explicit player attack-move command —
+  `Gatherer` and `MeleeAttacker` have zero cross-awareness, so a worker being
+  attacked mid-gather is never auto-interrupted into a defensive state, unlike
+  AoE's pattern). **Multi-builder construction speed fixed same session**:
+  `ConstructionSite` now uses AoE II's diminishing-returns formula
+  (`ConstructionSite.SpeedMultiplier`: 1x/1.6x/1.9x/2.2x for 1/2/3/4 simultaneous
+  workers, +0.3x per worker beyond the 2nd) instead of flat-linear (`n` workers =
+  `n`x speed), applied uniformly across every building type. A deliberate balance
+  change to numbers item 5's pass covers, not a bug fix — logged as a process
+  note (not a fight row) in `Assets/Design/playtest_log.csv`. 5 new EditMode
+  tests (`ConstructionSiteTests.SpeedMultiplier_MatchesAoeIIDiminishingReturnsFormula`),
+  all 61 pass. Live-verified in Play mode via UnityMCP: real ticked `Update()`
+  progress across 4 simultaneous foundations matched the formula's predicted
+  ratios to within float rounding, not just the pure-function unit test — and
+  caught a real tooling gotcha along the way (a live Play session can keep
+  running a stale compiled assembly after a script edit; `refresh_unity` with
+  `mode=force` was needed before the new formula actually took effect at
+  runtime, confirmed by `SpeedMultiplier` being briefly unresolvable via
+  reflection at runtime despite compiling clean). **Resource drop-off scope
+  question resolved**: user confirmed dedicated resource-specific drop-off
+  buildings (Lumber Camp/Mining Camp/Mill-equivalent) over keeping unified
+  TownCenter-only drop-off — logged as its own item below, not implemented this
+  session (real new content, not a small tweak). See `docs/SESSION_LOG.md`.
+- [ ] **Dedicated resource-specific drop-off buildings** (from the worker mechanics
+  audit, 2026-08-29) — `Gatherer.FindNearestDropOff` currently only ever
+  considers `TownCenter`; user confirmed (over keeping unified TC-only drop-off)
+  that this should become real Lumber Camp/Mining Camp/Mill-equivalent buildings,
+  each valid only for its own resource type, with "nearest valid drop-off"
+  becoming meaningful the way it is in AoE. Real new content: new
+  building type(s), factory/placement/footprint wiring, and updating
+  `Gatherer.FindNearestDropOff` to filter by resource type per drop-off kind
+  instead of a hardcoded `is TownCenter` check. Not started.
+- [ ] **Repair system** (from the worker mechanics audit, 2026-08-29) — completely
+  missing; no `Repair` anywhere in the codebase. AoE reference: right-click a
+  damaged building/ship/siege unit with a worker selected to repair it, at a
+  resource cost proportional to HP restored. Needs a new right-click command path
+  through `SelectionManager` (mirroring the existing `Builder`/`ConstructionSite`
+  and `FarmWorker`/`Farm` "worker-side component + target-side component" shape),
+  a repair-rate/resource-cost formula, and interaction with `Attackable`'s
+  existing HP/`ConstructionSite`'s completion state. Not started — real new
+  system, not a small tweak.
+- [ ] **General garrisoning system** (from the worker mechanics audit, 2026-08-29) —
+  the only existing `Garrison` component (`Assets/Scripts/Buildings/Garrison.cs`)
+  is narrowly scoped to the Maratha Durg Garrison unique unit, single-slot,
+  Wall/Tower only, and its sole effect is toggling siege-immunity — not the AoE
+  reference behavior of any worker/soldier entering a TownCenter/Tower/Outpost-
+  equivalent for safety AND boosting that building's own defensive firepower,
+  with ejection back to a prior task or rally point. Real gap found while scoping
+  this: **TownCenter has no `Attacker` component at all** (only `Tower` does, via
+  `TowerAttacker`) — "increase the building's defensive firepower while
+  garrisoned" has no existing TownCenter firepower to augment yet, so building
+  this out means adding TownCenter's baseline firepower too, not just hooking
+  into something pre-existing. Should be scoped against (likely generalizing,
+  not replacing) the existing `Garrison` component and `TowerAttacker`. Not
+  started — real new system, ties into existing defensive-firepower code, needs
+  its own deliberate design pass before implementation.
 
 - [x] **4 unique units for Maurya/Maratha have no live factory** — CSV data exists
   (`maurya_war_elephant`, `pillar_edict_scholar`, `maratha_mavla_raider`,
@@ -293,12 +382,18 @@ types (TownCenter, Barracks, Tower, Market, Farm, House, Wall, Gate, Dock) × 5 
 - [x] **Chola (9/9) — done 2026-08-28.** All 9 buildings wired via new
   `Assets/Editor/MeshyBuildingImporter.cs`: real PBR materials (URP Lit,
   metallic+roughness packed into one texture via an out-of-Unity Pillow script after
-  an in-Editor `Texture2D.GetPixels` attempt crashed the Unity process), per-building
-  scale correction (1.18×-3.16×, TownCenter 93×), and a Tower orientation fix
-  (`BuildingModelFactory`'s shared `ImportRotationCorrections["Tower"]` doesn't
-  account for civ, so Chola's Tower needed a counter-rotation baked into the wrapper
-  prefab). Live-verified spawning through the real factory path, 2 new EditMode tests
-  added. Vijayanagara/Rajput/Maurya/Maratha (36 models) remain unstarted — see
+  an in-Editor `Texture2D.GetPixels` attempt crashed the Unity process), a Tower
+  orientation fix (`BuildingModelFactory`'s shared `ImportRotationCorrections["Tower"]`
+  doesn't account for civ, so Chola's Tower needed a counter-rotation baked into the
+  wrapper prefab), and — **corrected same day** — a scale hierarchy that's actually
+  proportional to human units and to each other (initial per-building scale
+  correction, 1.18×-3.16×/TownCenter 93×, checked each building against its old
+  shared sibling in isolation only, which let Barracks/House come out shorter than a
+  worker unit; recalibrated against a human-height anchor and the whole family
+  together — see `docs/SESSION_LOG.md`'s "Chola building scale hierarchy corrected"
+  entry, methodology saved to memory for reuse on the other 4 civs). Live-verified
+  spawning through the real factory path, 2 new EditMode tests added.
+  Vijayanagara/Rajput/Maurya/Maratha (36 models) remain unstarted — see
   `docs/SESSION_LOG.md` for full methodology, the crash root-cause, and the
   AABB-can't-detect-upside-down lesson for future rotation fixes.
 
@@ -390,15 +485,25 @@ to the existing shared model, so these can be added one at a time.
   pass (visually spot-checked, not pixel-perfect) - refining them further is cosmetic
   polish, not a correctness gap. Two content gaps carried out of the art delivery,
   tracked as their own items below since they need new/redone art, not more wiring:
-- [ ] **Build-placement cursor asset missing** — the UI skin cursor set specced 5
-  states (default/attack-move/invalid/gather/build-placement); only 4 were ever
-  generated. `HoverTooltip.Update()` (`Assets/Scripts/UI/HoverTooltip.cs`) already
-  checks `BuildingPlacer.IsPlacing` and is wired to switch cursors for the other 3
-  states — it deliberately falls through to the default cursor while placing a
-  building, on purpose, not a bug. Once a `build_placement` cursor image exists
-  (spec: `docs/UI_ART_BRIEF.md`), drop it at `Assets/Resources/UI/Cursors/
-  build_placement.png`, set its import Texture Type to Cursor (max size 64, matching
-  the other 4), and add one more branch to `HoverTooltip.Update()`.
+- [x] **Build-placement cursor asset missing** — **closed 2026-08-28.** The user
+  imported an Asset Store pack ("Basic RPG Cursors", `Assets/Cursors/`) hoping it
+  1:1-replaced the spec'd 5 states; it didn't (generic weapon/tool icons at 64/256px,
+  none a literal crossed-swords/circle-slash/sickle/hammer-and-nail, arrow-badge
+  composition rather than the brief's standalone centered icons) — confirmed via
+  actual pixel inspection before assuming a match, then the user explicitly chose to
+  proceed with the closest-available icon per state anyway (see
+  `docs/UI_ART_BRIEF.md`'s Tier 2 cursor entry for the exact mapping and caveats).
+  All 5 states now wired in `HoverTooltip.cs` via a new pure/testable
+  `ResolveCursorState` helper (6 new EditMode tests, `HoverCursorStateTests.cs`), also
+  fixing a real latent bug found along the way: Attack-move previously showed
+  regardless of whether the selection could actually attack (e.g. a pure economy
+  selection hovering an enemy), and Gather never signaled anything when the selection
+  couldn't gather — both now correctly resolve to the (also newly-wired) Invalid
+  state instead. All existing textures corrected from 2048×2048 to the spec'd 32×32
+  in the process (cropped/resized via Python/Pillow, not in-Editor
+  `Texture2D.GetPixels`, per the known Editor-crash gotcha). Live-verified in Play
+  mode via UnityMCP against real scene objects (real selection component checks, real
+  `BuildingPlacer.IsPlacing`), not just EditMode tests — see `docs/SESSION_LOG.md`.
 - [ ] **Maurya crest is off-palette** — `Assets/Resources/UI/Menu/crest_maurya.png`
   renders in Rajput's blue/gold instead of Maurya's spec'd warm gray/stone
   (`#807866`, see `docs/UI_ART_BRIEF.md`). Subject (Ashokan lion pillar capital) is

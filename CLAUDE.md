@@ -14,16 +14,45 @@ asset requirements, 5. Priority order).
   each asset needs its own live scale/rotation verification, not blind reuse of
   Chola's numbers), **UI skin polish** (art + display wiring + cursor wiring have all
   landed; remaining work is cosmetic 9-slice/multiplier refinement plus the 1
-  remaining known content gap: Maurya crest off-palette — the build-placement-cursor
-  gap closed this session, see immediately below), **wiring in a Crusader Knight
-  body** (rig-compatibility verified positive in a concurrent session — scale
-  normalization + weapon re-parenting still unstarted), other "everything else" items
-  (music, tutorial, performance profiling, store assets, multiplayer determinism
-  gaps, README drift), two adjacent findings from a concurrent Naval balance session
-  (Naval factories missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s
-  1.5s vs `MeleeAttacker`'s 1.0s attack interval), or continued balance work — user's
-  call.
-- Last completed (this session): **Chola building scale hierarchy corrected**
+  remaining known content gap: Maurya crest off-palette), **wiring in a Crusader
+  Knight body** (rig-compatibility verified positive in a concurrent session — scale
+  normalization + weapon re-parenting still unstarted), the **3 new worker-mechanics
+  items from this session's audit** (Repair system, general garrisoning system, and
+  dedicated resource-specific drop-off buildings — all real new systems, none
+  started, see Roadmap Section 1's "worker mechanics audit" entry for full scoping
+  notes), other "everything else" items (music, tutorial, performance profiling,
+  store assets, multiplayer determinism gaps, README drift), two adjacent findings
+  from a concurrent Naval balance session (Naval factories missing
+  `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs `MeleeAttacker`'s
+  1.0s attack interval), or continued balance work — user's call.
+- Last completed (this session): **Worker mechanics audit + multi-builder
+  construction diminishing-returns fix** (Roadmap Section 1) — audited Gatherer,
+  Farm/FarmWorker, LivestockWorker, Builder/ConstructionSite, and worker
+  combat/boar-hunting against 6 AoE reference mechanics. Resource walking and
+  carry capacity already matched; self-defense partially matched (workers can
+  fight/hunt boars but it's always an explicit attack-move command, never an
+  auto-interrupt of an in-progress gather task); repair and general garrisoning
+  are confirmed missing entirely and logged as new, clearly-scoped roadmap items
+  rather than implemented (per instruction) - garrisoning's scoping surfaced a
+  real adjacent gap, TownCenter has no `Attacker` component at all, only Tower
+  does. User confirmed adding dedicated resource-specific drop-off buildings
+  (Lumber Camp/Mining Camp/Mill-equivalent) over keeping unified TownCenter-only
+  drop-off - also logged as a new item, not implemented (real new content).
+  **Implemented this session**: `ConstructionSite`'s multi-builder speed formula
+  changed from flat-linear to AoE II's diminishing-returns curve
+  (`ConstructionSite.SpeedMultiplier`: 1x/1.6x/1.9x/2.2x for 1/2/3/4 workers),
+  applied uniformly across every building with no per-building exception. Logged
+  as a deliberate balance change (not drift) in `playtest_log.csv` per
+  instruction, since it affects rush-timing value covered by the earlier balance
+  pass (item 5). 5 new EditMode tests, all 61 pass. Live-verified in Play mode
+  via UnityMCP: real ticked `Update()` progress ratios across 4 simultaneous
+  foundations matched the formula exactly (to float rounding), not just the
+  pure-function unit test - also hit and worked around a real tooling gotcha
+  along the way (a live Play session kept running a stale compiled assembly
+  after the script edit; needed `refresh_unity` with `mode=force` before the new
+  formula took effect at runtime - a linear 1x/2x/3x/4x result on the first live
+  attempt was the tell). See `docs/SESSION_LOG.md`.
+- Previously completed: **Chola building scale hierarchy corrected**
   (Roadmap Section 4.3) — user flagged from a live screenshot that only TownCenter
   looked properly sized; the other 8 buildings' scale had been calibrated
   independently against their old shared siblings, which let Barracks (1.74) and

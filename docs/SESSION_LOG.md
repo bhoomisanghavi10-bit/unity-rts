@@ -5,6 +5,96 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-29 — Worker mechanics audit + multi-builder construction formula (Roadmap Section 1)
+
+**Scope**: audit Gatherer, Farm/FarmWorker, LivestockWorker, Builder/ConstructionSite,
+and worker combat/boar-hunting against 6 AoE reference mechanics (resource walking,
+carrying capacity, diminishing multi-builder construction, repair, self-defense,
+garrisoning); report findings categorized as matches/partial/missing before touching
+any code; then implement the one confirmed small fix (construction speed formula) with
+user sign-off, and log the two confirmed-missing systems (repair, garrisoning) plus
+the resolved drop-off scope question as new roadmap items rather than implementing
+them.
+
+**Audit results**:
+- **Resource walking**: matches. `Gatherer.FindNearestDropOff` (`Assets/Scripts/
+  Resources/Gatherer.cs`) is real nearest-distance, faction-scoped logic, not a
+  simplification — but only ever considers `TownCenter` (no Lumber Camp/Mining
+  Camp/Mill equivalent exists). Flagged as a deliberate scope question rather than
+  silently expanded; user chose to add dedicated resource-specific drop-off
+  buildings (logged as a new roadmap item, not implemented this session — real new
+  content).
+- **Carrying capacity**: matches. `Gatherer.carryCapacity` (10, tech-multipliable)
+  triggers a mandatory drop-off trip.
+- **Multi-builder construction**: was flat-linear (`ConstructionSite.Update()`:
+  `progress += (dt/buildTime) * activeBuilders`, i.e. `n` workers = exactly `n`x
+  speed), confirmed via direct code read before any change. **Fixed this session**
+  (see below).
+- **Repair**: missing entirely (confirmed via `grep -rl Repair Assets/Scripts` —
+  zero hits). Logged as a new roadmap item, not implemented (real new system per
+  user's own instruction not to implement this session).
+- **Self-defense**: partially matches. `WorkerFactory` gives every worker a weak
+  `MeleeAttacker` (2 dmg vs. a Soldier's baseline) plus `Attackable`, so workers can
+  fight/hunt boars — but engaging is always an explicit player attack-move command
+  through `SelectionManager`/`MeleeAttacker.AttackMove`. `Gatherer` and
+  `MeleeAttacker` are fully independent components with zero cross-awareness: a
+  worker taking boar damage mid-gather is never auto-interrupted into a defensive
+  state, unlike AoE's "fighting interrupts the gather task" pattern. `WildBoar.cs`
+  confirmed symmetric on the boar side (damages any `Unit` in range, no
+  state-based interruption logic either).
+- **Garrisoning**: missing for the general case. The only existing `Garrison`
+  component (`Assets/Scripts/Buildings/Garrison.cs`) is narrowly scoped to the
+  Maratha Durg Garrison unique unit — single-slot, Wall/Tower only, sole effect is
+  toggling siege-immunity — not the AoE reference behavior (any unit garrisons for
+  safety + boosts the building's own firepower, ejects to prior task/rally point).
+  Real adjacent gap found while scoping this: **TownCenter has no `Attacker`
+  component at all** (only Tower does, via `TowerAttacker`), so "boost the
+  building's defensive firepower while garrisoned" has no existing TownCenter
+  firepower to augment — building this out means adding TownCenter's baseline
+  firepower too. Logged as a new roadmap item, not implemented (real new system,
+  ties into existing Wall/Tower/TownCenter defense code, needs its own design
+  pass).
+
+**Construction formula — implemented this session, with user confirmation first**:
+replaced the flat-linear multiplier with AoE II's diminishing-returns curve:
+`ConstructionSite.SpeedMultiplier(n) = 1 + 0.6*min(n-1,1) + 0.3*max(n-2,0)` — a new
+public static pure function (same "pure/testable helper" convention as
+`HoverTooltip.ResolveCursorState`), giving 1x/1.6x/1.9x/2.2x for 1/2/3/4 simultaneous
+workers. Applied uniformly across every building type, no per-building exception, per
+explicit user confirmation. This is a deliberate balance change to numbers the
+existing item-5 balance pass covers (rushing with extra workers is now meaningfully
+less efficient — was `n`x, now caps around 2.2x at 4 workers) — logged as a process
+note (not a fight row) in `Assets/Design/playtest_log.csv` per instruction, rather
+than silent drift.
+
+**Testing**: 5 new EditMode `TestCase`s (`ConstructionSiteTests.
+SpeedMultiplier_MatchesAoeIIDiminishingReturnsFormula`) assert the exact predicted
+multiplier for n=0..4. All 61 EditMode tests pass (was 56 before this session's
+addition). Live-verified in Play mode via UnityMCP, not just the pure-function test:
+spawned 4 real `ConstructionSite` components (60s solo build time) with 1/2/3/4
+`BeginBuilding()` calls each, let real Play-mode frames tick for several real
+seconds, then read `Progress` back. Ratios matched the formula to within float
+rounding (1 : 1.59999... : 1.89999... : 2.19999...).
+
+**Real tooling gotcha hit and worked around**: the first live attempt read back
+exactly linear 1x/2x/3x/4x ratios despite the source already containing the new
+formula and EditMode tests already passing — a live Play Mode session had kept
+running a stale pre-edit compiled assembly (`execute_code` could resolve
+`ConstructionSite.SpeedMultiplier` for *compiling* new code but threw
+`MissingMethodException` calling it at runtime), even after a normal `AssetDatabase`
+refresh reported nothing dirty. Only an explicit `refresh_unity` with `mode=force`,
+`compile=request` forced the actual domain reload that picked up the change; the
+Play Mode session had to be stopped, refreshed, and restarted for the new formula to
+actually be live in a running scene, not just compiled. Worth remembering for future
+Play-mode-based live verification sessions — a suspiciously-exact old-behavior result
+right after a fresh code change is a signal to force-refresh before trusting it.
+
+**Roadmap updates**: Section 1 gained the resolved "worker mechanics audit" entry
+plus 3 new unimplemented items (dedicated drop-off buildings, repair system, general
+garrisoning system). CLAUDE.md's Current status section updated to match.
+
+---
+
 ## 2026-08-28 — Chola building scale hierarchy corrected (Roadmap Section 4.3)
 
 **Scope**: the user flagged, from a live Play-mode screenshot, that Chola building
