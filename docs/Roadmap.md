@@ -346,6 +346,34 @@ to the existing shared model, so these can be added one at a time.
   regeneration. Theme-asset creation, Sprite import settings/9-slice borders, and the
   actual icon/HP-bar/crest/cursor wiring code remain for a planned session (Section
   4.3's item, not yet started).
+  **Display wiring landed 2026-08-28.** Created `Assets/Resources/UI/UIStyleTheme.asset`
+  (assigned `modal_frame`/`menu_button_*`), set Sprite/Cursor import types and 9-slice
+  borders (auto-detected per file, hand-verified) for all 45 files. Live-scene
+  inspection via UnityMCP (not just the C#) surfaced 3 corrections to the earlier
+  audit: `ResourceHUD` actually already has its own background `Image` (missed by a
+  code-only read); `BuildMenu` buttons are 204x28 thin text rows, not square icon
+  buttons, constraining icon placement; `ResourceHUD`/`SelectedUnitPanel`/
+  `HoverTooltip` each got their own dedicated background sprite
+  (`panel_resource_bar`/`panel_selected_unit`/`panel_tooltip`) rather than the one
+  shared `UIStyleTheme.PanelFrameSprite` (reserved for the 4 true modals), since
+  routing them all through one field would put the wrong art on 3 of the 4 panels.
+  `BuildMenu` command-card buttons got the dedicated `CommandCardButton` 4-state
+  sprite set (via `Button.spriteState`, not the shared theme) plus a left-edge icon
+  on the ~24 buttons with a matching asset (verified live: text gracefully word-wraps
+  on the few longest labels instead of clipping - accepted, not a bug).
+  `SelectedUnitPanel` gained a real HP bar (`hp_bar_frame`/`hp_bar_fill`, fill-amount
+  driven by `Health/MaxHealth`) alongside the existing HP text. `CivPicker` cards got
+  civ crests (Name/Blurb shifted down 64px to make room). Cursor wiring added to
+  `HoverTooltip.Update()` for the 3 states with real art (default/gather/attack-move);
+  build-placement is deliberately left on the default cursor (asset doesn't exist).
+  Also found and fixed `hp_bar_frame.png`/`hp_bar_fill.png` still carrying huge
+  transparent margins from leftover noise-speckle artifacts that blocked the earlier
+  bbox-crop — tightened via a largest-connected-component filter before use. All 37
+  EditMode tests pass; live-verified in Play mode via UnityMCP screenshots (CivPicker
+  crests, BuildMenu icons + text wrap, HP bar fill, SettingsMenu modal reskin) with
+  zero new console errors. 9-slice border/multiplier values are a reasonable first
+  pass (visually spot-checked, not pixel-perfect) - refining them further is cosmetic
+  polish, not a correctness gap.
 - [x] **4 Maurya/Maratha unique units** (`maurya_war_elephant`, `pillar_edict_scholar`,
   `maratha_mavla_raider`, `maratha_durg_garrison`) — **done 2026-08-27**, real Meshy-
   sourced models rigged and wired in for all 4 (see Section 1's matching item and

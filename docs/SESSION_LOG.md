@@ -5,6 +5,117 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-28 — UI skin display wiring: theme asset, import settings, icons/HP-bar/crests/cursors (Roadmap Section 4.3)
+
+**Note**: other Claude Code sessions touched this repo around the same time (Naval
+balance, Crusader Knight rig verification - see entries below) — flagged per
+CLAUDE.md's single-session-discipline gotcha. This session's changes are scoped to
+`Assets/Scripts/UI/*.cs`, `Assets/Resources/UI/**` (import settings + 2 art fixes),
+and did not touch combat/balance or model-rigging code.
+
+**Scope**: continuation of the UI skin item — the two prior sessions got an audit +
+color-only `UIStyleTheme` scaffold, then delivered and alpha-fixed Tiers 1-3 art
+(commit `d8ad6ec`). Nothing displayed any of it yet. Asked to "start the next
+unstarted step, stop after committing" — this session does the actual display wiring:
+theme asset, Sprite/Cursor import settings + 9-slice borders, and code changes to
+put the art on screen.
+
+**Live-scene investigation before planning** (per CLAUDE.md: verify claims against
+the actual repo, not just prior notes) — inspected the real `Main.unity` layout via
+UnityMCP `find_gameobjects`/resource reads, not just the C#, and found 3 things the
+earlier code-only audit had gotten wrong or hadn't caught:
+- `ResourceHUD`'s root GameObject **already has its own background `Image`**
+  (`(0,0,0,0.55)`) — missed because the earlier audit only read the script, which has
+  no `Image` field, not the scene.
+- `BuildMenu` buttons are **204×28px thin text rows**, not square icon buttons — the
+  longest label (`"Build Barracks (100 Wood, 50 Stone)"`, TMP-measured preferred
+  width 215.6px) already nearly overflows a 204px button, which shaped how icons
+  could be added (see below).
+- `ResourceHUD`/`SelectedUnitPanel`/`HoverTooltip` each have their **own dedicated
+  background art** (`panel_resource_bar`/`panel_selected_unit`/`panel_tooltip`) from
+  the art delivery — distinct images, not interchangeable with the one shared
+  `UIStyleTheme.PanelFrameSprite` (`modal_frame`, meant for the 4 true modal popups).
+  Routing all of them through the single shared field would've put the wrong art on
+  3 of the 4 panels.
+
+**Import settings + a real bug found in the art**: batch-set Texture Type (Sprite for
+41 files, Cursor for the 4 cursor pngs — `maxTextureSize=64`, since the native art is
+2048px and an unscaled `Cursor.SetCursor` call would render a screen-covering
+cursor), plus 9-slice `spriteBorder` on the 12 frame/button assets (auto-detected via
+a gradient-flatness scan per file, then hand-verified since painterly textures fooled
+the naive version once — see script). Along the way, found `hp_bar_frame.png`/
+`hp_bar_fill.png` still carried **huge transparent margins** from the previous
+session's leftover noise-speckle artifacts (scattered opaque specks reaching the
+canvas edges had prevented that session's bbox-crop from tightening) — both were
+functionally unusable for 9-slicing until fixed. Wrote a largest-connected-component
+filter (`tighten_bbox.py`, same family as the earlier `alpha_key.py`) to drop the
+speckles and re-crop: `hp_bar_frame.png` 2752x1536 → 2620x276, `hp_bar_fill.png`
+3165x1344 → 2994x249. Applied the same filter to `resource_wood.png`'s minor stray
+speckle while at it (no size change, just cleanup).
+
+**What changed (code)**:
+- New `Assets/Resources/UI/UIStyleTheme.asset` — `PanelFrameSprite=modal_frame`,
+  `ButtonBackgroundSprite=menu_button_normal`. `UIStyleTheme.cs` gained
+  `ButtonHoverSprite`/`ButtonPressedSprite` fields and `ApplyButton` now wires real
+  `Button.spriteState` (`SpriteSwap` transition) when a `Button` + both sprites are
+  present, instead of one static sprite — `SettingsMenu`/`DiplomacyMenu`/
+  `MissionSelectMenu`'s generic buttons now actually respond to hover/press.
+- `BuildMenu.cs`: `ApplyTheme()` rewritten to wire the dedicated `CommandCardButton`
+  4-state set (`SpriteSwap`, not the shared theme) onto all ~31 command-card buttons,
+  plus a new `AddCommandIcon` helper adding a left-edge 20x20 icon + label inset to
+  the ~24 buttons with a matching asset (mapping in the plan file/code comments; no
+  icon for `ungarrisonButton`/`fishingBoatButton`/`warGalleyButton`/`uniqueTechButton`/
+  the 3 economy-tech buttons — no asset exists for them).
+- `ResourceHUD.cs`: new `Awake()` applies `panel_resource_bar` to the existing
+  background `Image`, and a new `AddResourceIcon` helper adds icons to
+  wood/food/gold/stone labels (civ/population/age have no matching asset).
+- `SelectedUnitPanel.cs`: `panel_selected_unit` applied to `panelRoot`'s `Image`
+  (replacing the generic `UIStyleTheme.ApplyPanel` call). New `SetUpHealthBar`/
+  `SetHealthBar` add a real HP bar (`hp_bar_frame`+`hp_bar_fill`, `Image.Type.Filled`,
+  fill driven by `Health/MaxHealth`) as siblings of `hpLabel` (not children - a
+  Graphic's children always draw after its own graphic in uGUI depth order, which
+  would've put the bar on top of the text instead of behind it) alongside the
+  existing HP text.
+- `HoverTooltip.cs`: same dedicated-sprite treatment for `panel_tooltip`. New cursor
+  wiring in `Update()` — `gather` when hovering a `ResourceNode` with a
+  `Gatherer`-capable unit selected, `attack_move` when hovering a hostile
+  `FactionMember`, `default` otherwise. `BuildingPlacer.IsPlacing` is checked and
+  deliberately left on the default cursor (no build-placement asset exists).
+- `CivPicker.cs`: new `AddCrest` shifts each card's `Name`/`Blurb` down 64px and adds
+  a 64x64 crest `Image` in the freed top strip, sprite resolved from
+  `civId.ToString().ToLowerInvariant()`.
+
+**Tests**: no new tests (this is UI display wiring, not a new testable system — the
+existing `UIStyleThemeTests` already cover `UIStyleTheme.Current`). All 37 EditMode
+tests still pass after every change.
+
+**Manual verification**: Play Mode via UnityMCP, with real screenshots (not just
+state assertions) at each step: CivPicker showing all 5 crests cleanly above
+Name/Blurb with no overlap; BuildMenu command-card showing icons on Barracks/Farm/
+House/Wall/Gate/Tower/Dock/Market placement buttons and Train Worker/Advance Age,
+with the longest labels (`"Build Barracks (Requires Classical Age)"`,
+`"Build Market (100 Wood, 50 Gold)"`) gracefully word-wrapping to 2 lines instead of
+clipping, confirming the risk flagged in planning was real but non-breaking;
+SelectedUnitPanel showing a green HP bar at full health for both a selected
+TownCenter (500/500) and a selected worker (20/20); SettingsMenu showing the
+`modal_frame` background and reskinned buttons. Zero new console errors across
+compile, the test run, and the Play Mode session (a few "PlayerLoop called
+recursively"/"Can't remove TownCenter... RallyPoint depends on it" messages appeared
+from the MCP tooling's own reflection-based test harness calls — verified these were
+harmless: `TownCenter` component count stayed at 2 throughout, i.e. Unity's
+dependency guard blocked the attempted removal rather than it succeeding; not related
+to any code shipped this session).
+
+**Known, accepted gaps (unchanged from the prior audit, not fixable by wiring code)**:
+the missing 5th cursor (build-placement) and the Maurya crest's off-palette blue.
+9-slice border/multiplier values are a first pass (visually spot-checked, not
+pixel-perfect) — refining them is cosmetic polish for a future pass, not a
+correctness gap.
+
+**Roadmap**: Section 4.3's UI skin bullet updated with the wiring completion.
+
+---
+
 ## 2026-08-28 — Crusader Knight rig-compatibility verification (Roadmap Section 1)
 
 **Note**: two other Claude Code sessions touched this repo around the same time (UI

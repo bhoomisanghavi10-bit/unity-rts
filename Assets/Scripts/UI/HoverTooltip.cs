@@ -7,6 +7,7 @@ using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Camera;
+using KingdomsOfBharat.Selection;
 
 namespace KingdomsOfBharat.UI
 {
@@ -28,15 +29,72 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private TMP_Text line3Label;
 
         private UnityEngine.Camera _camera;
+        private SelectionManager _selectionManager;
+
+        // Cursor textures, not sprites - Cursor.SetCursor takes a Texture2D
+        // directly. Loaded once; hotspot is the texture center for the
+        // symmetric gather/attack-move icons, top-left for the arrow. Only 4
+        // of the spec'd 5 states exist (no build-placement cursor was ever
+        // generated - see docs/UI_ART_BRIEF.md) - BuildingPlacer.IsPlacing is
+        // checked below and deliberately left on the default cursor rather
+        // than silently doing nothing.
+        private Texture2D _cursorDefault;
+        private Texture2D _cursorGather;
+        private Texture2D _cursorAttackMove;
 
         private void Awake()
         {
             _camera = UnityEngine.Camera.main;
+            _selectionManager = FindFirstObjectByType<SelectionManager>();
 
+            // Dedicated art, not the shared UIStyleTheme.PanelFrameSprite -
+            // see SelectedUnitPanel.cs for why these panels each get their
+            // own purpose-made frame instead of the generic modal one.
+            Sprite frame = Resources.Load<Sprite>("UI/Panels/panel_tooltip");
             if (panelRoot.TryGetComponent(out Image background))
             {
-                UIStyleTheme.Current.ApplyPanel(background);
+                background.color = Color.white;
+                if (frame != null)
+                {
+                    background.sprite = frame;
+                    background.type = Image.Type.Sliced;
+                    background.pixelsPerUnitMultiplier = 44f;
+                }
             }
+
+            _cursorDefault = Resources.Load<Texture2D>("UI/Cursors/default");
+            _cursorGather = Resources.Load<Texture2D>("UI/Cursors/gather");
+            _cursorAttackMove = Resources.Load<Texture2D>("UI/Cursors/attack_move");
+        }
+
+        private void SetCursor(Texture2D texture)
+        {
+            if (texture == null)
+            {
+                Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
+                return;
+            }
+
+            Vector2 hotspot = texture == _cursorDefault ? Vector2.zero : new Vector2(texture.width / 2f, texture.height / 2f);
+            Cursor.SetCursor(texture, hotspot, CursorMode.Auto);
+        }
+
+        private bool SelectionCanGather()
+        {
+            if (_selectionManager == null)
+            {
+                return false;
+            }
+
+            foreach (Unit unit in _selectionManager.Selected)
+            {
+                if (unit.TryGetComponent(out Gatherer _))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void Update()
@@ -44,7 +102,12 @@ namespace KingdomsOfBharat.UI
             string line1 = null;
             string line2 = null;
             string line3 = null;
+            Texture2D cursor = _cursorDefault;
 
+            // BuildingPlacer.IsPlacing is exactly where a build-placement
+            // cursor belongs - no asset exists for it (see field comments
+            // above), so this deliberately falls through to the default
+            // cursor rather than a dedicated one.
             if (!BuildingPlacer.IsPlacing && !MinimapController.IsPointerOverMinimap)
             {
                 Ray ray = _camera.ScreenPointToRay(Input.mousePosition);
@@ -65,6 +128,12 @@ namespace KingdomsOfBharat.UI
                             : DiplomacyRegistry.AreAllied(FactionId.Player, factionMember.Faction)
                                 ? $" ({factionMember.Faction} - Allied)"
                                 : $" ({factionMember.Faction})";
+
+                        if (factionMember.Faction != FactionId.Player
+                            && !DiplomacyRegistry.AreAllied(FactionId.Player, factionMember.Faction))
+                        {
+                            cursor = _cursorAttackMove;
+                        }
                     }
 
                     if (go.TryGetComponent(out Unit unit))
@@ -78,6 +147,10 @@ namespace KingdomsOfBharat.UI
                     else if (go.TryGetComponent(out ResourceNode node))
                     {
                         line2 = node.ResourceType.ToString();
+                        if (SelectionCanGather())
+                        {
+                            cursor = _cursorGather;
+                        }
                     }
 
                     if (go.TryGetComponent(out Attackable attackable))
@@ -86,6 +159,8 @@ namespace KingdomsOfBharat.UI
                     }
                 }
             }
+
+            SetCursor(cursor);
 
             panelRoot.gameObject.SetActive(line1 != null);
             if (line1 == null)

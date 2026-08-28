@@ -7,78 +7,46 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- **Note**: this update landed alongside a concurrent session doing a Naval balance
-  pass (see immediately below) — flagged per the single-session-discipline gotcha;
-  this session's own changes are scoped entirely to `Assets/Resources/UI/` art files
-  and didn't touch combat/balance code.
 - Currently on: nothing started yet for the next session. Section 5 items 1-5, 7-8
   are all done. Remaining real options: civ-specific building models (Section 4.3 has
-  the priority order/spec, arranged by the user separately), **UI skin's actual code
-  wiring** (Tiers 1-3 art now delivered and alpha-fixed/renamed at
-  `Assets/Resources/UI/` — see immediately below — but the `UIStyleTheme.asset`
-  creation, Sprite import settings/9-slice borders, and the `BuildMenu`/
-  `ResourceHUD`/`SelectedUnitPanel`/`CivPicker`/cursor code to actually display any of
-  it are still unstarted), **wiring in a Crusader Knight body** (rig-compatibility now
-  verified positive — see immediately below — but the actual swap-in, scale-fix, and
-  weapon-reparenting work is unstarted), other "everything else" items (music,
-  tutorial, performance profiling, store assets, multiplayer determinism gaps, README
-  drift), two adjacent findings flagged in the concurrent Naval session (Naval
+  the priority order/spec, arranged by the user separately), **UI skin polish** (art +
+  display wiring both landed this session — see immediately below; remaining work is
+  cosmetic 9-slice/multiplier refinement plus the 2 known content gaps: no
+  build-placement cursor asset, Maurya crest off-palette), **wiring in a Crusader
+  Knight body** (rig-compatibility verified positive in a concurrent session — scale
+  normalization + weapon re-parenting still unstarted), other "everything else" items
+  (music, tutorial, performance profiling, store assets, multiplayer determinism gaps,
+  README drift), two adjacent findings from a concurrent Naval balance session (Naval
   factories missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs
-  `MeleeAttacker`'s 1.0s attack interval), or continued balance work (training
-  cost-vs-power ratios, further sustained playtesting) — user's call.
-- Last completed (this session): **UI art delivered — alpha-fix + rename pass**
-  (Roadmap Section 4.3 "UI skin"). The user dropped Tier 1-3 art (per the asset spec
-  from the earlier audit session) into `Assets/Resources/UI/` as jpg/png from Canva/
-  Gemini. Audited it against the spec (essentially complete — 4/5 cursors, all action/
-  resource icons, both button-background sets, HP bar, all panel frames, all civ
-  crests; missing the 5th cursor and the Maurya crest is off-palette blue instead of
-  gray/stone). Found every file had a fully **opaque baked-in background instead of
-  real alpha** (checkerboard-fake or flat-cream, confirmed by direct pixel sampling,
-  not just preview) — wrote `Tools/ui_art_alpha_key.py` (border-flood-fill alpha key
-  with corner-color sampling + dilation-bridging) to fix it, verified every output by
-  compositing onto magenta (caught that `panel_selected_unit.png` has no real
-  background at all and would have been destroyed by the same treatment — copied
-  through unmodified instead). Renamed all ~40 files from auto-generated prompt-text
-  filenames to stable short names; raw pre-fix originals preserved at
-  `UI_RawOriginals_backup/` (repo root, outside `Assets/`). One file
-  (`resource_stone.png`) is only ~85% cleaned after tuning attempts — flagged for a
-  manual touch-up. Deliberately did **not** create the theme asset or write any of the
-  display-wiring code this session (scoped down per explicit user choice) — that's
-  the next UI-skin session's job. See `docs/SESSION_LOG.md`.
-- Also landed around the same time (concurrent session, Roadmap Section 1): a
-  **Naval balance pass** — audited the 4 previously-unaudited Naval matchups via 4
-  live forced-fights (War Galley vs Archer/Cavalry/Siege, plus a mirror match), no
-  `CombatBonus` changes needed, all results either confirmed the existing 0.5x
-  Naval→Archer fix or were judged working-as-designed. Two adjacent (unfixed, flagged)
-  findings: Naval factories never call `ClassArmorBonus`/`ClassDamageBonus`, and
-  `BoatAttacker`'s 1.5s attack interval vs `MeleeAttacker`'s 1.0s is a real structural
-  asymmetry. Full detail in `docs/SESSION_LOG.md`.
-- Last completed (this session): **Crusader Knight rig-compatibility verification**
-  (Roadmap Section 1). Verdict: **both TemplarKnight and HospitalierKnight are
-  rig-compatible with `WeaponAttachment`/`AnimationDriver` — confirmed live, not
-  assumed.** Neither model has a native Humanoid Avatar as imported (they come in via
-  `com.unity.cloud.gltfast`, which produces a plain Transform hierarchy, not
-  `ModelImporter`'s FBX Humanoid path), so `AvatarBuilder.BuildHumanAvatar` + a
-  hand-authored `HumanDescription` (mapping each model's real Mixamo bone names,
-  confirmed live per-model rather than assumed from generic convention) was used
-  instead — pure Editor scripting, no Blender pipeline needed. Both produced a valid,
-  human Avatar (`avatar.isValid && avatar.isHuman`); live-tested by driving the shared
-  dummy's own Walk clip through the exact `AnimationClipPlayable`/
-  `AnimationPlayableOutput` pipeline `AnimationDriver` uses and sampling a leg bone's
-  rotation across the cycle — confirmed a smooth, continuous ~40° swing on both models
-  (not a T-pose/frozen/exploded result); `WeaponAttachment.AttachToBone` also
-  confirmed working end-to-end (attached a real sword prop to `HumanBodyBones.RightHand`
-  successfully) on both. **Two real caveats found, not fixed this session (verification
-  only, no wiring)**: (1) both models have a large baked-in scale anomaly
-  (`Animator.humanScale` ≈ 247-248× normal — likely a cm/inch unit-conversion artifact
-  on the source rig, same class of issue `WeaponAttachment`'s own doc comment already
-  anticipates) that a real swap-in would need to normalize; (2) each model's
-  sword/shield/staff meshes are static props parented to the scene root, not to a hand
-  bone (confirmed via hierarchy inspection) — they won't follow the animated hand and
-  would need re-parenting or replacing with the existing `WeaponAttachment` system
-  before a real swap-in, mirroring the precedent already set for the 3 humanoid unique
-  units. No code changes landed (pure Editor-runtime verification, cleaned up after);
-  full per-model methodology in `docs/SESSION_LOG.md`.
+  `MeleeAttacker`'s 1.0s attack interval), or continued balance work — user's call.
+- Last completed (this session): **UI skin display wiring** (Roadmap Section 4.3),
+  the follow-up to last session's art delivery/alpha-fix pass. Created
+  `Assets/Resources/UI/UIStyleTheme.asset`, set Sprite/Cursor import types + 9-slice
+  borders on all 45 files, and wired the art into `BuildMenu` (command-card 4-state
+  reskin + icons on ~24 buttons), `ResourceHUD` (background + 4 resource icons),
+  `SelectedUnitPanel` (a real HP bar alongside the existing text), `CivPicker` (civ
+  crests), and `HoverTooltip` (dedicated tooltip frame + cursor-state switching for
+  the 3 states with real art). Live UnityMCP scene inspection ahead of coding caught 3
+  things a code-only read had gotten wrong: `ResourceHUD` already has its own
+  background `Image`; `BuildMenu` buttons are 204x28 thin text rows, not square icon
+  buttons (icons + graceful text word-wrap, verified live, not a clipping bug); and
+  `ResourceHUD`/`SelectedUnitPanel`/`HoverTooltip` each need their own dedicated
+  background sprite rather than sharing `UIStyleTheme`'s one modal-frame field. Also
+  found and fixed `hp_bar_frame.png`/`hp_bar_fill.png` still carrying huge transparent
+  margins from last session's leftover noise-speckle artifacts (a largest-component
+  filter tightened both). All 37 EditMode tests pass; live-verified in Play mode via
+  UnityMCP screenshots (crests, command-card icons, HP bar fill, Settings modal
+  reskin), zero new console errors. The 2 known content gaps (missing 5th cursor,
+  Maurya crest color) are unchanged - not fixable by code. Full detail, the exact icon
+  mapping, and 9-slice border values in `docs/SESSION_LOG.md`.
+- Also landed around the same time (concurrent sessions): a **Naval balance pass**
+  (Roadmap Section 1 — 4 live forced-fights, no `CombatBonus` changes needed, 2
+  adjacent findings flagged not fixed) and a **Crusader Knight rig-compatibility
+  verification** (Roadmap Section 1 — both models confirmed rig-compatible via
+  `AvatarBuilder.BuildHumanAvatar` + hand-authored `HumanDescription`, live-tested
+  through the real `AnimationDriver`/`WeaponAttachment` pipeline; 2 real caveats found
+  and not yet fixed: a ~247x `humanScale` anomaly, and sword/shield props parented to
+  the scene root instead of a hand bone). Full detail in `docs/SESSION_LOG.md`.
 
 ## Engine & architecture
 - Unity version: [fill in]

@@ -134,12 +134,20 @@ namespace KingdomsOfBharat.UI
             tradeDiscountsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.TradeDiscounts));
         }
 
-        // Command-card buttons currently rely on Unity's default gray Button
-        // sprite/color - listed explicitly rather than reflected over the
+        // Command-card buttons get their own dedicated 4-state sprite set
+        // (Icons/CommandCardButton/*) rather than the shared UIStyleTheme
+        // .ApplyButton - that one is for generic modal buttons
+        // (Settings/Diplomacy/MissionSelect), a visually distinct family
+        // from these. Listed explicitly rather than reflected over the
         // fields so a future button doesn't silently opt out just because
         // it wasn't added here.
         private void ApplyTheme()
         {
+            Sprite normal = Resources.Load<Sprite>("UI/Icons/CommandCardButton/normal");
+            Sprite hover = Resources.Load<Sprite>("UI/Icons/CommandCardButton/hover");
+            Sprite pressed = Resources.Load<Sprite>("UI/Icons/CommandCardButton/pressed");
+            Sprite disabled = Resources.Load<Sprite>("UI/Icons/CommandCardButton/disabled");
+
             Button[] buttons =
             {
                 barracksButton, farmButton, houseButton, wallButton, gateButton, towerButton,
@@ -152,7 +160,89 @@ namespace KingdomsOfBharat.UI
 
             foreach (Button button in buttons)
             {
-                UIStyleTheme.Current.ApplyButton(button.image);
+                if (normal == null)
+                {
+                    UIStyleTheme.Current.ApplyButton(button.image);
+                    continue;
+                }
+
+                button.image.sprite = normal;
+                button.image.type = Image.Type.Sliced;
+                // Source art is 669x679 for a much larger button than these
+                // 204x28 command-card rows - shrinks the 9-slice border to
+                // fit without overlapping into the button's center.
+                button.image.pixelsPerUnitMultiplier = 18f;
+                button.transition = Selectable.Transition.SpriteSwap;
+                button.spriteState = new SpriteState
+                {
+                    highlightedSprite = hover,
+                    pressedSprite = pressed,
+                    disabledSprite = disabled,
+                };
+            }
+
+            AddCommandIcon(barracksButton, "build_barracks");
+            AddCommandIcon(farmButton, "build_farm");
+            AddCommandIcon(houseButton, "build_house");
+            AddCommandIcon(wallButton, "build_wall");
+            AddCommandIcon(gateButton, "build_gate");
+            AddCommandIcon(towerButton, "build_tower");
+            AddCommandIcon(marketButton, "build_market");
+            AddCommandIcon(dockButton, "build_dock");
+            AddCommandIcon(workerButton, "train_worker");
+            AddCommandIcon(soldierButton, "train_soldier");
+            AddCommandIcon(archerButton, "train_archer");
+            AddCommandIcon(cavalryButton, "train_cavalry");
+            AddCommandIcon(siegeButton, "train_siege");
+            AddCommandIcon(spearmanButton, "train_spearman");
+            AddCommandIcon(uniqueUnitButton, "train_unique_1");
+            AddCommandIcon(uniqueUnitButton2, "train_unique_2");
+            AddCommandIcon(attackUpgradeButton, "upgrade_attack");
+            AddCommandIcon(armorUpgradeButton, "upgrade_armor");
+            AddCommandIcon(ageButton, "advance_age");
+            AddCommandIcon(sellWoodButton, "resource_wood");
+            AddCommandIcon(buyWoodButton, "resource_wood");
+            AddCommandIcon(sellFoodButton, "resource_food");
+            AddCommandIcon(buyFoodButton, "resource_food");
+            AddCommandIcon(sellStoneButton, "resource_stone");
+            AddCommandIcon(buyStoneButton, "resource_stone");
+            // No matching icon asset (not in the original spec) - stay
+            // text-only: ungarrisonButton, fishingBoatButton, warGalleyButton,
+            // uniqueTechButton, improvedToolsButton, packMulesButton,
+            // tradeDiscountsButton.
+        }
+
+        // Adds a small icon to the left edge of a command-card button and
+        // insets its text label by the same amount so they don't overlap.
+        // These buttons are thin 204x28 rows and some labels (dynamic cost
+        // strings like Barracks') already sit close to the button's full
+        // width - insetting 26px can push the longest labels to wrap onto a
+        // 2nd line. TMP's overflow mode on these labels is Overflow (not
+        // clipped), so the accepted worst case is a couple of buttons
+        // showing slightly-taller wrapped text, not lost/clipped info.
+        private static void AddCommandIcon(Button button, string iconName)
+        {
+            Sprite icon = Resources.Load<Sprite>("UI/Icons/" + iconName);
+            if (icon == null)
+            {
+                return;
+            }
+
+            GameObject iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            iconGo.transform.SetParent(button.transform, false);
+            RectTransform iconRect = iconGo.GetComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0f, 0.5f);
+            iconRect.anchorMax = new Vector2(0f, 0.5f);
+            iconRect.pivot = new Vector2(0f, 0.5f);
+            iconRect.sizeDelta = new Vector2(20f, 20f);
+            iconRect.anchoredPosition = new Vector2(6f, 0f);
+            iconGo.GetComponent<Image>().sprite = icon;
+
+            TMP_Text label = button.GetComponentInChildren<TMP_Text>();
+            if (label != null)
+            {
+                RectTransform labelRect = label.GetComponent<RectTransform>();
+                labelRect.offsetMin = new Vector2(26f, labelRect.offsetMin.y);
             }
         }
 

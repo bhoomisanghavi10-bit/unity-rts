@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 796e42cf1c30d4e06a1d3cc6fdfac8ad, type: 3}
+  m_Name: UIStyleTheme
+  m_EditorClassIdentifier: KingdomsOfBharat.Runtime::KingdomsOfBharat.UI.UIStyleTheme
+  panelBackground: {r: 0.05, g: 0.05, b: 0.08, a: 0.97}
+  panelBackdrop: {r: 0, g: 0, b: 0, a: 0.6}
+  buttonNormal: {r: 0.25, g: 0.25, b: 0.3, a: 1}
+  textPrimary: {r: 1, g: 1, b: 1, a: 1}
+  textSecondary: {r: 0.85, g: 0.85, b: 0.85, a: 1}
+  textSuccess: {r: 0.55, g: 0.85, b: 0.55, a: 1}
+  panelFrameSprite: {fileID: 21300000, guid: 5869a215ca63a4c9f8c3138b86c4d9b9, type: 3}
+  buttonBackgroundSprite: {fileID: 21300000, guid: ba292ed697383440e9a6e3403ecde097, type: 3}
+  buttonHoverSprite: {fileID: 21300000, guid: 39e99ee69d2954a98b5bacd1547fd185, type: 3}
+  buttonPressedSprite: {fileID: 21300000, guid: 99505ff5156784870b04e7cc5d7e2a9f, type: 3}

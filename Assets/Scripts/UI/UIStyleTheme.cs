@@ -33,6 +33,8 @@ namespace KingdomsOfBharat.UI
         // change until these are filled in on a theme asset.
         [SerializeField] private Sprite panelFrameSprite;
         [SerializeField] private Sprite buttonBackgroundSprite;
+        [SerializeField] private Sprite buttonHoverSprite;
+        [SerializeField] private Sprite buttonPressedSprite;
 
         public Color PanelBackground => panelBackground;
         public Color PanelBackdrop => panelBackdrop;
@@ -42,6 +44,8 @@ namespace KingdomsOfBharat.UI
         public Color TextSuccess => textSuccess;
         public Sprite PanelFrameSprite => panelFrameSprite;
         public Sprite ButtonBackgroundSprite => buttonBackgroundSprite;
+        public Sprite ButtonHoverSprite => buttonHoverSprite;
+        public Sprite ButtonPressedSprite => buttonPressedSprite;
 
         private static UIStyleTheme _current;
 
@@ -81,6 +85,12 @@ namespace KingdomsOfBharat.UI
             }
         }
 
+        // Sets the base look today (flat color, or a 9-slice sprite once one
+        // exists) and additionally wires real hover/pressed art into the
+        // button's SpriteState when a Button component and hover/pressed
+        // sprites are all present - falls back to Unity's default ColorTint
+        // transition otherwise, so this is safe to call on any Image whether
+        // or not it sits on a Button.
         public void ApplyButton(Image image)
         {
             if (image == null)
@@ -94,6 +104,18 @@ namespace KingdomsOfBharat.UI
                 image.sprite = buttonBackgroundSprite;
                 image.type = Image.Type.Sliced;
             }
+
+            if (buttonHoverSprite == null || buttonPressedSprite == null
+                || !image.TryGetComponent(out Selectable selectable))
+            {
+                return;
+            }
+
+            selectable.transition = Selectable.Transition.SpriteSwap;
+            SpriteState state = selectable.spriteState;
+            state.highlightedSprite = buttonHoverSprite;
+            state.pressedSprite = buttonPressedSprite;
+            selectable.spriteState = state;
         }
     }
 }
