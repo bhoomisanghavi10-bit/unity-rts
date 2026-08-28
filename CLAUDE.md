@@ -25,7 +25,30 @@ asset requirements, 5. Priority order).
   from a concurrent Naval balance session (Naval factories missing
   `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs `MeleeAttacker`'s
   1.0s attack interval), or continued balance work — user's call.
-- Last completed (this session): **Worker mechanics audit + multi-builder
+- Last completed (this session): **Bug fix: rally-flag raycast + resource-deposit
+  soft-lock** (ad hoc user bug report, not a roadmap item) — user reported the rally
+  flag floating mid-air near the TownCenter and Wood/Food/Gold/Stone stuck at 0 for a
+  full session, hypothesizing one shared root cause via RallyPoint. Investigation
+  found the hypothesis wrong: two unrelated real bugs. (1) `SelectionManager`'s
+  rally/move raycasts used an unmasked `Physics.Raycast` that could hit the selected
+  building's own collider before the ground - fixed via `Physics.RaycastAll` +
+  skip-self (a first-draft "Ground-only LayerMask" fix was caught as itself buggy
+  before implementing, since the same raycast also resolves gather/attack/build-
+  assist clicks). (2) `Gatherer`'s deposit target was the TownCenter's raw
+  `transform.position`, which sits inside the `NavMeshObstacle` the building-footprint
+  system carves around that same point (a regression from 2026-08-28's footprint
+  work, never re-tuned) - workers could physically never get within
+  `interactionRange`, so `Deposit()` (itself correctly wired) never fired; Population/
+  Age being stuck were confirmed downstream of this, not separate bugs. Fixed via a
+  new reusable `BuildingFootprintTag.GetNearestApproachPoint` building-geometry query
+  instead of a flat scalar bump, so it generalizes to future drop-off buildings
+  automatically. The console message about RallyPoint blocking TownCenter removal was
+  confirmed harmless tooling noise, unrelated to both. 7 new EditMode tests (67 total,
+  all pass); live-verified in Play mode via UnityMCP - direct before/after
+  reproduction of the raycast bug, and real gather-deposit cycles run from 5 different
+  approach angles confirming continuous stockpile growth. No roadmap entry (scope
+  stayed within estimate). See `docs/SESSION_LOG.md`.
+- Previously completed: **Worker mechanics audit + multi-builder
   construction diminishing-returns fix** (Roadmap Section 1) — audited Gatherer,
   Farm/FarmWorker, LivestockWorker, Builder/ConstructionSite, and worker
   combat/boar-hunting against 6 AoE reference mechanics. Resource walking and

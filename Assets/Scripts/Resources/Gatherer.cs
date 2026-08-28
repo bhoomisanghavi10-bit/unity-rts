@@ -23,6 +23,7 @@ namespace KingdomsOfBharat.ResourceGathering
         private State _state = State.Idle;
         private ResourceNode _targetNode;
         private Building _dropOff;
+        private Vector3 _dropOffApproachPoint;
         private ResourceType _carriedType;
         private float _carriedAmount;
         private float _rateMultiplier = 1f;
@@ -203,13 +204,32 @@ namespace KingdomsOfBharat.ResourceGathering
                 {
                     return; // no drop-off exists yet; keep waiting
                 }
-                _mover.MoveTo(_dropOff.transform.position);
+                _dropOffApproachPoint = ComputeDropOffApproachPoint(_dropOff);
+                _mover.MoveTo(_dropOffApproachPoint);
             }
 
-            if (WithinRange(_dropOff.transform.position))
+            if (WithinRange(_dropOffApproachPoint))
             {
                 Deposit();
             }
+        }
+
+        // The drop-off building's own footprint (BuildingFootprint.Attach)
+        // carves a NavMeshObstacle over its footprint - the raw
+        // transform.position used before this fix sits inside that
+        // unwalkable space, which a NavMeshAgent can never actually reach.
+        // GetNearestApproachPoint returns the nearest point on the
+        // building's real walkable boundary instead, from whichever side
+        // this worker is approaching from, plus a small buffer for the
+        // worker's own NavMeshAgent radius so it doesn't clip the edge.
+        // Falls back to the raw position for the (currently impossible,
+        // since every *Factory tags its building) case of a drop-off with
+        // no BuildingFootprintTag at all.
+        private Vector3 ComputeDropOffApproachPoint(Building dropOff)
+        {
+            return dropOff.TryGetComponent(out BuildingFootprintTag footprintTag)
+                ? footprintTag.GetNearestApproachPoint(transform.position, _mover.Radius + 0.1f)
+                : dropOff.transform.position;
         }
 
         private void Deposit()

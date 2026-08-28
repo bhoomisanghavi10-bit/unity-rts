@@ -5,6 +5,95 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-29 — Bug fix: rally-flag raycast + resource-deposit soft-lock (ad hoc, not a roadmap item)
+
+**Scope**: user-reported bug, not a roadmap item — investigate before changing
+anything, propose a fix, wait for confirmation. Three symptoms reported: (1) a rally
+flag placed near/behind the TownCenter floats mid-air on its roofline instead of
+landing on the ground, (2) Wood/Food/Gold/Stone stay at 0 for a full session despite
+workers appearing to gather, with Population/Age stuck as a result, (3) a console
+message "Can't remove TownCenter (Script) because RallyPoint (Script) depends on it".
+User's working hypothesis was that all three shared one root cause (the rally-point
+raycast hitting the TownCenter's own collider, and Gatherer's deposit logic being
+coupled to that bad rally position) — **investigation found this hypothesis wrong**:
+two unrelated real bugs, plus one already-diagnosed-harmless red herring.
+
+**Findings** (via two background investigation agents, code-read only, no changes
+until confirmed):
+1. **Rally/move raycast bug (real)**: `SelectionManager.HandleRallyInput`/
+   `HandleMoveInput` (`Assets/Scripts/Selection/SelectionManager.cs`) used a plain
+   unmasked `Physics.Raycast` with no exclusion of the selected building's own
+   collider. TownCenter has one large `BoxCollider` spanning its full multi-tier
+   model (`BuildingModelFactory.AddBoundsCollider`) — a click aimed near/behind it
+   can hit that box before the ground, landing the rally flag on the building's own
+   surface.
+2. **Deposit soft-lock (real, unrelated to #1)**: `Gatherer.FindNearestDropOff`/
+   `TickMovingToDropOff` never referenced `RallyPoint` at all — the original
+   hypothesis was wrong here. The actual cause: `Gatherer.interactionRange` (2.5) was
+   smaller than the minimum distance a `NavMeshAgent` (radius 0.4) could ever get to
+   the TownCenter's raw `transform.position`, which sits inside the `NavMeshObstacle`
+   `BuildingFootprint.Attach` carves at half-extent 2.5 around that same point
+   (`Assets/Scripts/Buildings/BuildingFootprint.cs`) — a strict regression from the
+   AoE building-footprint work landed 2026-08-28, never re-tuned against this. Workers
+   walked to the obstacle boundary, stopped just outside `interactionRange`, and
+   parked forever without ever calling `Deposit()` (which was itself correctly wired
+   to `ResourceStockpile.Add` — not broken). Population-cap-stuck-at-10 and
+   Age-never-advancing were confirmed downstream of this one cause (both gated on
+   resources that never arrived), not separately broken systems.
+3. **Console message (harmless, unrelated to both)**: `RallyPoint`'s
+   `[RequireComponent(typeof(Building))]` blocking a reflection-driven test-harness
+   component removal — already diagnosed as tooling noise in a prior session's log
+   entry, not a gameplay bug.
+
+**Fixes implemented** (both confirmed with user before touching code; a first draft
+of fix 1 — a Ground-only `LayerMask` — was caught as itself buggy before
+implementation, since the same raycast also resolves gather/attack/build-assist/
+staff/garrison clicks, none of which live on a Ground layer, and was corrected before
+proceeding):
+- **Fix 1**: `HandleRallyInput`/`HandleMoveInput` switched from `Physics.Raycast` to
+  `Physics.RaycastAll` + sort-by-distance + skip any hit belonging to the issuing
+  entity's own GameObject(s) (`_selectedBuilding` for rally, every currently selected
+  unit for move) — new shared `TryRaycastSkipping` helpers, mirroring the
+  `RaycastAll` pattern `SelectSingle` already used. Every other hit-type branch
+  (node/attackable/site/farm/livestock/garrison) is untouched.
+- **Fix 2**: new `BuildingFootprintTag.GetNearestApproachPoint(fromPosition, buffer)`
+  (`Assets/Scripts/Buildings/BuildingFootprint.cs`) — a reusable building-geometry
+  query, not Gatherer-specific — computes the real point on this building's walkable
+  boundary nearest `fromPosition` (matching whatever `NavMeshObstacle` box it actually
+  carves, falling back to the raw footprint edge for non-carving buildings), pushed
+  outward by `buffer`. `UnitMover` gained a `Radius` accessor (previously private) so
+  `Gatherer.ComputeDropOffApproachPoint` could pass `_mover.Radius + 0.1f` as the
+  buffer. `Gatherer.TickMovingToDropOff` now walks to and arrival-checks against this
+  computed point instead of the building's raw `transform.position`. Generalizes
+  automatically to any future dedicated drop-off building (Lumber Camp/Mining Camp
+  equivalents, tracked separately in Roadmap Section 1) since it only depends on the
+  target having a `BuildingFootprintTag`, which every building gets already.
+
+**Testing**: 7 new EditMode tests (`BuildingFootprintTests.cs`) — `GetNearestApproachPoint`
+verified from 5 different approach angles (±X, ±Z, diagonal) against a carving
+building, confirming the diagonal case correctly exits through the box's farther
+corner distance rather than the same face distance as the axis-aligned cases (an
+error caught by the test itself on first run — initial expected value was wrong,
+fixed), plus one test confirming a non-carving building uses the raw footprint edge
+instead of subtracting `Margin`. All 67 EditMode tests pass. Live-verified in Play
+mode via UnityMCP: (a) direct reproduction of the raycast bug — a camera angle
+chosen so a ray through screen-center hits the TownCenter's own `BoxCollider` at
+y=10.18 under the old single-`Raycast` logic, confirmed the new skip-self logic
+correctly falls through to the Ground hit at y=0.53 instead; (b) real gather/deposit
+cycles run end-to-end for workers approaching the TownCenter from 5 different
+directions (E/W/N/S/diagonal) via `WorkerFactory.Spawn` + `Gatherer.GatherFrom` —
+Wood/Stone stockpiles measurably and continuously increased over multiple
+observation windows (162 → 202 Wood over one 5s window with 4 concurrent workers;
+diagonal-approach worker independently deposited Stone), confirming deposits fire
+repeatedly from every tested angle, not just once.
+
+**Not touched**: no roadmap entry (user confirmed not needed, scope stayed within
+estimate). The `TestAi_MultiFront` duplicate-AiController console warning flagged in
+the bug report was noted but not investigated/fixed per the user's explicit
+lower-priority instruction.
+
+---
+
 ## 2026-08-29 — Worker mechanics audit + multi-builder construction formula (Roadmap Section 1)
 
 **Scope**: audit Gatherer, Farm/FarmWorker, LivestockWorker, Builder/ConstructionSite,

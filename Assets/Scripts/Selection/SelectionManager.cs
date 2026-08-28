@@ -271,8 +271,15 @@ namespace KingdomsOfBharat.Selection
                 return;
             }
 
-            Ray ray = _camera.ScreenPointToRay(Input.mousePosition);
-            if (!Physics.Raycast(ray, out RaycastHit hit, 500f))
+            // RaycastAll + skip the selected building's own collider(s),
+            // not a plain Raycast - a naive single Raycast can hit the
+            // selected building's own (often large) collider before
+            // reaching the ground/target the player actually aimed at
+            // (e.g. a tall TownCenter model), placing the rally flag on
+            // the building's own surface instead. Every other hit type
+            // below (node/attackable/ground) is unaffected - this only
+            // skips hits that belong to _selectedBuilding itself.
+            if (!TryRaycastSkipping(_selectedBuilding.gameObject, out RaycastHit hit))
             {
                 return;
             }
@@ -347,8 +354,11 @@ namespace KingdomsOfBharat.Selection
                 return;
             }
 
-            Ray ray = _camera.ScreenPointToRay(Input.mousePosition);
-            if (!Physics.Raycast(ray, out RaycastHit hit, 500f))
+            // Same RaycastAll + skip-self fix as HandleRallyInput - here
+            // "self" is every currently selected unit's own collider, so a
+            // click near/behind one of them can't resolve to hitting that
+            // same unit instead of whatever's beyond it.
+            if (!TryRaycastSkipping(_selected, out RaycastHit hit))
             {
                 return;
             }
@@ -532,6 +542,60 @@ namespace KingdomsOfBharat.Selection
                     }
                 }
             }
+        }
+
+        // Shared by HandleRallyInput (selfObject = the selected building
+        // itself) and HandleMoveInput (selfUnits = the current selection) -
+        // RaycastAll rather than a single Raycast so a hit on the issuing
+        // entity's own collider can be skipped in favor of whatever's
+        // beyond it (ground, a resource node, an attack target), instead
+        // of that nearer self-hit silently winning.
+        private bool TryRaycastSkipping(GameObject selfObject, out RaycastHit hit)
+        {
+            Ray ray = _camera.ScreenPointToRay(Input.mousePosition);
+            RaycastHit[] hits = Physics.RaycastAll(ray, 500f);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            foreach (RaycastHit candidate in hits)
+            {
+                if (candidate.collider.gameObject != selfObject)
+                {
+                    hit = candidate;
+                    return true;
+                }
+            }
+
+            hit = default;
+            return false;
+        }
+
+        private bool TryRaycastSkipping(IReadOnlyList<Unit> selfUnits, out RaycastHit hit)
+        {
+            Ray ray = _camera.ScreenPointToRay(Input.mousePosition);
+            RaycastHit[] hits = Physics.RaycastAll(ray, 500f);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            foreach (RaycastHit candidate in hits)
+            {
+                bool isSelf = false;
+                for (int i = 0; i < selfUnits.Count; i++)
+                {
+                    if (selfUnits[i] != null && candidate.collider.gameObject == selfUnits[i].gameObject)
+                    {
+                        isSelf = true;
+                        break;
+                    }
+                }
+
+                if (!isSelf)
+                {
+                    hit = candidate;
+                    return true;
+                }
+            }
+
+            hit = default;
+            return false;
         }
 
         private void SelectSingle(Vector2 screenPos)

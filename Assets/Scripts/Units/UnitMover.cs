@@ -15,6 +15,11 @@ namespace KingdomsOfBharat.Units
             _agent = GetComponent<NavMeshAgent>();
         }
 
+        // For callers (e.g. Gatherer's drop-off approach point) that need
+        // to keep a computed target outside this agent's own body, not
+        // just outside a building's carved obstacle.
+        public float Radius => _agent.radius;
+
         public void MoveTo(Vector3 destination)
         {
             _agent.SetDestination(destination);
