@@ -9,9 +9,10 @@ namespace KingdomsOfBharat.Units
 {
     // Item 49: the naval combat unit - a ranged attacker (BoatAttacker,
     // Pierce damage) that can fight other boats or bombard shore targets.
-    // No CombatBonus entries exist for UnitClass.Naval yet (see UnitClass.cs)
-    // - flat 1x against everything, a real but simple first pass rather
-    // than a fully balanced naval/land interaction matrix.
+    // One evidenced CombatBonus entry (Naval vs Archer, 0.5x) as of the
+    // naval balance pass (see UnitClass.cs/CombatBonus.cs) - every other
+    // pairing is still flat 1x, a real but simple first pass rather than a
+    // fully balanced naval/land interaction matrix.
     public static class WarGalleyFactory
     {
         public static GameObject Spawn(Vector3 position, FactionId faction)

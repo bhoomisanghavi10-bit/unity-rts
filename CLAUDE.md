@@ -12,24 +12,32 @@ asset requirements, 5. Priority order).
   the priority order/spec, arranged by the user separately), UI skin's actual art pass
   (spec + technical scaffold done in an earlier session, art itself still needs to be
   arranged), other "everything else" items (music, tutorial, performance profiling,
-  store assets, naval balance beyond Naval→Archer, Crusader Knight rig verification,
-  multiplayer determinism gaps, README drift), or continued balance work (training
-  cost-vs-power ratios, further sustained playtesting) — user's call.
-- Last completed (this session): **WaterMover obstacle avoidance** (Roadmap Section
-  1). The real, reachable-today bug wasn't the "future non-convex coastline" framing
-  the roadmap note implied — `WaterMover.MoveTo` stored any destination with zero
-  bounds checking, so a player right-click, rally point, or attack-move past the
-  Coastal map's shoreline sailed a boat straight onto dry land right now. Fix: since
-  the water region is a single convex rectangle, clamping the destination into it
-  before storing (new `WaterProximity.ClampToWater`, called from `WaterMover.MoveTo`)
-  guarantees the whole straight-line path stays in water — no speculative
-  polygon/NavMesh pathfinding built for a non-convex coastline that doesn't exist in
-  `MapDefinitionData` yet. `DirectionToNearestWater` refactored to reuse the same
-  clamp math instead of duplicating it. 5 new EditMode tests
-  (`Assets/Tests/EditMode/WaterMovementTests.cs`), all 37 pass. Live-verified in Play
-  mode via UnityMCP: a boat ordered onto dry land stopped exactly at the shoreline
-  instead of sailing onto it, confirmed across several real ticked frames, zero
-  console errors/warnings. No scene edits this session. See `docs/SESSION_LOG.md`.
+  store assets, Crusader Knight rig verification, multiplayer determinism gaps,
+  README drift), two adjacent findings flagged this session (Naval factories missing
+  `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs `MeleeAttacker`'s
+  1.0s attack interval), or continued balance work (training cost-vs-power ratios,
+  further sustained playtesting) — user's call.
+- Last completed (this session): **Naval balance pass** (Roadmap Section 1). Audited
+  the 4 genuinely unaudited/unlogged Naval matchups (`CombatBonus.cs` has exactly one
+  Naval entry, Naval→Archer=0.5x — every other pairing was flat 1x, and even the
+  tuned Archer pairing had never actually been live-tested). 4 live 1v1 forced-fights
+  via UnityMCP, same methodology as the prior balance session, logged to
+  `Assets/Design/playtest_log.csv`: War Galley vs Archer (won 21/45 HP, confirms the
+  0.5x fix softens but doesn't flip the matchup), vs Cavalry (won 9/45 HP, closest
+  naval win yet but still a real win, no fix needed), vs Siege (Galley destroyed,
+  Siege at 34/50 — judged working-as-designed, not a bug: Siege has no unit-vs-unit
+  penalty anywhere and Naval's real counterplay is its range/speed edge over Siege,
+  which a static forced-melee test can't capture), and a War-Galley mirror match
+  (symmetric, no asymmetry bug). No `CombatBonus` changes made — every result either
+  confirmed an existing fix or matched the "real win/loss, not a bug" bar already
+  established. Two adjacent findings surfaced but deliberately not fixed (flagged for
+  a future session, not silently expanded into this one's scope): Naval factories
+  never call `ClassArmorBonus`/`ClassDamageBonus` (every land factory does), and
+  `BoatAttacker`'s attack interval (1.5s, never overridden per-unit) vs
+  `MeleeAttacker`'s (1.0s) is a real structural asymmetry independent of
+  `CombatBonus`. Also fixed 2 stale doc comments (`UnitClass.cs`, `WarGalleyFactory.cs`)
+  claiming "no CombatBonus entries yet" for Naval. No EditMode test changes needed
+  (no code/multiplier changes to cover). See `docs/SESSION_LOG.md`.
 
 ## Engine & architecture
 - Unity version: [fill in]

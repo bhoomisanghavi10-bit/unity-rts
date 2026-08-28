@@ -5,6 +5,92 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-28 — Naval balance pass (Roadmap Section 1)
+
+**Scope**: Close the roadmap's "Naval balance is one evidenced fix, not a full pass"
+item. `CombatBonus.cs` has exactly one `UnitClass.Naval` entry (Naval→Archer = 0.5x);
+every other Naval pairing, either direction, falls through to the default flat 1x.
+War Galley is the only combat-capable Naval unit (Fishing Boat has no `BoatAttacker`,
+non-combat by design).
+
+**Pre-test audit**: `Assets/Design/playtest_log.csv` already had 2 live Naval fights
+from the prior balance session (War Galley beat Soldier at 44% HP and Spearman at 33%
+HP, both judged "real wins, not free ones," no fix needed). That left 4 genuinely
+unaudited or unlogged pairings: War Galley vs Archer (the *tuned* pairing itself had
+never actually been live-tested — the 0.5x fix predates the CSV, referenced only in
+code comments), vs Cavalry, vs Siege, and a War Galley mirror match. Comparing
+`BoatAttacker.cs` to the land equivalent `MeleeAttacker.cs` found the damage pipeline
+is structurally identical (`damage * multiplier + bonus`, then `CombatBonus.Multiplier`,
+then `TakeDamage`) with one real difference: `BoatAttacker`'s `attackInterval` defaults
+to 1.5s vs `MeleeAttacker`'s 1.0s (no setter exists for either — never overridden
+per-unit anywhere), making Naval attack 33% less often than any land unit in every
+matchup, independent of `CombatBonus`. Also found `WarGalleyFactory.cs`/
+`FishingBoatFactory.cs` never call `UpgradeProgress.ClassArmorBonus`/
+`ClassDamageBonus` the way every land factory does — Naval units can't benefit from
+per-class upgrade tiers at all. Both are real, adjacent findings, deliberately **not**
+fixed this session (flagged for a future one, per CLAUDE.md's scope-flagging rule)
+since this session's scope is auditing matchups and adding `CombatBonus` entries only
+where live evidence shows a genuine problem, not restructuring the naval combat
+pipeline itself.
+
+**Method**: Identical to the prior balance-pass session — entered Play mode via
+UnityMCP, confirmed `Time.time`/`Time.frameCount` genuinely advancing
+(`Application.runInBackground` + `QueuePlayerLoopUpdate()`), then for each fight
+`execute_code`-spawned both units directly via their factories at full HP, placed
+within immediate attack range (no pathing/chase), called `AttackMove` on both
+attacker components, and let real ticks run until one side's `IsDead` flipped —
+using `Time.time` as the authoritative clock, not wall-clock estimates.
+
+**Results** (all 4 logged to `Assets/Design/playtest_log.csv`):
+1. **War Galley vs Archer**: Galley won at 21/45 HP (47%), Archer died. First-ever
+   live confirmation of the existing 0.5x fix — it softens the kill speed without
+   flipping the outcome, exactly its original intent.
+2. **War Galley vs Cavalry**: Galley won at 9/45 HP (20%) — the closest naval win
+   logged so far, but still a real win with real damage taken both ways, not a
+   near-instant kill either direction. No fix warranted, same bar as the existing
+   Soldier/Spearman rows.
+3. **War Galley vs Siege**: decisive Siege win — Galley destroyed after landing only
+   2 hits (16/50 HP dealt, 32%), Siege took no further damage. Hand-calc matched
+   exactly (Siege's 15dmg/1.0s interval kills Galley's unarmored 45 HP in 3 hits/~2s;
+   Galley's 8dmg/1.5s interval only lands 2 hits on Siege in that window). **Judged
+   working-as-designed, not a bug**: Siege has no unit-vs-unit penalty anywhere in
+   `CombatBonus` (its whole identity is high melee burst against any non-Building
+   target), and Siege's real range (3) and move speed (1.8) mean a Galley should
+   never let itself get meleed in the first place — the actual counterplay is Naval's
+   range (4) and speed (3.0) edge over a unit that can't enter water at all, which a
+   static forced-melee test structurally can't capture. Flagged for reconsideration
+   only if real (non-synthetic) gameplay surfaces this as an actual problem.
+4. **War Galley vs War Galley (mirror)**: symmetric stats as expected — both sides
+   traded identical hits down to 13/45 HP simultaneously, then the winner was decided
+   purely by which attacker's `Update()` ran first in frame order (5/45 HP, 11%
+   remaining). No asymmetry bug found, same pattern as the existing Spearman mirror
+   test.
+
+**No `CombatBonus` changes made** — every result either confirmed the existing fix or
+met the "real win/loss, not a bug" bar already established by the prior session's
+Soldier/Spearman/stacking-audit conclusions.
+
+**Small doc fix**: `UnitClass.cs`'s `Naval` enum comment and `WarGalleyFactory.cs`'s
+header comment both claimed "Deliberately no CombatBonus entries yet" — stale since
+Naval→Archer was added; updated both to reflect current reality.
+
+**Console**: Same `NavMeshAgent`/`SetDestination` warnings as the prior balance
+session (land units spawned via `execute_code` outside a baked match have no NavMesh)
+— a documented test-harness artifact, not a game bug; none of the fights' units ever
+needed to move (already in range at spawn).
+
+**Roadmap/CLAUDE.md**: Section 1's Naval balance item marked done for this session's
+scope (the two adjacent findings explicitly left open, not silently closed).
+`playtest_log.csv` now has 20 total rows (16 + 4 new).
+
+**Code changes**: only the 2 stale doc comments — no multiplier/logic changes, so no
+new/updated tests were needed. This session's changes are `Assets/Design/
+playtest_log.csv`, `Assets/Scripts/Combat/UnitClass.cs`,
+`Assets/Scripts/Units/WarGalleyFactory.cs`, `docs/ROADMAP.md`, `docs/SESSION_LOG.md`,
+and `CLAUDE.md`'s status section.
+
+---
+
 ## 2026-08-28 — WaterMover obstacle avoidance (Roadmap Section 1)
 
 **Scope**: Close the roadmap's "WaterMover has no obstacle avoidance" item. The

@@ -132,8 +132,24 @@ entirely. What follows is the real remaining list.
   playtesting remain open for a future balance session - this pass closed the
   specific "start logging + audit stacking" scope of item 5, not the whole ongoing
   balance-pass item. See `docs/SESSION_LOG.md` for full methodology and results.
-- [ ] **Naval balance is one evidenced fix, not a full pass** — only Naval→Archer was
+- [x] **Naval balance is one evidenced fix, not a full pass** — only Naval→Archer was
   tuned; every other naval matchup is unaudited flat 1x.
+  **Audited for this session's scope** — 4 new live 1v1 forced-fights logged to
+  `Assets/Design/playtest_log.csv` (War Galley vs Archer/Cavalry/Siege/War Galley
+  mirror), closing the gap the roadmap flagged (Naval→Archer had never actually been
+  live-tested/logged despite being "evidenced"; Naval vs Cavalry/Siege/Naval were
+  fully unaudited). Results: vs Archer confirmed the existing 0.5x fix still leaves a
+  clear win (21/45 HP), vs Cavalry a real win with real damage taken (9/45 HP, no fix
+  needed, same bar as the existing Soldier/Spearman rows), mirror match symmetric with
+  no asymmetry bug. vs Siege was decisive in Siege's favor (Galley destroyed, Siege at
+  34/50) but judged working-as-designed rather than a bug: Siege has no unit-vs-unit
+  penalty anywhere in `CombatBonus`, and Naval's actual counterplay is its range/speed
+  edge over Siege (which can't enter water) — not something a static forced-melee test
+  can capture. No `CombatBonus` changes made. Two adjacent findings flagged but
+  deliberately not fixed this session (candidates for a future session): Naval
+  factories never call `ClassArmorBonus`/`ClassDamageBonus` (every land factory does),
+  and `BoatAttacker`'s attack interval (1.5s) vs `MeleeAttacker`'s (1.0s) is a real
+  structural asymmetry independent of `CombatBonus`. See `docs/SESSION_LOG.md`.
 - [ ] **UI skin (item 47's second half) hasn't started at all** — building/unit
   models have real sourced art now, but the HUD/menus are still functional-only, no
   visual skin pass.
