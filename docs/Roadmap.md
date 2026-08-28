@@ -288,7 +288,21 @@ rather than "something reasonable":
 
 **Civ-specific building models — priority order and count**: 9 spawnable building
 types (TownCenter, Barracks, Tower, Market, Farm, House, Wall, Gate, Dock) × 5 civs =
-45 models for full coverage. Recommended sequencing, highest visual impact first:
+45 models for full coverage.
+
+- [x] **Chola (9/9) — done 2026-08-28.** All 9 buildings wired via new
+  `Assets/Editor/MeshyBuildingImporter.cs`: real PBR materials (URP Lit,
+  metallic+roughness packed into one texture via an out-of-Unity Pillow script after
+  an in-Editor `Texture2D.GetPixels` attempt crashed the Unity process), per-building
+  scale correction (1.18×-3.16×, TownCenter 93×), and a Tower orientation fix
+  (`BuildingModelFactory`'s shared `ImportRotationCorrections["Tower"]` doesn't
+  account for civ, so Chola's Tower needed a counter-rotation baked into the wrapper
+  prefab). Live-verified spawning through the real factory path, 2 new EditMode tests
+  added. Vijayanagara/Rajput/Maurya/Maratha (36 models) remain unstarted — see
+  `docs/SESSION_LOG.md` for full methodology, the crash root-cause, and the
+  AABB-can't-detect-upside-down lesson for future rotation fixes.
+
+Recommended sequencing, highest visual impact first:
 1. **TownCenter, Barracks** — every match has exactly one TC (the civ's visual
    anchor) and Barracks is the first production building; smallest set (10 models)
    that makes all 5 civs read as visually distinct from the start of a match.

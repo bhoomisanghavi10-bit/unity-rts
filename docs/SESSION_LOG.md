@@ -5,6 +5,91 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-28 — Chola civ-specific building models wired (Roadmap Section 4.3)
+
+**Scope**: first content delivered against Section 4.3's civ-specific building spec.
+User supplied 9 raw Meshy AI exports (FBX + separate albedo/metallic/normal/roughness
+PNGs, 2048×2048) for all 9 spawnable building types, dropped at
+`Assets/Buildings/Chola/Chola/` — not the path `BuildingModelFactory.Spawn` probes
+(`Assets/Resources/Buildings/<CivId>/<resourceName>`). This session identified,
+scale-corrected, PBR-material-wired, and live-verified all 9.
+
+**Identification**: only 2 of 9 source folders were named (`chola barrack/`,
+`chola towncenter/`); the other 7 sat in opaque UUID folders. 5 resolved confidently
+from the Meshy-internal filename (`Ancient_Temple_Tower`→Tower,`Temple_Bazaar`→Market,
+`Harbor_Temple_Miniature`→Dock, `Harvest_Temple`→Farm, `Temple_Gatehouse`→Gate). The
+remaining 2 (`Golden_Temple_Courtyard`, `Golden_Temple_Gate`) were genuinely ambiguous
+between House/Wall — resolved by importing each into the Editor and inspecting the
+actual geometry (Gatehouse: symmetric two-wing structure with a central archway →
+Gate; the other "Gate"-named one: a long continuous run with no opening → Wall;
+Courtyard: a single modest tower form → House), not by guessing from filenames.
+
+**Scale correction**: raw imports needed per-building multipliers (1.18×–3.16×,
+except TownCenter at 93× — that one file was normalized at a very different internal
+scale than its 8 siblings). Derived by live-instantiating both the new Chola model and
+its existing shared-building sibling in the Editor and matching heights via
+`Renderer` bounds (not asset-only `AssetDatabase.LoadAssetAtPath` bounds queries,
+which proved unreliable off-scene). Post-fix, all 9 spawned within ~0.01 units of
+their reference building's height.
+
+**Real PBR wiring, not the prior shortcut**: confirmed the earlier Meshy-sourced
+unique-unit session (2026-08-27) never actually wired metallic/normal/roughness maps
+despite the roadmap's own PBR standard — it shipped flat-albedo-only materials. User
+asked for real PBR this time. New `Assets/Editor/MeshyBuildingImporter.cs` builds a
+proper URP Lit material per building (`_BaseMap`, `_BumpMap`, `_MetallicGlossMap`),
+confirmed `_Color` genuinely exists on URP Lit (so `BuildingModelFactory.TintMaterials`'s
+civ-tint fallback chain works, not a silent no-op).
+
+**A real Unity Editor crash, root-caused and worked around**: the first attempt
+packed Meshy's separate metallic+roughness PNGs into one URP-layout texture via
+`Texture2D.GetPixels`/`SetPixels` inside a UnityMCP `execute_code` call — this crashed
+the Unity Editor process outright (confirmed via `ps` showing no Unity process left,
+and an Editor.log stack trace with a single frame repeated 250+ times). Root-caused
+and fixed by moving that packing out of Unity entirely — `pack_metallic_smoothness.py`
+(Pillow) does it as plain file I/O on disk; `MeshyBuildingImporter` now only ever
+copies files, sets import settings, and assembles the prefab, with no heavy pixel
+manipulation inside the Editor. No data was lost (only the first building's raw
+source files had been copied before the crash); re-ran one building at a time after
+the fix, all 9 succeeded cleanly this time.
+
+**A second real bug, live-caught by the user**: `BuildingModelFactory`'s existing
+`ImportRotationCorrections["Tower"] = Euler(0,0,-90)` (authored for the *other*,
+shared Tower asset) is keyed by resource name only, not civ — applying it to Chola's
+Tower (already differently-oriented) knocked it over. Worked around by baking a
+counter-rotation into the wrapper prefab's inner model node (one level below where
+the factory overwrites rotation), so the net result is correct regardless of the
+shared correction. First fix attempt (a Z-axis counter-rotation) canceled the
+shared correction mathematically but the model was still lying on its side —
+turned out the raw mesh's native tall axis differs between the original ad hoc
+import and the pipeline's fresh re-import of the same bytes (Unity's
+Convert-Units/axis-conversion default apparently isn't guaranteed identical across
+imports), so the needed correction was a Y-axis rotation, not Z. That got the
+bounding box right (Y tallest) but the user caught that it was still upside-down —
+AABB checks can't distinguish a correct orientation from its 180°-flipped twin.
+Fixed by visually screenshotting each of the two AABB-equivalent candidates and
+picking the one that actually reads as a tower (wide fortified base, tapering
+tiers, ornamental cresting on top), landing on `Quaternion.Euler(0, -90, 0)` for
+the inner model node. **Lesson for future civ-specific Tower/rotation-sensitive
+imports**: bounds-only automated checks are not sufficient to verify orientation;
+a screenshot check is required.
+
+**Verification**: live-spawned all 9 through the real `BuildingModelFactory.Spawn`
+path (not just loading the prefab) — confirmed collider auto-add, civ-color tinting,
+and ground alignment all work end-to-end via UnityMCP screenshots. Added 2 EditMode
+tests to `BuildingModelFactoryTests.cs` (`CholaBuildingModels_ExistAtTheExactResourcePath...`,
+`Spawn_UsesCholaSpecificModel_AndStandsUpright` — the latter asserts a non-trivial Y
+bound specifically to catch a future lying-on-its-side regression). All 39 EditMode
+tests pass. Deleted the raw upload duplicates at `Assets/Buildings/Chola/Chola/` at
+the user's request now that everything needed is copied into
+`Assets/Resources/Buildings/Chola/_Source/`.
+
+**Not done this session**: the other 4 civs (Vijayanagara, Rajput, Maurya, Maratha)
+still have zero civ-specific building models — `MeshyBuildingImporter` is reusable
+for them once sourced, but scale/rotation corrections are per-asset and will need
+the same live-verification process, not blind reuse of Chola's numbers.
+
+---
+
 ## 2026-08-28 — UI skin display wiring: theme asset, import settings, icons/HP-bar/crests/cursors (Roadmap Section 4.3)
 
 **Note**: other Claude Code sessions touched this repo around the same time (Naval

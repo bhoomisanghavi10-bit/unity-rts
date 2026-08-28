@@ -8,18 +8,33 @@ asset requirements, 5. Priority order).
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
 - Currently on: nothing started yet for the next session. Section 5 items 1-5, 7-8
-  are all done. Remaining real options: civ-specific building models (Section 4.3 has
-  the priority order/spec, arranged by the user separately), **UI skin polish** (art +
-  display wiring both landed this session — see immediately below; remaining work is
-  cosmetic 9-slice/multiplier refinement plus the 2 known content gaps: no
-  build-placement cursor asset, Maurya crest off-palette), **wiring in a Crusader
-  Knight body** (rig-compatibility verified positive in a concurrent session — scale
-  normalization + weapon re-parenting still unstarted), other "everything else" items
-  (music, tutorial, performance profiling, store assets, multiplayer determinism gaps,
-  README drift), two adjacent findings from a concurrent Naval balance session (Naval
-  factories missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs
-  `MeleeAttacker`'s 1.0s attack interval), or continued balance work — user's call.
-- Last completed (this session): **UI skin display wiring** (Roadmap Section 4.3),
+  are all done. Remaining real options: **civ-specific building models for the other
+  4 civs** (Chola's 9/9 landed this session — see immediately below; Vijayanagara/
+  Rajput/Maurya/Maratha, 36 models, are unstarted; `Assets/Editor/MeshyBuildingImporter.cs`
+  is reusable but each asset needs its own live scale/rotation verification, not
+  blind reuse of Chola's numbers), **UI skin polish** (art + display wiring both
+  landed a prior session; remaining work is cosmetic 9-slice/multiplier refinement
+  plus the 2 known content gaps: no build-placement cursor asset, Maurya crest
+  off-palette), **wiring in a Crusader Knight body** (rig-compatibility verified
+  positive in a concurrent session — scale normalization + weapon re-parenting still
+  unstarted), other "everything else" items (music, tutorial, performance profiling,
+  store assets, multiplayer determinism gaps, README drift), two adjacent findings
+  from a concurrent Naval balance session (Naval factories missing
+  `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs `MeleeAttacker`'s
+  1.0s attack interval), or continued balance work — user's call.
+- Last completed (this session): **Chola civ-specific building models** (Roadmap
+  Section 4.3) — all 9 buildings (TownCenter, Barracks, Tower, Market, Farm, House,
+  Wall, Gate, Dock) wired from raw Meshy AI exports the user supplied, with real PBR
+  materials (not the flat-albedo shortcut the unique-unit session used), per-building
+  scale correction verified live against the existing shared buildings, and a Tower
+  orientation bug found and fixed (the shared rotation-correction dict doesn't know
+  about civs). Hit and fixed a genuine Unity Editor crash along the way (in-Editor
+  `Texture2D.GetPixels` on 2048x2048 maps took the Editor process down entirely) by
+  moving that step to a plain Python/Pillow script outside Unity. All 39 EditMode
+  tests pass (2 new ones added). Full methodology, the crash root-cause, and an
+  AABB-can't-detect-upside-down lesson for future rotation work are in
+  `docs/SESSION_LOG.md`.
+- Previously completed: **UI skin display wiring** (Roadmap Section 4.3),
   the follow-up to last session's art delivery/alpha-fix pass. Created
   `Assets/Resources/UI/UIStyleTheme.asset`, set Sprite/Cursor import types + 9-slice
   borders on all 45 files, and wired the art into `BuildMenu` (command-card 4-state
