@@ -5,6 +5,46 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-29 — Reconcile uncommitted work: finish wiring BuildingFootprint into all factories (ad hoc, not a roadmap item)
+
+**Scope**: user asked to reconcile a working tree with uncommitted changes left over
+from in-progress work, not a new roadmap item. Investigated before committing anything.
+
+Found: the previous session's commit (rally-flag raycast + resource-deposit soft-lock
+fix) added `BuildingFootprint.cs` and had `Gatherer` query it via
+`BuildingFootprintTag.GetNearestApproachPoint`, but never actually wired
+`BuildingFootprint.Attach` into the building factories themselves — confirmed via
+`git show HEAD:...TownCenterFactory.cs`, which had no `BuildingFootprintTag` call at
+all. That meant the previous fix was incomplete: TownCenter (and every other
+building) still fell back to raw `transform.position` for the deposit-approach-point
+query, the same soft-lock the fix intended to close, just not yet exercised in that
+session's test. The intended-but-uncommitted work (10 factory files +
+`BuildingPlacer.cs`) was sitting unstaged in the working tree.
+
+**Committed**: wired `BuildingFootprint.Attach` into TownCenter/Barracks/Farm/House/
+Market/Tower/Dock factories (square-tile footprint per `BuildingFootprint`'s tile
+table, margin-shrunk `NavMeshObstacle`); Wall/Gate keep their own pre-existing
+full-footprint obstacle but now also tag themselves (`carveObstacle:false`) so other
+buildings' overlap checks see their real shape. `BuildingPlacer`'s ghost-preview
+clearance now reads from the same tile table instead of a separate `minClearance`
+constant. Also committed: removal of `chola-gopuram`/`farmland` raw Meshy
+`.obj`/`.mtl` exports (confirmed unreferenced elsewhere — already baked into
+prefabs), a `ProjectSettings.asset` diff (`runInBackground: 1`, matching the
+project's own documented Editor-tick gotcha, plus Editor-auto-populated
+build/target-OS fields), and a one-line README roadmap-path addition.
+
+**Left alone, by user instruction**: ~200 untracked screenshot files
+(`Assets/Screenshots/`, 23MB, accumulated across many past sessions with no clear
+commit-all convention — only 12 older ones were already tracked) and a new untracked
+`UI_RawOriginals_backup/` folder (119MB of raw source art) — user said leave both
+untracked rather than commit or gitignore either.
+
+No new tests (no behavior changed beyond what the previous session's tests already
+cover — this was completing that session's own uncommitted wiring, not new logic).
+Single commit: `d5d78b3`.
+
+---
+
 ## 2026-08-29 — Bug fix: rally-flag raycast + resource-deposit soft-lock (ad hoc, not a roadmap item)
 
 **Scope**: user-reported bug, not a roadmap item — investigate before changing

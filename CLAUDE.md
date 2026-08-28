@@ -25,7 +25,17 @@ asset requirements, 5. Priority order).
   from a concurrent Naval balance session (Naval factories missing
   `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs `MeleeAttacker`'s
   1.0s attack interval), or continued balance work — user's call.
-- Last completed (this session): **Bug fix: rally-flag raycast + resource-deposit
+- Last completed (this session): **Reconcile uncommitted work: finish wiring
+  BuildingFootprint into all building factories** (ad hoc, not a roadmap item) — the
+  prior session's rally-flag/deposit-soft-lock fix added `BuildingFootprint.cs` and
+  had `Gatherer` query it, but never actually wired `BuildingFootprint.Attach` into
+  the factories themselves, so that fix was silently incomplete (TownCenter and every
+  other building still fell back to raw `transform.position`). Committed the leftover
+  working-tree changes that finish the wiring (10 factory files + `BuildingPlacer.cs`),
+  plus an unrelated cleanup of now-unreferenced raw Meshy `.obj`/`.mtl` exports. Left
+  ~200 untracked screenshot files and a new `UI_RawOriginals_backup/` folder (119MB)
+  untracked per user instruction. See `docs/SESSION_LOG.md`. Commit `d5d78b3`.
+- Previously completed: **Bug fix: rally-flag raycast + resource-deposit
   soft-lock** (ad hoc user bug report, not a roadmap item) — user reported the rally
   flag floating mid-air near the TownCenter and Wood/Food/Gold/Stone stuck at 0 for a
   full session, hypothesizing one shared root cause via RallyPoint. Investigation
