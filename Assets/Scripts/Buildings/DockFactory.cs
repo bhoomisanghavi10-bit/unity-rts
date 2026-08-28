@@ -24,6 +24,12 @@ namespace KingdomsOfBharat.Buildings
 
             GameObject go = BuildingModelFactory.Spawn("Dock", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
             go.name = faction == FactionId.Player ? "Dock" : "EnemyDock";
+            // Dock is the one non-Wall/Gate exception to the square-tile
+            // table (see BuildingFootprint) - it's a pier that has to reach
+            // from land into water, so its footprint stays the rectangle it
+            // always was. It still gets the same margin-shrunk obstacle
+            // every other non-exempt building gets.
+            BuildingFootprint.Attach(go, new Vector2(Size.x, Size.z), carveObstacle: true);
 
             go.AddComponent<Dock>();
             var site = go.AddComponent<ConstructionSite>();

@@ -26,6 +26,12 @@ namespace KingdomsOfBharat.Buildings
 
             GameObject go = BuildingModelFactory.Spawn("Wall", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
             go.name = faction == FactionId.Player ? "Wall" : "EnemyWall";
+            // Wall is exempt from BuildingFootprint's square-tile/margin
+            // system (it blocks its full footprint edge-to-edge, no
+            // passable margin, and keeps its own modular chain-placement
+            // NavMeshObstacle below) - only tagged here so other buildings'
+            // placement-overlap checks still see its real shape.
+            BuildingFootprint.Attach(go, new Vector2(Size.x, Size.z), carveObstacle: false);
 
             go.AddComponent<Wall>();
             var site = go.AddComponent<ConstructionSite>();

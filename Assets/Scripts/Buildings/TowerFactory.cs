@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.AI;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.Selection;
@@ -9,9 +8,10 @@ using KingdomsOfBharat.Progression;
 namespace KingdomsOfBharat.Buildings
 {
     // Creates a defensive Tower (Tower + ConstructionSite + FactionMember +
-    // TowerAttacker + NavMeshObstacle). Tall footprint, high HP, and its
-    // own ranged auto-attack (see TowerAttacker) - the first building in
-    // this project that fights back on its own.
+    // TowerAttacker + a BuildingFootprint-carved NavMeshObstacle). Small
+    // (2x2 tile) footprint but tall/high-HP, and its own ranged auto-attack
+    // (see TowerAttacker) - the first building in this project that fights
+    // back on its own.
     public static class TowerFactory
     {
         private static readonly Vector3 Size = new Vector3(1.8f, 4.4f, 1.8f);
@@ -28,6 +28,7 @@ namespace KingdomsOfBharat.Buildings
 
             GameObject go = BuildingModelFactory.Spawn("Tower", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
             go.name = faction == FactionId.Player ? "Tower" : "EnemyTower";
+            BuildingFootprint.Attach(go, BuildingFootprint.Square(BuildingFootprint.TowerTiles), carveObstacle: true);
 
             go.AddComponent<Tower>();
             var site = go.AddComponent<ConstructionSite>();
@@ -49,11 +50,6 @@ namespace KingdomsOfBharat.Buildings
             // Roadmap Section 5 item 3: lets a Maratha Durg Garrison unit
             // enter this Tower - see Garrison.
             go.AddComponent<Garrison>();
-
-            var obstacle = go.AddComponent<NavMeshObstacle>();
-            obstacle.shape = NavMeshObstacleShape.Box;
-            obstacle.size = Size;
-            obstacle.carving = true;
 
             // Towers see further than any other building - that's their
             // whole point as a forward-defense/vision structure.

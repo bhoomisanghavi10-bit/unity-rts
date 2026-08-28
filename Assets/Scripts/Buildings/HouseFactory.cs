@@ -22,6 +22,7 @@ namespace KingdomsOfBharat.Buildings
 
             GameObject go = BuildingModelFactory.Spawn("House", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
             go.name = faction == FactionId.Player ? "House" : "EnemyHouse";
+            BuildingFootprint.Attach(go, BuildingFootprint.Square(BuildingFootprint.HouseTiles), carveObstacle: true);
 
             go.AddComponent<House>();
             var site = go.AddComponent<ConstructionSite>();

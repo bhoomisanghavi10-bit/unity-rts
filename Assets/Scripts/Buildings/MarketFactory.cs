@@ -24,6 +24,7 @@ namespace KingdomsOfBharat.Buildings
 
             GameObject go = BuildingModelFactory.Spawn("Market", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
             go.name = faction == FactionId.Player ? "Market" : "EnemyMarket";
+            BuildingFootprint.Attach(go, BuildingFootprint.Square(BuildingFootprint.MarketTiles), carveObstacle: true);
 
             go.AddComponent<Market>();
             var site = go.AddComponent<ConstructionSite>();

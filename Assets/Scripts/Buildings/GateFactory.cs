@@ -23,6 +23,12 @@ namespace KingdomsOfBharat.Buildings
 
             GameObject go = BuildingModelFactory.Spawn("Gate", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
             go.name = faction == FactionId.Player ? "Gate" : "EnemyGate";
+            // Gate is exempt from BuildingFootprint's square-tile/margin
+            // system, same reasoning as Wall (see WallFactory) - it has to
+            // match a Wall segment's shape to slot into a chain. Only
+            // tagged here so other buildings' placement-overlap checks see
+            // its real shape.
+            BuildingFootprint.Attach(go, new Vector2(Size.x, Size.z), carveObstacle: false);
 
             var site = go.AddComponent<ConstructionSite>();
             site.Configure(buildTime);

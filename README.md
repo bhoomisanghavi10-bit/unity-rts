@@ -1,3 +1,4 @@
+Full roadmap: /docs/ROADMAP.md 
 # Kingdoms of Bharat
 
 A historical real-time strategy game set across Indian kingdoms and empires.

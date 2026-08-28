@@ -21,6 +21,7 @@ namespace KingdomsOfBharat.Buildings
 
             GameObject go = BuildingModelFactory.Spawn("TownCenter", civ, position, Size, profile.PrimaryColor);
             go.name = faction == FactionId.Player ? "TownCenter" : "EnemyTownCenter";
+            BuildingFootprint.Attach(go, BuildingFootprint.Square(BuildingFootprint.TownCenterTiles), carveObstacle: true);
 
             go.AddComponent<TownCenter>();
             go.AddComponent<SelectionIndicator>().Configure(1.9f, -Size.y * 0.5f);

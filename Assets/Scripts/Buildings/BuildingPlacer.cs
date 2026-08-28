@@ -28,7 +28,9 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float barracksWoodCost = 100f;
         [SerializeField] private float barracksStoneCost = 50f;
         [SerializeField] private float barracksBuildTime = 8f;
-        [SerializeField] private Vector3 barracksSize = new Vector3(3f, 2f, 3f);
+        // X/Z match BarracksFactory's real BuildingFootprint tile size -
+        // Y is the ghost cube's visual height only, unrelated to footprint.
+        [SerializeField] private Vector3 barracksSize = new Vector3(4f, 2f, 4f);
 
         [Header("Farm")]
         [SerializeField] private KeyCode placeFarmKey = KeyCode.F;
@@ -47,10 +49,10 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float wallStoneCost = 5f;
         [SerializeField] private float wallBuildTime = 3f;
         [SerializeField] private Vector3 wallSize = new Vector3(2.4f, 1.8f, 0.4f);
-        // Smaller than minClearance so segments can sit edge-to-edge in a
-        // line, same as AoE wall chains - the general minClearance is sized
-        // for full buildings, which would otherwise leave gaps between wall
-        // segments wide enough to walk through.
+        // Small enough that segments can sit edge-to-edge in a line, same
+        // as AoE wall chains - BuildingFootprint's square-tile clearance
+        // (used by every other kind below) would otherwise leave gaps
+        // between wall segments wide enough to walk through.
         [SerializeField] private float wallClearance = 1.5f;
 
         [Header("Gate")]
@@ -65,14 +67,14 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float towerWoodCost = 25f;
         [SerializeField] private float towerStoneCost = 50f;
         [SerializeField] private float towerBuildTime = 10f;
-        [SerializeField] private Vector3 towerSize = new Vector3(1.8f, 4.4f, 1.8f);
+        [SerializeField] private Vector3 towerSize = new Vector3(2f, 4.4f, 2f);
 
         [Header("Market")]
         [SerializeField] private KeyCode placeMarketKey = KeyCode.M;
         [SerializeField] private float marketWoodCost = 100f;
         [SerializeField] private float marketGoldCost = 50f;
         [SerializeField] private float marketBuildTime = 8f;
-        [SerializeField] private Vector3 marketSize = new Vector3(2.4f, 1.6f, 2.4f);
+        [SerializeField] private Vector3 marketSize = new Vector3(3f, 1.6f, 3f);
 
         [Header("Dock")]
         [SerializeField] private KeyCode placeDockKey = KeyCode.N;
@@ -86,8 +88,6 @@ namespace KingdomsOfBharat.Buildings
         // land (there's no ground collider inside the water hole to place
         // on - see ProceduralGround).
         [SerializeField] private float dockMaxWaterDistance = 4f;
-
-        [SerializeField] private float minClearance = 3f;
 
         // SelectionManager checks this so a click meant to place/cancel a
         // building doesn't also register as a select/move/gather command.
@@ -438,9 +438,22 @@ namespace KingdomsOfBharat.Buildings
             }
         }
 
-        private float CurrentClearance()
+        // Wall/Gate keep their own pre-existing, smaller circle-distance
+        // clearance check (wallClearance) so segments can still sit
+        // edge-to-edge in a chain - unrelated to BuildingFootprint's
+        // square-tile/margin system, which every other kind below uses
+        // instead (see BuildingFootprint.cs).
+        private Vector2 CurrentFootprint()
         {
-            return _kind == BuildingKind.Wall || _kind == BuildingKind.Gate ? wallClearance : minClearance;
+            switch (_kind)
+            {
+                case BuildingKind.Barracks: return BuildingFootprint.Square(BuildingFootprint.BarracksTiles);
+                case BuildingKind.House: return BuildingFootprint.Square(BuildingFootprint.HouseTiles);
+                case BuildingKind.Tower: return BuildingFootprint.Square(BuildingFootprint.TowerTiles);
+                case BuildingKind.Market: return BuildingFootprint.Square(BuildingFootprint.MarketTiles);
+                case BuildingKind.Dock: return new Vector2(dockSize.x, dockSize.z);
+                default: return BuildingFootprint.Square(BuildingFootprint.FarmTiles);
+            }
         }
 
         // Item 49: Dock needs an extra gate beyond the generic "not on top
@@ -450,7 +463,10 @@ namespace KingdomsOfBharat.Buildings
         // there to place a foundation on - see ProceduralGround's hole).
         private bool IsClearForKind(Vector3 point)
         {
-            bool clear = BarracksFactory.IsClear(point, CurrentClearance());
+            bool clear = _kind == BuildingKind.Wall || _kind == BuildingKind.Gate
+                ? BarracksFactory.IsClear(point, wallClearance)
+                : BuildingFootprint.IsClear(point, CurrentFootprint());
+
             if (_kind != BuildingKind.Dock)
             {
                 return clear;
