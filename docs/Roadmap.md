@@ -150,9 +150,10 @@ entirely. What follows is the real remaining list.
   factories never call `ClassArmorBonus`/`ClassDamageBonus` (every land factory does),
   and `BoatAttacker`'s attack interval (1.5s) vs `MeleeAttacker`'s (1.0s) is a real
   structural asymmetry independent of `CombatBonus`. See `docs/SESSION_LOG.md`.
-- [ ] **UI skin (item 47's second half) hasn't started at all** — building/unit
-  models have real sourced art now, but the HUD/menus are still functional-only, no
-  visual skin pass.
+- [x] **UI skin (item 47's second half)** — art delivered, alpha-fixed, and wired in
+  as of 2026-08-28 (see the full entry under Section 4.3). Two content gaps remain,
+  tracked as their own Section 4.3 items: no build-placement cursor asset, and the
+  Maurya crest is off-palette.
 - [x] **2 Crusader Knight body models sourced but not wired in** — rig-compatibility
   with `WeaponAttachment`/`AnimationDriver` was never verified; swapping the shared
   human rig risks breaking every unit at once if done blind. Needs a dedicated
@@ -373,7 +374,23 @@ to the existing shared model, so these can be added one at a time.
   crests, BuildMenu icons + text wrap, HP bar fill, SettingsMenu modal reskin) with
   zero new console errors. 9-slice border/multiplier values are a reasonable first
   pass (visually spot-checked, not pixel-perfect) - refining them further is cosmetic
-  polish, not a correctness gap.
+  polish, not a correctness gap. Two content gaps carried out of the art delivery,
+  tracked as their own items below since they need new/redone art, not more wiring:
+- [ ] **Build-placement cursor asset missing** — the UI skin cursor set specced 5
+  states (default/attack-move/invalid/gather/build-placement); only 4 were ever
+  generated. `HoverTooltip.Update()` (`Assets/Scripts/UI/HoverTooltip.cs`) already
+  checks `BuildingPlacer.IsPlacing` and is wired to switch cursors for the other 3
+  states — it deliberately falls through to the default cursor while placing a
+  building, on purpose, not a bug. Once a `build_placement` cursor image exists
+  (spec: `docs/UI_ART_BRIEF.md`), drop it at `Assets/Resources/UI/Cursors/
+  build_placement.png`, set its import Texture Type to Cursor (max size 64, matching
+  the other 4), and add one more branch to `HoverTooltip.Update()`.
+- [ ] **Maurya crest is off-palette** — `Assets/Resources/UI/Menu/crest_maurya.png`
+  renders in Rajput's blue/gold instead of Maurya's spec'd warm gray/stone
+  (`#807866`, see `docs/UI_ART_BRIEF.md`). Subject (Ashokan lion pillar capital) is
+  correct, only the color family is wrong — the two civs' crests currently read as
+  confusingly similar on the CivPicker screen. Needs a regenerated/recolored image at
+  the same path; no code change required once the art is fixed.
 - [x] **4 Maurya/Maratha unique units** (`maurya_war_elephant`, `pillar_edict_scholar`,
   `maratha_mavla_raider`, `maratha_durg_garrison`) — **done 2026-08-27**, real Meshy-
   sourced models rigged and wired in for all 4 (see Section 1's matching item and
