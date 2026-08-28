@@ -5,6 +5,116 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-28 — Crusader Knight rig-compatibility verification (Roadmap Section 1)
+
+**Note**: two other Claude Code sessions touched this repo around the same time (UI
+art delivery, Naval balance pass — both logged separately). This session's own
+changes are docs-only (`docs/ROADMAP.md`, this file, `CLAUDE.md`'s status) — no
+gameplay code or asset files were touched; the verification itself was done entirely
+in transient Editor-runtime objects, cleaned up before this session ended.
+
+**Scope**: Roadmap Section 1's "2 Crusader Knight body models sourced but not wired
+in — rig-compatibility with `WeaponAttachment`/`AnimationDriver` was never verified."
+Explicitly a verification-only task per the roadmap's own framing (a prerequisite
+decision point before any actual swap-in), not the swap itself.
+
+**What the 2 models actually are**: `Assets/importedmodels/Item47/TemplarKnight/
+scene.gltf` and `.../HospitalierKnight/scene.gltf` — both already imported (real
+`.meta` files exist) but unwired into any factory. Parsed directly from each file's
+glTF JSON before touching Unity: both are already-skinned meshes with an embedded
+Mixamo skeleton (66 joints for Templar including full 5-finger hand chains, 34 for
+Hospitalier with only index fingers) — **not the same rig as each other**, and
+neither matches the shared dummy's Blender/Rigify skeleton. Zero embedded animation
+clips in either file. Both import via `com.unity.cloud.gltfast`'s `ScriptedImporter`,
+not Unity's native FBX `ModelImporter` — meaning neither has a Humanoid Avatar or
+Animator component as imported (confirmed live: `GetComponentInChildren<Animator>()`
+returned null on both fresh instances).
+
+**Method — live inspection**: instantiated each glTF prefab via
+`AssetDatabase.LoadAssetAtPath<GameObject>` + `Instantiate` and walked the full
+transform hierarchy live to get the *actual* bone names per model (not assumed from
+generic Mixamo convention — bone names carry a per-file numeric suffix, e.g.
+`mixamorig:Hips_01` for Templar vs `mixamorig:Hips_00` for Hospitalier). Confirmed no
+pre-existing `Animator`, and that each model's sword/shield/staff meshes
+(`MeshFilter`s, not `SkinnedMeshRenderer`s) sit as static children directly under the
+scene root rather than under any hand bone.
+
+**Method — building a Humanoid Avatar without Blender**: since glTFast's import
+path has no equivalent to `ModelImporter.humanDescription`/`CreateFromThisModel` (the
+mechanism the prior unique-units rigging session relied on), used
+`UnityEngine.AvatarBuilder.BuildHumanAvatar(GameObject, HumanDescription)` instead —
+a Unity API that builds a valid Humanoid Avatar directly from an existing skeleton
+hierarchy plus a hand-specified bone mapping, with no FBX-import step required. Hand-
+authored a `HumanDescription` per model: a `human` array mapping each of the ~28-52
+real bone names found live (matched by name-prefix search, e.g. `mixamorig:LeftArm*`
+→ `LeftUpperArm`, using `HumanTrait.BoneName`'s exact canonical strings) to
+`HumanBodyBones`, and a `skeleton` array covering every transform in the hierarchy
+with its actual local position/rotation/scale. This is standard Editor scripting —
+the normal "wire an already-provided asset in" work, not the from-scratch mesh-
+binding/Blender pipeline the unique-units session needed an explicit override for.
+
+**Result — both models produced a valid Humanoid Avatar on the first attempt**:
+`avatar.isValid && avatar.isHuman == true` for both (52/52 mapped bones for Templar
+including full fingers, 28/28 for Hospitalier's reduced finger set — zero missing).
+
+**Live animation-retargeting test (the actual "AnimationDriver-compatible" question)**:
+attached an `Animator` with the built Avatar, then drove the shared dummy's own
+`HumanM@Walk01_Forward` clip through the *exact* Playables pipeline `AnimationDriver`
+uses (`PlayableGraph` + `AnimationPlayableOutput.Create` + `AnimationClipPlayable.Create`
++ `PlayableOutputExtensions.SetSourcePlayable`). First check (a single `Evaluate` call,
+screenshot-compared before/after) was inconclusive — the Scene View didn't visibly
+update until `SceneView.RepaintAll()` was called (same class of Editor-repaint gotcha
+already documented for Play mode ticking). Real confirmation came from directly
+sampling a leg bone's local rotation across 4-8 points through the clip's time range:
+both models showed a smooth, continuous, monotonic ~40° swing on `LeftUpperArm`'s
+opposite number `LeftUpperLeg` (Templar: -46.5° → -7.3° across t=0.05-0.40s;
+Hospitalier: -37.7° → +2.4° across t=0.05-0.35s) — a real walking stride, not a
+frozen/T-pose/exploded result. `WeaponAttachment.AttachToBone(instance,
+HumanBodyBones.RightHand, "Weapons/Sword/scene", ...)` — the exact call convention
+every land-unit factory already uses — was also run end-to-end against the built
+Avatar and returned a real attached prop, not null, on the Templar model.
+
+**2 real caveats found, deliberately not fixed this session (verification only)**:
+1. Both models report `Animator.humanScale` ≈ 247-248 (Templar) / 247 (Hospitalier)
+   — Unity's own measure of how large this skeleton is relative to a normal reference
+   human. Traced to the `Hips` bone itself carrying a baked-in `localScale` of
+   `(2.54, 2.54, 2.54)` plus a large positional offset in its bind pose — 2.54 is
+   exactly the cm-per-inch conversion factor, strongly suggesting a unit-convention
+   mismatch baked into the source rig (the same general class of "packs come in
+   whatever real-world scale the artist modeled at" issue `WeaponAttachment`'s own doc
+   comment already anticipates, just a much larger factor than the 4-27x precedent
+   already on record for Wall/Gate). Retargeting itself is scale-invariant (confirmed
+   above — rotation angles swing correctly regardless), but a real swap-in would need
+   this normalized (measure-and-scale a wrapper, the same pattern `WeaponAttachment`/
+   `HumanModelFactory.AlignFeetToGround` already use) before the model is usable at
+   the shared dummy's actual in-scene size.
+2. Confirmed via the earlier hierarchy walk: each model's sword/shield/staff/scabbard
+   meshes are parented directly under the scene root, not under any hand bone. They
+   will not follow the animated hand once wired in — a real swap-in needs to either
+   re-parent them to the correct hand joint (in Blender) or strip them and rely on
+   the existing `WeaponAttachment` prop system instead, mirroring the precedent
+   already set for the 3 humanoid unique units (their sculpted weapons were kept,
+   cosmetic `WeaponAttachment` calls removed).
+
+**Also noted, not investigated further**: the raw imported scene includes some
+static prop geometry whose original purpose/placement wasn't audited (visible in a
+scene-view screenshot as an oddly large diagonal shape and a separate ground-level
+mesh alongside the standing figure) — likely inert display/scabbard geometry from
+the original Sketchfab scene rather than anything wrong with the character itself,
+but worth a first-look pass by whoever does the actual swap-in.
+
+**Console**: only expected `Destroy may not be called from edit mode!` warnings from
+cleanup calls that used `Destroy` instead of `DestroyImmediate` in Editor context —
+harmless (Unity treats it as an immediate destroy either way in-editor, just warns);
+confirmed the scene had zero leftover test objects after cleanup.
+
+**No code changes landed** — pure Editor-runtime verification (Avatar/Animator/
+PlayableGraph objects that were never persisted), consistent with the plan's explicit
+scope (verification only, not the swap-in). This session's changes are
+`docs/ROADMAP.md`, this file, and `CLAUDE.md`'s status section.
+
+---
+
 ## 2026-08-28 — UI art delivered: alpha-fix + rename pass (Roadmap Section 4.3 "UI skin")
 
 **Note**: another Claude Code session logged a Naval balance pass to this same repo

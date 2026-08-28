@@ -18,11 +18,13 @@ asset requirements, 5. Priority order).
   `Assets/Resources/UI/` — see immediately below — but the `UIStyleTheme.asset`
   creation, Sprite import settings/9-slice borders, and the `BuildMenu`/
   `ResourceHUD`/`SelectedUnitPanel`/`CivPicker`/cursor code to actually display any of
-  it are still unstarted), other "everything else" items (music, tutorial, performance
-  profiling, store assets, Crusader Knight rig verification, multiplayer determinism
-  gaps, README drift), two adjacent findings flagged in the concurrent Naval session
-  (Naval factories missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s
-  vs `MeleeAttacker`'s 1.0s attack interval), or continued balance work (training
+  it are still unstarted), **wiring in a Crusader Knight body** (rig-compatibility now
+  verified positive — see immediately below — but the actual swap-in, scale-fix, and
+  weapon-reparenting work is unstarted), other "everything else" items (music,
+  tutorial, performance profiling, store assets, multiplayer determinism gaps, README
+  drift), two adjacent findings flagged in the concurrent Naval session (Naval
+  factories missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs
+  `MeleeAttacker`'s 1.0s attack interval), or continued balance work (training
   cost-vs-power ratios, further sustained playtesting) — user's call.
 - Last completed (this session): **UI art delivered — alpha-fix + rename pass**
   (Roadmap Section 4.3 "UI skin"). The user dropped Tier 1-3 art (per the asset spec
@@ -51,6 +53,32 @@ asset requirements, 5. Priority order).
   findings: Naval factories never call `ClassArmorBonus`/`ClassDamageBonus`, and
   `BoatAttacker`'s 1.5s attack interval vs `MeleeAttacker`'s 1.0s is a real structural
   asymmetry. Full detail in `docs/SESSION_LOG.md`.
+- Last completed (this session): **Crusader Knight rig-compatibility verification**
+  (Roadmap Section 1). Verdict: **both TemplarKnight and HospitalierKnight are
+  rig-compatible with `WeaponAttachment`/`AnimationDriver` — confirmed live, not
+  assumed.** Neither model has a native Humanoid Avatar as imported (they come in via
+  `com.unity.cloud.gltfast`, which produces a plain Transform hierarchy, not
+  `ModelImporter`'s FBX Humanoid path), so `AvatarBuilder.BuildHumanAvatar` + a
+  hand-authored `HumanDescription` (mapping each model's real Mixamo bone names,
+  confirmed live per-model rather than assumed from generic convention) was used
+  instead — pure Editor scripting, no Blender pipeline needed. Both produced a valid,
+  human Avatar (`avatar.isValid && avatar.isHuman`); live-tested by driving the shared
+  dummy's own Walk clip through the exact `AnimationClipPlayable`/
+  `AnimationPlayableOutput` pipeline `AnimationDriver` uses and sampling a leg bone's
+  rotation across the cycle — confirmed a smooth, continuous ~40° swing on both models
+  (not a T-pose/frozen/exploded result); `WeaponAttachment.AttachToBone` also
+  confirmed working end-to-end (attached a real sword prop to `HumanBodyBones.RightHand`
+  successfully) on both. **Two real caveats found, not fixed this session (verification
+  only, no wiring)**: (1) both models have a large baked-in scale anomaly
+  (`Animator.humanScale` ≈ 247-248× normal — likely a cm/inch unit-conversion artifact
+  on the source rig, same class of issue `WeaponAttachment`'s own doc comment already
+  anticipates) that a real swap-in would need to normalize; (2) each model's
+  sword/shield/staff meshes are static props parented to the scene root, not to a hand
+  bone (confirmed via hierarchy inspection) — they won't follow the animated hand and
+  would need re-parenting or replacing with the existing `WeaponAttachment` system
+  before a real swap-in, mirroring the precedent already set for the 3 humanoid unique
+  units. No code changes landed (pure Editor-runtime verification, cleaned up after);
+  full per-model methodology in `docs/SESSION_LOG.md`.
 
 ## Engine & architecture
 - Unity version: [fill in]

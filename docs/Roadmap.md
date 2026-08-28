@@ -153,10 +153,29 @@ entirely. What follows is the real remaining list.
 - [ ] **UI skin (item 47's second half) hasn't started at all** — building/unit
   models have real sourced art now, but the HUD/menus are still functional-only, no
   visual skin pass.
-- [ ] **2 Crusader Knight body models sourced but not wired in** — rig-compatibility
+- [x] **2 Crusader Knight body models sourced but not wired in** — rig-compatibility
   with `WeaponAttachment`/`AnimationDriver` was never verified; swapping the shared
   human rig risks breaking every unit at once if done blind. Needs a dedicated
   verification step before it's safe to use.
+  **Verified — both models are rig-compatible, confirmed live, not assumed.** The 2
+  models are TemplarKnight/HospitalierKnight (`Assets/importedmodels/Item47/`),
+  already-skinned Mixamo-rigged glTF imports with zero embedded animation and no
+  native Humanoid Avatar (glTFast produces a plain hierarchy, unlike FBX
+  `ModelImporter`). Built a valid Humanoid Avatar for each via
+  `AvatarBuilder.BuildHumanAvatar` + a hand-authored `HumanDescription` (pure Editor
+  scripting, no Blender needed) — both `isValid && isHuman`. Live-tested by driving
+  the shared dummy's Walk clip through `AnimationDriver`'s exact Playables pipeline:
+  confirmed a smooth ~40° leg-bone rotation swing across the cycle on both models (not
+  frozen/exploded), and confirmed `WeaponAttachment.AttachToBone` resolves bones and
+  attaches a real prop successfully on both. **2 real caveats for whoever does the
+  actual swap-in later** (not fixed here — verification only): both models have a
+  ~247-248x `Animator.humanScale` anomaly (a scale-normalization fix needed, same
+  class of issue `WeaponAttachment` already anticipates for arbitrary import scale),
+  and each model's sword/shield/staff meshes are static props parented to the scene
+  root rather than a hand bone (confirmed via hierarchy inspection — won't follow the
+  animated hand, need re-parenting or replacing with `WeaponAttachment`, mirroring the
+  precedent set for the 3 humanoid unique units). No code changes landed — pure
+  Editor-runtime verification, cleaned up after. See `docs/SESSION_LOG.md`.
 
 ### Lower priority — real gaps, but not urgent
 
