@@ -485,6 +485,23 @@ to the existing shared model, so these can be added one at a time.
   pass (visually spot-checked, not pixel-perfect) - refining them further is cosmetic
   polish, not a correctness gap. Two content gaps carried out of the art delivery,
   tracked as their own items below since they need new/redone art, not more wiring:
+  **9-slice polish pass done 2026-08-31.** Pixel-verified all 5 tuned elements
+  (`ResourceHUD`, `SelectedUnitPanel`/HP bar, `HoverTooltip`, `BuildMenu` command-card
+  buttons, `MissionSelectMenu` buttons) live in Play mode via UnityMCP at their actual
+  runtime rect sizes: computed each sprite's effective screen-space border from
+  `spriteBorder` ÷ `pixelsPerUnitMultiplier`, then confirmed against zoomed screenshots.
+  No stretching, pinching, or seams found on any of the 5 - the prior session's tuning
+  holds up under pixel scrutiny; no code changes were needed. Hit and fixed one real
+  tooling gotcha along the way (the known "stale compiled state" issue, this time for
+  Resources-loaded assets, not scripts - `Image.sprite` read null on every themed
+  element until `refresh_unity` with `mode=force`; see Known Gotchas in CLAUDE.md).
+  **Found and fixed one real adjacent bug** (not 9-slice-related, user confirmed
+  in-scope): `FormationIndicator.cs` (its own always-on top-left `Canvas`, added in a
+  past "Phase 6 gap-close" session, never touches `Main.unity`) was anchored at the
+  exact same `(8, -8)` corner as `ResourceHUD`, rendering both texts on top of each
+  other in every session, not just this one. Fixed by moving `FormationIndicator`'s
+  anchor to `(8, -206)`, just below `ResourceHUD`'s 200x190 footprint. Live-verified
+  fixed in Play mode; all 67 EditMode tests pass.
 - [x] **Build-placement cursor asset missing** — **closed 2026-08-28.** The user
   imported an Asset Store pack ("Basic RPG Cursors", `Assets/Cursors/`) hoping it
   1:1-replaced the spec'd 5 states; it didn't (generic weapon/tool icons at 64/256px,
@@ -569,9 +586,11 @@ buying, or making an asset yourself:
    session's scope** — 15 real fights logged, roster coverage gaps filled, stacking
    audited and confirmed correct (no code fix needed). Training cost-vs-power ratios
    and continued sustained playtesting remain open for a future balance session.
-6. Everything else (music, tutorial, performance profiling, UI skin, store assets) is
+6. Everything else (music, tutorial, performance profiling, store assets) is
    real but lower-urgency — sequence after the above based on what you want to
-   prioritize next, not by default order.
+   prioritize next, not by default order. UI skin's code-side work (9-slice polish
+   pass, item 9 below) is done; what remains is art-only (Maurya crest recolor, 5th
+   cursor), not a code task.
 7. ~~**Per-civ architectural differentiation, architecture groundwork** — audited
    `BuildingModelFactory` and wired it (plus all 9 building factories) to probe a
    civ-keyed model path before falling back to today's shared model, so civ-specific
@@ -585,3 +604,9 @@ buying, or making an asset yourself:
    set) and wired into their factories.~~ **Done** (2026-08-27). See Section 1's
    matching item and `docs/SESSION_LOG.md` for full methodology and the one known
    first-pass limitation (elephant Die clip).
+9. ~~**UI skin polish pass** — pixel-verify the 9-slice border/multiplier values
+   against actual runtime sizes instead of the earlier visual spot-check.~~ **Done**
+   (2026-08-31). No border/multiplier changes needed - all 5 tuned elements hold up
+   under pixel scrutiny. Found and fixed one real adjacent bug instead (FormationIndicator/
+   ResourceHUD anchor collision). Maurya crest recolor still needs new art from the
+   user - not a code task. See Section 1's matching item and `docs/SESSION_LOG.md`.
