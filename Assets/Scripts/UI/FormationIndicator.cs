@@ -72,7 +72,10 @@ namespace KingdomsOfBharat.UI
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(8f, -8f);
+            // ResourceHUD occupies the same top-left corner at (8,-8) with a
+            // 200x190 footprint - anchoring here too used to render both
+            // texts on top of each other. Sitting just below it instead.
+            rt.anchoredPosition = new Vector2(8f, -206f);
             rt.sizeDelta = new Vector2(300f, 30f);
         }
     }

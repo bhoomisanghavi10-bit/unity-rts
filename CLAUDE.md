@@ -7,25 +7,48 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- Currently on: nothing started yet for the next session. Section 5 items 1-5, 7-8
+- Currently on: nothing started yet for the next session. Section 5 items 1-5, 7-9
   are all done. Remaining real options: **civ-specific building models for the other
   4 civs** (Chola's 9/9 landed a prior session; Vijayanagara/Rajput/Maurya/Maratha,
   36 models, are unstarted; `Assets/Editor/MeshyBuildingImporter.cs` is reusable but
   each asset needs its own live scale/rotation verification, not blind reuse of
-  Chola's numbers), **UI skin polish** (art + display wiring + cursor wiring have all
-  landed; remaining work is cosmetic 9-slice/multiplier refinement plus the 1
-  remaining known content gap: Maurya crest off-palette), **wiring in a Crusader
-  Knight body** (rig-compatibility verified positive in a concurrent session — scale
-  normalization + weapon re-parenting still unstarted), the **3 new worker-mechanics
-  items from this session's audit** (Repair system, general garrisoning system, and
-  dedicated resource-specific drop-off buildings — all real new systems, none
-  started, see Roadmap Section 1's "worker mechanics audit" entry for full scoping
-  notes), other "everything else" items (music, tutorial, performance profiling,
-  store assets, multiplayer determinism gaps, README drift), two adjacent findings
-  from a concurrent Naval balance session (Naval factories missing
-  `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs `MeleeAttacker`'s
-  1.0s attack interval), or continued balance work — user's call.
-- Last completed (this session): **Reconcile uncommitted work: finish wiring
+  Chola's numbers), the **Maurya crest recolor** (art-only, not a code task — needs
+  a regenerated/recolored `crest_maurya.png` in warm gray/stone `#807866` instead of
+  its current Rajput-like blue/gold; flagged, not fixed, this session), **wiring in a
+  Crusader Knight body** (rig-compatibility verified positive in a concurrent session
+  — scale normalization + weapon re-parenting still unstarted), the **3 new
+  worker-mechanics items from this session's audit** (Repair system, general
+  garrisoning system, and dedicated resource-specific drop-off buildings — all real
+  new systems, none started, see Roadmap Section 1's "worker mechanics audit" entry
+  for full scoping notes), other "everything else" items (music, tutorial,
+  performance profiling, store assets, multiplayer determinism gaps, README drift),
+  two adjacent findings from a concurrent Naval balance session (Naval factories
+  missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs
+  `MeleeAttacker`'s 1.0s attack interval), or continued balance work — user's call.
+- Last completed (this session): **UI skin polish pass** (Roadmap Section 4.3 /
+  Section 5 item 9) — pixel-verified the 5 tuned 9-slice elements (`ResourceHUD`,
+  `SelectedUnitPanel`/HP bar, `HoverTooltip`, `BuildMenu` command-card buttons,
+  `MissionSelectMenu` buttons) live in Play mode via UnityMCP against their actual
+  runtime rect sizes (computed each sprite's effective screen-space border from
+  `spriteBorder` ÷ `pixelsPerUnitMultiplier`, confirmed against zoomed screenshots).
+  Result: no stretching/pinching/seams anywhere - the prior session's tuning already
+  holds up; no border/multiplier code changes needed. Hit a new form of the project's
+  known "stale compiled state" gotcha along the way: `Image.sprite` read null for
+  every Resources-loaded UI element on the first Play session despite the asset
+  loading fine standalone - `refresh_unity(mode=force)` cleared it, not a real bug.
+  **Found and fixed one real adjacent bug** (flagged to the user first, confirmed
+  in-scope): `FormationIndicator.cs`'s own top-left `Canvas` was anchored at the
+  exact same `(8, -8)` corner as `ResourceHUD`, rendering both texts on top of each
+  other in every session (not just this one, and not just a UnityMCP artifact -
+  visible in the very first live screenshot taken this session). Moved its anchor to
+  `(8, -206)`, below `ResourceHUD`'s 200x190 footprint; live-verified clean in Play
+  mode. **Maurya crest**: re-confirmed live (zoomed screenshot) it renders in
+  Rajput's blue/gold instead of the spec'd warm gray/stone - flagged back to the user
+  per CLAUDE.md's "asset sourcing isn't Claude Code's job" rule rather than
+  attempted. All 67 EditMode tests pass (no new tests - no new pure logic; the fix is
+  a scene-generated RectTransform constant, verified visually). See
+  `docs/SESSION_LOG.md`.
+- Previously completed: **Reconcile uncommitted work: finish wiring
   BuildingFootprint into all building factories** (ad hoc, not a roadmap item) — the
   prior session's rally-flag/deposit-soft-lock fix added `BuildingFootprint.cs` and
   had `Gatherer` query it, but never actually wired `BuildingFootprint.Attach` into

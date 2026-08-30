@@ -5,6 +5,52 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-31 — UI skin polish pass + Maurya crest flagged (Roadmap Section 4.3 / Section 5 item 9)
+
+**Scope**: pixel-verify the 9-slice border/multiplier values landed in the prior UI
+display-wiring session (spot-checked visually, not pixel-verified) against actual
+runtime rect sizes; flag (not fix) the known Maurya crest color gap per CLAUDE.md's
+"asset sourcing/creation is not Claude Code's job" rule.
+
+**9-slice polish**: live-verified all 5 tuned elements in Play mode via UnityMCP —
+`ResourceHUD` (`panel_resource_bar`, ppuMultiplier 12), `SelectedUnitPanel`
+(`panel_selected_unit` 65, `hp_bar_frame` 13), `HoverTooltip` (`panel_tooltip` 44),
+`BuildMenu` command-card buttons (`CommandCardButton` set, 18), `MissionSelectMenu`
+buttons (shared `UIStyleTheme` menu-button art). For each, computed the effective
+screen-space border (`spriteBorder` texture px ÷ `pixelsPerUnitMultiplier`) against
+the element's actual runtime rect size, then confirmed against zoomed crops of real
+screenshots. Result: no stretching, pinching, or seams anywhere — the prior session's
+tuning already holds up under pixel scrutiny. No border/multiplier code changes made.
+
+Hit the project's known "stale compiled state" gotcha in a new form: on the first Play
+session, every `Image.sprite` read back `null` for Resources-loaded UI art (panels,
+command-card buttons) despite `Resources.Load` working fine when called directly —
+not a real bug, just a stale asset-database state that `refresh_unity(mode=force)`
+cleared before re-entering Play mode. Cost real investigation time before being ruled
+out; worth remembering alongside the existing script-staleness gotcha in CLAUDE.md.
+
+**Found and fixed one real adjacent bug** (flagged via AskUserQuestion, user said fix
+now rather than log-only): `FormationIndicator.cs` — its own always-on top-left
+`Canvas`, added in a past "Phase 6 gap-close" session and never touching `Main.unity`
+— was anchored at the exact same `(8, -8)` corner as `ResourceHUD`, so the two texts
+rendered directly on top of each other in every session, not just this one (visible in
+the very first Play-mode screenshot taken this session, before any fix). Moved
+`FormationIndicator`'s anchor to `(8, -206)`, just below `ResourceHUD`'s 200x190
+footprint. Live-verified fixed via UnityMCP screenshot (clean separation, no overlap).
+
+**Maurya crest**: re-confirmed live (zoomed screenshot crop) that `crest_maurya.png`
+renders in the same dark-navy/gold palette as `crest_rajput.png` rather than the
+spec'd warm gray/stone (`#807866`) — the two civs' crests are genuinely confusingly
+similar on the CivPicker screen. Per CLAUDE.md, this needs a regenerated/recolored
+image from the user, not code — flagged back rather than attempted. Not fixed this
+session.
+
+All 67 EditMode tests pass (no new tests needed — no new testable pure logic; the
+`FormationIndicator` fix is a scene-generated RectTransform constant, already
+live-verified visually rather than unit-tested).
+
+---
+
 ## 2026-08-29 — Reconcile uncommitted work: finish wiring BuildingFootprint into all factories (ad hoc, not a roadmap item)
 
 **Scope**: user asked to reconcile a working tree with uncommitted changes left over
