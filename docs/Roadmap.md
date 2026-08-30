@@ -425,6 +425,20 @@ types (TownCenter, Barracks, Tower, Market, Farm, House, Wall, Gate, Dock) × 5 
   Gate a complex structure with a ramp/archway). All 67 EditMode tests still pass
   (no new tests — pure asset-pipeline work, no new logic). Rajput/Maurya/Maratha
   (27 models) remain unstarted. See `docs/SESSION_LOG.md`.
+  **Rotation fix, same day**: user reported 6 buildings misoriented
+  (Dock/Gate/Wall/Farm/House/Market); re-checking the remaining 3 found the
+  real scope was 9/9 — TownCenter and Barracks had the identical Z-up-lying-flat
+  bug, and Tower (initially cleared by a same-methodology check) was still
+  upside down, confirmed by the user from an in-game screenshot after the
+  first pass. 8 of the 9 got `Quaternion.Euler(-90,0,0)` on the prefab's nested
+  `<Name>_model` child; Tower's fix was a 180° flip layered onto its existing
+  Y-axis import bake (`Euler(180,90,0)`, replacing `Euler(0,90,0)`), since
+  verifying Tower correctly requires reproducing the full runtime spawn stack
+  (the factory's own rotation stomp plus the child's baked correction), not
+  just the saved prefab in isolation. All 9 individually verified against
+  reference concept art via 6-angle screenshots, not blanket-applied. All 9
+  Chola buildings re-checked as a precaution — no regression found. See
+  `docs/SESSION_LOG.md`'s "Vijayanagara building-model rotation fix" entry.
 
 Recommended sequencing, highest visual impact first:
 1. **TownCenter, Barracks** — every match has exactly one TC (the civ's visual
@@ -582,6 +596,25 @@ buying, or making an asset yourself:
   source actually works before assuming it does.
 - Watch for Z-up sources needing a corrected child transform (not a root-transform
   fix — the spawn path resets root rotation).
+- **Mandatory, per model, before committing**: instantiate the model in-scene
+  (isolated, e.g. at a high Y so it doesn't overlap other geometry) and compare
+  it against its reference concept art from at least a front-on angle, not just
+  an AABB bounds check — a Z-up model lying flat on a wide base can have
+  superficially plausible bounds while still being on its back. A bounds-only
+  check is what let Tower's rotation bug (Chola, Vijayanagara) get caught while
+  6 more Vijayanagara buildings with the identical Z-up symptom shipped
+  undetected in the same session that discussed Tower's fix (see
+  `docs/SESSION_LOG.md`'s 2026-08-31 "Vijayanagara building-model rotation fix"
+  entry). Applies to every model in every future civ batch (Rajput/Maurya/
+  Maratha next), not just Tower-shaped assets — this bug has now recurred
+  across both civs shipped so far. **For Tower specifically** (or any resource
+  name ever added to `BuildingModelFactory.ImportRotationCorrections`), a
+  bare instantiate-and-inspect of the saved prefab is not sufficient — that
+  dict's correction is applied at runtime on top of whatever's baked into the
+  model, so the check must reproduce the full spawn stack (instantiate, apply
+  the dict's rotation to the instantiated root, then judge the result) or it
+  can produce a false negative, as happened once already on Vijayanagara's own
+  Tower mid-fix.
 - For any body-swap or rig-affecting asset, verify rig compatibility explicitly and
   in isolation before wiring it into the shared path every unit depends on.
 - Keep unused/source-only import content out of `Assets/Resources/` (use

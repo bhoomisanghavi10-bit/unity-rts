@@ -22,7 +22,35 @@ asset requirements, 5. Priority order).
   two adjacent findings from a concurrent Naval balance session (Naval factories
   missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs
   `MeleeAttacker`'s 1.0s attack interval), or continued balance work — user's call.
-- Last completed (this session): **Vijayanagara civ-specific building models**
+- Last completed (this session): **Vijayanagara building-model rotation fix**
+  (ad hoc bug report, not a roadmap item) — user reported 6 of Vijayanagara's 9
+  buildings (Dock, Gate, Wall, Farm, House, Market) spawned misoriented (Z-up
+  source meshes lying flat in the Y-up scene, some read as upside down/
+  sideways). Re-checking the remaining 3 (per the user's own instruction to
+  also re-check Chola) found the real scope was **9/9, not 6/9**: TownCenter
+  and Barracks had the identical bug, and Tower — initially cleared by a
+  same-methodology check — was still upside down (the user caught this from
+  an in-game screenshot after the session's first pass and corrected it).
+  8 of the 9 got `Quaternion.Euler(-90,0,0)` on the prefab's nested
+  `<Name>_model` child (never the prefab root, which `BuildingModelFactory.Spawn`
+  always overwrites on spawn); Tower needed a 180° flip on top of its existing
+  Y-axis import bake (`Euler(180,90,0)`, was `Euler(0,90,0)`) — verifying it
+  correctly requires reproducing the full runtime spawn stack (the factory's
+  own `ImportRotationCorrections["Tower"]` stomp plus the child's baked
+  correction together), not just inspecting the saved prefab in isolation,
+  which is exactly what produced this session's own initial false-negative on
+  it. All 9 individually verified against reference concept art via 6-angle
+  screenshots, not blanket-applied. Also re-checked all 9 already-wired Chola
+  buildings as a precaution (incl. Wall/Gate) — no regression found; Chola's
+  Tower briefly looked wrong in a close-up wide-FOV shot but was confirmed
+  upright via a proper Scene View screenshot (perspective artifact, not a
+  bug). Added a mandatory per-model in-scene visual orientation check — and,
+  for Tower specifically, a full-spawn-stack verification requirement — to
+  Roadmap Section 4.4's sourcing checklist and this file's gotchas, since a
+  bounds-only/prefab-only check is what let this ship (twice, in Tower's
+  case) in the first place. All 67 EditMode tests pass (no new tests — pure
+  prefab transform data). See `docs/SESSION_LOG.md`.
+- Previously completed (same day): **Vijayanagara civ-specific building models**
   (Roadmap Section 4.3 / Section 5 item 7) — all 9 buildings (TownCenter, Barracks,
   Tower, Market, Farm, House, Wall, Gate, Dock) wired from raw Meshy AI exports via
   the same `MeshyBuildingImporter.cs` pipeline Chola's session established, no code
@@ -245,6 +273,25 @@ asset requirements, 5. Priority order).
   colliding-enum-name bug, a git-index race) and from trusting peer-relayed claims
   instead of confirming directly. Run one session at a time. Treat any claim about
   "what was already done" as unverified until confirmed against the actual repo.
+- **Civ-specific building model imports need a per-model, in-scene visual
+  orientation check against reference art — an AABB bounds check alone is not
+  enough.** A Z-up-sourced model lying flat on a wide base can have bounds that
+  look plausible even though it's on its back; 8 of Vijayanagara's 9 buildings
+  shipped this way in the same session Tower's rotation bug was fixed and
+  documented, because the check wasn't generalized past Tower. The fix always
+  lives on the imported model's nested child transform (e.g. `<Name>_model`),
+  never the prefab root — `BuildingModelFactory.Spawn` unconditionally
+  overwrites the root clone's `localRotation` on every spawn (identity, or the
+  Tower-specific correction), silently reverting any root-level fix.
+  **Separately, for Tower (or anything else added to
+  `ImportRotationCorrections`), inspecting the saved prefab alone is not
+  enough either** — the factory's own rotation stomp is applied at runtime on
+  top of the child's baked correction, so a check has to reproduce both
+  together (instantiate, apply the dict's correction to the instantiated
+  root, then judge) or it can pass a model that's actually still wrong, as
+  happened once on Vijayanagara's own Tower mid-fix. See Roadmap Section
+  4.4's checklist and `docs/SESSION_LOG.md`'s 2026-08-31 rotation-fix entry
+  for the full methodology.
 - **Asset sourcing/creation is NOT Claude Code's job right now.** Per Roadmap Section
   4, the user arranges or creates required assets against the spec there. Claude
   Code's role is wiring already-provided assets in (factories, attachment points,

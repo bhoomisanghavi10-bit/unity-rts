@@ -5,6 +5,106 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-31 — Vijayanagara building-model rotation fix (ad hoc, not a roadmap item)
+
+**Scope**: user reported 6 of Vijayanagara's 9 buildings (Dock, Gate, Wall, Farm,
+House, Market) spawned misoriented in-scene — some upside down, some sideways —
+despite the earlier same-day building-model wiring session (see entry below)
+apparently checking each one visually before committing. Root cause: every one
+of these raw Meshy FBX exports uses a Z-up axis convention (per the "Watch for
+Z-up source packs" gotcha, Roadmap Section 4.4), which the earlier session's
+per-building bounds-only check didn't catch — an upright building and one
+lying flat on a wide base can have superficially similar AABB dimensions,
+unlike a case where the wrong orientation is obviously wider-than-tall.
+
+**Actual scope was all 9/9, not 6/9** — found by re-checking the remaining 3
+(TownCenter, Barracks, Tower) per the user's own instruction to re-check Chola
+for the same bug, applied here to Vijayanagara's own untested buildings first:
+TownCenter and Barracks turned out to have the identical Z-up bug (missed in
+the user's report). Tower initially read as correct in a same-methodology
+check, but the user flagged it as still upside-down from an in-game screenshot
+after the session's first pass — re-verification confirmed the user was right:
+the crenellated pillared gallery (top of the reference) was rendering at the
+bottom, and the stepped plinth (bottom of the reference) at the top.
+
+**Methodology**: for the 8 non-Tower buildings, instantiated the prefab
+directly into `Main.unity` at an isolated Y offset (not via
+`BuildingModelFactory.Spawn` — none of these resource names are in the
+factory's `ImportRotationCorrections` dict, so a direct instantiate exactly
+reproduces the runtime-spawned orientation), captured a 6-angle
+`manage_camera(batch="surround")` contact sheet, and compared against the
+matching reference concept-art JPEG already sitting alongside each raw source
+folder (`Assets/Resources/buildings/Vijayanagara/*.jpg` — the same isometric
+renders the earlier session used to identify each building by name, doubling
+as orientation reference here). All 8 showed the identical symptom: front/
+back/left/right views read as a thin horizontal sliver, with the true façade
+only visible from the "top" camera angle — the classic signature of a Z-up
+mesh lying on its back in a Y-up scene. Tried `Quaternion.Euler(90,0,0)` first
+(produced an upside-down result, confirmed visually), then `Euler(-90,0,0)`,
+which read correctly for all 8 — confirmed individually per building, not
+assumed from the first result or blanket-applied; they genuinely all needed
+the identical correction (same Z-up export pipeline).
+
+Tower needed a different check, since it's the one resource name
+`BuildingModelFactory.Spawn` treats specially: the factory unconditionally
+stomps the instantiated prefab-root clone's rotation to
+`ImportRotationCorrections["Tower"] = Euler(0,0,-90)` on every spawn, on top of
+whatever rotation is baked into the nested `Tower_model` child at import time
+(`Euler(0,90,0)`, set in the original Vijayanagara wiring session). A plain
+direct-instantiate check (as used for the other 8) only reflects the child's
+baked rotation, not the combined runtime result, and misjudging that gap is
+exactly what produced this session's own initial false-negative on Tower.
+Correct verification requires reproducing both rotations together: instantiate
+the prefab, apply `Euler(0,0,-90)` to the instantiated root (reproducing the
+factory's spawn-time stomp), *then* inspect/adjust the child underneath.
+Doing that against the user's screenshot correction found the child's baked
+`Euler(0,90,0)` needed to become `Euler(180,90,0)` — a 180° flip on top of the
+existing Y-axis bake — confirmed via the same 6-angle screenshot comparison
+against the reference (crenellated gallery + cross-windows now correctly at
+top, elephant-frieze band + stepped plinth at bottom).
+
+**Fix location**: applied on each prefab's nested `<Name>_model` child
+transform (the instantiated FBX, one level below the prefab root) via
+`manage_prefabs(open_prefab_stage)` → `manage_gameobject(modify, rotation=...)`
+→ `save_prefab_stage` — never on the prefab root itself, since
+`BuildingModelFactory.Spawn` unconditionally overwrites
+`model.transform.localRotation` (the clone of the prefab root) to either
+`Quaternion.identity` or the Tower-specific correction on every spawn, which
+would silently revert a root-level fix. This is the same nested-child pattern
+`MeshyBuildingImporter.ImportBuilding`'s `modelRotationCorrection` parameter
+already establishes.
+
+**Chola re-check**: per the recurrence risk this implies for every future civ
+batch, re-checked all 9 already-wired Chola buildings (including its Wall/Gate,
+explicitly flagged as the most likely to share this bug) via the same surround-
+screenshot method. All 9 read correctly upright — no regression, no fix needed.
+Chola's Tower briefly looked lying-down in a close-up wide-FOV surround shot;
+re-verified via a proper Scene View screenshot and confirmed upright (a
+perspective artifact of a tall thin object viewed close-up, not a real bug) —
+this is the same false-negative risk Vijayanagara's own Tower check hit, caught
+here only because the shape was unambiguous at a glance; Vijayanagara's Tower
+needed the full spawn-stack reproduction to be judged reliably.
+
+**Process gap identified and documented** (see CLAUDE.md's Known Gotchas and
+Roadmap Section 4.4): the art-import checklist didn't previously make "verify
+orientation against reference art, per model, before committing" an explicit
+mandatory step, and didn't call out that the runtime spawn stack (not just the
+saved prefab in isolation) is what needs verifying for any resource name with
+a factory-level rotation override. Tower's rotation fix was documented as a
+one-off in both the Chola and Vijayanagara wiring sessions rather than
+generalized into a standing per-model check, which is how 8 more misoriented
+models (plus a wrongly-cleared Tower) landed in the very session meant to
+audit for exactly this bug. Added as an explicit checklist item now, ahead of
+Rajput/Maurya/Maratha's 27 remaining models.
+
+All 67 EditMode tests still pass (no test coverage needed — pure prefab
+transform data, no new logic). No `BuildingModelFactory.cs`/
+`MeshyBuildingImporter.cs` code changes — fix is prefab-asset-only, matching the
+existing `ImportRotationCorrections["Tower"]` precedent for where these
+corrections are meant to live.
+
+---
+
 ## 2026-08-31 — Vijayanagara civ-specific building models wired (Roadmap Section 4.3 / Section 5 item 7)
 
 **Scope**: second content delivery against Section 4.3's civ-specific building
