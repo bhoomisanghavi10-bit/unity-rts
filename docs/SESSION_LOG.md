@@ -5,7 +5,7 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
-## 2026-08-31 — UI skin polish pass + Maurya crest flagged (Roadmap Section 4.3 / Section 5 item 9)
+## 2026-08-31 — UI skin polish pass + Maurya crest fixed (Roadmap Section 4.3 / Section 5 item 9)
 
 **Scope**: pixel-verify the 9-slice border/multiplier values landed in the prior UI
 display-wiring session (spot-checked visually, not pixel-verified) against actual
@@ -42,8 +42,17 @@ footprint. Live-verified fixed via UnityMCP screenshot (clean separation, no ove
 renders in the same dark-navy/gold palette as `crest_rajput.png` rather than the
 spec'd warm gray/stone (`#807866`) — the two civs' crests are genuinely confusingly
 similar on the CivPicker screen. Per CLAUDE.md, this needs a regenerated/recolored
-image from the user, not code — flagged back rather than attempted. Not fixed this
-session.
+image from the user, not code — flagged back rather than attempted, along with a
+ready-to-use Canva prompt built from `docs/UI_ART_BRIEF.md`'s exact template/spec.
+
+**Closed same session**: user generated a new `crest_maurya.png` (Ashokan lion
+pillar capital, warm gray/stone lion against a maroon/gold ring) and dropped it in
+at the same path/format. No code or import-settings changes needed — the existing
+`.meta` (Sprite mode, alignment, etc.) picked it up automatically on the next asset
+refresh. Verified the new file's actual pixel colors (not just eyeballing the
+thumbnail) before trusting it, then live-confirmed in Play mode via a fresh UnityMCP
+screenshot: reads clearly distinct from Rajput's crest now. Roadmap Section 4.3's
+Maurya crest item and Section 1's matching pointer both closed 2026-08-31.
 
 All 67 EditMode tests pass (no new tests needed — no new testable pure logic; the
 `FormationIndicator` fix is a scene-generated RectTransform constant, already

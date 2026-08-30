@@ -12,10 +12,7 @@ asset requirements, 5. Priority order).
   4 civs** (Chola's 9/9 landed a prior session; Vijayanagara/Rajput/Maurya/Maratha,
   36 models, are unstarted; `Assets/Editor/MeshyBuildingImporter.cs` is reusable but
   each asset needs its own live scale/rotation verification, not blind reuse of
-  Chola's numbers), the **Maurya crest recolor** (art-only, not a code task — needs
-  a regenerated/recolored `crest_maurya.png` in warm gray/stone `#807866` instead of
-  its current Rajput-like blue/gold; flagged, not fixed, this session), **wiring in a
-  Crusader Knight body** (rig-compatibility verified positive in a concurrent session
+  Chola's numbers), **wiring in a Crusader Knight body** (rig-compatibility verified positive in a concurrent session
   — scale normalization + weapon re-parenting still unstarted), the **3 new
   worker-mechanics items from this session's audit** (Repair system, general
   garrisoning system, and dedicated resource-specific drop-off buildings — all real
@@ -42,12 +39,17 @@ asset requirements, 5. Priority order).
   other in every session (not just this one, and not just a UnityMCP artifact -
   visible in the very first live screenshot taken this session). Moved its anchor to
   `(8, -206)`, below `ResourceHUD`'s 200x190 footprint; live-verified clean in Play
-  mode. **Maurya crest**: re-confirmed live (zoomed screenshot) it renders in
-  Rajput's blue/gold instead of the spec'd warm gray/stone - flagged back to the user
-  per CLAUDE.md's "asset sourcing isn't Claude Code's job" rule rather than
-  attempted. All 67 EditMode tests pass (no new tests - no new pure logic; the fix is
-  a scene-generated RectTransform constant, verified visually). See
-  `docs/SESSION_LOG.md`.
+  mode. **Maurya crest — closed same session.** Re-confirmed live (zoomed
+  screenshot) it rendered in Rajput's blue/gold instead of the spec'd warm
+  gray/stone; flagged back to the user per CLAUDE.md's "asset sourcing isn't Claude
+  Code's job" rule (with a ready-to-use Canva prompt built from
+  `docs/UI_ART_BRIEF.md`'s exact template) rather than attempted. User generated a
+  new `crest_maurya.png` (warm gray/stone lion, maroon/gold ring) and dropped it in
+  at the same path/format - picked up automatically by the existing `.meta`, no code
+  changes needed. Verified the new file's actual pixel colors before trusting it,
+  then live-confirmed in Play mode: reads clearly distinct from Rajput's crest now.
+  All 67 EditMode tests pass (no new tests needed for either fix - no new pure
+  logic; both verified live/visually). See `docs/SESSION_LOG.md`.
 - Previously completed: **Reconcile uncommitted work: finish wiring
   BuildingFootprint into all building factories** (ad hoc, not a roadmap item) — the
   prior session's rally-flag/deposit-soft-lock fix added `BuildingFootprint.cs` and

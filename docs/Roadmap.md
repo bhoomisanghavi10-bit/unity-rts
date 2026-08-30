@@ -240,9 +240,9 @@ entirely. What follows is the real remaining list.
   and `BoatAttacker`'s attack interval (1.5s) vs `MeleeAttacker`'s (1.0s) is a real
   structural asymmetry independent of `CombatBonus`. See `docs/SESSION_LOG.md`.
 - [x] **UI skin (item 47's second half)** — art delivered, alpha-fixed, and wired in
-  as of 2026-08-28 (see the full entry under Section 4.3). Two content gaps remain,
-  tracked as their own Section 4.3 items: no build-placement cursor asset, and the
-  Maurya crest is off-palette.
+  as of 2026-08-28 (see the full entry under Section 4.3). One content gap remains,
+  tracked as its own Section 4.3 item: no build-placement cursor asset. (The Maurya
+  crest off-palette gap closed 2026-08-31 — see the matching Section 4.3 item.)
 - [x] **2 Crusader Knight body models sourced but not wired in** — rig-compatibility
   with `WeaponAttachment`/`AnimationDriver` was never verified; swapping the shared
   human rig risks breaking every unit at once if done blind. Needs a dedicated
@@ -521,12 +521,12 @@ to the existing shared model, so these can be added one at a time.
   `Texture2D.GetPixels`, per the known Editor-crash gotcha). Live-verified in Play
   mode via UnityMCP against real scene objects (real selection component checks, real
   `BuildingPlacer.IsPlacing`), not just EditMode tests — see `docs/SESSION_LOG.md`.
-- [ ] **Maurya crest is off-palette** — `Assets/Resources/UI/Menu/crest_maurya.png`
-  renders in Rajput's blue/gold instead of Maurya's spec'd warm gray/stone
-  (`#807866`, see `docs/UI_ART_BRIEF.md`). Subject (Ashokan lion pillar capital) is
-  correct, only the color family is wrong — the two civs' crests currently read as
-  confusingly similar on the CivPicker screen. Needs a regenerated/recolored image at
-  the same path; no code change required once the art is fixed.
+- [x] **Maurya crest is off-palette** — **closed 2026-08-31.** User regenerated
+  `crest_maurya.png` (Ashokan lion pillar capital, warm gray/stone lion against a
+  maroon/gold ring) and dropped it in at the same path/format — no code or import-
+  settings changes needed, the existing `.meta` picked it up automatically.
+  Live-verified in Play mode via UnityMCP screenshot: reads clearly distinct from
+  Rajput's crest now, no longer confusingly similar on the CivPicker screen.
 - [x] **4 Maurya/Maratha unique units** (`maurya_war_elephant`, `pillar_edict_scholar`,
   `maratha_mavla_raider`, `maratha_durg_garrison`) — **done 2026-08-27**, real Meshy-
   sourced models rigged and wired in for all 4 (see Section 1's matching item and
