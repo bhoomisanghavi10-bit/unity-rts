@@ -8,11 +8,11 @@ asset requirements, 5. Priority order).
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
 - Currently on: nothing started yet for the next session. Section 5 items 1-5, 7-9
-  are all done. Remaining real options: **civ-specific building models for the other
-  4 civs** (Chola's 9/9 landed a prior session; Vijayanagara/Rajput/Maurya/Maratha,
-  36 models, are unstarted; `Assets/Editor/MeshyBuildingImporter.cs` is reusable but
-  each asset needs its own live scale/rotation verification, not blind reuse of
-  Chola's numbers), **wiring in a Crusader Knight body** (rig-compatibility verified positive in a concurrent session
+  are all done. Remaining real options: **civ-specific building models for the
+  remaining 3 civs** (Chola's 9/9 and Vijayanagara's 9/9 are landed; Rajput/Maurya/
+  Maratha, 27 models, are unstarted; `Assets/Editor/MeshyBuildingImporter.cs` is
+  reusable but each asset needs its own live scale/rotation verification, not blind
+  reuse of Chola's or Vijayanagara's numbers), **wiring in a Crusader Knight body** (rig-compatibility verified positive in a concurrent session
   — scale normalization + weapon re-parenting still unstarted), the **3 new
   worker-mechanics items from this session's audit** (Repair system, general
   garrisoning system, and dedicated resource-specific drop-off buildings — all real
@@ -22,7 +22,33 @@ asset requirements, 5. Priority order).
   two adjacent findings from a concurrent Naval balance session (Naval factories
   missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs
   `MeleeAttacker`'s 1.0s attack interval), or continued balance work — user's call.
-- Last completed (this session): **UI skin polish pass** (Roadmap Section 4.3 /
+- Last completed (this session): **Vijayanagara civ-specific building models**
+  (Roadmap Section 4.3 / Section 5 item 7) — all 9 buildings (TownCenter, Barracks,
+  Tower, Market, Farm, House, Wall, Gate, Dock) wired from raw Meshy AI exports via
+  the same `MeshyBuildingImporter.cs` pipeline Chola's session established, no code
+  changes needed. Identified 8/9 confidently from Meshy-internal filenames; the 9th
+  (a generic `Ancient_Stone_Temple`-named folder) was genuinely ambiguous and
+  resolved to House by live geometry inspection + elimination. Tower needed the
+  same civ-blind-`ImportRotationCorrections["Tower"]` counter-rotation workaround
+  as Chola's, but this asset's fix was a **Y-axis** bake
+  (`Quaternion.Euler(0,90,0)`), not Chola's Z-axis one — found by testing all 6
+  cardinal-axis candidates' rendered bounds for the Y-tallest result, then
+  confirming visually via screenshot that it read as an upright tower (a Y-axis
+  spin can't itself produce an upside-down result, unlike an X/Z flip, so this one
+  needed less disambiguation than Chola's). Scale: all 9 raw imports came out
+  Meshy-normalized to ~equal height (~1.90, matching the worker's own measured
+  height) except Wall/Gate (correctly flatter since their long axis is
+  horizontal) — so target heights were derived by applying Chola's established
+  *ratio* hierarchy against this session's own measured worker height (1.903), not
+  copied absolute values, landing on Tower 7.84/Market 4.85/Barracks
+  4.30/Dock 3.73/Wall≈Gate 2.61/House 2.51/Farm 2.06/TownCenter 10.94. Live-verified
+  in both Editor mode and real Play mode via `BuildingModelFactory.Spawn`,
+  screenshotted (worker dwarfed by every building, Tower upright, Wall vs. Gate
+  visually distinct). All 67 EditMode tests still pass (no new tests — pure
+  asset-pipeline work, no new logic). Raw source folders left in place (not deleted,
+  unlike Chola's session, since not explicitly asked this time). Rajput/Maurya/
+  Maratha (27 models) remain unstarted. See `docs/SESSION_LOG.md`.
+- Previously completed: **UI skin polish pass** (Roadmap Section 4.3 /
   Section 5 item 9) — pixel-verified the 5 tuned 9-slice elements (`ResourceHUD`,
   `SelectedUnitPanel`/HP bar, `HoverTooltip`, `BuildMenu` command-card buttons,
   `MissionSelectMenu` buttons) live in Play mode via UnityMCP against their actual

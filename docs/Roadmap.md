@@ -397,6 +397,35 @@ types (TownCenter, Barracks, Tower, Market, Farm, House, Wall, Gate, Dock) × 5 
   `docs/SESSION_LOG.md` for full methodology, the crash root-cause, and the
   AABB-can't-detect-upside-down lesson for future rotation fixes.
 
+- [x] **Vijayanagara (9/9) — done 2026-08-31.** All 9 buildings wired via the same
+  `MeshyBuildingImporter.cs` pipeline Chola established — no code changes needed,
+  reused as-is. Identification: 8/9 resolved confidently from Meshy-internal
+  filenames (`Lotus_Stone_Bazaar`→Market, `Temple_Farmstead`→Farm,
+  `Elephant_Fortress_Gate`→Gate, `Ancient_Stone_Rampart`→Wall,
+  `Elephant_Dock_Temple`→Dock, `Elephant_Watchtower`→Tower, plus the two
+  human-named TownCenter/Barracks folders); the 9th (a generic
+  `Ancient_Stone_Temple`-named folder) was genuinely ambiguous and resolved to
+  House by live geometry inspection + elimination (small single-story form,
+  matching the concept art). Tower needed the same counter-rotation workaround as
+  Chola's (`BuildingModelFactory`'s shared `ImportRotationCorrections["Tower"]` is
+  civ-blind) — but this asset's correct fix was a **Y-axis** bake
+  (`Quaternion.Euler(0,90,0)`), not Chola's Z-axis one; found by testing all 6
+  cardinal-axis candidates' bounds, picking the Y-tallest result, then confirming
+  visually it read as an upright tower (Y-axis spin can't itself cause an
+  upside-down result, unlike X/Z). Scale: all 9 raw imports came out
+  Meshy-normalized to ~equal height (~1.90, essentially matching the worker's own
+  measured height) except Wall/Gate (correctly flatter, ~0.36-0.49, since their
+  long axis is horizontal) — so target heights were derived by applying Chola's
+  established *ratio* hierarchy (Tower ~4.1x/Market ~2.55x/Barracks
+  ~2.26x/Dock ~1.96x/Wall≈Gate ~1.37x/House ~1.32x/Farm ~1.08x, TownCenter ~5.75x)
+  against this session's own measured worker height (1.903), not copied absolute
+  values. Live-verified in both Editor mode and real Play mode via
+  `BuildingModelFactory.Spawn`, screenshotted (worker dwarfed by every building,
+  Tower upright, Wall vs. Gate visually distinct — Wall a long continuous run,
+  Gate a complex structure with a ramp/archway). All 67 EditMode tests still pass
+  (no new tests — pure asset-pipeline work, no new logic). Rajput/Maurya/Maratha
+  (27 models) remain unstarted. See `docs/SESSION_LOG.md`.
+
 Recommended sequencing, highest visual impact first:
 1. **TownCenter, Barracks** — every match has exactly one TC (the civ's visual
    anchor) and Barracks is the first production building; smallest set (10 models)
@@ -596,8 +625,8 @@ buying, or making an asset yourself:
    civ-keyed model path before falling back to today's shared model, so civ-specific
    building models can land incrementally, one civ/building at a time, with no code
    changes needed per asset.~~ **Code groundwork done.** Actual civ-specific models
-   are a separate content project (see Section 4.3) — not started, and not this
-   session's scope.
+   are a separate content project (see Section 4.3) — Chola (9/9, 2026-08-28) and
+   Vijayanagara (9/9, 2026-08-31) done; Rajput/Maurya/Maratha (27 models) remain.
 8. ~~**Visual closure for the 4 Maurya/Maratha unique units** — real Meshy-sourced
    models, rigged via Blender command-line scripting (3 onto the existing shared
    human rig, the War Elephant onto a real third-party elephant skeleton+animation

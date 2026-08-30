@@ -5,6 +5,94 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-31 — Vijayanagara civ-specific building models wired (Roadmap Section 4.3 / Section 5 item 7)
+
+**Scope**: second content delivery against Section 4.3's civ-specific building
+spec, following Chola's 2026-08-28 session (see that entry below for the pipeline
+this one reused unchanged). Raw Meshy AI exports for all 9 Vijayanagara buildings
+were already dropped at `Assets/Resources/Buildings/Vijayanagara/` (confirmed:
+`Buildings/` and `buildings/` are the same directory on this filesystem —
+case-insensitive, same inode; git tracks it under the lowercase spelling).
+
+**Identification**: 8 of 9 folders resolved confidently from Meshy-internal
+filenames (`Lotus_Stone_Bazaar`→Market, `Temple_Farmstead`→Farm,
+`Elephant_Fortress_Gate`→Gate, `Ancient_Stone_Rampart`→Wall (a rampart is a
+fortification wall), `Elephant_Dock_Temple`→Dock, `Elephant_Watchtower`→Tower,
+plus the two already human-named `vijayanagara towncenter`/`vijyanagara barrack`
+folders). The 9th folder carried a generic `Ancient_Stone_Temple` internal name
+(distinct from the barrack folder's more specific `Ancient_Stone_Temple__...`) —
+genuinely ambiguous, resolved by importing it and inspecting the actual geometry
+(compact bounds, small single-story form with a flat corbelled roofline, matching
+the concept art's "modest single-story residence") plus elimination (only House
+was left unassigned) rather than guessing from the filename alone.
+
+**Metallic/smoothness packing**: `scratchpad/pack_metallic_smoothness.py` (deleted
+after Chola's session, since it lived outside the repo) was recreated — same
+approach, plain Pillow file I/O packing metallic(R)+smoothness/inverted-roughness(A)
+into one `_metallicSmoothness.png` per building, run before touching Unity at all.
+No in-Editor pixel manipulation attempted this time (Chola's session already found
+that crashes the Editor process outright).
+
+**Tower rotation**: same underlying issue as Chola's — `BuildingModelFactory`'s
+shared `ImportRotationCorrections["Tower"] = Euler(0,0,-90)` is keyed by resource
+name only, not civ, and this Tower's raw FBX was already upright at import
+(Y-tallest bounds at identity). Rather than guessing the counter-rotation
+mathematically (Chola's session found the "obviously correct" cancellation
+rotation was wrong axis, because the raw mesh's native tall axis differed between
+an ad hoc import and the pipeline's fresh reimport of the same bytes), this session
+tested all 6 cardinal-axis single-90°-rotation candidates by spawning through the
+real `BuildingModelFactory.Spawn` path and reading rendered bounds for each —
+`(0,90,0)` and `(0,-90,0)` were the only two giving Y-tallest bounds. Since a
+Y-axis-only correction is a spin around the vertical axis, it cannot itself produce
+an upside-down result (unlike an X/Z-axis correction), so — unlike Chola's session,
+which needed a screenshot to disambiguate two AABB-equivalent candidates — this one
+only needed the screenshot to confirm the general upright read, not to break a tie.
+Landed on `Quaternion.Euler(0,90,0)`.
+
+**Scale**: live-instantiated all 9 raw imports (extraScale=1) via the real
+`BuildingModelFactory.Spawn` path and found something Chola's session didn't hit —
+every building except Wall/Gate rendered at ~1.90-1.904 world-unit height
+regardless of building type (TownCenter, Tower, and Farm all landed within 0.001
+of each other), essentially identical to the worker's own measured height
+(1.903 in this session, vs. Chola's 1.94) — a Meshy export-normalization artifact,
+not a meaningful signal about relative size. Wall/Gate came out shorter (0.49/0.36)
+only because their long axis is horizontal, not because of any real height
+difference in the source data. Rather than deriving fresh ratios from scratch,
+applied Chola's already-established *ratio* hierarchy (Tower ~4.1x/Market
+~2.55x/Barracks ~2.26x/Dock ~1.96x/Wall≈Gate ~1.37x/House ~1.32x/Farm
+~1.08x/TownCenter ~5.75x) against this session's own measured worker height, per
+the cross-session memory's explicit instruction not to reuse Chola's *absolute*
+values. Final heights: TownCenter 10.94, Tower 7.84, Market 4.85, Barracks 4.30,
+Dock 3.73, Wall 2.61, Gate 2.61, House 2.51, Farm 2.06 — a clean descending
+hierarchy, all clear of the worker's 1.90.
+
+**Live verification**: spawned all 9 through the real `BuildingModelFactory.Spawn`
+path in both Editor mode and actual Play mode (identical results in both),
+screenshotted from multiple angles — confirmed the worker is visibly dwarfed by
+every building, the Tower reads upright (wide base, tapering shaft, cresting),
+Wall and Gate are visually distinct from each other (Wall a long continuous
+fluted run with no opening; Gate a more complex structure with a visible
+ramp/archway), and TownCenter's silhouette shows real carved tiered-temple detail
+(confirmed from a correctly-lit angle after an initial screenshot came out
+backlit/silhouetted from one side — not a geometry bug, just directional-light
+angle). `read_console` showed zero building-related errors; one pre-existing
+"Instantiating material... during edit mode" warning from `TintMaterials` calling
+`renderer.materials` while spawning test objects in Editor mode (not Play mode) —
+confirmed as existing factory behavior unrelated to this session's changes, and
+one "Failed to create agent because it is not close enough to the NavMesh" from
+spawning a test worker at an arbitrary off-navmesh coordinate for measurement
+purposes, also unrelated to the building models. All 67 EditMode tests still pass
+— no new tests added (pure asset-pipeline work, no new testable logic, matching
+the task's own scope note).
+
+**Not done this session**: raw source folders left in place (not deleted, unlike
+Chola's session, since deletion wasn't explicitly requested this time). Rajput/
+Maurya/Maratha (27 models) remain unstarted — same reusable pipeline, same
+per-asset live verification requirement, not blind reuse of either prior civ's
+numbers.
+
+---
+
 ## 2026-08-31 — UI skin polish pass + Maurya crest fixed (Roadmap Section 4.3 / Section 5 item 9)
 
 **Scope**: pixel-verify the 9-slice border/multiplier values landed in the prior UI
