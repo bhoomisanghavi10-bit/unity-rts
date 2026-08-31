@@ -440,39 +440,55 @@ types (TownCenter, Barracks, Tower, Market, Farm, House, Wall, Gate, Dock) × 5 
   Chola buildings re-checked as a precaution — no regression found. See
   `docs/SESSION_LOG.md`'s "Vijayanagara building-model rotation fix" entry.
 
-- [x] **Rajput (8/9) — done 2026-08-31; TownCenter blocked, not a code gap.**
-  Wired via the same `MeshyBuildingImporter.cs` pipeline, no code changes.
-  Identification: 6/9 resolved confidently from explicit Meshy-internal
-  filenames (`Rose_Palace_Farmstead`→Farm, `Harbor_Palace_of_Rose`→Dock,
+- [x] **Rajput (9/9) — done 2026-08-31.** Wired via the same
+  `MeshyBuildingImporter.cs` pipeline, no code changes. Identification: 6/9
+  resolved confidently from explicit Meshy-internal filenames
+  (`Rose_Palace_Farmstead`→Farm, `Harbor_Palace_of_Rose`→Dock,
   `Rose_Palace_Bazaar`→Market, `Rose_Citadel_Gate`→Gate, plus the two
   human-named `rajput towncenter`/`rajput barrack` folders); the raw delivery
   only had 8 folders for 9 building types (no Tower/Wall candidate), flagged to
   the user rather than force-fit — user then added a `tower/` folder and
   identified the two remaining generic-named folders as Wall
   (`Red_Sandstone_Citadel`) and House (`Rose_Sandstone_Courty`). Orientation:
-  6 of 9 (TownCenter's folder, Tower, Farm, Dock, Market, House) were lying on
-  their back at import (Z-up source, Y=0.87-1.18 vs. a ~1.9 horizontal axis)
-  and needed `Quaternion.Euler(-90,0,0)` on the nested model child; Barracks,
-  Wall, and Gate were already correctly oriented at identity. Tower needed the
-  usual civ-blind `ImportRotationCorrections["Tower"]` counter-rotation
-  treatment — this asset's fix was `Quaternion.Euler(0,90,0)`, found via the
-  same all-6-cardinal-candidates-through-the-full-spawn-stack test as
+  6 of 9 (Tower, Farm, Dock, Market, House, and TownCenter — see below) needed
+  `Quaternion.Euler(-90,0,0)` on the nested model child; Barracks, Wall, and
+  Gate were already correctly oriented at identity. Tower needed the usual
+  civ-blind `ImportRotationCorrections["Tower"]` counter-rotation treatment —
+  this asset's fix was `Quaternion.Euler(0,90,0)`, found via the same
+  all-6-cardinal-candidates-through-the-full-spawn-stack test as
   Vijayanagara's. Scale: targets derived from this session's own measured
   worker height (1.9027) against Chola/Vijayanagara's established ratio
-  hierarchy, landing on (in world units) Tower 7.84/Market 4.85/Barracks
-  4.30/Dock 3.73/Wall≈Gate 2.61/House 2.51/Farm 2.06 — all confirmed to
-  1-2 thousandths of the target via live `BuildingModelFactory.Spawn` bounds
-  in both Editor and real Play mode. **TownCenter not wired**: byte-diffing its
-  raw FBX against the new Tower folder's FBX showed only 338 bytes differ out
-  of an 80MB file (metadata/timestamps only) — the file sitting in
-  `rajput towncenter/` is the *same Tower/Watchtower mesh*, not the grand
-  multi-tier palace shown in that folder's own bundled concept art. Rather than
-  ship a watchtower mislabeled as the civ's Town Center, the exploratory
-  TownCenter prefab was deleted so `BuildingModelFactory.Spawn` falls back to
-  the shared TownCenter model; a genuine Rajput TownCenter export is still
-  needed from the user. All 67 EditMode tests still pass (no new tests — pure
-  asset-pipeline work). Maurya/Maratha (18 models) remain unstarted. See
-  `docs/SESSION_LOG.md`.
+  hierarchy, landing on (in world units) TownCenter 10.94/Tower
+  7.84/Market 4.85/Barracks 4.30/Dock 3.73/Wall≈Gate 2.61/House 2.51/Farm
+  2.06 — all confirmed to 1-2 thousandths of the target via live
+  `BuildingModelFactory.Spawn` bounds in both Editor and real Play mode.
+  **TownCenter's own raw folder turned out to be a duplicate of the Tower
+  mesh** (338 bytes differ out of 80MB — metadata only), a real content gap
+  flagged to the user, who supplied a genuine second TownCenter export
+  (`towncenter/`, a different ~94.6MB FBX, 80M+ bytes different from Tower's —
+  confirmed as real distinct geometry before wiring). **That asset's
+  orientation fix needed real rework after an initial wrong pass**: the
+  "pick whichever cardinal rotation gives Y-tallest bounds" heuristic that
+  worked for every other asset in this civ (and Chola/Vijayanagara's Towers)
+  produced a confidently-wrong result here, because this building is a wide,
+  sprawling fort complex whose *correct* upright orientation is not its
+  tallest possible bounding-box orientation (unlike a narrow Tower, where
+  Y-tallest is a reliable signal) — two visually-plausible-looking wrong
+  rotations were live-verified, screenshotted, and shipped as "confirmed"
+  before the user caught the tilt from an in-game view both times. What
+  actually resolved it: reading the raw mesh's vertex data directly
+  (`MeshFilter.sharedMesh.vertices` × `localToWorldMatrix`) and computing
+  bottom-band vs. top-band vertex-count ratios per local axis — the true
+  up-axis has far more geometry near its base (walls, foundations) than its
+  tip (domes, finials), and this ratio picked out the correct axis (though the
+  *first* pass over-trusted which axis had the strongest ratio rather than
+  checking direction/sign carefully, still requiring one more visual iteration
+  against the reference concept art before the staircase was confirmed
+  ascending from the ground, not descending into it). See Roadmap Section
+  4.4's checklist (updated with this lesson) and `docs/SESSION_LOG.md` for
+  the full corrected methodology. All 67 EditMode tests still pass (no new
+  tests — pure asset-pipeline work). Maurya/Maratha (18 models) remain
+  unstarted. See `docs/SESSION_LOG.md`.
 
 Recommended sequencing, highest visual impact first:
 1. **TownCenter, Barracks** — every match has exactly one TC (the civ's visual
@@ -649,6 +665,24 @@ buying, or making an asset yourself:
   the dict's rotation to the instantiated root, then judge the result) or it
   can produce a false negative, as happened once already on Vijayanagara's own
   Tower mid-fix.
+- **"Pick the rotation candidate that gives the tallest Y bounds" is not a
+  universal heuristic** — it only holds for genuinely tall/narrow assets
+  (Towers). A wide, sprawling building (a TownCenter fort complex, e.g.) can
+  have its correct, upright orientation be *shorter* than some wrong
+  orientation's bounds, because a jutting wing or staircase can make X or Z
+  exceed the true height even when correctly assembled. Two visually
+  plausible-looking wrong rotations were live-verified and shipped as
+  "confirmed" for Rajput's TownCenter this way before the user caught the
+  tilt from an in-game view (see `docs/SESSION_LOG.md`'s 2026-08-31 "Rajput
+  TownCenter orientation" entry). What actually resolved it: read the raw
+  mesh's vertex data directly (`MeshFilter.sharedMesh.vertices` ×
+  `localToWorldMatrix`) and compare bottom-band vs. top-band vertex-count
+  ratios per local axis — a real building has far more geometry near its
+  base (walls, foundation) than its tip (domes, finials), so the axis with
+  the strongest base-heavy ratio is the true up-axis, independent of bounds
+  extent. Still confirm the *sign* (which end is actually "up") and the
+  final result visually against the reference before committing — the ratio
+  alone doesn't rule out an upside-down or off-yaw result.
 - For any body-swap or rig-affecting asset, verify rig compatibility explicitly and
   in isolation before wiring it into the shared path every unit depends on.
 - Keep unused/source-only import content out of `Assets/Resources/` (use
@@ -693,8 +727,8 @@ buying, or making an asset yourself:
    building models can land incrementally, one civ/building at a time, with no code
    changes needed per asset.~~ **Code groundwork done.** Actual civ-specific models
    are a separate content project (see Section 4.3) — Chola (9/9, 2026-08-28),
-   Vijayanagara (9/9, 2026-08-31), and Rajput (8/9, 2026-08-31; TownCenter
-   blocked on a real asset) done; Maurya/Maratha (18 models) remain.
+   Vijayanagara (9/9, 2026-08-31), and Rajput (9/9, 2026-08-31) done;
+   Maurya/Maratha (18 models) remain.
 8. ~~**Visual closure for the 4 Maurya/Maratha unique units** — real Meshy-sourced
    models, rigged via Blender command-line scripting (3 onto the existing shared
    human rig, the War Elephant onto a real third-party elephant skeleton+animation

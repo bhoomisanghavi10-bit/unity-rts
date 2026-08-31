@@ -5,7 +5,7 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
-## 2026-08-31 — Rajput civ-specific building models wired, 8/9 (Roadmap Section 4.3 / Section 5 item 7)
+## 2026-08-31 — Rajput civ-specific building models wired, 9/9 (Roadmap Section 4.3 / Section 5 item 7)
 
 **Scope**: third content delivery against Section 4.3's civ-specific building
 spec, following Chola's 2026-08-28 and Vijayanagara's earlier-today sessions
@@ -38,7 +38,46 @@ delivered** — what's sitting in `rajput towncenter/` is a duplicate of the
 Tower export. Rather than ship a watchtower mislabeled as the civ's Town
 Center, the exploratory TownCenter prefab was deleted (`BuildingModelFactory`
 falls back to the shared TownCenter model until a real asset arrives) and the
-gap flagged to the user instead of decided silently.
+gap flagged to the user instead of decided silently. **User then supplied a
+genuine second `towncenter/` export** (a different ~94.6MB FBX, internally
+named `Rosestone_Citadel` with yet another job-ID suffix) — confirmed as real
+distinct geometry (80M+ bytes differ from the Tower FBX, not ~300) before
+spending any time wiring it in.
+
+**TownCenter's orientation needed real rework after two wrong passes shipped
+as "confirmed."** The bounds-based heuristic that correctly handled every
+other asset this civ (and both Towers in prior civs) — "test the 6 cardinal
+90°-rotation candidates through the real spawn path, pick the one giving
+Y-tallest bounds, confirm visually" — produced a *confidently wrong* result
+here, twice: first a rotation that visually read as a richly-detailed tiered
+structure from some angles (shipped, screenshotted, described to the user as
+correct) but was actually lying on its side; then `identity` rotation, which
+quantitative checks (topmost-vertex-near-center) and better camera framing
+*seemed* to support, but was still wrong. The user caught both from live
+in-game screenshots, correctly describing the second as "the flat side of the
+building should be on the ground... showing the stairs going into the
+ground." Root cause: this specific building is a **wide, sprawling fort
+complex**, not tall-and-narrow like a Tower — its correct upright orientation
+is not its *tallest* possible bounding-box orientation, because a jutting
+staircase wing pushes the horizontal (X/Z) extent past the true vertical
+height even when correctly assembled. "Pick Y-tallest" silently assumes the
+opposite and was never actually validated against this building's true
+proportions. What resolved it: reading the raw mesh's vertex data directly
+(`MeshFilter.sharedMesh.vertices` transformed by `localToWorldMatrix`) and
+computing bottom-15%-band vs. top-15%-band vertex counts per *local* axis
+before any rotation — local Z showed a genuine base-heavy signature (203184
+vs. 35179, ratio 5.78, direction: low-Z = wide base, high-Z = sparse
+dome/finial detail), correctly identifying Z (not the Y-tallest candidate)
+as the true up-axis. The fix was `Quaternion.Euler(-90,0,0)` on the nested
+model child — visually confirmed against the reference concept art from both
+the ornate entrance side (grand cascading tiered domes, matching the
+reference almost exactly) and the opposite side (staircase correctly
+ascending from ground level to the entrance gate, not descending into the
+ground), plus a live Play-mode ground-placement screenshot showing the base
+flat against sloped terrain. Because the axis correction changed which
+dimension maps to world Y, `extraScale` also had to be recomputed from
+scratch against the *new* height axis (final extraScale 91.159, replacing the
+wrong-axis-derived 61.559) to hit the same established target height.
 
 **Orientation** (mandatory per-model live visual check against reference art,
 not AABB-only, per the gotcha this civ's own predecessor sessions established):
@@ -68,20 +107,20 @@ which correctly re-rendered each time.
 **Scale**: worker height measured fresh this session (1.9027, via
 `HumanModelFactory`-spawned live renderer bounds — matches Vijayanagara's
 1.903, confirming worker bodies are civ-blind as expected) and applied against
-Chola/Vijayanagara's established ratio hierarchy, landing on: Tower 7.84
-(4.12x), Market 4.85 (2.55x), Barracks 4.30 (2.64x), Dock 3.73 (3.17x),
-Wall≈Gate 2.61 (5.13x/7.81x — these two also needed a much larger extraScale
-since their raw imports came in far flatter at extraScale=1, not because the
-target ratio changed), House 2.51 (1.89x), Farm 2.06 (2.12x). All 8 confirmed
-to within ~0.002 world units of target via live `BuildingModelFactory.Spawn`
-renderer bounds, in both Editor mode and a real Play mode session (spawned,
-measured, screenshotted, no new console errors beyond pre-existing/unrelated
-NavMesh warnings from the off-map test position). All 67 EditMode tests still
-pass (no new tests — pure asset-pipeline work, no new logic).
+Chola/Vijayanagara's established ratio hierarchy, landing on: TownCenter 10.94
+(5.75x), Tower 7.84 (4.12x), Market 4.85 (2.55x), Barracks 4.30 (2.64x), Dock
+3.73 (3.17x), Wall≈Gate 2.61 (5.13x/7.81x — these two also needed a much
+larger extraScale since their raw imports came in far flatter at
+extraScale=1, not because the target ratio changed), House 2.51 (1.89x), Farm
+2.06 (2.12x). All 9 confirmed to within ~0.002 world units of target via live
+`BuildingModelFactory.Spawn` renderer bounds, in both Editor mode and a real
+Play mode session (spawned, measured, screenshotted, no new console errors
+beyond pre-existing/unrelated NavMesh warnings from the off-map test
+position). All 67 EditMode tests still pass (no new tests — pure
+asset-pipeline work, no new logic).
 
 **Not done this session, per user instruction to stop after Rajput**:
-Maurya/Maratha (18 models). **Left for a future session**: a real Rajput
-TownCenter asset.
+Maurya/Maratha (18 models).
 
 ---
 
