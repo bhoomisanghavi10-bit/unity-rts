@@ -8,17 +8,19 @@ asset requirements, 5. Priority order).
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
 - Currently on: nothing started yet for the next session. Section 5 items 1-5, 7-9
-  are all done. Remaining real options: **civ-specific building models for the
-  remaining civ** (Chola's 9/9, Vijayanagara's 9/9, Rajput's 9/9, and Maurya's 9/9
-  are landed; Maratha, 9 models, is unstarted; `Assets/Editor/MeshyBuildingImporter.cs`
-  is reusable but each asset needs its own live scale/rotation verification, not
-  blind reuse of a prior civ's numbers — and not blind reuse of the "pick Y-tallest"
-  bounds heuristic either, which failed for Rajput's and Maurya's own wide/sprawling
-  TownCenters, see below — and note Maurya's session shipped Tower upside-down once
-  even after a Y-tallest-bounds check, since two rotation candidates can tie on
-  bounds while one is inverted once composed with Tower's civ-blind runtime stomp;
-  always visually confirm **both** tying candidates against reference art, not just
-  one), **wiring in a Crusader Knight body** (rig-compatibility verified positive in a concurrent session
+  are all done, and item 7 (civ-specific building models) is now fully closed —
+  **all 5 civs, 45/45 models landed** (Chola, Vijayanagara, Rajput, Maurya,
+  Maratha). `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any
+  future civ-model work, but every lesson below stays load-bearing: never trust
+  bounds alone (an angled `game_view` screenshot at identity can *look* upright
+  via parallax even when the model is lying flat on its back — this shipped
+  once in Maratha's own session, caught only by the user from a live
+  screenshot; a true top-down + front-elevation shot, or the vertex base/tip
+  density check for wide/sprawling shapes, is what actually catches it), and
+  when two rotation candidates tie on Y-tallest bounds (as with any
+  `ImportRotationCorrections`-keyed asset like Tower), always visually confirm
+  **both** tying candidates against reference art, not just one. Remaining
+  real options: **wiring in a Crusader Knight body** (rig-compatibility verified positive in a concurrent session
   — scale normalization + weapon re-parenting still unstarted), the **3 new
   worker-mechanics items from this session's audit** (Repair system, general
   garrisoning system, and dedicated resource-specific drop-off buildings — all real
@@ -28,7 +30,48 @@ asset requirements, 5. Priority order).
   two adjacent findings from a concurrent Naval balance session (Naval factories
   missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs
   `MeleeAttacker`'s 1.0s attack interval), or continued balance work — user's call.
-- Last completed (this session): **Maurya civ-specific building models, 9/9**
+- Last completed (this session): **Maratha civ-specific building models, 9/9 —
+  closes all 5 civs' civ-specific building models (45/45).** (Roadmap Section
+  4.3 / Section 5 item 7) — wired via the same `MeshyBuildingImporter.cs`
+  pipeline, no code changes. Identification: 7 of 9 resolved confidently by
+  Meshy-internal filename; the prior session's flagged 2-way ambiguity
+  (`Fortified_Stone_Prison`/`Fortified_Stone_Villa` against Barracks/House)
+  was resolved by the user directly (Prison→Barracks, Villa→House) after this
+  session's own live-geometry screenshots came back too poorly framed to
+  read. No duplicate-asset trap (byte-diffed all 9 folders — all distinct).
+  Orientation: 7 of 9 (Gate/Farm/Market/Dock/Barracks/House/TownCenter) needed
+  `Quaternion.Euler(-90,0,0)` — TownCenter via the vertex base/tip density
+  method (8.42:1 base-heavy on local Z, matching Rajput's/Maurya's own
+  wide/sprawling TownCenter pattern, correct on the first attempt). Tower hit
+  the exact Y+90-vs-Y-90 tying-bounds trap flagged by the prior session's own
+  endnote — both screenshotted and checked against the reference Watchtower
+  art before picking `Euler(0,-90,0)` (Y+90 was upside down: crenellated cap
+  on the bottom, lion-pedestal-style base on top). **Wall shipped wrong once
+  from this session's own verification, caught only by the user from a live
+  screenshot, not by this session's process**: an angled `game_view`
+  screenshot at identity rotation looked plausible via parallax even though
+  the model was actually lying flat on its back (front face pointing at the
+  sky); the resulting prefab's anomalously thick footprint (Z depth ~90% of
+  height, nearly 2x a wall's expected thinness) should have been the tell but
+  wasn't caught before reporting it as done. Re-verified via a true top-down +
+  front-elevation shot (not an angled one) against the reference art —
+  `Euler(-90,0,0)` is correct (thin footprint, merlons on top). Re-checked all
+  other 8 buildings the same rigorous way as a precaution afterward; all 8
+  confirmed already correct — only Wall was wrong. **New lesson for future
+  sessions: an angled `game_view`/Scene View screenshot is not sufficient to
+  confirm "upright" — always take a true top-down shot (camera straight down,
+  looking for a thin/plausible footprint) and a true front-elevation shot
+  (camera level with the ground) for every building, not just the
+  bounds-ambiguous ones.** Scale: worker height measured fresh (1.902692,
+  matching Maurya's session's own measurement exactly), same ratio hierarchy
+  reused — TownCenter 11.22/Tower 8.00/Market 4.85/Barracks 4.36/Dock
+  3.81/Wall 2.66≈Gate 2.65/House 2.58/Farm 2.09. All 67 EditMode tests pass
+  (no new tests — pure asset-pipeline work). Raw source folders deleted after
+  confirming every prefab re-spawns correctly post-deletion (matching prior
+  civs' precedent); concept art kept at civ root except Tower's/TownCenter's,
+  which were bundled inside their own now-deleted raw folders (same as every
+  prior civ). See `docs/SESSION_LOG.md`.
+- Previously completed: **Maurya civ-specific building models, 9/9**
   (Roadmap Section 4.3 / Section 5 item 7) — wired via the same
   `MeshyBuildingImporter.cs` pipeline, no code changes. The raw delivery
   actually had 9 folders, not the 8 the prior session's endnote claimed (that

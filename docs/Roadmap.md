@@ -521,6 +521,40 @@ types (TownCenter, Barracks, Tower, Market, Farm, House, Wall, Gate, Dock) × 5 
   what was safe to delete, per CLAUDE.md. All 67 EditMode tests still pass (no
   new tests — pure asset-pipeline work). Maratha (9 models) remains unstarted.
   See `docs/SESSION_LOG.md`.
+- [x] **Maratha (9/9) — done 2026-09-01. Closes all 5 civs' civ-specific
+  building models (45/45).** All 9 buildings wired via the same pipeline.
+  Identification: 7 of 9 resolved confidently by Meshy-internal filename
+  (`Stone_Gatehouse`→Gate, `Stone_Bastion_Wall`→Wall, `Fortified_Harvest_Man`→
+  Farm, `Fortress_Bazaar`→Market, `Harborstone_Keep`→Dock,
+  `Stone_Citadel_Tower`→Tower, `Stone_Citadel_of_Ashv...`→TownCenter); the
+  2-way ambiguity flagged by the prior endnote (`Fortified_Stone_Prison` vs
+  `Fortified_Stone_Villa` against Barracks/House) was resolved by the user
+  directly (Prison→Barracks, Villa→House) after this session's own live
+  geometry inspection came back inconclusive on framing. No duplicate-asset
+  trap (byte-diffed all folders). Rotation: 8/9 needed `Euler(-90,0,0)`
+  (Gate/Farm/Market/Dock/Barracks/House/TownCenter — TownCenter via the
+  vertex base/tip density method, 8.42:1 base-heavy on local Z, matching the
+  wide/sprawling-fort pattern from Rajput/Maurya's own TownCenters); Tower
+  needed the usual civ-blind `ImportRotationCorrections["Tower"]` treatment
+  and hit the exact Y+90-vs-Y-90 tying-bounds trap flagged by the prior
+  session's endnote — both screenshotted and checked against the reference
+  Watchtower art before picking `Euler(0,-90,0)` (Y+90 was upside down,
+  crenellated cap on the bottom). **Wall shipped wrong once from this
+  session's own verification, caught only by the user from a live
+  screenshot**: an angled `game_view` shot at identity rotation looked
+  plausible (parallax made a wall lying flat on its back read as upright),
+  and the resulting scaled prefab had an anomalously thick footprint (Z depth
+  ~90% of height) that should have been the tell but wasn't caught before
+  shipping. Re-verified via true top-down + front-elevation shots (not
+  angled) against the reference art — identity was actually lying flat face-up;
+  `Euler(-90,0,0)` is correct (thin footprint, merlons on top, matches
+  reference). Re-checked all other 8 buildings the same rigorous way as a
+  precaution; all 8 confirmed already correct, only Wall was wrong. Scale:
+  worker height measured fresh (1.902692, matching Maurya's session exactly),
+  same ratio hierarchy reused — TownCenter 11.22/Tower 8.00/Market 4.85/
+  Barracks 4.36/Dock 3.81/Wall 2.66≈Gate 2.65/House 2.58/Farm 2.09. All 67
+  EditMode tests pass (no new tests — pure asset-pipeline work). See
+  `docs/SESSION_LOG.md`.
 
 Recommended sequencing, highest visual impact first:
 1. **TownCenter, Barracks** — every match has exactly one TC (the civ's visual
@@ -759,8 +793,9 @@ buying, or making an asset yourself:
    building models can land incrementally, one civ/building at a time, with no code
    changes needed per asset.~~ **Code groundwork done.** Actual civ-specific models
    are a separate content project (see Section 4.3) — Chola (9/9, 2026-08-28),
-   Vijayanagara (9/9, 2026-08-31), Rajput (9/9, 2026-08-31), and Maurya (9/9,
-   2026-09-01) done; Maratha (9 models) remains.
+   Vijayanagara (9/9, 2026-08-31), Rajput (9/9, 2026-08-31), Maurya (9/9,
+   2026-09-01), and Maratha (9/9, 2026-09-01) done. **All 5 civs' civ-specific
+   building models complete (45/45).**
 8. ~~**Visual closure for the 4 Maurya/Maratha unique units** — real Meshy-sourced
    models, rigged via Blender command-line scripting (3 onto the existing shared
    human rig, the War Elephant onto a real third-party elephant skeleton+animation

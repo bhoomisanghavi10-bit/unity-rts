@@ -5,6 +5,114 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-01 — Maratha civ-specific building models wired, 9/9 — all 5 civs complete, 45/45 (Roadmap Section 4.3 / Section 5 item 7)
+
+**Scope**: fifth and final content delivery against Section 4.3's civ-specific
+building spec, following Chola/Vijayanagara/Rajput/Maurya (same
+`MeshyBuildingImporter.cs` pipeline, no code changes needed). Closes Section 5
+item 7 entirely: all 5 civs' civ-specific building models now land (45/45).
+
+**Identification**: the prior session's endnote correctly described the raw
+delivery under `Assets/Resources/buildings/Maratha/` — 9 folders (7 UUID-named
+Meshy exports plus `maratha tower`/`maratha towncenter`), 7 resolved
+confidently by Meshy-internal filename (`Stone_Gatehouse`→Gate,
+`Stone_Bastion_Wall`→Wall, `Fortified_Harvest_Man[or]`→Farm,
+`Fortress_Bazaar`→Market, `Harborstone_Keep`→Dock, `Stone_Citadel_Tower`→
+Tower, `Stone_Citadel_of_Ashv...`→TownCenter), leaving the flagged 2-way
+ambiguity (`Fortified_Stone_Prison`/`Fortified_Stone_Villa` against
+Barracks/House — unlike every prior civ's single 1:1 elimination). This
+session's own live geometry inspection (importing both raw FBXs and
+screenshotting them in isolation) came back inconclusive — poor camera framing
+on the first attempt, not a real ambiguity in the assets themselves. The user
+resolved it directly mid-session: Prison→Barracks, Villa→House. No
+duplicate-asset trap (byte-diffed all 9 raw FBXs — genuinely distinct, no
+Rajput-style Tower/TownCenter mixup).
+
+**Rotation**: 7 of 9 (Gate/Farm/Market/Dock/Barracks/House/TownCenter) needed
+`Quaternion.Euler(-90,0,0)` on the nested `<Name>_model` child. TownCenter
+(wide/sprawling, like Rajput's and Maurya's own) used the vertex base/tip
+density method directly rather than trusting bounds — 8.42:1 base-heavy ratio
+on local Z, correctly predicting the correction on the first attempt, same as
+Maurya's session. Tower needed the usual civ-blind
+`ImportRotationCorrections["Tower"]` counter-rotation treatment and hit the
+*exact* Y+90-vs-Y-90 tying-bounds trap the prior session's endnote explicitly
+warned about (both candidates give identical Y-tallest bounds through the
+runtime stomp) — both screenshotted and checked against the reference
+Watchtower concept art before picking `Euler(0,-90,0)` (Y+90 was confirmed
+upside down: crenellated parapet cap ended up on the bottom, tapered
+lion-pedestal-style base on top). This is the second civ in a row this exact
+trap has been correctly caught by following the endnote's instruction to
+check both candidates, rather than assuming a "pure Y-spin can't flip
+up/down."
+
+**Real mid-session mistake, caught by the user, not by this session's own
+process**: Wall shipped with `Quaternion.identity` after this session judged
+it correct from a single angled `game_view` screenshot (camera positioned off
+to the side, looking down slightly) — the shot looked plausible via parallax
+even though the model was actually lying flat on its back with its
+crenellated front face pointing straight up at the sky, not standing
+vertical. The resulting scaled prefab's bounds (5.92 × 2.66 × Z-depth
+initially computed at ~4.82 before the fix, i.e. Z within ~80% of X and
+nearly double the Y height) should have been the numerical tell — a wall's
+thickness being nearly as large as its own length is not a plausible
+proportion — but wasn't caught before reporting the building done. The user
+flagged it directly ("the wall is tilted... plus all models have flat side
+which will always go on the ground"). Re-verified using a **true top-down
+shot** (camera straight down the Y axis) and a **true front-elevation shot**
+(camera level with the ground, well back) rather than an angled one: at
+identity, the top-down view showed the full detailed crenellated face lying
+flat (should show a thin footprint strip instead), and the front-elevation
+view showed only a thin edge-on sliver (should show the full wall face
+instead) — conclusive proof the model was on its back. `Euler(-90,0,0)` is
+correct: true top-down now shows a thin rectangular footprint, front
+elevation shows the merlons right-side-up with the corner turret standing,
+matching the reference art exactly. Final bounds after the fix: 5.92 (length)
+× 2.66 (height) × 1.47 (thickness) — proportions that actually read as a
+wall. **Re-checked all other 8 buildings the same rigorous top-down +
+front-elevation way as a precaution once this was caught; all 8 (Gate,
+Farm, Market, Dock, Barracks, House, Tower, TownCenter) confirmed already
+correct — the mistake was isolated to Wall.**
+
+**New process lesson for future civ-model sessions, added to CLAUDE.md's
+gotchas**: an angled `game_view`/Scene View screenshot alone is not sufficient
+to confirm a building is standing upright — parallax can make a
+lying-on-its-back model read as correct from the wrong angle. Always take a
+true top-down shot (straight down, checking for a plausible thin/wide
+footprint, not a full detailed face) and a true front-elevation shot (camera
+level with the ground) for every building, not only the ones that look
+bounds-ambiguous.
+
+**Scale**: worker height measured fresh via `WorkerFactory.Spawn` + combined
+`Renderer` bounds (1.902692) — matches Maurya's own session's measurement
+exactly (same shared Worker asset, as expected). Same ratio hierarchy reused
+against the freshly-measured height: TownCenter 11.22 (5.90×H) / Tower 8.00
+(4.21×H) / Market 4.85 (2.55×H) / Barracks 4.36 (2.29×H) / Dock 3.81 (2.00×H)
+/ Wall 2.66 ≈ Gate 2.65 (1.40×H) / House 2.58 (1.36×H) / Farm 2.09 (1.10×H).
+All 9 confirmed to ~0.002 world units of target via live
+`BuildingModelFactory.Spawn`, in both Editor mode and real Play mode (entered
+Play, spawned all 9 + a worker fresh via `execute_code`, screenshotted,
+checked console — only pre-existing unrelated scaffolding/NavMesh warnings
+from the test spawn coordinates, no building-model errors). All 67 EditMode
+tests pass (no new tests — pure asset-pipeline work, same as every prior civ
+in this series).
+
+**Cleanup**: raw source folders (all 7 UUID-named + `maratha tower` +
+`maratha towncenter`) deleted only after re-confirming every one of the 9
+prefabs still spawns correctly post-deletion (matching Chola's/Rajput's/
+Maurya's precedent) — freeing disk space, which sat at 9.8-12Gi free for most
+of the session (watched per the prior session's flagged risk; never hit
+`ENOSPC` this time). Concept art images stayed at the civ root except
+Tower's and TownCenter's, which were bundled inside their own now-deleted raw
+folders — same loss pattern as every prior civ (Maurya's Tower/TownCenter
+concept art was lost the same way; not a regression specific to this
+session).
+
+**Roadmap Section 5 item 7 is now fully closed**: Chola (2026-08-28),
+Vijayanagara (2026-08-31), Rajput (2026-08-31), Maurya (2026-09-01), Maratha
+(2026-09-01) — all 5 civs, 45/45 civ-specific building models landed.
+
+---
+
 ## 2026-09-01 — Maurya civ-specific building models wired, 9/9 (Roadmap Section 4.3 / Section 5 item 7)
 
 **Scope**: fourth content delivery against Section 4.3's civ-specific building
