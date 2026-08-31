@@ -489,6 +489,38 @@ types (TownCenter, Barracks, Tower, Market, Farm, House, Wall, Gate, Dock) × 5 
   the full corrected methodology. All 67 EditMode tests still pass (no new
   tests — pure asset-pipeline work). Maurya/Maratha (18 models) remain
   unstarted. See `docs/SESSION_LOG.md`.
+- [x] **Maurya (9/9) — done 2026-09-01.** All 9 buildings wired via the same
+  pipeline. Identification: 8 of 9 folders resolved confidently by
+  Meshy-internal filename or human-naming; `Domed_Stone_Sanctuary` resolved to
+  House by elimination + live geometry check (no missing-folder or
+  duplicate-asset gap this time — the prior session's "8 folders, one short"
+  endnote was stale, actually 9). Rotation: 8/9 needed `Euler(-90,0,0)`
+  (Market/Farm/Gate/Dock/Wall/House/Barracks/TownCenter) — several of these
+  (Market, House, Barracks) coincidentally had Y-tallest bounds at identity
+  despite lying flat, caught only by looking (a dome bulging out the front
+  face, not the top), not by the bounds numbers. TownCenter used the vertex
+  base/tip density method directly (wide/sprawling like Rajput's), correctly
+  predicting the same correction (31.45:1 base-heavy ratio on local Z).
+  **Tower shipped upside-down once from this session's own verification** —
+  `Euler(0,90,0)` and `Euler(0,-90,0)` both give Y-tallest bounds through the
+  civ-blind `ImportRotationCorrections["Tower"]` stomp, and the two were
+  wrongly treated as interchangeable (a "pure Y-spin can't flip up/down"
+  assumption that doesn't hold once composed with the stomp's own Z rotation);
+  caught by the user from a delivered screenshot, not by this session's
+  process — `Euler(0,-90,0)` is correct. Also hit a genuine Unity
+  `ModelImporter` bug: Wall's raw FBX imported as a 0-vertex mesh under the
+  project's default `useFileScale=true`, root-caused (not source corruption —
+  byte-identical re-copies reproduced it, but a separate one-off import of the
+  same bytes worked fine) to that FBX's embedded file-scale metadata being
+  degenerate; fixed by setting `useFileScale=false` on that one asset's
+  importer. Scale: worker height measured fresh (1.902692), ratio hierarchy
+  applied — TownCenter 11.22/Tower 8.00/Market 4.85/Barracks 4.36/Dock
+  3.81/Wall 2.66≈Gate 2.65/House 2.58/Farm 2.09. Also hit and worked around a
+  genuine `ENOSPC` mid-session (flagged as a risk by the prior session's own
+  endnote) — stopped and asked the user to free space rather than guessing
+  what was safe to delete, per CLAUDE.md. All 67 EditMode tests still pass (no
+  new tests — pure asset-pipeline work). Maratha (9 models) remains unstarted.
+  See `docs/SESSION_LOG.md`.
 
 Recommended sequencing, highest visual impact first:
 1. **TownCenter, Barracks** — every match has exactly one TC (the civ's visual
@@ -727,8 +759,8 @@ buying, or making an asset yourself:
    building models can land incrementally, one civ/building at a time, with no code
    changes needed per asset.~~ **Code groundwork done.** Actual civ-specific models
    are a separate content project (see Section 4.3) — Chola (9/9, 2026-08-28),
-   Vijayanagara (9/9, 2026-08-31), and Rajput (9/9, 2026-08-31) done;
-   Maurya/Maratha (18 models) remain.
+   Vijayanagara (9/9, 2026-08-31), Rajput (9/9, 2026-08-31), and Maurya (9/9,
+   2026-09-01) done; Maratha (9 models) remains.
 8. ~~**Visual closure for the 4 Maurya/Maratha unique units** — real Meshy-sourced
    models, rigged via Blender command-line scripting (3 onto the existing shared
    human rig, the War Elephant onto a real third-party elephant skeleton+animation

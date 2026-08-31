@@ -9,12 +9,16 @@ asset requirements, 5. Priority order).
 - Working from Roadmap Section 5's priority order.
 - Currently on: nothing started yet for the next session. Section 5 items 1-5, 7-9
   are all done. Remaining real options: **civ-specific building models for the
-  remaining civs** (Chola's 9/9, Vijayanagara's 9/9, and Rajput's 9/9 are landed;
-  Maurya/Maratha, 18 models, are unstarted; `Assets/Editor/MeshyBuildingImporter.cs`
+  remaining civ** (Chola's 9/9, Vijayanagara's 9/9, Rajput's 9/9, and Maurya's 9/9
+  are landed; Maratha, 9 models, is unstarted; `Assets/Editor/MeshyBuildingImporter.cs`
   is reusable but each asset needs its own live scale/rotation verification, not
   blind reuse of a prior civ's numbers — and not blind reuse of the "pick Y-tallest"
-  bounds heuristic either, which failed for Rajput's own wide/sprawling TownCenter,
-  see below), **wiring in a Crusader Knight body** (rig-compatibility verified positive in a concurrent session
+  bounds heuristic either, which failed for Rajput's and Maurya's own wide/sprawling
+  TownCenters, see below — and note Maurya's session shipped Tower upside-down once
+  even after a Y-tallest-bounds check, since two rotation candidates can tie on
+  bounds while one is inverted once composed with Tower's civ-blind runtime stomp;
+  always visually confirm **both** tying candidates against reference art, not just
+  one), **wiring in a Crusader Knight body** (rig-compatibility verified positive in a concurrent session
   — scale normalization + weapon re-parenting still unstarted), the **3 new
   worker-mechanics items from this session's audit** (Repair system, general
   garrisoning system, and dedicated resource-specific drop-off buildings — all real
@@ -24,7 +28,46 @@ asset requirements, 5. Priority order).
   two adjacent findings from a concurrent Naval balance session (Naval factories
   missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs
   `MeleeAttacker`'s 1.0s attack interval), or continued balance work — user's call.
-- Last completed (this session): **Rajput civ-specific building models, 9/9**
+- Last completed (this session): **Maurya civ-specific building models, 9/9**
+  (Roadmap Section 4.3 / Section 5 item 7) — wired via the same
+  `MeshyBuildingImporter.cs` pipeline, no code changes. The raw delivery
+  actually had 9 folders, not the 8 the prior session's endnote claimed (that
+  note was stale — re-checked per protocol rather than trusted); 8 resolved
+  confidently by filename, the 9th (`Domed_Stone_Sanctuary`) resolved to House
+  by elimination + live geometry check. Orientation: 8 of 9
+  (Market/Farm/Gate/Dock/Wall/House/Barracks/TownCenter) needed
+  `Quaternion.Euler(-90,0,0)` — several of these (Market, House, Barracks) had
+  *already-Y-tallest* bounds at identity purely by coincidence (X/Y extents
+  tied near Meshy's normalization ceiling) despite actually lying flat, caught
+  only by looking (a dome bulging out the front face, not the top) not by the
+  numbers alone — re-confirmed every one of the 8 visually, not just the
+  obviously-wrong-looking ones. TownCenter (wide/sprawling like Rajput's) used
+  the vertex base/tip density method directly rather than trusting bounds,
+  correctly predicting the same correction. **Tower shipped upside-down once
+  from this session's own verification, caught only by the user from a
+  delivered screenshot**: `Euler(0,90,0)` and `Euler(0,-90,0)` both give
+  Y-tallest bounds through the civ-blind `ImportRotationCorrections["Tower"]`
+  runtime stomp, and were wrongly treated as interchangeable on a "pure Y-spin
+  can't flip up/down" assumption that doesn't hold once composed with the
+  stomp's own Z rotation — `Euler(0,-90,0)` is the correct one (confirmed
+  against the Watchtower concept art from two sides). Also hit a genuine Unity
+  `ModelImporter` bug (not source corruption): Wall's raw FBX imported as a
+  0-vertex mesh under the project's default `useFileScale=true`; root-caused
+  by diffing importer settings against a working one-off import of the same
+  bytes, fixed by setting `useFileScale=false` on that one asset's importer.
+  Scale targets derived from this session's own measured worker height
+  (1.902692) against the established ratio hierarchy — TownCenter
+  11.22/Tower 8.00/Market 4.85/Barracks 4.36/Dock 3.81/Wall 2.66≈Gate
+  2.65/House 2.58/Farm 2.09, all confirmed via live `BuildingModelFactory.Spawn`
+  in both Editor and real Play mode. Hit and worked around a genuine `ENOSPC`
+  mid-session (flagged as a risk by the prior session's own endnote,
+  `df -h /` showed only 1.1Gi free before starting) — stopped and asked the
+  user to free space per CLAUDE.md rather than guessing what was safe to
+  delete; user emptied Trash, freeing 13Gi, session resumed cleanly. Raw
+  source folders deleted after confirming each prefab re-spawns correctly
+  (matching Chola's/Rajput's precedent). All 67 EditMode tests pass (no new
+  tests — pure asset-pipeline work). See `docs/SESSION_LOG.md`.
+- Previously completed: **Rajput civ-specific building models, 9/9**
   (Roadmap Section 4.3 / Section 5 item 7) — wired via the same
   `MeshyBuildingImporter.cs` pipeline, no code changes. The raw delivery had only
   8 folders for 9 building types (no Tower/Wall candidate); flagged to the user

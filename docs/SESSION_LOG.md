@@ -5,6 +5,130 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-01 — Maurya civ-specific building models wired, 9/9 (Roadmap Section 4.3 / Section 5 item 7)
+
+**Scope**: fourth content delivery against Section 4.3's civ-specific building
+spec, following Chola/Vijayanagara/Rajput (same `MeshyBuildingImporter.cs`
+pipeline, no code changes needed).
+
+**Identification**: the prior session's endnote said 8 raw folders existed
+under `Assets/Resources/buildings/Maurya/`, one short of 9 — re-checked at the
+start of this session per the "confirm it's still accurate" instruction and
+found that note stale: there were actually 9 folders (7 resolved confidently
+by Meshy-internal filename — `Ivory_Sentinel_Tower`→Tower,
+`Domed_Bazaar_Pavilion`→Market, `Lion_Temple_Farmstead`→Farm,
+`Lion_Gate_Citadel`→Gate, `Harbor_Lion_Temple`→Dock,
+`Ancient_Fortress_Wall`→Wall, plus the human-named `maurya barrack`/
+`maurya towncenter` folders), leaving exactly one ambiguous folder
+(`Domed_Stone_Sanctuary`) and exactly one unassigned type (House) — resolved
+by elimination and confirmed by live geometry inspection (single-story
+lion-pillar residence with a dome accent, matching the House concept art).
+No duplicate-asset trap like Rajput's Tower/TownCenter mixup this time.
+
+**Real mid-session incident: a corrupted-looking raw import turned out to be a
+Unity `ModelImporter` bug, not a bad source file.** Wall's raw FBX imported
+with a 0-vertex mesh (`mesh_node`, 0 verts) even after `ForceSynchronousImport`
+and a from-scratch byte-identical re-copy (confirmed via `md5`) — genuinely
+looked like source corruption. Isolated by importing the *original* untouched
+raw FBX via a separate one-off path (UnityMCP's `import_model_file`), which
+produced a normal 1,038,109-vertex mesh — proving the bytes were fine and the
+difference was purely import settings. Diffed `ModelImporter` fields between
+the working one-off import and the broken pipeline copy: identical except
+`useFileScale`/`globalScale` (pipeline default: `useFileScale=true,
+globalScale=1`, reading the FBX's own embedded file-scale metadata). Setting
+`useFileScale=false` on the `_Source/Wall/Wall_model.fbx` importer and
+reimporting fixed it immediately (1,038,109 verts). Root cause: this
+particular FBX's embedded file-scale metadata is degenerate/unreadable in a
+way Unity's importer silently resolves to an empty mesh instead of erroring —
+a real, narrow gotcha (only Wall hit it; the other 8 Maurya FBXs all imported
+fine with the project's default `useFileScale=true`). Fix has to be reapplied
+after every `MeshyBuildingImporter.ImportBuilding` call for Wall specifically,
+since re-copying the FBX resets the importer to project defaults; the raw mesh
+comes in fully unnormalized without file-scale (~190×36×116 world units before
+`extraScale`), which is fine since `extraScale` absorbs it as needed.
+
+**Rotation**: 8 of 9 needed `Quaternion.Euler(-90,0,0)` (Market, Farm, Gate,
+Dock, Wall, House, Barracks, TownCenter) — this batch's raw exports lie flat
+far more often than Chola's/Vijayanagara's/Rajput's did. Caught a real
+false-positive along the way: several of these (Market, House, Barracks) had
+*already-Y-tallest* bounds at identity rotation purely by coincidence (their
+X and Y extents happened to tie near Meshy's ~1.90 normalization ceiling),
+which would have passed a bounds-only check as "already correct." A live
+screenshot of Market at identity showed the giveaway: its dome-shaped accent
+was bulging out of the *front* face, not the top — caught only by looking,
+not by the numbers. Re-confirmed this on every one of the 8, not just the
+ones with an obviously-wrong bounds signature.
+
+**Tower — a real mistake that shipped past this session's own verification
+once, caught only by the user.** Tower needed the civ-blind
+`ImportRotationCorrections["Tower"]` treatment (a runtime `Euler(0,0,-90)`
+stomp baked into `BuildingModelFactory`, applied to the prefab root, composed
+with whatever correction is baked into the nested `Tower_model` child at
+import time). Tested all 6 cardinal single-axis candidates through the real
+`BuildingModelFactory.Spawn` path per the established method; `Euler(0,90,0)`
+and `Euler(0,-90,0)` were the only two giving Y-tallest bounds — and were
+treated as interchangeable, on the (wrong, in this case) assumption carried
+over from Vijayanagara's session that "a pure Y-axis spin can't itself
+produce an upside-down result." That assumption only holds for a *standalone*
+Y rotation; here it's composed with the factory's own Z-axis stomp, and a
+Y-then-Z (or Z-then-Y) compound rotation demonstrably *can* invert vertical
+orientation — `Euler(0,90,0)` was picked, screenshotted, and reported to the
+user as correct, but was actually upside-down (the wide lion-pedestal base
+was on top, the crenellated/domed cap was on the bottom — an easy misread in
+a single screenshot without the reference art open side-by-side). Caught by
+the user from the delivered screenshot, not by this session's own process.
+`Euler(0,-90,0)` is the correct one, confirmed against the Watchtower concept
+art from two sides after the correction. **Lesson generalized for future
+Tower-style corrections**: when a civ-blind runtime stomp is involved, two
+candidates tying on Y-tallest bounds are not interchangeable — both still
+need independent visual confirmation against the reference art, not just one
+of the pair.
+
+**TownCenter (wide/sprawling, not tall/narrow)**: concept art showed a
+monumental tiered pyramid complex with a jutting grand staircase, the same
+shape category that broke the "Y-tallest bounds" heuristic for Rajput's
+TownCenter. Used the vertex base/tip density method directly instead of
+testing bounds-based candidates: raw mesh's local Z axis showed a 31.45:1
+ratio of vertices in the bottom 15% band vs. the top 15% band (extreme
+base-heavy signature), correctly predicting the same `Euler(-90,0,0)`
+correction as the other 8 buildings. Confirmed visually from both the
+staircase side (descending cleanly to the ground, not into it) and the
+opposite side before trusting it.
+
+**Scale**: worker height measured fresh this session via `WorkerFactory.Spawn`
++ live renderer bounds (not reused from memory): 1.902692. Applied the
+established ratio hierarchy against that measurement: Tower 8.00 (target
+4.2H), Market 4.85 (2.55H), Barracks 4.36 (2.3H), Dock 3.81 (2.0H), Wall 2.66
+/ Gate 2.65 (1.4H, matching each other per convention), House 2.58 (1.35H),
+Farm 2.09 (1.1H), TownCenter 11.22 (5.9H) — all strictly taller than the
+worker, clean descending hierarchy, all landed within ~0.01 of target via
+`newScale = target / measuredHeightAtExtraScale1`.
+
+**Disk space**: hit genuine `ENOSPC` mid-session (flagged as a risk by the
+prior session's own endnote) — `df -h /` had shown only 1.1Gi free before
+starting, and an in-progress Unity FBX reimport failed outright with "Disk
+full" once it ran out; even basic shell commands (`df -h`) failed afterward
+since there was no space left for the tool's own output file. Per CLAUDE.md's
+instruction, stopped and asked the user to free space rather than guessing
+what was safe to delete; the user freed the OS Trash, restoring 13Gi. Deleted
+all 9 raw source folders under `Assets/Resources/buildings/Maurya/` at the
+end (their content is duplicated into `_Source/<Name>/` and every prefab
+re-verified spawning correctly after the deletion), matching Chola's/Rajput's
+precedent.
+
+**Verification**: every one of the 9 rotation/scale decisions was confirmed
+via a live positioned screenshot (not batch/orbit, per the known UnityMCP
+`batch="surround"` staleness bug) against its own reference concept art. Sent
+key screenshots to the user directly rather than only asserting correctness —
+this is what surfaced the Tower mistake above. Re-verified all 9 spawning
+correctly (bounds + no console errors) via the real `BuildingModelFactory.Spawn`
+path in actual Play mode, alongside a live-spawned worker for scale comparison
+(TownCenter dwarfs it, as intended), both before and after the Tower fix. All
+67 EditMode tests pass throughout (no new tests — pure asset-pipeline work,
+same as every prior civ-model session).
+
+---
+
 ## 2026-08-31 — Rajput civ-specific building models wired, 9/9 (Roadmap Section 4.3 / Section 5 item 7)
 
 **Scope**: third content delivery against Section 4.3's civ-specific building
