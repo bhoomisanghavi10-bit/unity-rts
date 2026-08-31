@@ -9,10 +9,13 @@ asset requirements, 5. Priority order).
 - Working from Roadmap Section 5's priority order.
 - Currently on: nothing started yet for the next session. Section 5 items 1-5, 7-9
   are all done. Remaining real options: **civ-specific building models for the
-  remaining 3 civs** (Chola's 9/9 and Vijayanagara's 9/9 are landed; Rajput/Maurya/
-  Maratha, 27 models, are unstarted; `Assets/Editor/MeshyBuildingImporter.cs` is
-  reusable but each asset needs its own live scale/rotation verification, not blind
-  reuse of Chola's or Vijayanagara's numbers), **wiring in a Crusader Knight body** (rig-compatibility verified positive in a concurrent session
+  remaining civs** (Chola's 9/9, Vijayanagara's 9/9, and Rajput's 8/9 are landed —
+  Rajput's TownCenter is blocked on a real asset, see below; Maurya/Maratha, 18
+  models, are unstarted; `Assets/Editor/MeshyBuildingImporter.cs` is reusable but
+  each asset needs its own live scale/rotation verification, not blind reuse of a
+  prior civ's numbers), **sourcing a real Rajput TownCenter asset** (the delivered
+  `rajput towncenter/` export turned out to be a byte-level duplicate of the Tower
+  mesh, not the grand palace shown in its own concept art — see below), **wiring in a Crusader Knight body** (rig-compatibility verified positive in a concurrent session
   — scale normalization + weapon re-parenting still unstarted), the **3 new
   worker-mechanics items from this session's audit** (Repair system, general
   garrisoning system, and dedicated resource-specific drop-off buildings — all real
@@ -22,7 +25,33 @@ asset requirements, 5. Priority order).
   two adjacent findings from a concurrent Naval balance session (Naval factories
   missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs
   `MeleeAttacker`'s 1.0s attack interval), or continued balance work — user's call.
-- Last completed (this session): **Vijayanagara building-model rotation fix**
+- Last completed (this session): **Rajput civ-specific building models, 8/9**
+  (Roadmap Section 4.3 / Section 5 item 7) — wired via the same
+  `MeshyBuildingImporter.cs` pipeline, no code changes. The raw delivery had only
+  8 folders for 9 building types (no Tower/Wall candidate); flagged to the user
+  rather than force-fit, who added a `tower/` folder and identified the two
+  remaining generic-named folders as Wall and House. Orientation: 5 of 9 (Tower,
+  Farm, Dock, Market, House) were lying on their back at import and needed
+  `Quaternion.Euler(-90,0,0)`; Barracks/Wall/Gate were already correct at
+  identity — each confirmed via single positioned screenshots against reference
+  concept art (this session's `manage_camera` `batch="surround"` mode returned
+  stale/identical images regardless of target, a tooling bug worked around by
+  switching to non-batch screenshots). Tower separately needed the usual
+  civ-blind `ImportRotationCorrections["Tower"]` treatment; this asset's
+  counter-rotation was `Euler(0,90,0)`, found via the same
+  all-6-cardinal-candidates test Vijayanagara's session established. Scale
+  targets derived from this session's own measured worker height (1.9027)
+  against the established ratio hierarchy, all confirmed to ~0.002 world units
+  via live `BuildingModelFactory.Spawn` in Editor and real Play mode. **A more
+  serious mismatch surfaced mid-verification**: the `rajput towncenter/`
+  folder's FBX is a byte-level duplicate (338 bytes differ out of 80MB) of the
+  new Tower folder's FBX — it renders as a watchtower, not the grand palace
+  shown in its own bundled concept art. TownCenter's real asset was never
+  delivered; the exploratory TownCenter prefab was deleted (falls back to the
+  shared model) rather than ship a mislabeled watchtower, and the gap is
+  flagged above rather than decided silently. All 67 EditMode tests pass (no
+  new tests — pure asset-pipeline work). See `docs/SESSION_LOG.md`.
+- Previously completed (same day): **Vijayanagara building-model rotation fix**
   (ad hoc bug report, not a roadmap item) — user reported 6 of Vijayanagara's 9
   buildings (Dock, Gate, Wall, Farm, House, Market) spawned misoriented (Z-up
   source meshes lying flat in the Y-up scene, some read as upside down/

@@ -5,6 +5,86 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-08-31 — Rajput civ-specific building models wired, 8/9 (Roadmap Section 4.3 / Section 5 item 7)
+
+**Scope**: third content delivery against Section 4.3's civ-specific building
+spec, following Chola's 2026-08-28 and Vijayanagara's earlier-today sessions
+(same `MeshyBuildingImporter.cs` pipeline, no code changes needed).
+
+**Identification**: the raw delivery under `Assets/Resources/buildings/Rajput/`
+only had 8 folders for 9 required building types — no Tower or Wall candidate.
+6 of the 8 resolved confidently from explicit Meshy-internal filenames
+(`Rose_Palace_Farmstead`→Farm, `Harbor_Palace_of_Rose`→Dock,
+`Rose_Palace_Bazaar`→Market, `Rose_Citadel_Gate`→Gate, plus the two
+human-named `rajput towncenter`/`rajput barrack` folders); the remaining 2
+(`Red_Sandstone_Citadel`, `Rose_Sandstone_Courty`) were genuinely ambiguous —
+"Citadel" is also used internally by both the TownCenter and Barracks exports,
+so it isn't a reliable signal. Live geometry inspection (import + 6-angle
+screenshot vs. reference concept art) showed both looked like the House
+reference (compact single-story, corner chhatri domes, front stairs, raised
+courtyard) and neither matched Tower's tall-narrow or Wall's long-horizontal
+silhouette — flagged to the user as a real content gap rather than force-fit.
+User added a new `tower/` folder and identified the two ambiguous ones as Wall
+(`Red_Sandstone_Citadel`) and House (`Rose_Sandstone_Courty`).
+
+**A second, more serious mismatch surfaced during verification**: byte-diffing
+the new `tower/` folder's FBX against `rajput towncenter/`'s FBX (both
+internally named `Rosestone_Citadel`, different job-ID suffixes) showed only
+338 bytes differ out of an 80MB file — metadata/timestamps only, same
+geometry. Spawning `rajput towncenter/`'s asset through the real pipeline
+confirmed it renders as a watchtower, not the grand multi-tier palace shown in
+that folder's own bundled concept art. **TownCenter's true raw asset was never
+delivered** — what's sitting in `rajput towncenter/` is a duplicate of the
+Tower export. Rather than ship a watchtower mislabeled as the civ's Town
+Center, the exploratory TownCenter prefab was deleted (`BuildingModelFactory`
+falls back to the shared TownCenter model until a real asset arrives) and the
+gap flagged to the user instead of decided silently.
+
+**Orientation** (mandatory per-model live visual check against reference art,
+not AABB-only, per the gotcha this civ's own predecessor sessions established):
+Tower, Farm, Dock, Market, and House were all lying on their back at import
+(Y=0.87-1.18 vs. a ~1.9 horizontal axis) and needed `Quaternion.Euler(-90,0,0)`
+baked onto the nested model child; Barracks, Wall, and Gate were already
+correctly oriented at identity — confirmed via single (non-batch) positioned
+screenshots against each building's reference concept art, not assumed from
+the bounds numbers alone. Tower separately needed the usual civ-blind
+`BuildingModelFactory.ImportRotationCorrections["Tower"]` treatment
+(`Euler(0,0,-90)`, applied at runtime on top of whatever's baked at import) —
+this asset's correct import-time counter-rotation was `Euler(0,90,0)`, found
+by testing all 6 cardinal single-90°-rotation candidates through the real
+`BuildingModelFactory.Spawn` path and picking the Y-tallest result, then
+confirming visually, matching Vijayanagara's exact methodology rather than
+guessing the axis mathematically.
+
+**A tooling issue was hit and worked around**: `manage_camera`'s
+`batch="surround"` screenshot mode returned identical cached images regardless
+of which GameObject was targeted (confirmed by requesting two visibly
+different buildings back-to-back and getting pixel-identical contact sheets)
+— not a project bug, a bug in this session's MCP screenshot tooling. Switched
+to single (non-batch) positioned screenshots with an explicit
+`screenshot_file_name` for every verification shot in this session instead,
+which correctly re-rendered each time.
+
+**Scale**: worker height measured fresh this session (1.9027, via
+`HumanModelFactory`-spawned live renderer bounds — matches Vijayanagara's
+1.903, confirming worker bodies are civ-blind as expected) and applied against
+Chola/Vijayanagara's established ratio hierarchy, landing on: Tower 7.84
+(4.12x), Market 4.85 (2.55x), Barracks 4.30 (2.64x), Dock 3.73 (3.17x),
+Wall≈Gate 2.61 (5.13x/7.81x — these two also needed a much larger extraScale
+since their raw imports came in far flatter at extraScale=1, not because the
+target ratio changed), House 2.51 (1.89x), Farm 2.06 (2.12x). All 8 confirmed
+to within ~0.002 world units of target via live `BuildingModelFactory.Spawn`
+renderer bounds, in both Editor mode and a real Play mode session (spawned,
+measured, screenshotted, no new console errors beyond pre-existing/unrelated
+NavMesh warnings from the off-map test position). All 67 EditMode tests still
+pass (no new tests — pure asset-pipeline work, no new logic).
+
+**Not done this session, per user instruction to stop after Rajput**:
+Maurya/Maratha (18 models). **Left for a future session**: a real Rajput
+TownCenter asset.
+
+---
+
 ## 2026-08-31 — Vijayanagara building-model rotation fix (ad hoc, not a roadmap item)
 
 **Scope**: user reported 6 of Vijayanagara's 9 buildings (Dock, Gate, Wall, Farm,

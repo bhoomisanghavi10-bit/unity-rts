@@ -440,6 +440,40 @@ types (TownCenter, Barracks, Tower, Market, Farm, House, Wall, Gate, Dock) × 5 
   Chola buildings re-checked as a precaution — no regression found. See
   `docs/SESSION_LOG.md`'s "Vijayanagara building-model rotation fix" entry.
 
+- [x] **Rajput (8/9) — done 2026-08-31; TownCenter blocked, not a code gap.**
+  Wired via the same `MeshyBuildingImporter.cs` pipeline, no code changes.
+  Identification: 6/9 resolved confidently from explicit Meshy-internal
+  filenames (`Rose_Palace_Farmstead`→Farm, `Harbor_Palace_of_Rose`→Dock,
+  `Rose_Palace_Bazaar`→Market, `Rose_Citadel_Gate`→Gate, plus the two
+  human-named `rajput towncenter`/`rajput barrack` folders); the raw delivery
+  only had 8 folders for 9 building types (no Tower/Wall candidate), flagged to
+  the user rather than force-fit — user then added a `tower/` folder and
+  identified the two remaining generic-named folders as Wall
+  (`Red_Sandstone_Citadel`) and House (`Rose_Sandstone_Courty`). Orientation:
+  6 of 9 (TownCenter's folder, Tower, Farm, Dock, Market, House) were lying on
+  their back at import (Z-up source, Y=0.87-1.18 vs. a ~1.9 horizontal axis)
+  and needed `Quaternion.Euler(-90,0,0)` on the nested model child; Barracks,
+  Wall, and Gate were already correctly oriented at identity. Tower needed the
+  usual civ-blind `ImportRotationCorrections["Tower"]` counter-rotation
+  treatment — this asset's fix was `Quaternion.Euler(0,90,0)`, found via the
+  same all-6-cardinal-candidates-through-the-full-spawn-stack test as
+  Vijayanagara's. Scale: targets derived from this session's own measured
+  worker height (1.9027) against Chola/Vijayanagara's established ratio
+  hierarchy, landing on (in world units) Tower 7.84/Market 4.85/Barracks
+  4.30/Dock 3.73/Wall≈Gate 2.61/House 2.51/Farm 2.06 — all confirmed to
+  1-2 thousandths of the target via live `BuildingModelFactory.Spawn` bounds
+  in both Editor and real Play mode. **TownCenter not wired**: byte-diffing its
+  raw FBX against the new Tower folder's FBX showed only 338 bytes differ out
+  of an 80MB file (metadata/timestamps only) — the file sitting in
+  `rajput towncenter/` is the *same Tower/Watchtower mesh*, not the grand
+  multi-tier palace shown in that folder's own bundled concept art. Rather than
+  ship a watchtower mislabeled as the civ's Town Center, the exploratory
+  TownCenter prefab was deleted so `BuildingModelFactory.Spawn` falls back to
+  the shared TownCenter model; a genuine Rajput TownCenter export is still
+  needed from the user. All 67 EditMode tests still pass (no new tests — pure
+  asset-pipeline work). Maurya/Maratha (18 models) remain unstarted. See
+  `docs/SESSION_LOG.md`.
+
 Recommended sequencing, highest visual impact first:
 1. **TownCenter, Barracks** — every match has exactly one TC (the civ's visual
    anchor) and Barracks is the first production building; smallest set (10 models)
@@ -658,8 +692,9 @@ buying, or making an asset yourself:
    civ-keyed model path before falling back to today's shared model, so civ-specific
    building models can land incrementally, one civ/building at a time, with no code
    changes needed per asset.~~ **Code groundwork done.** Actual civ-specific models
-   are a separate content project (see Section 4.3) — Chola (9/9, 2026-08-28) and
-   Vijayanagara (9/9, 2026-08-31) done; Rajput/Maurya/Maratha (27 models) remain.
+   are a separate content project (see Section 4.3) — Chola (9/9, 2026-08-28),
+   Vijayanagara (9/9, 2026-08-31), and Rajput (8/9, 2026-08-31; TownCenter
+   blocked on a real asset) done; Maurya/Maratha (18 models) remain.
 8. ~~**Visual closure for the 4 Maurya/Maratha unique units** — real Meshy-sourced
    models, rigged via Blender command-line scripting (3 onto the existing shared
    human rig, the War Elephant onto a real third-party elephant skeleton+animation
