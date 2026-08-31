@@ -41,6 +41,7 @@ namespace KingdomsOfBharat.Units
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure((def != null ? def.maxHP : 15f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureClass(UnitClass.Naval);
+            go.AddComponent<KingdomsOfBharat.Combat.Repairable>();
             go.AddComponent<HealthBar>();
             go.AddComponent<FactionMember>().Configure(faction);
 

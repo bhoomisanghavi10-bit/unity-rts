@@ -44,6 +44,7 @@ namespace KingdomsOfBharat.Units
                 meleeArmor: (def != null ? def.meleeArmor : 0f) + UpgradeProgress.ArmorBonus(faction),
                 pierceArmor: (def != null ? def.pierceArmor : 0f) + UpgradeProgress.ArmorBonus(faction));
             attackable.ConfigureClass(UnitClass.Naval);
+            go.AddComponent<KingdomsOfBharat.Combat.Repairable>();
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<BoatAttacker>();

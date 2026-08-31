@@ -145,15 +145,36 @@ entirely. What follows is the real remaining list.
   building type(s), factory/placement/footprint wiring, and updating
   `Gatherer.FindNearestDropOff` to filter by resource type per drop-off kind
   instead of a hardcoded `is TownCenter` check. Not started.
-- [ ] **Repair system** (from the worker mechanics audit, 2026-08-29) — completely
+- [x] **Repair system** (from the worker mechanics audit, 2026-08-29) — completely
   missing; no `Repair` anywhere in the codebase. AoE reference: right-click a
   damaged building/ship/siege unit with a worker selected to repair it, at a
-  resource cost proportional to HP restored. Needs a new right-click command path
-  through `SelectionManager` (mirroring the existing `Builder`/`ConstructionSite`
-  and `FarmWorker`/`Farm` "worker-side component + target-side component" shape),
-  a repair-rate/resource-cost formula, and interaction with `Attackable`'s
-  existing HP/`ConstructionSite`'s completion state. Not started — real new
-  system, not a small tweak.
+  resource cost proportional to HP restored.
+  **Closed 2026-09-01.** New `Repairable` (`Assets/Scripts/Combat/Repairable.cs`,
+  target-side) and `Repairer` (`Assets/Scripts/Buildings/Repairer.cs`, worker-side)
+  mirror `Builder`/`ConstructionSite`'s exact shape, and reuse
+  `ConstructionSite.SpeedMultiplier` directly for multi-repairer diminishing
+  returns instead of a second formula. Wired onto all 9 building kinds (incl.
+  TownCenter), Siege, and both naval units (Fishing Boat/War Galley) - 12
+  factories, one `AddComponent<Repairable>()` line each. `SelectionManager`
+  gained a `hitRepairable` branch (same friendly-only chain-of-exclusivity
+  pattern as `hitGarrison`/`hitFarm`), and every other order branch now cancels
+  an in-progress repair. **Known, disclosed simplification**: this project
+  doesn't retain each building/unit instance's original build/train cost at
+  runtime (those consts are spent once in `BuildingPlacer`/`Barracks`/`Dock`,
+  never stored on the spawned object) - deriving an exact "half of original
+  cost" per instance would mean threading cost data through every factory's
+  `Place`/`Spawn` signature. `Repairable` instead charges a flat Wood-per-HP
+  rate keyed off `Attackable.Class` (Building cheapest at 0.4/HP, Naval 0.6/HP,
+  Siege priciest at 1.2/HP) - an approximation, not an exact per-instance
+  figure, refinable later if exactness is wanted. 8 new EditMode tests
+  (`RepairableTests.cs`, via an `internal Tick(deltaTime)` exposed the same way
+  `ConstructionSite.EnsureInitialized` is, since EditMode tests can't rely on
+  `Update()`/`Time.deltaTime` ticking); all 75 tests pass. Live-verified in
+  Play mode via UnityMCP: real HP restoration and Wood deduction at the exact
+  documented rate, a stall-then-resume across an insufficient-funds gap with no
+  partial/lost spend, auto-stop on reaching full health, `UnitStatus` showing
+  "Repairing", and `Repairable` correctly present with the right `UnitClass` on
+  a live-spawned Siege unit and War Galley. See `docs/SESSION_LOG.md`.
 - [ ] **General garrisoning system** (from the worker mechanics audit, 2026-08-29) —
   the only existing `Garrison` component (`Assets/Scripts/Buildings/Garrison.cs`)
   is narrowly scoped to the Maratha Durg Garrison unique unit, single-slot,
@@ -861,3 +882,9 @@ buying, or making an asset yourself:
     defer the Crusader Knight swap). Scoped gear/prop variants as a spec for the
     user to source. Body swap and gear/prop implementation remain open, tracked in
     Section 1's matching item — user's call on when to pick them up.
+11. ~~**Repair system** (worker mechanics audit item) — right-click a damaged
+    building/ship/siege unit with a worker to heal it at a Wood cost proportional
+    to HP restored.~~ **Done** (2026-09-01). New `Repairable`/`Repairer` mirror
+    `ConstructionSite`/`Builder`'s shape and reuse its diminishing-returns
+    multi-worker formula; wired onto all 9 building kinds, Siege, and both naval
+    units. See Section 1's matching item and `docs/SESSION_LOG.md`.

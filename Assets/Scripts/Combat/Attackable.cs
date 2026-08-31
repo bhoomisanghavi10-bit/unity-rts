@@ -57,6 +57,13 @@ namespace KingdomsOfBharat.Combat
             Health = Mathf.Clamp(savedHealth, 0f, maxHealth);
         }
 
+        // Live/incremental healing (Repairable) - adds to current Health,
+        // unlike RestoreHealth's absolute save/load snap.
+        public void Heal(float amount)
+        {
+            Health = Mathf.Min(maxHealth, Health + amount);
+        }
+
         // Armor is additive on top of whatever Configure(maxHealth) already
         // set - factories call this second, after Configure, so a caller
         // that skips it just gets 0/0 armor (today's pre-armor behavior).

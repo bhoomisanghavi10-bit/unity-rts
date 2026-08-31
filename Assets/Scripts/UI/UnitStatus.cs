@@ -24,6 +24,11 @@ namespace KingdomsOfBharat.UI
                 return "Building";
             }
 
+            if (unit.TryGetComponent(out Repairer repairer) && repairer.IsRepairing)
+            {
+                return "Repairing";
+            }
+
             if (unit.TryGetComponent(out FarmWorker farmWorker) && farmWorker.IsFarming)
             {
                 return "Farming";

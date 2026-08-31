@@ -8,7 +8,8 @@ asset requirements, 5. Priority order).
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
 - Currently on: nothing started yet for the next session. Section 5 items 1-9 are
-  all done. Item 7 (civ-specific building models) is fully closed — **all 5 civs,
+  all done, and item 11 (Repair system) is now done too. Item 7 (civ-specific
+  building models) is fully closed — **all 5 civs,
   45/45 models landed** (Chola, Vijayanagara, Rajput, Maurya, Maratha).
   `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any future
   civ-model work, but every lesson below stays load-bearing: never trust bounds
@@ -19,26 +20,62 @@ asset requirements, 5. Priority order).
   wide/sprawling shapes, is what actually catches it), and when two rotation
   candidates tie on Y-tallest bounds (as with any `ImportRotationCorrections`-keyed
   asset like Tower), always visually confirm **both** tying candidates against
-  reference art, not just one. A new **"Per-civ soldier visual differentiation"**
+  reference art, not just one. A **"Per-civ soldier visual differentiation"**
   initiative started 2026-09-01 (Roadmap Section 1, supersedes the old "wire in
-  Crusader Knight body" item): the base-body decision is now made deliberately
+  Crusader Knight body" item) had its session 1 (tint-gap fix + scoping) closed
+  the same day: the base-body decision is now made deliberately
   (**keep the current Human Character Dummy, don't swap** — see below), and the
-  Maurya/Maratha untinted-white tint bug is fixed. Remaining real options: the
+  Maurya/Maratha untinted-white tint bug is fixed. **Repair system, one of the 3
+  worker-mechanics-audit items, closed 2026-09-01** — see below; general
+  garrisoning system and dedicated resource-specific drop-off buildings from that
+  same audit remain open. Remaining real options for a future session: the
   **Crusader Knight body swap itself** (rig-compatibility verified positive in a
   concurrent session, base-body decision made 2026-09-01 to defer it — scale
-  normalization + weapon re-parenting still unstarted, now scoped under the new
-  initiative rather than its own separate item), **per-civ gear/prop variants**
-  (helmet/shield/weapon style per civ — real new asset need, spec written this
-  session, needs the user to source), the **3 new worker-mechanics items from an
-  earlier session's audit** (Repair system, general garrisoning system, and
-  dedicated resource-specific drop-off buildings — all real new systems, none
-  started, see Roadmap Section 1's "worker mechanics audit" entry for full scoping
-  notes), other "everything else" items (music, tutorial, performance profiling,
+  normalization + weapon re-parenting still unstarted, now scoped under the
+  per-civ-soldier-visuals initiative rather than its own separate item),
+  **per-civ gear/prop variants** (helmet/shield/weapon style per civ — real new
+  asset need, spec written 2026-09-01, needs the user to source), **general
+  garrisoning system** and **dedicated resource-specific drop-off buildings**
+  (the other 2 worker-mechanics-audit items — real new systems, neither started,
+  see Roadmap Section 1's "worker mechanics audit" entry for full scoping notes),
+  other "everything else" items (music, tutorial, performance profiling,
   store assets, multiplayer determinism gaps, README drift), two adjacent findings
   from a concurrent Naval balance session (Naval factories missing
   `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs `MeleeAttacker`'s
   1.0s attack interval), or continued balance work — user's call.
-- Last completed (this session): **Per-civ soldier visual differentiation,
+- Last completed (this session): **Repair system** (Roadmap Section 1
+  worker-mechanics-audit item / Section 5 item 11) — right-click a damaged
+  building/ship/siege unit with a worker selected to repair it, at a resource
+  cost proportional to HP restored, the AoE reference behavior. New
+  `Repairable` (`Assets/Scripts/Combat/Repairable.cs`, target-side) and
+  `Repairer` (`Assets/Scripts/Buildings/Repairer.cs`, worker-side) mirror
+  `Builder`/`ConstructionSite`'s exact shape, reusing
+  `ConstructionSite.SpeedMultiplier` directly for multi-repairer diminishing
+  returns rather than a second formula. Wired onto all 9 building kinds (incl.
+  TownCenter), Siege, and both naval units — 12 factories, one line each.
+  `SelectionManager` gained a `hitRepairable` branch (same friendly-only
+  chain-of-exclusivity pattern as `hitGarrison`/`hitFarm`), and every other
+  order branch now cancels an in-progress repair. **Known, disclosed
+  compromise**: this project doesn't retain each building/unit instance's
+  original build/train cost at runtime, so `Repairable` charges a flat
+  Wood-per-HP rate keyed off `Attackable.Class` (Building 0.4/HP cheapest,
+  Naval 0.6/HP, Siege 1.2/HP priciest) rather than an exact per-instance "half
+  of original cost" figure — refinable later if exactness is wanted. Hit and
+  fixed a real EditMode-test-only gotcha along the way: an initial draft cached
+  `Attackable` in `Repairable.Awake()`, which silently failed in EditMode tests
+  because Unity doesn't guarantee `Awake` has run synchronously right after
+  `AddComponent` there (same class of issue `ConstructionSiteTests`'s own
+  comment already flags) — fixed by lazily resolving via a property getter
+  instead, same convention Barracks/Dock already use for their own
+  Site/FactionMember. 8 new EditMode tests via an `internal Tick(deltaTime)`
+  (same pattern as `ConstructionSite.EnsureInitialized`); all 75 EditMode tests
+  pass. Live-verified in Play mode via UnityMCP: real HP restoration and Wood
+  deduction at the exact documented rate, a stall-then-resume across an
+  insufficient-funds gap with zero value lost, auto-stop at full health,
+  `UnitStatus` showing "Repairing", and `Repairable` correctly present with the
+  right `UnitClass` on a live-spawned Siege unit and War Galley. See
+  `docs/SESSION_LOG.md`.
+- Previously completed: **Per-civ soldier visual differentiation,
   session 1 — tint-gap fix + scoping** (new Roadmap Section 1 item, supersedes
   the old Crusader Knight item). `HumanModelFactory.PaletteNameFor()`
   (`Assets/Scripts/Units/HumanModelFactory.cs:158`) only wired 3 of 5 civs

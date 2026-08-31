@@ -42,6 +42,7 @@ namespace KingdomsOfBharat.Buildings
             attackable.Configure(MaxHealth * fortificationMultiplier);
             attackable.ConfigureArmor(meleeArmor: 4f, pierceArmor: 6f);
             attackable.ConfigureClass(UnitClass.Building);
+            go.AddComponent<Repairable>();
             go.AddComponent<HealthBar>();
             // Phase 6 gap-close: Vijayanagara's "Towers get +1 attack range" bonus.
             go.AddComponent<TowerAttacker>().Configure(

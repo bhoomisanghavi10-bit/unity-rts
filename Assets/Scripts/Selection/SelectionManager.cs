@@ -396,8 +396,19 @@ namespace KingdomsOfBharat.Selection
             bool hitGarrison = !hitNode && !hitSite && !hitFarm && !hitLivestock
                 && hit.collider.TryGetComponent(out garrison)
                 && IsFriendlyToPlayer(garrison);
+            // Repair system (worker mechanics audit, 2026-08-29): right-
+            // clicking a friendly damaged building/ship/siege unit with a
+            // worker selected repairs it - same "friendly-only, falls
+            // through to attack otherwise" gating as hitFarm/hitLivestock/
+            // hitGarrison above. IsRepairable already excludes full-health/
+            // dead/still-under-construction targets.
+            Repairable repairable = null;
+            bool hitRepairable = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison
+                && hit.collider.TryGetComponent(out repairable)
+                && repairable.IsRepairable
+                && IsFriendlyToPlayer(repairable);
             Attackable attackable = null;
-            bool hitAttackable = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison
+            bool hitAttackable = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable
                 && hit.collider.TryGetComponent(out attackable)
                 && !attackable.IsDead;
 
@@ -442,6 +453,7 @@ namespace KingdomsOfBharat.Selection
                 unit.TryGetComponent(out FarmWorker farmWorker);
                 unit.TryGetComponent(out LivestockWorker livestockWorker);
                 unit.TryGetComponent(out DurgGarrisonWorker durgWorker);
+                unit.TryGetComponent(out Repairer repairer);
                 // Item 49: a boat has none of the land components above -
                 // Gatherer/Builder/MeleeAttacker/FarmWorker/LivestockWorker
                 // are all null for it - so it needs its own equivalents
@@ -456,6 +468,7 @@ namespace KingdomsOfBharat.Selection
                     attacker?.CancelAttack();
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
+                    repairer?.CancelRepair();
                     gatherer?.GatherFrom(node);
                     boatAttacker?.CancelAttack();
                     boatGatherer?.GatherFrom(node);
@@ -466,6 +479,7 @@ namespace KingdomsOfBharat.Selection
                     attacker?.CancelAttack();
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
+                    repairer?.CancelRepair();
                     builder?.BuildAt(site);
                 }
                 else if (hitFarm && farmWorker != null && IsSameFaction(unit, farm))
@@ -474,6 +488,7 @@ namespace KingdomsOfBharat.Selection
                     builder?.CancelBuild();
                     attacker?.CancelAttack();
                     livestockWorker?.CancelWork();
+                    repairer?.CancelRepair();
                     farmWorker.StaffAt(farm);
                 }
                 else if (hitLivestock && livestockWorker != null)
@@ -482,6 +497,7 @@ namespace KingdomsOfBharat.Selection
                     builder?.CancelBuild();
                     attacker?.CancelAttack();
                     farmWorker?.CancelWork();
+                    repairer?.CancelRepair();
                     livestockWorker.StaffAt(livestock);
                 }
                 else if (hitGarrison && durgWorker != null && IsSameFaction(unit, garrison))
@@ -491,7 +507,17 @@ namespace KingdomsOfBharat.Selection
                     attacker?.CancelAttack();
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
+                    repairer?.CancelRepair();
                     durgWorker.GarrisonAt(garrison);
+                }
+                else if (hitRepairable && repairer != null && IsSameFaction(unit, repairable))
+                {
+                    gatherer?.CancelGather();
+                    builder?.CancelBuild();
+                    attacker?.CancelAttack();
+                    farmWorker?.CancelWork();
+                    livestockWorker?.CancelWork();
+                    repairer.RepairAt(repairable);
                 }
                 else if (hitAttackable && attacker != null && IsHostileTarget(unit, attackable))
                 {
@@ -499,6 +525,7 @@ namespace KingdomsOfBharat.Selection
                     builder?.CancelBuild();
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
+                    repairer?.CancelRepair();
                     FactionId attackFaction = unit.TryGetComponent(out FactionMember attackUnitFaction)
                         ? attackUnitFaction.Faction
                         : FactionId.Player;
@@ -519,6 +546,7 @@ namespace KingdomsOfBharat.Selection
                     attacker?.CancelAttack();
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
+                    repairer?.CancelRepair();
                     boatGatherer?.CancelGather();
                     boatAttacker?.CancelAttack();
                     if (unit.TryGetComponent(out UnitMover mover))

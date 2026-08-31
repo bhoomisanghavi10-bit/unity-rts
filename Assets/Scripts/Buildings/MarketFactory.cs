@@ -34,6 +34,7 @@ namespace KingdomsOfBharat.Buildings
             attackable.Configure(MaxHealth);
             attackable.ConfigureArmor(meleeArmor: 1f, pierceArmor: 1f);
             attackable.ConfigureClass(UnitClass.Building);
+            go.AddComponent<Repairable>();
             go.AddComponent<HealthBar>();
             go.AddComponent<FactionMember>().Configure(faction);
 

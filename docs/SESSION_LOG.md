@@ -5,6 +5,97 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-01 — Repair system (Roadmap Section 1 worker-mechanics-audit item / Section 5 item 11)
+
+**Scope**: the 2026-08-29 worker mechanics audit found Repair completely missing — no
+`Repair` anywhere in the codebase. User chose this over the Crusader Knight body swap,
+gear/prop variants (needs sourced art first), and General Garrisoning as this
+session's item, via `AskUserQuestion`. AoE reference: right-click a damaged
+building/ship/siege unit with a worker selected to repair it, at a resource cost
+proportional to HP restored.
+
+**What changed**:
+- `Assets/Scripts/Combat/Attackable.cs`: new `Heal(float amount)` — incremental/live
+  healing, distinct from the existing `RestoreHealth` (absolute, save/load-only).
+- New `Assets/Scripts/Combat/Repairable.cs` (target-side): mirrors
+  `ConstructionSite`'s shape exactly (`BeginRepair`/`StopRepair` tracking
+  `_activeRepairers`, ticks only while `> 0`) and reuses
+  `ConstructionSite.SpeedMultiplier` directly for multi-repairer diminishing returns
+  instead of a second formula. `IsRepairable` requires not dead, damaged, and (no
+  `ConstructionSite` or `IsComplete`) — a foundation mid-build stays Builder's job.
+  Every field (`Attackable`, `ConstructionSite`, `FactionMember`) is lazily resolved
+  via a property getter, not cached in `Awake()` — same "AddComponent ordering
+  hazard" convention Barracks/Dock already use, and the same reason
+  `ConstructionSiteTests` avoids relying on `Awake` timing in EditMode (confirmed the
+  hard way: an initial `Awake()`-caching draft passed compilation but 4 of 8 new
+  tests failed with the target's `Attackable` reading null — Unity doesn't
+  guarantee `Awake` has run synchronously right after `AddComponent` inside an
+  EditMode test).
+- New `Assets/Scripts/Buildings/Repairer.cs` (worker-side): byte-for-byte shape of
+  `Builder.cs` (`RepairAt`/`CancelRepair`/`IsRepairing`, in-range `Begin`/out-of-range
+  `Stop`).
+- **Known, disclosed simplification**: this project doesn't retain each
+  building/unit instance's original build/train cost at runtime (those consts are
+  spent once at creation in `BuildingPlacer`/`Barracks`/`Dock`, never stored on the
+  spawned object) — deriving an exact "half of original cost" per instance would mean
+  threading cost data through every factory's `Place`/`Spawn` signature, a much
+  bigger change than this item warrants. `Repairable` instead charges a flat
+  Wood-per-HP rate keyed off `Attackable.Class`: Building 0.4/HP (cheapest),
+  Naval 0.6/HP, Siege 1.2/HP (priciest), 0.5/HP default fallback. Documented as an
+  approximation, not an exact per-instance figure — refinable later if the user wants
+  exactness, same spirit as Maurya's neutral-gray tint compromise.
+- Wired `Repairable` onto all 9 building kinds (Barracks, Farm, House, Wall, Gate,
+  Tower, Market, Dock, TownCenter), Siege, and both naval units (Fishing Boat, War
+  Galley) — 12 factories, one `AddComponent<Repairable>()` line each, right after the
+  existing `ConfigureClass` call. Wired `Repairer` onto `WorkerFactory`.
+- `Assets/Scripts/Selection/SelectionManager.cs`: new `hitRepairable` candidate in
+  `HandleMoveInput`, following the exact `hitGarrison`/`hitFarm` chain-of-exclusivity
+  pattern (friendly-only via `IsFriendlyToPlayer`, per-unit `IsSameFaction` re-check).
+  Added `repairer?.CancelRepair()` to every other order branch so starting a
+  different task correctly interrupts an in-progress repair.
+- `Assets/Scripts/UI/UnitStatus.cs`: added a "Repairing" status line (via
+  `Repairer.IsRepairing`), right after "Building" — shown in both
+  `SelectedUnitPanel` and `HoverTooltip` since both read this shared helper.
+
+**Tests**: 8 new EditMode tests (`Assets/Tests/EditMode/RepairableTests.cs`), via an
+`internal Tick(float deltaTime)` exposed the same way `ConstructionSite.
+EnsureInitialized` is (see `Assets/Scripts/AssemblyInfo.cs`'s `InternalsVisibleTo`) —
+Update()/Time.deltaTime can't be relied on to tick inside an EditMode test. Covers:
+heal + Wood spend at the documented Building rate, per-class rate ordering
+(Building < Naval < Siege), the multi-repairer `SpeedMultiplier` reuse, clamping at
+max health (and only charging for the actual HP delivered, not the requested amount),
+full-health/dead/still-under-construction all correctly reading `IsRepairable ==
+false`, and an insufficient-funds tick stalling with zero partial heal/spend. All 75
+EditMode tests pass (67 previous + 8 new).
+
+**Live verification** (Play mode via UnityMCP `execute_code`, not just EditMode
+tests): spawned a real Barracks via `BarracksFactory.Place` + `CompleteImmediately()`,
+damaged it via `Attackable.TakeDamage`, spawned a real Worker via
+`WorkerFactory.Spawn`, and called `Repairer.RepairAt` directly (bypassing the mouse
+raycast, which UnityMCP can't drive precisely) — the production `SelectionManager`
+wiring itself compiled clean with zero console errors, same as the rest of the
+project. Confirmed: HP climbed from 102→300 (Barracks MaxHealth 300, melee armor 2)
+while Wood dropped by exactly 198 × 0.4 = 79.2 (the documented Building rate);
+`Repairer` auto-stopped and `UnitStatus` returned to "Idle" once fully healed;
+draining Wood to near-zero mid-repair produced a genuine stall (HP and Wood both
+static) that resumed correctly and finished exactly at the documented rate once Wood
+was topped back up, with zero value lost across the stall; `UnitStatus` showed
+"Repairing" while a worker was actively in range; a live-spawned Siege unit and War
+Galley both carry `Repairable` with the correct `UnitClass` (`Siege`/`Naval`). One
+observation not chased further given session scope: a second repairer spawned
+mid-test to check the diminishing-returns multiplier live never registered as
+`IsRepairing` before the target reached full health from real elapsed wall-clock
+time between tool calls (Unity keeps ticking between MCP round-trips) — the
+diminishing-returns formula itself is already directly covered by an EditMode test
+reusing `ConstructionSite.SpeedMultiplier`'s own proven values, so this wasn't
+pursued as a live-verification blocker, but is worth a second look if the multi-
+repairer path specifically is ever suspected of a bug later.
+
+**Roadmap**: Section 1's Repair system item checked off with a closure summary;
+Section 5 gained item 11.
+
+---
+
 ## 2026-09-01 — Per-civ soldier visual differentiation, session 1: tint-gap fix + scoping (new Roadmap Section 1 item, supersedes the old Crusader Knight item)
 
 **Scope**: first session of a new initiative — differentiate the 5 civs'

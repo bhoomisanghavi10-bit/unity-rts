@@ -75,6 +75,7 @@ namespace KingdomsOfBharat.Units
             gatherer.SetRateMultiplier(gatherRateMultiplier);
             gatherer.SetCarryCapacityMultiplier(carryCapacityMultiplier);
             go.AddComponent<Builder>();
+            go.AddComponent<Repairer>();
             go.AddComponent<FarmWorker>();
             go.AddComponent<LivestockWorker>();
             var attackable = go.AddComponent<Attackable>();

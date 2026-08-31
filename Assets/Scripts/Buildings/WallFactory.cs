@@ -48,6 +48,7 @@ namespace KingdomsOfBharat.Buildings
             attackable.Configure(MaxHealth * fortificationMultiplier);
             attackable.ConfigureArmor(meleeArmor: 6f, pierceArmor: 4f);
             attackable.ConfigureClass(UnitClass.Building);
+            go.AddComponent<Repairable>();
             go.AddComponent<HealthBar>();
             go.AddComponent<FactionMember>().Configure(faction);
             // Roadmap Section 5 item 3: lets a Maratha Durg Garrison unit
