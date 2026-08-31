@@ -62,6 +62,10 @@ namespace KingdomsOfBharat.Units
             var unit = go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
+            // General garrisoning system (2026-09-01): lets this unit be
+            // ordered to walk to and enter a friendly GarrisonPoint - see
+            // GarrisonSeeker.
+            go.AddComponent<GarrisonSeeker>();
             // Phase 6 gap-close: EconomyTechProgress's ImprovedTools/
             // PackMules techs layer on top of the civ/age multipliers
             // already here, same "multiply everything relevant together"

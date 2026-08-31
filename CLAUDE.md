@@ -7,8 +7,12 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- Currently on: nothing started yet for the next session. Section 5 items 1-9 are
-  all done, and item 11 (Repair system) is now done too. Item 7 (civ-specific
+- Currently on: nothing started yet for the next session. **Next session:
+  Dedicated resource-specific drop-off buildings** (the last of the 3
+  worker-mechanics-audit items — Lumber Camp/Mining Camp/Mill-equivalent
+  buildings, real new content; see Roadmap Section 1's matching item). Section
+  5 items 1-9 are all done, and items 11 (Repair) and 12 (General garrisoning)
+  are now done too. Item 7 (civ-specific
   building models) is fully closed — **all 5 civs,
   45/45 models landed** (Chola, Vijayanagara, Rajput, Maurya, Maratha).
   `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any future
@@ -25,25 +29,67 @@ asset requirements, 5. Priority order).
   Crusader Knight body" item) had its session 1 (tint-gap fix + scoping) closed
   the same day: the base-body decision is now made deliberately
   (**keep the current Human Character Dummy, don't swap** — see below), and the
-  Maurya/Maratha untinted-white tint bug is fixed. **Repair system, one of the 3
-  worker-mechanics-audit items, closed 2026-09-01** — see below; general
-  garrisoning system and dedicated resource-specific drop-off buildings from that
-  same audit remain open. Remaining real options for a future session: the
+  Maurya/Maratha untinted-white tint bug is fixed. **Repair system and General
+  garrisoning system, 2 of the 3 worker-mechanics-audit items, both closed
+  2026-09-01** — see below; dedicated resource-specific drop-off buildings
+  from that same audit remains open, and is explicitly the next session (see
+  above). Remaining real options for a future session beyond that: the
   **Crusader Knight body swap itself** (rig-compatibility verified positive in a
   concurrent session, base-body decision made 2026-09-01 to defer it — scale
   normalization + weapon re-parenting still unstarted, now scoped under the
   per-civ-soldier-visuals initiative rather than its own separate item),
   **per-civ gear/prop variants** (helmet/shield/weapon style per civ — real new
-  asset need, spec written 2026-09-01, needs the user to source), **general
-  garrisoning system** and **dedicated resource-specific drop-off buildings**
-  (the other 2 worker-mechanics-audit items — real new systems, neither started,
-  see Roadmap Section 1's "worker mechanics audit" entry for full scoping notes),
+  asset need, spec written 2026-09-01, needs the user to source),
   other "everything else" items (music, tutorial, performance profiling,
   store assets, multiplayer determinism gaps, README drift), two adjacent findings
   from a concurrent Naval balance session (Naval factories missing
   `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs `MeleeAttacker`'s
   1.0s attack interval), or continued balance work — user's call.
-- Last completed (this session): **Repair system** (Roadmap Section 1
+- Last completed (this session): **General garrisoning system, AoE IV style**
+  (Roadmap Section 1 worker-mechanics-audit item / Section 5 item 12) — pooled
+  capacity, any eligible friendly land unit, scaling defensive firepower, and
+  ejection to a rally point, replacing the old Maratha-Durg-only single-slot
+  mechanic. `Garrison.cs` generalized in place into
+  `Assets/Scripts/Buildings/GarrisonPoint.cs` (pooled capacity + a `durgOnly`
+  flag that reproduces Wall's exact old single-slot Durg-only behavior
+  unchanged), `DurgGarrisonWorker.cs` generalized into
+  `Assets/Scripts/Buildings/GarrisonSeeker.cs` (added to
+  Worker/Soldier/Archer/Cavalry/Spearman and every already-spawnable land
+  unique unit except Siege), and `TowerAttacker.cs` generalized into
+  `Assets/Scripts/Combat/BuildingAttacker.cs` so **TownCenter could get a
+  baseline `Attacker` for the first time** (it had none before this item) —
+  TownCenter is now the Keep/TC-equivalent (capacity 8, up to 5 simultaneous
+  shots), Tower the Outpost-equivalent (capacity 4, up to 4 simultaneous
+  shots), Wall unchanged (capacity 1, durgOnly), Gate still ungarrisonable.
+  Design decisions made explicitly rather than assumed: Siege units excluded
+  from garrisoning (AoE IV siege engines don't garrison), and siege-immunity
+  stays a Maratha-Durg-specific bonus layered on the same mechanism rather
+  than becoming "any full building is siege-immune." **Found and fixed a real
+  latent bug during this session's own live-verification pass, not before
+  it**: `GarrisonSeeker` moved to and range-checked against the target
+  building's raw `transform.position`, which for TownCenter's 6-tile
+  footprint sits deep inside its own carved NavMeshObstacle (edge-to-center
+  distance up to 3, wider than the 2.5 interactionRange itself) — a unit
+  ordered to garrison a TownCenter could physically never get close enough to
+  trigger entry, the exact same class of bug already fixed once for
+  Gatherer's drop-off approach (`BuildingFootprintTag.GetNearestApproachPoint`)
+  — fixed the same way, computed once per order. 16 new EditMode tests
+  (`GarrisonPointTests.cs`, `BuildingAttackerTests.cs`, plus 3 pre-existing
+  Garrison tests in `UniqueUnitsTests.cs` updated to the new API), all 85
+  pass — `BuildingAttackerTests` needed `LogAssert.ignoreFailingMessages`
+  around any damage-dealing `Tick()` call, since `Attackable.TakeDamage`'s
+  VFX burst logs an Editor-only "Destroy may not be called from edit mode"
+  once its particle system's stop-action fires outside Play mode (no
+  precedent existed for testing `TakeDamage` in EditMode before this).
+  Live-verified in Play mode via UnityMCP: real capacity enforcement (8/8 on
+  TownCenter, 9th unit rejected), shot-count scaling measured precisely
+  against fresh 5000-HP dummy targets (Tower: 1 target hit ungarrisoned,
+  exactly 4 once garrisoned with 3 occupants), `UngarrisonAll` repositioning
+  every occupant outside the building, and the Wall `durgOnly` gate rejecting
+  a regular Soldier while accepting the real Maratha Durg Garrison unit and
+  flipping `Attackable.SiegeImmune` exactly as before this generalization.
+  See `docs/SESSION_LOG.md`.
+- Previously completed: **Repair system** (Roadmap Section 1
   worker-mechanics-audit item / Section 5 item 11) — right-click a damaged
   building/ship/siege unit with a worker selected to repair it, at a resource
   cost proportional to HP restored, the AoE reference behavior. New

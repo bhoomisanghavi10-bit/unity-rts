@@ -31,8 +31,9 @@ namespace KingdomsOfBharat.Combat
         public UnitClass Class => unitClass;
         // Roadmap Section 5 item 3 (Maratha Durg Garrison): a building
         // with a Durg Garrison unit inside is immune to Siege's normal 3x
-        // anti-building bonus - see Garrison.TryGarrison/Ungarrison, which
-        // set this, and MeleeAttacker's bonus computation, which reads it.
+        // anti-building bonus - see GarrisonPoint.TryGarrison/UngarrisonAll,
+        // which set this, and MeleeAttacker's bonus computation, which
+        // reads it.
         public bool SiegeImmune => siegeImmune;
 
         public void SetSiegeImmune(bool value)

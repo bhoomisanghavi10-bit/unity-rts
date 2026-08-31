@@ -8,18 +8,22 @@ using KingdomsOfBharat.Progression;
 namespace KingdomsOfBharat.Buildings
 {
     // Creates a defensive Tower (Tower + ConstructionSite + FactionMember +
-    // TowerAttacker + a BuildingFootprint-carved NavMeshObstacle). Small
-    // (2x2 tile) footprint but tall/high-HP, and its own ranged auto-attack
-    // (see TowerAttacker) - the first building in this project that fights
-    // back on its own.
+    // BuildingAttacker + GarrisonPoint + a BuildingFootprint-carved
+    // NavMeshObstacle). Small (2x2 tile) footprint but tall/high-HP, and
+    // its own ranged auto-attack (see BuildingAttacker) - the first
+    // building in this project that fights back on its own. General
+    // garrisoning system (2026-09-01): Outpost-equivalent capacity/bonus
+    // shots, see GarrisonPoint/BuildingAttacker.
     public static class TowerFactory
     {
         private static readonly Vector3 Size = new Vector3(1.8f, 4.4f, 1.8f);
         private const float MaxHealth = 300f;
-        // Matches TowerAttacker's own [SerializeField] default - kept here
-        // too so Vijayanagara's +1 bonus below has a base value to add to
-        // without reading TowerAttacker's private field.
+        // Matches BuildingAttacker's own [SerializeField] default - kept
+        // here too so Vijayanagara's +1 bonus below has a base value to
+        // add to without reading BuildingAttacker's private field.
         private const float BaseAttackRange = 9f;
+        private const int GarrisonCapacity = 4;
+        private const int MaxBonusShots = 3;
 
         public static GameObject Place(Vector3 point, FactionId faction, float buildTime)
         {
@@ -44,13 +48,19 @@ namespace KingdomsOfBharat.Buildings
             attackable.ConfigureClass(UnitClass.Building);
             go.AddComponent<Repairable>();
             go.AddComponent<HealthBar>();
+            // General garrisoning system (2026-09-01): any eligible
+            // friendly unit may enter (see GarrisonSeeker), scaling
+            // BuildingAttacker's bonus-shot count below. Also the same
+            // slot the Maratha Durg Garrison unique unit uses for its
+            // siege-immunity trick (see GarrisonPoint.TryGarrison).
+            var garrisonPoint = go.AddComponent<GarrisonPoint>();
+            garrisonPoint.Configure(GarrisonCapacity, durgOnly: false);
             // Phase 6 gap-close: Vijayanagara's "Towers get +1 attack range" bonus.
-            go.AddComponent<TowerAttacker>().Configure(
+            var buildingAttacker = go.AddComponent<BuildingAttacker>();
+            buildingAttacker.Configure(
                 civ == CivilizationId.Vijayanagara ? BaseAttackRange + 1f : BaseAttackRange);
+            buildingAttacker.ConfigureGarrisonBonus(garrisonPoint, MaxBonusShots);
             go.AddComponent<FactionMember>().Configure(faction);
-            // Roadmap Section 5 item 3: lets a Maratha Durg Garrison unit
-            // enter this Tower - see Garrison.
-            go.AddComponent<Garrison>();
 
             // Towers see further than any other building - that's their
             // whole point as a forward-defense/vision structure.

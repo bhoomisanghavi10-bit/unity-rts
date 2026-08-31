@@ -388,14 +388,16 @@ namespace KingdomsOfBharat.Selection
             Livestock livestock = null;
             bool hitLivestock = !hitNode && !hitSite && !hitFarm
                 && hit.collider.TryGetComponent(out livestock);
-            // Roadmap Section 5 item 3: right-clicking an owned Wall/Tower
-            // with a Durg Garrison unit selected garrisons it - same
+            // General garrisoning system (2026-09-01): right-clicking an
+            // owned building with a GarrisonPoint (TownCenter/Tower, or
+            // Wall for the Maratha Durg Garrison unique unit specifically)
+            // with an eligible unit selected garrisons it - same
             // "friendly-only, falls through to attack otherwise" gating as
             // hitFarm/hitLivestock above.
-            Garrison garrison = null;
+            GarrisonPoint garrisonPoint = null;
             bool hitGarrison = !hitNode && !hitSite && !hitFarm && !hitLivestock
-                && hit.collider.TryGetComponent(out garrison)
-                && IsFriendlyToPlayer(garrison);
+                && hit.collider.TryGetComponent(out garrisonPoint)
+                && IsFriendlyToPlayer(garrisonPoint);
             // Repair system (worker mechanics audit, 2026-08-29): right-
             // clicking a friendly damaged building/ship/siege unit with a
             // worker selected repairs it - same "friendly-only, falls
@@ -452,7 +454,7 @@ namespace KingdomsOfBharat.Selection
                 unit.TryGetComponent(out MeleeAttacker attacker);
                 unit.TryGetComponent(out FarmWorker farmWorker);
                 unit.TryGetComponent(out LivestockWorker livestockWorker);
-                unit.TryGetComponent(out DurgGarrisonWorker durgWorker);
+                unit.TryGetComponent(out GarrisonSeeker garrisonSeeker);
                 unit.TryGetComponent(out Repairer repairer);
                 // Item 49: a boat has none of the land components above -
                 // Gatherer/Builder/MeleeAttacker/FarmWorker/LivestockWorker
@@ -500,7 +502,7 @@ namespace KingdomsOfBharat.Selection
                     repairer?.CancelRepair();
                     livestockWorker.StaffAt(livestock);
                 }
-                else if (hitGarrison && durgWorker != null && IsSameFaction(unit, garrison))
+                else if (hitGarrison && garrisonSeeker != null && IsSameFaction(unit, garrisonPoint))
                 {
                     gatherer?.CancelGather();
                     builder?.CancelBuild();
@@ -508,7 +510,7 @@ namespace KingdomsOfBharat.Selection
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
                     repairer?.CancelRepair();
-                    durgWorker.GarrisonAt(garrison);
+                    garrisonSeeker.GarrisonAt(garrisonPoint);
                 }
                 else if (hitRepairable && repairer != null && IsSameFaction(unit, repairable))
                 {

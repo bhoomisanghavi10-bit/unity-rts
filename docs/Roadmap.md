@@ -175,21 +175,71 @@ entirely. What follows is the real remaining list.
   partial/lost spend, auto-stop on reaching full health, `UnitStatus` showing
   "Repairing", and `Repairable` correctly present with the right `UnitClass` on
   a live-spawned Siege unit and War Galley. See `docs/SESSION_LOG.md`.
-- [ ] **General garrisoning system** (from the worker mechanics audit, 2026-08-29) —
-  the only existing `Garrison` component (`Assets/Scripts/Buildings/Garrison.cs`)
-  is narrowly scoped to the Maratha Durg Garrison unique unit, single-slot,
-  Wall/Tower only, and its sole effect is toggling siege-immunity — not the AoE
-  reference behavior of any worker/soldier entering a TownCenter/Tower/Outpost-
-  equivalent for safety AND boosting that building's own defensive firepower,
-  with ejection back to a prior task or rally point. Real gap found while scoping
-  this: **TownCenter has no `Attacker` component at all** (only `Tower` does, via
-  `TowerAttacker`) — "increase the building's defensive firepower while
-  garrisoned" has no existing TownCenter firepower to augment yet, so building
-  this out means adding TownCenter's baseline firepower too, not just hooking
-  into something pre-existing. Should be scoped against (likely generalizing,
-  not replacing) the existing `Garrison` component and `TowerAttacker`. Not
-  started — real new system, ties into existing defensive-firepower code, needs
-  its own deliberate design pass before implementation.
+- [x] **General garrisoning system, AoE IV style** (from the worker mechanics
+  audit, 2026-08-29) — closed 2026-09-01. The only existing `Garrison`
+  component was narrowly scoped to the Maratha Durg Garrison unique unit
+  (single-slot, Wall/Tower only, siege-immunity toggle only) — generalized in
+  place into `GarrisonPoint` (`Assets/Scripts/Buildings/GarrisonPoint.cs`,
+  renamed from `Garrison.cs`): pooled capacity, any eligible friendly land
+  unit (via the new `GarrisonSeeker`, renamed/generalized from
+  `DurgGarrisonWorker.cs`, added to Worker/Soldier/Archer/Cavalry/Spearman and
+  every already-spawnable land unique unit except Siege), garrisoned units
+  deactivated (untargetable/off the field), and ejection via `UngarrisonAll`
+  (the existing BuildMenu Ungarrison button, generalized to any building with
+  a `GarrisonPoint`) which repositions every occupant to the building's
+  nearest walkable edge (`BuildingFootprintTag.GetNearestApproachPoint`) and
+  resumes whatever the building's `RallyPoint` currently points at, if it has
+  one. Scaling defensive firepower (the AoE IV "murder holes" mechanic - more
+  garrisoned units = more simultaneous shots at potentially different
+  targets, not a flat damage multiplier) needed generalizing the Tower-only
+  `TowerAttacker` into `BuildingAttacker`
+  (`Assets/Scripts/Combat/BuildingAttacker.cs`) so **TownCenter could get a
+  baseline `Attacker` for the first time** (it had none before this item) -
+  TownCenter is now the Keep/TC-equivalent (capacity 8, up to 5 simultaneous
+  shots) and Tower the Outpost-equivalent (capacity 4, up to 4 simultaneous
+  shots). Explicit design decisions made rather than assumed: Wall keeps its
+  exact pre-existing narrow behavior via a `durgOnly` flag on the same
+  `GarrisonPoint` class (capacity 1, only the Maratha Durg Garrison unique
+  unit's `GrantsSiegeImmunity` flag satisfies it - a thin 0.4-unit Wall
+  segment has no real interior for a general population), Gate stays
+  ungarrisonable (unchanged), Siege units are excluded from garrisoning
+  entirely (AoE IV siege engines don't garrison), and siege-immunity stays a
+  Maratha-Durg-specific bonus layered on the same mechanism rather than
+  becoming "any full building is siege-immune." A real latent bug was found
+  and fixed mid-implementation, not just live-verified around: `GarrisonSeeker`
+  originally moved to and range-checked against the target building's raw
+  `transform.position`, which for TownCenter's 6-tile footprint sits deep
+  inside its own carved NavMeshObstacle (edge-to-center distance up to 3,
+  wider than the 2.5 interactionRange itself) - a unit ordered to garrison a
+  TownCenter could physically never get close enough to trigger entry. Fixed
+  with the same `GetNearestApproachPoint`-based approach-point pattern
+  Gatherer's drop-off already established for the identical class of bug
+  (computed once per order, not every frame, matching that precedent) - this
+  shipped broken in this session's own first live-verification pass, caught
+  by the session's own Play-mode check, not by the EditMode tests (which
+  drive `GarrisonPoint`/`BuildingAttacker` directly and never exercised
+  `GarrisonSeeker`'s real pathing). 16 new EditMode tests
+  (`GarrisonPointTests.cs`, `BuildingAttackerTests.cs`, plus 3 existing
+  Garrison tests in `UniqueUnitsTests.cs` updated to the new API), all 85
+  pass - `BuildingAttackerTests` needed `LogAssert.ignoreFailingMessages`
+  around any `Tick()` call that deals damage, since `Attackable.TakeDamage`'s
+  VFX burst logs an Editor-only "Destroy may not be called from edit mode"
+  once its particle system's stop-action fires outside Play mode (same
+  "expected, not a regression" situation `BuildingModelFactoryTests` already
+  documents for its own case) - no precedent existed for testing
+  `TakeDamage` in EditMode before this. Live-verified in Play mode via
+  UnityMCP: spawned a real TownCenter/Tower/Wall, garrisoned real
+  Worker/Soldier/Durg-unit instances, confirmed capacity enforcement (Count
+  hit exactly 8/8 on TownCenter, a 9th unit rejected and left active
+  outside), confirmed shot-count scaling precisely against fresh 5000-HP
+  dummy targets (Tower: exactly 1 target hit ungarrisoned, exactly 4 distinct
+  targets hit once garrisoned with 3 occupants - 1 base + 3, matching
+  maxBonusShots), confirmed `UngarrisonAll` repositions every occupant
+  outside the building (all measured 3.6-5.2 units from TownCenter's center,
+  none stuck inside), and confirmed the Wall `durgOnly` gate rejects a
+  regular Soldier (stays active, count 0) while accepting the real Maratha
+  Durg Garrison unit and flipping `Attackable.SiegeImmune` true/false exactly
+  as before this generalization. See `docs/SESSION_LOG.md`.
 
 - [x] **4 unique units for Maurya/Maratha have no live factory** — CSV data exists
   (`maurya_war_elephant`, `pillar_edict_scholar`, `maratha_mavla_raider`,
@@ -888,3 +938,15 @@ buying, or making an asset yourself:
     `ConstructionSite`/`Builder`'s shape and reuse its diminishing-returns
     multi-worker formula; wired onto all 9 building kinds, Siege, and both naval
     units. See Section 1's matching item and `docs/SESSION_LOG.md`.
+12. ~~**General garrisoning system, AoE IV style** (worker mechanics audit
+    item) — pooled capacity, any eligible unit, scaling defensive firepower,
+    ejection to a rally point.~~ **Done** (2026-09-01). Generalized `Garrison`
+    into `GarrisonPoint` and `DurgGarrisonWorker` into `GarrisonSeeker`;
+    generalized `TowerAttacker` into `BuildingAttacker` so TownCenter could
+    get a baseline `Attacker` for the first time. Wall keeps its exact
+    pre-existing narrow (durgOnly) behavior on the same class; Siege units
+    excluded from garrisoning. Found and fixed a real latent NavMeshObstacle
+    approach-point bug for TownCenter mid-session. See Section 1's matching
+    item and `docs/SESSION_LOG.md`. Dedicated resource-specific drop-off
+    buildings (the last worker-mechanics-audit item) is the explicit next
+    session.

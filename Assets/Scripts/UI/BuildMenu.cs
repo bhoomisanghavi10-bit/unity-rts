@@ -259,11 +259,11 @@ namespace KingdomsOfBharat.UI
             Barracks barracks = ownsSelected ? selected as Barracks : null;
             Dock dock = ownsSelected ? selected as Dock : null;
             Market market = ownsSelected ? selected as Market : null;
-            // Roadmap Section 5 item 3: Wall/Tower didn't show any panel
-            // before this - Garrison is the only reason either needs one.
-            Garrison garrison = (ownsSelected && (selected is Wall || selected is Tower))
-                ? selected.GetComponent<Garrison>()
-                : null;
+            // General garrisoning system (2026-09-01): every building with
+            // a GarrisonPoint (TownCenter/Tower/Wall) shows the Ungarrison
+            // button when occupied - no longer restricted to Wall/Tower's
+            // type, since TownCenter now has one too.
+            GarrisonPoint garrisonPoint = ownsSelected ? selected.GetComponent<GarrisonPoint>() : null;
 
             SetPlacementButtonsActive(showPlacement);
             workerButton.gameObject.SetActive(townCenter != null);
@@ -278,7 +278,7 @@ namespace KingdomsOfBharat.UI
             spearmanButton.gameObject.SetActive(barracks != null);
             uniqueUnitButton.gameObject.SetActive(barracks != null);
             uniqueUnitButton2.gameObject.SetActive(barracks != null && barracks.UniqueUnitCount > 1);
-            ungarrisonButton.gameObject.SetActive(garrison != null && garrison.HasDurgGarrison);
+            ungarrisonButton.gameObject.SetActive(garrisonPoint != null && garrisonPoint.Count > 0);
             attackUpgradeButton.gameObject.SetActive(barracks != null);
             armorUpgradeButton.gameObject.SetActive(barracks != null);
             uniqueTechButton.gameObject.SetActive(barracks != null);
@@ -576,14 +576,16 @@ namespace KingdomsOfBharat.UI
             }
         }
 
-        // Roadmap Section 5 item 3: no train cost/command needed - same
-        // direct-call convention TradeAtSelected uses for Market.Sell/Buy.
+        // General garrisoning system (2026-09-01): no train cost/command
+        // needed - same direct-call convention TradeAtSelected uses for
+        // Market.Sell/Buy. Empties every occupant at once (TownCenter/
+        // Tower/Wall alike) rather than one at a time.
         private void UngarrisonAtSelected()
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding != null
-                && _selectionManager.SelectedBuilding.TryGetComponent(out Garrison garrison))
+                && _selectionManager.SelectedBuilding.TryGetComponent(out GarrisonPoint garrisonPoint))
             {
-                garrison.Ungarrison();
+                garrisonPoint.UngarrisonAll();
             }
         }
 

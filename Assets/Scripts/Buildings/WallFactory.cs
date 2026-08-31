@@ -51,9 +51,15 @@ namespace KingdomsOfBharat.Buildings
             go.AddComponent<Repairable>();
             go.AddComponent<HealthBar>();
             go.AddComponent<FactionMember>().Configure(faction);
-            // Roadmap Section 5 item 3: lets a Maratha Durg Garrison unit
-            // enter this Wall - see Garrison.
-            go.AddComponent<Garrison>();
+            // General garrisoning system (2026-09-01): Wall keeps its
+            // original narrow behavior (durgOnly:true) rather than
+            // becoming generally garrisonable - a thin 0.4-unit-deep Wall
+            // segment has no real interior for a population to hide in,
+            // unlike Tower/TownCenter. Only a siege-immunity-granting
+            // unit (the Maratha Durg Garrison unique unit) may enter -
+            // see GarrisonPoint.TryGarrison. Unchanged Player-facing
+            // behavior from before this class was generalized.
+            go.AddComponent<GarrisonPoint>().Configure(1, durgOnly: true);
 
             var obstacle = go.AddComponent<NavMeshObstacle>();
             obstacle.shape = NavMeshObstacleShape.Box;

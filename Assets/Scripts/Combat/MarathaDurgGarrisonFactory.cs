@@ -15,9 +15,9 @@ namespace KingdomsOfBharat.Combat
     // fighter. CSV stats are shaped exactly like Soldier (Infantry, 35 HP,
     // 5 Melee), so this follows the same combat-factory shape as every
     // other unique unit - UnitClass.Infantry - plus one addition:
-    // DurgGarrisonWorker, letting it enter an owned Wall/Tower and strip
-    // Siege's 3x anti-building bonus while inside (see Garrison/
-    // Attackable.SiegeImmune).
+    // GarrisonSeeker (grantsSiegeImmunity:true), letting it enter an owned
+    // Wall/Tower and strip Siege's 3x anti-building bonus while inside
+    // (see GarrisonPoint/Attackable.SiegeImmune).
     //
     // Visual closure (2026-08-27 rigging session): a real Meshy-sourced
     // mesh (project-owned) bound onto the same shared Human Character
@@ -73,7 +73,14 @@ namespace KingdomsOfBharat.Combat
 
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);
-            go.AddComponent<DurgGarrisonWorker>();
+            // General garrisoning system (2026-09-01): GarrisonSeeker
+            // generalizes what used to be this unit's own dedicated
+            // DurgGarrisonWorker component (see git history) - the
+            // grantsSiegeImmunity flag is what still lets this specific
+            // unit (and only this unit) enter a durgOnly GarrisonPoint
+            // like Wall's, and flips Attackable.SiegeImmune on whatever
+            // building it enters.
+            go.AddComponent<GarrisonSeeker>().Configure(true);
 
             if (faction == FactionId.Player)
             {

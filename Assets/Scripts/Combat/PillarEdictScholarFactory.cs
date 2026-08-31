@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI;
 using KingdomsOfBharat.Units;
+using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.FogOfWar;
@@ -53,6 +54,10 @@ namespace KingdomsOfBharat.Combat
             var unit = go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
+            // General garrisoning system (2026-09-01): lets this unit
+            // be ordered to walk to and enter a friendly GarrisonPoint -
+            // see GarrisonSeeker.
+            go.AddComponent<GarrisonSeeker>();
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure((def != null ? def.maxHP : 30f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(

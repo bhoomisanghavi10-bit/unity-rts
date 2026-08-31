@@ -157,53 +157,67 @@ namespace KingdomsOfBharat.Tests
             Assert.AreEqual(1f, gatherer.AuraMultiplier, 0.001f);
         }
 
+        // General garrisoning system (2026-09-01): Garrison was generalized
+        // into GarrisonPoint (see GarrisonPointTests.cs for the fuller,
+        // dedicated coverage of the new pooled-capacity/durgOnly behavior).
+        // These 3 tests stay here, updated to the new API, since they
+        // specifically cover the Maratha Durg Garrison unique unit's own
+        // siege-immunity mechanic via a durgOnly:true GarrisonPoint - the
+        // exact configuration WallFactory now uses.
         [Test]
-        public void Garrison_TryGarrison_DeactivatesUnitAndSetsBuildingSiegeImmune()
+        public void GarrisonPoint_TryGarrison_DeactivatesUnitAndSetsBuildingSiegeImmune()
         {
             GameObject wallGo = CreateGameObject("Wall");
             Attackable wallAttackable = wallGo.AddComponent<Attackable>();
             wallAttackable.ConfigureClass(UnitClass.Building);
-            Garrison garrison = wallGo.AddComponent<Garrison>();
+            GarrisonPoint garrisonPoint = wallGo.AddComponent<GarrisonPoint>();
+            garrisonPoint.Configure(1, durgOnly: true);
 
             GameObject unitGo = CreateGameObject("DurgGarrisonUnit");
+            unitGo.AddComponent<GarrisonSeeker>().Configure(true);
 
-            bool result = garrison.TryGarrison(unitGo);
+            bool result = garrisonPoint.TryGarrison(unitGo);
 
             Assert.IsTrue(result);
-            Assert.IsTrue(garrison.HasDurgGarrison);
+            Assert.AreEqual(1, garrisonPoint.Count);
             Assert.IsFalse(unitGo.activeSelf);
             Assert.IsTrue(wallAttackable.SiegeImmune);
         }
 
         [Test]
-        public void Garrison_TryGarrison_FailsWhenAlreadyOccupied()
+        public void GarrisonPoint_TryGarrison_FailsWhenAlreadyOccupied()
         {
             GameObject wallGo = CreateGameObject("Wall");
             wallGo.AddComponent<Attackable>().ConfigureClass(UnitClass.Building);
-            Garrison garrison = wallGo.AddComponent<Garrison>();
+            GarrisonPoint garrisonPoint = wallGo.AddComponent<GarrisonPoint>();
+            garrisonPoint.Configure(1, durgOnly: true);
             GameObject firstUnit = CreateGameObject("FirstUnit");
+            firstUnit.AddComponent<GarrisonSeeker>().Configure(true);
             GameObject secondUnit = CreateGameObject("SecondUnit");
-            garrison.TryGarrison(firstUnit);
+            secondUnit.AddComponent<GarrisonSeeker>().Configure(true);
+            garrisonPoint.TryGarrison(firstUnit);
 
-            bool result = garrison.TryGarrison(secondUnit);
+            bool result = garrisonPoint.TryGarrison(secondUnit);
 
             Assert.IsFalse(result);
             Assert.IsTrue(secondUnit.activeSelf);
         }
 
         [Test]
-        public void Garrison_Ungarrison_ReactivatesUnitAndClearsSiegeImmune()
+        public void GarrisonPoint_UngarrisonAll_ReactivatesUnitAndClearsSiegeImmune()
         {
             GameObject wallGo = CreateGameObject("Wall");
             Attackable wallAttackable = wallGo.AddComponent<Attackable>();
             wallAttackable.ConfigureClass(UnitClass.Building);
-            Garrison garrison = wallGo.AddComponent<Garrison>();
+            GarrisonPoint garrisonPoint = wallGo.AddComponent<GarrisonPoint>();
+            garrisonPoint.Configure(1, durgOnly: true);
             GameObject unitGo = CreateGameObject("DurgGarrisonUnit");
-            garrison.TryGarrison(unitGo);
+            unitGo.AddComponent<GarrisonSeeker>().Configure(true);
+            garrisonPoint.TryGarrison(unitGo);
 
-            garrison.Ungarrison();
+            garrisonPoint.UngarrisonAll();
 
-            Assert.IsFalse(garrison.HasDurgGarrison);
+            Assert.AreEqual(0, garrisonPoint.Count);
             Assert.IsTrue(unitGo.activeSelf);
             Assert.IsFalse(wallAttackable.SiegeImmune);
         }
