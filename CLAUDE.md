@@ -7,30 +7,70 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- Currently on: nothing started yet for the next session. Section 5 items 1-5, 7-9
-  are all done, and item 7 (civ-specific building models) is now fully closed —
-  **all 5 civs, 45/45 models landed** (Chola, Vijayanagara, Rajput, Maurya,
-  Maratha). `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any
-  future civ-model work, but every lesson below stays load-bearing: never trust
-  bounds alone (an angled `game_view` screenshot at identity can *look* upright
-  via parallax even when the model is lying flat on its back — this shipped
-  once in Maratha's own session, caught only by the user from a live
-  screenshot; a true top-down + front-elevation shot, or the vertex base/tip
-  density check for wide/sprawling shapes, is what actually catches it), and
-  when two rotation candidates tie on Y-tallest bounds (as with any
-  `ImportRotationCorrections`-keyed asset like Tower), always visually confirm
-  **both** tying candidates against reference art, not just one. Remaining
-  real options: **wiring in a Crusader Knight body** (rig-compatibility verified positive in a concurrent session
-  — scale normalization + weapon re-parenting still unstarted), the **3 new
-  worker-mechanics items from this session's audit** (Repair system, general
-  garrisoning system, and dedicated resource-specific drop-off buildings — all real
-  new systems, none started, see Roadmap Section 1's "worker mechanics audit" entry
-  for full scoping notes), other "everything else" items (music, tutorial,
-  performance profiling, store assets, multiplayer determinism gaps, README drift),
-  two adjacent findings from a concurrent Naval balance session (Naval factories
-  missing `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs
-  `MeleeAttacker`'s 1.0s attack interval), or continued balance work — user's call.
-- Last completed (this session): **Maratha civ-specific building models, 9/9 —
+- Currently on: nothing started yet for the next session. Section 5 items 1-9 are
+  all done. Item 7 (civ-specific building models) is fully closed — **all 5 civs,
+  45/45 models landed** (Chola, Vijayanagara, Rajput, Maurya, Maratha).
+  `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any future
+  civ-model work, but every lesson below stays load-bearing: never trust bounds
+  alone (an angled `game_view` screenshot at identity can *look* upright via
+  parallax even when the model is lying flat on its back — this shipped once in
+  Maratha's own session, caught only by the user from a live screenshot; a true
+  top-down + front-elevation shot, or the vertex base/tip density check for
+  wide/sprawling shapes, is what actually catches it), and when two rotation
+  candidates tie on Y-tallest bounds (as with any `ImportRotationCorrections`-keyed
+  asset like Tower), always visually confirm **both** tying candidates against
+  reference art, not just one. A new **"Per-civ soldier visual differentiation"**
+  initiative started 2026-09-01 (Roadmap Section 1, supersedes the old "wire in
+  Crusader Knight body" item): the base-body decision is now made deliberately
+  (**keep the current Human Character Dummy, don't swap** — see below), and the
+  Maurya/Maratha untinted-white tint bug is fixed. Remaining real options: the
+  **Crusader Knight body swap itself** (rig-compatibility verified positive in a
+  concurrent session, base-body decision made 2026-09-01 to defer it — scale
+  normalization + weapon re-parenting still unstarted, now scoped under the new
+  initiative rather than its own separate item), **per-civ gear/prop variants**
+  (helmet/shield/weapon style per civ — real new asset need, spec written this
+  session, needs the user to source), the **3 new worker-mechanics items from an
+  earlier session's audit** (Repair system, general garrisoning system, and
+  dedicated resource-specific drop-off buildings — all real new systems, none
+  started, see Roadmap Section 1's "worker mechanics audit" entry for full scoping
+  notes), other "everything else" items (music, tutorial, performance profiling,
+  store assets, multiplayer determinism gaps, README drift), two adjacent findings
+  from a concurrent Naval balance session (Naval factories missing
+  `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs `MeleeAttacker`'s
+  1.0s attack interval), or continued balance work — user's call.
+- Last completed (this session): **Per-civ soldier visual differentiation,
+  session 1 — tint-gap fix + scoping** (new Roadmap Section 1 item, supersedes
+  the old Crusader Knight item). `HumanModelFactory.PaletteNameFor()`
+  (`Assets/Scripts/Units/HumanModelFactory.cs:158`) only wired 3 of 5 civs
+  (Chola→Red, Vijayanagara→Yellow, Rajput→Blue) — Maurya and Maratha hit
+  `default: return null` and spawned every unit completely untinted (plain
+  white), a real previously-unflagged bug. Fixed by pixel-sampling the shared
+  trim-sheet texture (`Human Character Dummy/Textures/HumanCharacterDummy_
+  ColorPalette.png`, 16 rows) against each civ's canon crest color
+  (`docs/UI_ART_BRIEF.md`): Maratha's forest green (#267333) turned out a
+  near-exact match to the *existing* `Green` material (color distance 601 of
+  16 candidates — no new asset needed, just remapped); Maurya's warm gray/stone
+  (#807866) has no close match anywhere in the sheet, so a new
+  `HumanDummy_Gray.mat` was wired to an unused neutral-gray row (offset
+  y=0.9375) — a known, disclosed compromise (neutral gray, not warm stone),
+  swappable later for a proper warm-gray texture with zero code changes if the
+  user sources one. Also made explicit, in Plan Mode with the user before any
+  code: **keep the current Human Character Dummy body this session, don't swap
+  to the verified-compatible Crusader Knight model** (closes the "Base human
+  body decision" Roadmap Section 5 item) — the swap (fixing its ~247x
+  `Animator.humanScale` anomaly + re-parenting sword/shield/staff props to a
+  hand bone via `WeaponAttachment`) stays open as a real future item, not
+  bundled in blind. Gear/prop variants (helmet/shield/weapon style per civ)
+  scoped into a spec for the user to source (`Assets/Resources/Weapons/`
+  currently has exactly one generic weapon per unit type, no civ variants) —
+  not implemented, not guessed at with low-confidence substitutes per the
+  cursor-pack precedent. Live-verified in Play mode via UnityMCP: spawned all 5
+  civs' bodies side-by-side and screenshotted — each reads as a visually
+  distinct tint (red/yellow/blue/gray/green). All 67 EditMode tests still pass
+  (no new test — pure lookup-table data change, consistent with how the
+  original 3-civ mapping was never separately unit-tested either). See
+  `docs/SESSION_LOG.md`.
+- Previously completed: **Maratha civ-specific building models, 9/9 —
   closes all 5 civs' civ-specific building models (45/45).** (Roadmap Section
   4.3 / Section 5 item 7) — wired via the same `MeshyBuildingImporter.cs`
   pipeline, no code changes. Identification: 7 of 9 resolved confidently by

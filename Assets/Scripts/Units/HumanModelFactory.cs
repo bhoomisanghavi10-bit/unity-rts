@@ -162,6 +162,16 @@ namespace KingdomsOfBharat.Units
                 case CivilizationId.Chola: return "Red";
                 case CivilizationId.Vijayanagara: return "Yellow";
                 case CivilizationId.Rajput: return "Blue";
+                // Maratha's forest-green crest (#267333) is a near-exact
+                // match to the trim sheet's existing Green row - no new
+                // asset needed. Maurya's warm gray/stone crest (#807866)
+                // has no close match anywhere in the trim sheet; "Gray"
+                // is a neutral-gray compromise (an unused row wired into
+                // its own HumanDummy_Gray.mat), not a warm-stone match -
+                // swap the .mat's texture offset for a proper warm-gray
+                // row later if one gets sourced, no code change needed.
+                case CivilizationId.Maurya: return "Gray";
+                case CivilizationId.Maratha: return "Green";
                 default: return null;
             }
         }

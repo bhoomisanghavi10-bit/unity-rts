@@ -5,6 +5,97 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-01 — Per-civ soldier visual differentiation, session 1: tint-gap fix + scoping (new Roadmap Section 1 item, supersedes the old Crusader Knight item)
+
+**Scope**: first session of a new initiative — differentiate the 5 civs'
+shared soldier body via civ-colored texture + minor gear/prop variants
+(not 5 separate bodies), per an earlier planning conversation. Session
+protocol required resolving two decisions explicitly in Plan Mode before
+writing any code, via `AskUserQuestion`, rather than assuming: (1) whether
+an imperfect neutral-gray stand-in for Maurya's tint was acceptable, and
+(2) whether this session actually swaps the base body to the Crusader
+Knight model or just extends the current dummy's palette. User chose the
+neutral-gray stand-in and chose to keep the current body (defer the swap).
+
+**Tint-gap bug found and fixed**: `HumanModelFactory.PaletteNameFor()`
+(`Assets/Scripts/Units/HumanModelFactory.cs:158`) only mapped 3 of 5 civs
+(Chola→Red, Vijayanagara→Yellow, Rajput→Blue); Maurya and Maratha fell
+through `default: return null`, so every Maurya/Maratha unit spawned with
+the plain white base material instead of a civ tint — a real bug, not by
+design, never previously flagged. Root-caused by reading
+`ApplyPaletteMaterial`/`PaletteNameFor` directly rather than guessing.
+
+**Fix methodology**: rather than guessing plausible palette names, wrote a
+small Python/Pillow script to pixel-sample all 16 rows of the shared
+trim-sheet texture (`Human Character Dummy/Textures/
+HumanCharacterDummy_ColorPalette.png`) at the exact UV offset each row
+maps to (calibrated against the 6 known materials' own offsets first, to
+confirm the sampling method before trusting it on unknowns), then compared
+every row's RGB against each civ's canon crest color from
+`docs/UI_ART_BRIEF.md` (`CivilizationProfile.cs`'s own accent colors).
+Result: Maratha's forest green (#267333) is a near-exact match to the
+*existing* `Green` material (squared color distance 601 — closest of all
+32 civ×row comparisons) — no new asset needed, just remapped in the
+switch. Maurya's warm gray/stone (#807866) has no close match anywhere in
+the 16-row sheet; the closest reasonable option is an *unused* neutral-gray
+row (offset y=0.9375, RGB≈75,75,75) that had no `.mat` wired to it yet.
+Flagged this compromise to the user explicitly (neutral gray, not truly
+warm stone) before proceeding — confirmed acceptable, with the explicit
+understanding it's trivially swappable later (new texture, same `.mat`
+offset field) if a proper warm-gray trim-sheet variant gets sourced.
+
+**Implementation**: created `HumanDummy_Gray.mat` (same shader/shared
+texture as the other 6 palette materials, `m_Offset: {x:0, y:0.9375}`) and
+its `.meta`, then added `Maurya→"Gray"` and `Maratha→"Green"` cases to
+`PaletteNameFor`'s switch, replacing their `default` fallthrough (kept for
+any future unwired civ). No other code changes — `ApplyPaletteMaterial`
+already handles any named palette generically.
+
+**Base-body decision — made explicitly, not assumed**: per the roadmap's
+own standing instruction (Section 5's "Base human body decision" item) to
+resolve this deliberately rather than leave it a silent "someday," asked
+the user directly via `AskUserQuestion` before writing any code. User chose
+to keep the current Human Character Dummy body this session. The
+previously-verified Crusader Knight swap (2 known caveats: ~247x
+`Animator.humanScale` anomaly, sword/shield/staff props parented to the
+scene root instead of a hand bone) remains real, scoped, future work — not
+implemented this session, not silently dropped either; documented under the
+new roadmap item with its exact remaining caveats preserved.
+
+**Gear/prop variants — scoped, not implemented**: audited
+`Assets/Resources/Weapons/` — currently exactly one generic weapon per unit
+type (Sword/Bow/Spear/Kanabo), no civ-specific variants exist for any of
+them. Wrote a spec (in the roadmap) for the user to source: per-civ
+distinct hand-held weapon mesh/texture (highest priority, reusing the
+already-proven `WeaponAttachment.AttachToBone` pipeline —
+`SoldierFactory.cs`'s sword attachment is the reference implementation),
+then a helmet/headgear prop, then a shield-emblem decal reusing existing
+crest art. Not guessed at with a low-confidence substitute pack, per the
+cursor-pack precedent (Roadmap Section 4.4) — asset sourcing isn't Claude
+Code's job per CLAUDE.md.
+
+**Verification**: `refresh_unity(mode=force, compile=request)` came back
+clean (no new errors/warnings). All 67 EditMode tests pass (no new
+test — this is a pure lookup-table data change with the same shape as the
+original 3-civ mapping, which was never separately unit-tested either).
+Live-verified in Play mode via UnityMCP: spawned `HumanModelFactory` bodies
+for all 5 civs side-by-side via `execute_code` and screenshotted
+(`Assets/Screenshots/civ_tint_check.png`) — Chola red, Vijayanagara yellow,
+Rajput blue (unchanged, confirming no regression), Maurya now reads as a
+clear neutral gray (previously plain white), Maratha now reads as green
+(previously plain white). All 5 visually distinct at a glance.
+
+**Docs updated**: `docs/ROADMAP.md` Section 1 (new "Per-civ soldier visual
+differentiation" item, annotated the old Crusader Knight item as
+superseded), Section 5 (checked off "Base human body decision," added item
+10 to the Near-Term Order), and this file, per protocol step 5/6.
+
+**Not done this session (deliberately, per scope)**: the actual Crusader
+Knight body swap, and any gear/prop implementation (both need user-sourced
+art or a dedicated future session per the body-swap decision above).
+
+---
+
 ## 2026-09-01 — Maratha civ-specific building models wired, 9/9 — all 5 civs complete, 45/45 (Roadmap Section 4.3 / Section 5 item 7)
 
 **Scope**: fifth and final content delivery against Section 4.3's civ-specific
