@@ -46,6 +46,14 @@ namespace KingdomsOfBharat.Combat
             // see CivilizationProfile.FindCategoryMultiplier for why this
             // isn't one of CivilizationProfile's named fields.
             agent.speed *= CivilizationProfile.FindCategoryMultiplier(civilization, StatType.MoveSpeed, UnitCategory.Cavalry);
+            // AoE-parity Phase 3.2: Maratha's team bonus - allied Cavalry
+            // get +10% move speed, unconditional and stacking with the
+            // owner's own civ-wide Cavalry speed bonus above. See
+            // TeamBonus.cs.
+            if (TeamBonus.HasAlly(faction, CivilizationId.Maratha))
+            {
+                agent.speed *= TeamBonus.MarathaCavalryMoveSpeedMultiplier;
+            }
 
             var unit = go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();
@@ -70,6 +78,14 @@ namespace KingdomsOfBharat.Combat
             float uniqueTechDamageBonus = UniqueTechProgress.HasResearched(faction)
                 ? UniqueTechDefinition.For(civilization).CavalryDamageBonus
                 : 0f;
+
+            // AoE-parity Phase 3.2: Rajput's team bonus - allied Cavalry
+            // get +1 flat damage, unconditional (not gated on the ally
+            // having researched Warrior Clans). See TeamBonus.cs.
+            if (TeamBonus.HasAlly(faction, CivilizationId.Rajput))
+            {
+                uniqueTechDamageBonus += TeamBonus.RajputCavalryDamageBonus;
+            }
 
             var attacker = go.AddComponent<MeleeAttacker>();
             attacker.SetBaseDamage(def != null ? def.attackDamage : 6f);

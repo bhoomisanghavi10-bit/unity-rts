@@ -42,9 +42,20 @@ namespace KingdomsOfBharat.Buildings
             // multiplies defensive-structure HP - same non-retroactive
             // convention as CivilizationProfile/AgeProfile bonuses (baked
             // in at spawn, not applied to buildings already standing).
+            // AoE-parity Phase 3.2: Vijayanagara's team bonus - allied
+            // Wall/Gate/Tower get +15% max HP, stacking multiplicatively
+            // with the owner's own tech above (unconditional - not gated
+            // on the ally having researched anything). Uses `faction`,
+            // not FactionId.Player, so this applies to AI-built
+            // fortifications too, unlike WoodMultiplierFor's Player-only
+            // scope. See TeamBonus.cs.
             float fortificationMultiplier = UniqueTechProgress.HasResearched(faction)
                 ? UniqueTechDefinition.For(civ).FortificationHealthMultiplier
                 : 1f;
+            if (TeamBonus.HasAlly(faction, CivilizationId.Vijayanagara))
+            {
+                fortificationMultiplier *= TeamBonus.VijayanagaraFortificationHealthMultiplier;
+            }
             attackable.Configure(MaxHealth * fortificationMultiplier);
             attackable.ConfigureArmor(meleeArmor: 6f, pierceArmor: 4f);
             attackable.ConfigureClass(UnitClass.Building);

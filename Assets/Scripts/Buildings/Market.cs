@@ -43,10 +43,19 @@ namespace KingdomsOfBharat.Buildings
         // Exposed so BuildMenu's trade-button labels/gating read the same
         // live rate Sell/Buy actually charge, instead of duplicating the
         // unique-tech bonus lookup and risking drift.
+        // AoE-parity Phase 3.2: Chola's team bonus - allied Markets get a
+        // narrowed +/-5-point spread, unconditional (not gated on the ally
+        // having researched Chola Trade Networks) and stacking with the
+        // owner's own unique-tech term above. Naturally dynamic like the
+        // rest of this property - no spawn-time baking needed, since an
+        // alliance formed/broken later re-evaluates on the next read. See
+        // TeamBonus.cs.
         public float EffectiveSellRate =>
-            sellRate + (UniqueTechProgress.HasResearched(Faction) ? UniqueTechDefinition.For(CivilizationRegistry.For(Faction)).MarketRateBonus : 0f);
+            sellRate + (UniqueTechProgress.HasResearched(Faction) ? UniqueTechDefinition.For(CivilizationRegistry.For(Faction)).MarketRateBonus : 0f)
+            + (TeamBonus.HasAlly(Faction, CivilizationId.Chola) ? TeamBonus.CholaMarketRateBonus : 0f);
         public float EffectiveBuyRate =>
-            buyRate - (UniqueTechProgress.HasResearched(Faction) ? UniqueTechDefinition.For(CivilizationRegistry.For(Faction)).MarketRateBonus : 0f);
+            buyRate - (UniqueTechProgress.HasResearched(Faction) ? UniqueTechDefinition.For(CivilizationRegistry.For(Faction)).MarketRateBonus : 0f)
+            - (TeamBonus.HasAlly(Faction, CivilizationId.Chola) ? TeamBonus.CholaMarketRateBonus : 0f);
 
         // Sells `amount` of `type` for Gold, at sellRate. No-op (returns
         // false) if there isn't enough of `type` on hand - never sells a

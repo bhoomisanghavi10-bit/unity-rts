@@ -41,17 +41,42 @@ asset requirements, 5. Priority order).
   building and a much-farther TownCenter — confirmed via reflection on
   `Gatherer`'s private `_dropOff` field, since the aggregate Wood-stockpile
   number alone wasn't trustworthy evidence (an unrelated passive-income tick
-  confounded it). **Session paused after Phase 3.1 per instruction — Phase
-  3.2 (team-bonus/alliance economic stacking) is DECISION NEEDED and the user
-  has not yet been asked directly whether they want that layer at all; no
-  implementation approach should be proposed until they answer.**
-- Currently on: nothing started yet for the next session. **Next session:
-  either Phase 3.2 (team-bonus/alliance economic stacking) if the user
-  confirms they want it — no implementation should be proposed until they
-  answer that question directly — or continued balance work/other open items
-  if they don't.** Section 5 items 1-9 are all done, and items 11 (Repair),
-  12 (General garrisoning), and 13 (resource-specific drop-off buildings) are
-  now done too. Item 7 (civ-specific
+  confounded it). **Asked the user directly whether they wanted Phase 3.2
+  (team-bonus/alliance economic stacking) at all before proposing anything,
+  per instruction — they confirmed yes**, explicitly wanting the project's
+  systemic depth to reach AoE IV's level. Also received a new standing
+  instruction this session: always flag when a building/character task needs
+  a real art asset/model, rather than only noting a procedural-fallback gap
+  in the session log (saved to cross-session memory; retroactively flagged
+  Phase 3.1's own Lumber Camp/Mining Camp/Mill procedural silhouettes against
+  this rule). **Phase 3.2 closed the same day**, via Plan Mode (approved
+  before implementation, per protocol — this touched 5 separate gameplay
+  systems across 6 files) — see Roadmap Section 1's matching item and
+  `docs/SESSION_LOG.md`'s Phase 3.2 entry for full detail: new
+  `TeamBonus.cs` hand-written hook (same bespoke-per-civ convention as
+  `UniqueTechDefinition`/`RajputDefianceHook` — the existing scaffolded
+  `CivilizationDefinition.teamBonus` `StatModifier` field turned out to be
+  dead code, never read at runtime, since Building-targeted bonuses aren't
+  representable in the generic `UnitCategory` schema) shares a diluted
+  version of each civ's own unique-tech identity with every
+  `DiplomacyRegistry`-allied faction, unconditionally: Maurya allies get
+  -25% Wood on Houses, Vijayanagara allies get +15% Wall/Gate/Tower HP,
+  Rajput allies get +1 flat Cavalry damage, Maratha allies get +10% Cavalry
+  move speed, Chola allies get a narrowed +/-5-point Market spread. 5 new
+  EditMode tests plus one added to `CivPassiveBonusTests.cs` (105 total, all
+  pass), and all 5 bonuses live-verified in Play mode via UnityMCP with
+  exact before/after-alliance A/B comparisons (Wall HP 250→287.5, Cavalry
+  damage 6→7, Cavalry speed 6.5→7.15, Market sell/buy 0.70/1.30→0.75/1.25),
+  including the negative/self-exclusion case (a civ's own building never
+  double-counts its own team bonus via the alliance path).
+- Currently on: nothing started yet for the next session. Section 5 items
+  1-9 are all done, and items 11 (Repair), 12 (General garrisoning), 13
+  (resource-specific drop-off buildings), and 14 (team-bonus/alliance
+  economic stacking) are now done too. `AOE_PARITY_EXECUTION_PLAN.md`'s
+  Phases 1-3 are now fully resolved (Phase 1 deferred with a documented
+  reason, Phases 2 and 3 closed) — next session should check whether that
+  companion doc has further phases, or fall back to continued balance work/
+  other open Roadmap items if not. Item 7 (civ-specific
   building models) is fully closed — **all 5 civs,
   45/45 models landed** (Chola, Vijayanagara, Rajput, Maurya, Maratha).
   `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any future

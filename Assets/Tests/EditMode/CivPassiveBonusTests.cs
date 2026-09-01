@@ -105,6 +105,30 @@ namespace KingdomsOfBharat.Tests
             Assert.AreEqual(1f, BuildingPlacer.WoodMultiplierFor(BuildingPlacer.BuildingKind.House), "Non-Maurya civs pay full House cost");
         }
 
+        // AoE-parity Phase 3.2: Maurya's team bonus (allied Houses cost
+        // 25% less Wood) layered on top of WoodMultiplierFor's existing
+        // own-civ check above - restores Player's civ and clears the
+        // alliance in a finally block so this doesn't leak into later
+        // tests in the same run, per this file's own stated convention.
+        [Test]
+        public void BuildingPlacer_WoodMultiplierFor_AppliesMauryaTeamBonus_WhenAlliedWithMaurya()
+        {
+            try
+            {
+                CivilizationRegistry.Assign(FactionId.Player, CivilizationId.Chola);
+                CivilizationRegistry.Assign(FactionId.Enemy, CivilizationId.Maurya);
+                DiplomacyRegistry.SetAllied(FactionId.Player, FactionId.Enemy, true);
+
+                Assert.AreEqual(0.75f, BuildingPlacer.WoodMultiplierFor(BuildingPlacer.BuildingKind.House), 0.001f);
+                Assert.AreEqual(1f, BuildingPlacer.WoodMultiplierFor(BuildingPlacer.BuildingKind.Barracks), "Team bonus is House-only, not civ-wide");
+            }
+            finally
+            {
+                DiplomacyRegistry.Reset();
+                CivilizationRegistry.Assign(FactionId.Player, CivilizationId.Chola);
+            }
+        }
+
         [Test]
         public void BuildingPlacer_StoneMultiplierFor_DiscountsFortificationsOnlyForVijayanagara()
         {

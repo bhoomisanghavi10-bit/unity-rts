@@ -366,11 +366,23 @@ namespace KingdomsOfBharat.Buildings
         // shape as UniqueTechDefinition's per-civ dictionary.
         internal static float WoodMultiplierFor(BuildingKind kind)
         {
-            if (kind == BuildingKind.House && CivilizationRegistry.For(FactionId.Player) == CivilizationId.Maurya)
+            if (kind != BuildingKind.House)
+            {
+                return 1f;
+            }
+
+            if (CivilizationRegistry.For(FactionId.Player) == CivilizationId.Maurya)
             {
                 return 0f;
             }
-            return 1f;
+
+            // AoE-parity Phase 3.2: Maurya's team bonus - allied factions'
+            // Houses cost 25% less Wood (a diluted version of Maurya's own
+            // free-Houses bonus above). Player-only, same scope as this
+            // method already has - see TeamBonus.cs.
+            return TeamBonus.HasAlly(FactionId.Player, CivilizationId.Maurya)
+                ? TeamBonus.MauryaHouseWoodMultiplier
+                : 1f;
         }
 
         // Phase 6 gap-close: Vijayanagara's "Wall/Gate/Tower cost 20% less

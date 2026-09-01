@@ -40,9 +40,15 @@ namespace KingdomsOfBharat.Buildings
             go.AddComponent<SelectionIndicator>().Configure(1.4f, -Size.y * 0.5f);
             var attackable = go.AddComponent<Attackable>();
             // Phase 6: same Vijayanagara fortification bonus as WallFactory.
+            // AoE-parity Phase 3.2: same team-bonus stacking as WallFactory -
+            // see TeamBonus.cs.
             float fortificationMultiplier = UniqueTechProgress.HasResearched(faction)
                 ? UniqueTechDefinition.For(civ).FortificationHealthMultiplier
                 : 1f;
+            if (TeamBonus.HasAlly(faction, CivilizationId.Vijayanagara))
+            {
+                fortificationMultiplier *= TeamBonus.VijayanagaraFortificationHealthMultiplier;
+            }
             attackable.Configure(MaxHealth * fortificationMultiplier);
             attackable.ConfigureArmor(meleeArmor: 4f, pierceArmor: 6f);
             attackable.ConfigureClass(UnitClass.Building);

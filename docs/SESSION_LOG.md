@@ -5,6 +5,105 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-01 — AoE-parity Phase 3.2: team-bonus / alliance economic stacking layer
+
+**Scope**: `AOE_PARITY_EXECUTION_PLAN.md` Phase 3.2, marked DECISION NEEDED at the end
+of Phase 3.1's session (same day). Per instruction, this phase was not started until the
+user was asked directly whether they wanted a team-bonus/alliance economic-stacking layer
+at all — they confirmed yes, explicitly motivated by wanting the project's systemic depth
+to reach AoE IV's level. Also carried over from that same exchange: a new standing
+instruction to always flag when a building/character task needs a real art asset rather
+than silently using a procedural placeholder (saved to cross-session memory; retroactively
+flagged Phase 3.1's own Lumber Camp/Mining Camp/Mill procedural fallbacks against this new
+rule before starting this phase's work).
+
+**Research before planning**: dispatched an Explore agent to map the existing diplomacy
+and civ-bonus infrastructure before designing anything, per this project's "verify the
+plan's assumptions against the repo" discipline. Findings that shaped the plan:
+`DiplomacyRegistry.AreAllied` (`Assets/Scripts/Core/DiplomacyRegistry.cs`) already exists
+and is N-ary (Enemy and Enemy2 can ally each other, not just Player — `AiController`
+already forms alliances dynamically via `TryEvaluateDiplomacy`), toggleable in-game via
+`DiplomacyMenu` (F11) — but nothing consumed an alliance for anything beyond vision-
+sharing/non-hostility. A `CivilizationDefinition.teamBonus` `StatModifier` field was
+already scaffolded (populated from `civ_bonus_template.csv`'s `TeamBonus` column at
+CSV-import time, one full row per civ already spelling out a specific team bonus) but
+**never read anywhere at runtime** — confirmed by grep. Root cause: `UnitCategory` has no
+"Building" entry, and most of the 5 CSV-authored team bonuses target Houses/
+fortifications/Markets, so the existing regex-based `ParseNumericEffect` can't reliably
+turn their free-text cells into a generic `StatModifier` — `CsvToScriptableObject.cs`'s
+own comment block already anticipated exactly this gap, saying the remainder needs
+"hand-written hooks... the same way Rajput's dismount-survival and Vijayanagara's
+fortification-HP bonus already are." That's the existing bespoke-per-civ-hook pattern
+(`UniqueTechDefinition.cs`, `RajputDefianceHook.cs`, `BuildingPlacer.WoodMultiplierFor`/
+`StoneMultiplierFor`) this session followed, rather than trying to force all 5 through the
+generic (and currently-dead) `teamBonus` field.
+
+**Plan Mode used before implementation** (per CLAUDE.md protocol step 3 — this touches 5
+separate gameplay systems across 6 files, clearly nontrivial): wrote and got explicit
+approval for a plan naming the exact hook site, exact constant value, and exact stacking
+behavior for each of the 5 team bonuses before any code was written.
+
+**Implementation**: new `Assets/Scripts/Core/TeamBonus.cs` — `HasAlly(FactionId, CivilizationId)`
+(true if the faction has at least one *other* allied faction of that civ; explicitly
+excludes the checking faction itself, since `DiplomacyRegistry.AreAllied(a,a)` is true by
+design but a civ's own bonus is a different, already-existing code path from its team
+bonus) plus 5 named constants. Wired into the 5 existing per-civ-bonus hook sites the CSV
+already specified as each civ's "diluted" team-bonus version, matching the exact numeric
+values in `civ_bonus_template.csv`'s last row per civ:
+- **Maurya** → `BuildingPlacer.WoodMultiplierFor` (`Assets/Scripts/Buildings/BuildingPlacer.cs`):
+  allied factions' Houses cost 25% less Wood. Stayed Player-only, matching this method's
+  pre-existing scope (it's an inherently player-only placement tool) — AI's own building-
+  cost path doesn't call this method today either, a pre-existing asymmetry not expanded.
+- **Vijayanagara** → the identical 3-line `fortificationMultiplier` block already present
+  in `WallFactory.cs`/`GateFactory.cs`/`TowerFactory.cs`: allied Wall/Gate/Tower get +15%
+  max HP, multiplying alongside the owner's own unique-tech multiplier. Uses the
+  factory's `faction` parameter (not hardcoded Player), so this one applies to AI-built
+  fortifications too, unlike Maurya's Player-only case above.
+- **Rajput** → `CavalryFactory.cs`'s existing `uniqueTechDamageBonus`: allied Cavalry get
+  +1 flat damage, added unconditionally (not gated on the ally having researched Warrior
+  Clans — matching AoE2/4's "team bonuses are always-on" convention, confirmed as the
+  right read of the CSV's "diluted version" wording).
+- **Maratha** → `CavalryFactory.cs`'s existing `agent.speed *= FindCategoryMultiplier(...)`
+  line: allied Cavalry get +10% move speed, multiplying alongside the owner's own
+  civ-wide Cavalry speed bonus.
+- **Chola** → `Market.EffectiveSellRate`/`EffectiveBuyRate` (`Assets/Scripts/Buildings/Market.cs`):
+  allied Markets get a narrowed +/-5-point spread. This is the one bonus that needed no
+  spawn-time baking — `Market`'s rate properties were already live-computed on every read
+  (re-evaluating the owner's own unique-tech state each call), so the team-bonus term
+  slotted into the same already-dynamic shape and correctly reacts to an alliance forming
+  or breaking after the Market was built, unlike the other 4 (which follow this project's
+  established non-retroactive, baked-at-spawn convention, same as every other spawn-time
+  civ bonus already in the codebase).
+
+**Tests**: 5 new EditMode tests (`TeamBonusTests.cs`) covering `HasAlly` directly — no
+alliance set, allied with the matching civ, allied with a different civ, self-exclusion
+(explicitly asserting `DiplomacyRegistry.AreAllied(a,a)` is true while `HasAlly(a, ownCiv)`
+is still false), and an explicit War relation overriding a state where an alliance might
+otherwise be assumed. One new case added to the existing `CivPassiveBonusTests.cs` for
+`WoodMultiplierFor`'s new ally path, following that file's own documented convention
+(restore Player's civ and reset `DiplomacyRegistry` in a `finally` block, since these
+statics persist across tests in the same run). 105 EditMode tests total, all pass (up
+from 99 before this session).
+
+**Live-verified in Play mode via UnityMCP**, going beyond the pure-logic unit tests since
+this codebase has no existing precedent for EditMode-testing factory-spawn output
+directly (confirmed by grep — zero pre-existing Wall/Cavalry/Market factory tests): for
+each of the 4 baked-at-spawn bonuses, spawned the same building/unit type once at War and
+once after `DiplomacyRegistry.SetAllied`, and compared the exact resulting stat — Wall HP
+250→287.5 (exact 1.15x), Cavalry damage 6→7 (exact +1 flat), Cavalry speed 6.5→7.15
+(exact 1.10x). For Chola's Market bonus, verified the *same* `Market` instance's rates
+changed immediately after calling `SetAllied` with no respawn at all (0.70→0.75 sell,
+1.30→1.25 buy) — direct proof of the "already-dynamic, no baking needed" design point.
+Also verified the negative/self-exclusion case live, not just in the unit test: a
+Vijayanagara-owned Wall spawned while allied with Player stayed at exactly 250 HP (not
+287.5) — confirming a civ's own building never double-counts its own team bonus via the
+alliance path. No console errors at any point (compile, test run, or Play mode).
+
+Updated `docs/ROADMAP.md` Section 1 (new item, done) and Section 5 (new item 14, done)
+and this file. One scoped commit follows, referencing this roadmap item.
+
+---
+
 ## 2026-09-01 — AoE-parity Phase 3.1: resource-specific drop-off buildings
 
 **Scope**: `AOE_PARITY_EXECUTION_PLAN.md` Phase 3.1 (resource-specific drop-off
