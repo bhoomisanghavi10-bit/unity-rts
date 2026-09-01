@@ -2,6 +2,7 @@ using UnityEngine;
 using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Progression;
+using KingdomsOfBharat.Multiplayer;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -351,8 +352,8 @@ namespace KingdomsOfBharat.Buildings
             Vector3 size = CurrentSize();
             _ghost.transform.position = point + Vector3.up * (size.y * 0.5f);
 
-            bool affordable = CanAfford();
-            bool clear = IsClearForKind(point);
+            bool affordable = CanAfford(_kind);
+            bool clear = IsClearForKind(_kind, point);
             var renderer = _ghost.GetComponent<MeshRenderer>();
             renderer.sharedMaterial.color = affordable && clear
                 ? new Color(0.3f, 1f, 0.3f, 0.5f)
@@ -398,14 +399,41 @@ namespace KingdomsOfBharat.Buildings
             return 1f;
         }
 
+        // AoE-Parity Phase 5 gap-close: this used to deduct resources and
+        // call XFactory.Place directly at click time - the one remaining
+        // Player-input path that bypassed CommandBus (Move/Attack/Train
+        // orders already went through it). Now only does the client-side
+        // "is this obviously doomed" pre-check (so a hopeless click doesn't
+        // enqueue a pointless command) and enqueues a BuildCommand; the real
+        // spend + spawn happens InputDelayTicks later in ExecuteBuild below,
+        // same deferred-execution shape as TrainCommand/Barracks.RequestTrain.
         private void TryConfirmPlacement()
         {
-            if (!TryGetGroundPoint(out Vector3 point) || !IsClearForKind(point))
+            if (!TryGetGroundPoint(out Vector3 point) || !IsClearForKind(_kind, point))
             {
                 return;
             }
 
-            if (!CanAfford())
+            if (!CanAfford(_kind))
+            {
+                return;
+            }
+
+            BuildingKind kind = _kind;
+            CommandBus.Enqueue(new BuildCommand(FactionId.Player, this, () => ExecuteBuild(kind, point)));
+
+            CancelPlacing();
+        }
+
+        // Re-checks IsClearForKind/CanAfford again before spending anything -
+        // real game state (stockpile, other buildings) may have changed in
+        // the delay window between the click and this executing, the same
+        // reason Barracks.RequestTrain re-validates instead of trusting
+        // TrainCommand's enqueue-time state. Silently no-ops if either check
+        // now fails, matching RequestTrain's own convention.
+        private void ExecuteBuild(BuildingKind kind, Vector3 point)
+        {
+            if (!IsClearForKind(kind, point) || !CanAfford(kind))
             {
                 return;
             }
@@ -418,7 +446,7 @@ namespace KingdomsOfBharat.Buildings
             float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).BuildCostMultiplier
                 * (EconomyTechProgress.HasResearched(FactionId.Player, EconomyTech.TradeDiscounts) ? EconomyTechDefinition.For(EconomyTech.TradeDiscounts).Bonus : 1f);
 
-            switch (_kind)
+            switch (kind)
             {
                 case BuildingKind.Barracks:
                     stockpile.Add(ResourceType.Wood, -barracksWoodCost * multiplier);
@@ -430,21 +458,21 @@ namespace KingdomsOfBharat.Buildings
                     FarmFactory.Place(point, FactionId.Player, farmBuildTime);
                     break;
                 case BuildingKind.House:
-                    stockpile.Add(ResourceType.Wood, -houseWoodCost * multiplier * WoodMultiplierFor(_kind));
+                    stockpile.Add(ResourceType.Wood, -houseWoodCost * multiplier * WoodMultiplierFor(kind));
                     HouseFactory.Place(point, FactionId.Player, houseBuildTime);
                     break;
                 case BuildingKind.Wall:
-                    stockpile.Add(ResourceType.Stone, -wallStoneCost * multiplier * StoneMultiplierFor(_kind));
+                    stockpile.Add(ResourceType.Stone, -wallStoneCost * multiplier * StoneMultiplierFor(kind));
                     WallFactory.Place(point, FactionId.Player, wallBuildTime);
                     break;
                 case BuildingKind.Gate:
-                    stockpile.Add(ResourceType.Stone, -gateStoneCost * multiplier * StoneMultiplierFor(_kind));
+                    stockpile.Add(ResourceType.Stone, -gateStoneCost * multiplier * StoneMultiplierFor(kind));
                     stockpile.Add(ResourceType.Wood, -gateWoodCost * multiplier);
                     GateFactory.Place(point, FactionId.Player, gateBuildTime);
                     break;
                 case BuildingKind.Tower:
                     stockpile.Add(ResourceType.Wood, -towerWoodCost * multiplier);
-                    stockpile.Add(ResourceType.Stone, -towerStoneCost * multiplier * StoneMultiplierFor(_kind));
+                    stockpile.Add(ResourceType.Stone, -towerStoneCost * multiplier * StoneMultiplierFor(kind));
                     TowerFactory.Place(point, FactionId.Player, towerBuildTime);
                     break;
                 case BuildingKind.Market:
@@ -470,11 +498,9 @@ namespace KingdomsOfBharat.Buildings
                     MillFactory.Place(point, FactionId.Player, millBuildTime);
                     break;
             }
-
-            CancelPlacing();
         }
 
-        private bool CanAfford()
+        private bool CanAfford(BuildingKind kind)
         {
             ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
             // Phase 6 gap-close: EconomyTechProgress's TradeDiscounts tech
@@ -484,21 +510,21 @@ namespace KingdomsOfBharat.Buildings
             float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).BuildCostMultiplier
                 * (EconomyTechProgress.HasResearched(FactionId.Player, EconomyTech.TradeDiscounts) ? EconomyTechDefinition.For(EconomyTech.TradeDiscounts).Bonus : 1f);
 
-            switch (_kind)
+            switch (kind)
             {
                 case BuildingKind.Barracks:
                     return stockpile.GetTotal(ResourceType.Wood) >= barracksWoodCost * multiplier
                         && stockpile.GetTotal(ResourceType.Stone) >= barracksStoneCost * multiplier;
                 case BuildingKind.House:
-                    return stockpile.GetTotal(ResourceType.Wood) >= houseWoodCost * multiplier * WoodMultiplierFor(_kind);
+                    return stockpile.GetTotal(ResourceType.Wood) >= houseWoodCost * multiplier * WoodMultiplierFor(kind);
                 case BuildingKind.Wall:
-                    return stockpile.GetTotal(ResourceType.Stone) >= wallStoneCost * multiplier * StoneMultiplierFor(_kind);
+                    return stockpile.GetTotal(ResourceType.Stone) >= wallStoneCost * multiplier * StoneMultiplierFor(kind);
                 case BuildingKind.Gate:
-                    return stockpile.GetTotal(ResourceType.Stone) >= gateStoneCost * multiplier * StoneMultiplierFor(_kind)
+                    return stockpile.GetTotal(ResourceType.Stone) >= gateStoneCost * multiplier * StoneMultiplierFor(kind)
                         && stockpile.GetTotal(ResourceType.Wood) >= gateWoodCost * multiplier;
                 case BuildingKind.Tower:
                     return stockpile.GetTotal(ResourceType.Wood) >= towerWoodCost * multiplier
-                        && stockpile.GetTotal(ResourceType.Stone) >= towerStoneCost * multiplier * StoneMultiplierFor(_kind);
+                        && stockpile.GetTotal(ResourceType.Stone) >= towerStoneCost * multiplier * StoneMultiplierFor(kind);
                 case BuildingKind.Market:
                     return stockpile.GetTotal(ResourceType.Wood) >= marketWoodCost * multiplier
                         && stockpile.GetTotal(ResourceType.Gold) >= marketGoldCost * multiplier;
@@ -539,9 +565,9 @@ namespace KingdomsOfBharat.Buildings
         // edge-to-edge in a chain - unrelated to BuildingFootprint's
         // square-tile/margin system, which every other kind below uses
         // instead (see BuildingFootprint.cs).
-        private Vector2 CurrentFootprint()
+        private Vector2 CurrentFootprint(BuildingKind kind)
         {
-            switch (_kind)
+            switch (kind)
             {
                 case BuildingKind.Barracks: return BuildingFootprint.Square(BuildingFootprint.BarracksTiles);
                 case BuildingKind.House: return BuildingFootprint.Square(BuildingFootprint.HouseTiles);
@@ -561,13 +587,20 @@ namespace KingdomsOfBharat.Buildings
         // actually be near water to be useful, and can't be placed
         // directly inside the water rectangle itself (no ground collider
         // there to place a foundation on - see ProceduralGround's hole).
-        private bool IsClearForKind(Vector3 point)
+        //
+        // AoE-Parity Phase 5 gap-close: takes kind explicitly rather than
+        // reading the mutable _kind field - ExecuteBuild's deferred call
+        // (up to InputDelayTicks after the click that captured this kind)
+        // must re-check against the kind the command actually committed to,
+        // not whatever _kind has since drifted to if the player started a
+        // different placement in the meantime.
+        private bool IsClearForKind(BuildingKind kind, Vector3 point)
         {
-            bool clear = _kind == BuildingKind.Wall || _kind == BuildingKind.Gate
+            bool clear = kind == BuildingKind.Wall || kind == BuildingKind.Gate
                 ? BarracksFactory.IsClear(point, wallClearance)
-                : BuildingFootprint.IsClear(point, CurrentFootprint());
+                : BuildingFootprint.IsClear(point, CurrentFootprint(kind));
 
-            if (_kind != BuildingKind.Dock)
+            if (kind != BuildingKind.Dock)
             {
                 return clear;
             }

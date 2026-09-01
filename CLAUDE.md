@@ -109,18 +109,44 @@ asset requirements, 5. Priority order).
   which is the same item as this list's own item 12 (General garrisoning),
   the plan folds it in rather than introducing a new one — closed, Phase 4.2
   closed. Read Roadmap Section 6 for the full writeup, not this summary.
-- Currently on: **Phase 5 (multiplayer determinism) — investigation
-  done, implementation not started, holding for the user's go-ahead.**
-  Section 5 items 1-9 are all done, and items 11-15 (Repair, General
-  garrisoning, resource-specific drop-off buildings, team-bonus/alliance
-  economic stacking, worker self-defense/cross-awareness) are done too —
-  **the worker-mechanics-audit is now fully closed, no open items remain
-  from it**, and `AOE_PARITY_EXECUTION_PLAN.md`'s Phases 1-4 are fully
-  resolved (see the consolidation note above). Phase 5 was investigated
-  this session per instruction (report a "doable now" vs. "blocked on
-  transport" split before writing any code) — see the chat response for
-  the full split; not restated here since this file is for durable status,
-  not a running transcript. Item 7 (civ-specific
+- **Phase 5, doable-now part closed 2026-09-01** (via Plan Mode, approved
+  before implementation, per protocol): the investigation's own finding —
+  `BuildingPlacer.TryConfirmPlacement` was the one remaining Player-input
+  path bypassing `CommandBus`'s lockstep input-delay queue — is now fixed.
+  New `BuildCommand.cs` (same delegate shape as `TrainCommand`);
+  `TryConfirmPlacement` now only pre-checks + enqueues, with the real
+  resource deduction + `Factory.Place` moved into a new `ExecuteBuild`
+  that re-validates at execute time (mirrors `Barracks.RequestTrain`'s own
+  re-check convention). `CanAfford`/`IsClearForKind`/`CurrentFootprint`
+  refactored to take an explicit `BuildingKind` param instead of the
+  mutable `_kind` field — a real correctness fix, not style, since the
+  command captures a kind that could differ from `_kind` by execute time.
+  Also added the requested self-consistency test:
+  `CommandBus.ExecuteTick`/new `EnqueueAt` made `internal` for direct
+  EditMode testability, 4 new tests in `CommandBusDeterminismTests.cs`
+  proving "same inputs → same state" through real `CommandBus`+`StateHash`
+  (121 EditMode tests total, up from 117) — hit and fixed a real
+  test-authoring bug along the way (`Unit.OnEnable()` doesn't fire
+  synchronously after `AddComponent<Unit>()` in EditMode, the same gotcha
+  `BuildingAttackerTests` already documents, which silently made the first
+  draft's negative case pass for the wrong reason). Live-verified in Play
+  mode via UnityMCP through the real production path (real match started,
+  real `Physics.Raycast`, real `SimClock` ticking): Wood/House count
+  unchanged immediately after the click despite a real `BuildCommand` being
+  enqueued, then correctly deducted/spawned ~2 real seconds later. See
+  Roadmap Section 6 and `docs/SESSION_LOG.md` for full detail, including two
+  environment quirks hit and worked around (Age-gated `BeginPlacementBarracks`,
+  stale/off-screen cached `Input.mousePosition`), neither caused by this
+  session's changes.
+- Currently on: nothing started for the next session. Section 5 items 1-9 and
+  11-15 are all done — **the worker-mechanics-audit is fully closed** — and
+  `AOE_PARITY_EXECUTION_PLAN.md`'s Phases 1-4 are fully resolved (see the
+  consolidation note above). Phase 5 (item 16) is now partially closed (see
+  above); remaining scope is genuinely blocked on a network transport that
+  doesn't exist yet (real cross-peer desync detection, resync/rollback
+  recovery logic, cross-machine determinism testing) — next session should
+  check with the user before attempting more of Phase 5, or fall back to
+  other open Roadmap items. Item 7 (civ-specific
   building models) is fully closed — **all 5 civs,
   45/45 models landed** (Chola, Vijayanagara, Rajput, Maurya, Maratha).
   `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any future

@@ -5,6 +5,98 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-01 — AoE-parity Phase 5: BuildingPlacer→CommandBus wiring + self-consistency hash test
+
+**Scope**: the doable-now half of Phase 5, approved by the user after the prior
+same-day investigation (report-only, no code) laid out the doable-vs-blocked split.
+Two deliverables: close `BuildingPlacer`'s confirmed `CommandBus` bypass, and add the
+requested self-consistency test proving `CommandBus`+`StateHash` actually deliver
+"same inputs → same state." Went through Plan Mode first per protocol (touches core
+placement logic + adds new public surface to `CommandBus`).
+
+**`BuildCommand`**: new `Assets/Scripts/Multiplayer/BuildCommand.cs`, same
+delegate-over-`Action` shape as `TrainCommand`/`AttackCommand` (no shared
+"placeable" interface across Barracks/Farm/House/etc., same reasoning those two
+already documented). `BuildingPlacer.TryConfirmPlacement` now only does a
+client-side pre-check (so an obviously-doomed click doesn't enqueue a pointless
+command) and enqueues; the real resource deduction + `XFactory.Place` call moved
+into a new `ExecuteBuild(kind, point)`, which **re-validates**
+`IsClearForKind`/`CanAfford` again before spending anything - real game state can
+change in the delay window, the same reason `Barracks.RequestTrain` re-checks
+rather than trusting `TrainCommand`'s enqueue-time state. `CanAfford`/
+`IsClearForKind`/`CurrentFootprint` were refactored to take an explicit
+`BuildingKind` parameter instead of reading the mutable `_kind` field - a real
+correctness concern, not just style: the command captures a kind at click time,
+but the player could start placing a *different* kind before the queued command
+executes 4 ticks later, so the deferred re-check must use the captured kind. AI's
+own placement (`AiController.cs`, calls `Factory.Place` directly) stays untouched,
+matching `AttackCommand.cs`'s existing documented precedent that automatic
+per-tick AI/simulation decisions don't need queuing, only real player input does.
+
+**Self-consistency test**: `CommandBus.ExecuteTick` changed from `private` to
+`internal`, and a new `internal CommandBus.EnqueueAt(tick, command)` added
+(bypasses `SimClock.CurrentTick`-relative scheduling) - both purely for direct
+EditMode testability, since `SimClock` never ticks in EditMode (`Update()` is
+gated on `CivilizationSetup.HasMatchStarted`, always false there). New
+`Assets/Tests/EditMode/CommandBusDeterminismTests.cs`, 4 tests: fixed-enqueue-order
+execution (the specific guarantee `CommandBus`'s own code comment calls
+load-bearing), an unscheduled-tick no-op case, and the actual proof - replaying an
+identical sequence of a test-local `Command` against two independently-built,
+identical starting worlds (`Unit`+`Attackable`+`FactionMember` GameObjects, the
+exact fields `StateHash.Compute()` folds) produces an identical `StateHash`, while
+a deliberately different command stream produces a different one (guards against
+the test passing trivially by both hashes being wrong the same way). **Hit and
+fixed a real test-authoring bug while writing this, not before it**: the negative
+case initially failed with both hashes equal regardless of the different delta -
+root cause was `Unit.OnEnable()` not firing synchronously right after
+`AddComponent<Unit>()` in EditMode (confirmed directly: `Unit.All.Count` stayed 0
+immediately after `AddComponent<Unit>()`), meaning `StateHash.Compute()` was
+silently folding over zero units the whole time and only ever hashing
+`SimClock.CurrentTick` (unchanged between runs) - the exact same gotcha
+`BuildingAttackerTests` already documents for `Unit.All`, just not yet hit by any
+test that needed `StateHash` specifically. Fixed by registering into `Unit.All`
+directly at spawn time, matching `BuildingAttackerTests`' own established
+convention, rather than inventing a new workaround.
+
+**Tests**: 121 EditMode tests total (117 + 4 new), all pass - confirmed via a real
+`run_tests` call, not assumed. Also re-hit this session's own earlier lesson about
+silent compile failures: checked `EditorUtility.scriptCompilationFailed` was false
+before trusting the test count, though this time compilation succeeded cleanly on
+the first attempt.
+
+**Live verification**: Play mode via UnityMCP, through the real production path -
+not a reflection-only shortcut. Started a real match
+(`CivilizationSetup.BeginMatch(Chola)`), then drove the actual private
+`TryConfirmPlacement()` method via reflection (not a synthetic bypass of it) with a
+real `Physics.Raycast` against the real ground collider. Hit and worked around two
+real environment quirks along the way, neither caused by this session's changes:
+(1) `BeginPlacementBarracks()` is Classical-Age-gated and a fresh match starts in
+Ancient Age, so it silently no-op'd on the first attempt - switched to
+`BeginPlacementHouse()` (no age gate); (2) the Editor's cached `Input.mousePosition`
+was stale/off-screen (`y=-106`, below the window), so `TryGetGroundPoint`'s raycast
+missed the ground entirely - worked around by temporarily repositioning the real
+Main Camera to guarantee a valid ray/ground intersection (restored immediately
+after), rather than fabricating a fake ground point. With a real 500 Wood granted
+to the Player stockpile: confirmed Wood and House count were **both unchanged
+immediately after the click** (500 Wood, 1 House) while a real `BuildCommand` was
+genuinely present in `CommandBus`'s schedule (checked via reflection on its private
+`_scheduled` dictionary) - proving the spend/spawn is deferred, not skipped. After
+~2 real seconds (10x past the ~200ms `InputDelayTicks` window), confirmed Wood had
+actually dropped to 474.5 (30 base House cost × Chola's existing -15% civ discount,
+an exact match) and a second House now existed - proving the deferred command
+really executes through `SimClock`'s real per-frame tick loop, not just compiles.
+`SimClock.CurrentTick` was independently observed to have advanced by hundreds of
+ticks across the debugging session, confirming the clock itself was genuinely
+live throughout, not stalled.
+
+**Roadmap**: Section 6's Phase 5 writeup and Section 5 item 16 both updated to
+"in progress, doable-now part closed" with full detail. Explicitly not done this
+session (per the plan's own scope, and the earlier investigation's blocked-on-
+transport finding): real cross-peer desync detection, resync/rollback recovery
+logic, and cross-machine NavMeshAgent/physics determinism testing.
+
+---
+
 ## 2026-09-01 — Roadmap consolidation pass + Phase 5 (multiplayer determinism) investigation
 
 **Scope**: two parts, per instruction. First, a documentation consolidation: fold

@@ -38,17 +38,33 @@ namespace KingdomsOfBharat.Multiplayer
             EnsureSubscribed();
 
             int executeTick = SimClock.CurrentTick + InputDelayTicks;
-            if (!_scheduled.TryGetValue(executeTick, out List<Command> commands))
-            {
-                commands = new List<Command>();
-                _scheduled[executeTick] = commands;
-            }
-
-            commands.Add(command);
+            EnqueueAt(executeTick, command);
             return executeTick;
         }
 
-        private static void ExecuteTick(int tick)
+        // Test-only entry point: schedules at an explicit tick, bypassing
+        // SimClock.CurrentTick-relative math, so a determinism test can pin
+        // an exact tick sequence without depending on (or mutating) the live
+        // static SimClock.CurrentTick. Internal rather than private for the
+        // same reason ExecuteTick below is - see CommandBusDeterminismTests.
+        internal static void EnqueueAt(int tick, Command command)
+        {
+            if (!_scheduled.TryGetValue(tick, out List<Command> commands))
+            {
+                commands = new List<Command>();
+                _scheduled[tick] = commands;
+            }
+
+            commands.Add(command);
+        }
+
+        // Internal (not private) so an EditMode test can fire a tick
+        // directly - SimClock's own Update() never runs in EditMode (gated
+        // on CivilizationSetup.HasMatchStarted, always false there), so
+        // there's no other way to exercise this deterministically without a
+        // live Play Mode session. See AssemblyInfo.cs's InternalsVisibleTo
+        // grant.
+        internal static void ExecuteTick(int tick)
         {
             if (!_scheduled.TryGetValue(tick, out List<Command> commands))
             {

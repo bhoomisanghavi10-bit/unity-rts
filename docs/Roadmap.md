@@ -1165,16 +1165,21 @@ buying, or making an asset yourself:
     and `UnitMover`/`MeleeAttacker` both caching sibling components in `Awake`
     instead of lazily). See Section 1's matching item and
     `docs/SESSION_LOG.md`.
-16. **Multiplayer determinism** (AoE-Parity Execution Plan Phase 5) — the
-    worker-mechanics-audit and all of Phases 1–4 are now closed; this is the
-    explicit next item. See Section 6 below for the plan's own scope and
-    `docs/AOE_PARITY_EXECUTION_PLAN.md` for full step-by-step detail. **Before
-    writing any code**: verify what `CommandBus`/`BuildingPlacer`/`StateHash`
-    actually do today against the repo (not this list's summary), and report
-    a clear "doable now without a transport" vs. "genuinely blocked on a
-    transport that doesn't exist yet" split back to the user before
-    proceeding — this phase has real scope in both categories, not one or
-    the other.
+16. **Multiplayer determinism** (AoE-Parity Execution Plan Phase 5) — in
+    progress. Investigated first (no code), reported the doable-vs-blocked
+    split, user approved the doable-now part. ~~`BuildingPlacer` wired
+    through `CommandBus`~~ **Done** (2026-09-01): the one remaining
+    Player-input path that bypassed the lockstep input-delay queue now goes
+    through a new `BuildCommand`, live-verified in Play mode (resource spend
+    + building spawn genuinely deferred ~4 ticks, not immediate). ~~Add a
+    `CommandBus`/`StateHash` self-consistency test~~ **Done** (2026-09-01):
+    4 new EditMode tests proving "same inputs → same state" directly (121
+    total, up from 117). **Remaining, explicitly not done**: real desync
+    detection (needs two peers), resync/rollback recovery logic (design-only
+    doable now, real validation blocked on a transport), and cross-machine
+    NavMeshAgent/physics determinism (needs two real machines). See Section 6
+    below for full detail and `docs/AOE_PARITY_EXECUTION_PLAN.md` for the
+    plan's own step-by-step scope of what's left.
 
 ---
 
@@ -1276,9 +1281,65 @@ event path: a Maurya Worker closed a real ~4-unit NavMesh-pathed gap down to
 increased its tracked distance from the attacker from 19.9 to 25.9 units,
 never engaging.
 
-**Phase 5 — Multiplayer determinism: not started.** See Roadmap Section 5 for
-the next-session plan and `docs/AOE_PARITY_EXECUTION_PLAN.md` for the full
-item-by-item scope.
+**Phase 5 — Multiplayer determinism: in progress, doable-now part closed.**
+Investigated first (no code) and reported a "doable now" vs. "blocked on
+transport" split back to the user before writing anything, per instruction.
+Findings: `CommandBus`/`SimClock` already wire Move/Attack/Train orders
+through the lockstep input-delay queue; `BuildingPlacer.TryConfirmPlacement`
+was the one remaining Player-input path that bypassed it (deducted resources
+and called `XFactory.Place` synchronously at click time instead of through a
+`Command`); `StateHash.Compute()` existed but had **zero call sites anywhere**
+(confirmed by grep — the plan doc's "currently only detects desync" framing
+overstated it; nothing detects anything today, the hashing primitive just
+exists). User approved doing the doable-now part now. **Closed same session**:
+new `BuildCommand.cs` (`Assets/Scripts/Multiplayer/BuildCommand.cs`), same
+delegate shape as `TrainCommand`. `BuildingPlacer.TryConfirmPlacement` now
+only does a client-side pre-check and enqueues; the actual resource spend +
+`Factory.Place` call moved into a new `ExecuteBuild(kind, point)`, which
+**re-validates** `IsClearForKind`/`CanAfford` again at execute time (state may
+have changed in the delay window) — mirrors `Barracks.RequestTrain`'s own
+re-check-and-no-op convention exactly. `CanAfford`/`IsClearForKind`/
+`CurrentFootprint` all refactored to take an explicit `BuildingKind` parameter
+instead of reading the mutable `_kind` field, since the command captures a
+kind at click time that could differ from `_kind` by the time it executes.
+AI's own building placement (`AiController.cs`) stays direct on purpose,
+matching `AttackCommand.cs`'s existing documented precedent that automatic
+per-tick AI/simulation decisions don't need queuing. Also added the
+**self-consistency hash test** requested alongside this: `CommandBus.ExecuteTick`
+made `internal` (was `private`) and a new `internal CommandBus.EnqueueAt`
+added, both purely for direct EditMode testability (`SimClock` never ticks in
+EditMode). 4 new EditMode tests in `CommandBusDeterminismTests.cs` — fixed
+enqueue-order execution, and the actual "same inputs → same state" proof:
+replaying an identical command stream against two independently-built,
+identical starting worlds produces an identical `StateHash`, while a
+genuinely different stream produces a different one (guards against the test
+passing trivially). Hit and fixed a real test-authoring gotcha along the way:
+`Unit.OnEnable()` doesn't fire synchronously right after `AddComponent<Unit>()`
+in EditMode — the exact same gotcha `BuildingAttackerTests` already documents
+for `Unit.All` — which meant the first draft of the negative-case test passed
+for the wrong reason (`StateHash.Compute()` was silently folding over zero
+units); fixed by registering into `Unit.All` directly, matching
+`BuildingAttackerTests`' own established convention. 121 EditMode tests total,
+all pass (up from 117). **Live-verified in Play mode via UnityMCP through the
+real production path** (not a reflection-only shortcut): started a real match
+(`CivilizationSetup.BeginMatch`), drove the actual private `TryConfirmPlacement`
+method with a real `Physics.Raycast` against the real ground collider (camera
+temporarily repositioned to guarantee a valid hit, since the Editor's stale/
+off-screen cached mouse position doesn't raycast onto the ground on its own -
+this is pre-existing `Input.mousePosition` behavior, unrelated to this
+session's changes) — confirmed Wood stockpile and House count were **both
+unchanged immediately after the click** (500 Wood, 1 House) while a real
+`BuildCommand` was genuinely enqueued in `CommandBus`, then, after ~2 real
+seconds (far past the 200ms `InputDelayTicks` window), confirmed Wood actually
+dropped to 474.5 (30 base cost × Chola's -15% civ discount, exact match) and a
+second House existed. **Remaining, explicitly not done this pass**: real
+desync detection (needs two peers to compare hashes against), resync/rollback
+recovery logic (the plan's own scope, genuinely blocked on having a transport
+to validate against — `SaveManager`'s existing F5/F9 JSON serializer is a
+plausible snapshot-format starting point but carries its own documented v1
+gaps), and cross-machine NavMeshAgent/physics determinism testing (needs two
+real machines). See Roadmap Section 5 item 16 and `docs/AOE_PARITY_EXECUTION_PLAN.md`
+for the full item-by-item scope of what's left.
 
 **Phase 6 — Home City-style meta-progression: deferred, do not start without
 explicit user request** (per the plan's own instruction — real new-system
