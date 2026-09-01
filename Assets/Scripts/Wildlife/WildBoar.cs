@@ -115,7 +115,12 @@ namespace KingdomsOfBharat.Wildlife
             _attackCooldown -= Time.deltaTime;
             if (_attackCooldown <= 0f)
             {
-                _target.TakeDamage(damage);
+                // Unqualified DamageType is ambiguous here: the global-namespace
+                // DamageType (UnitDefinition.cs) sits in an enclosing scope of
+                // KingdomsOfBharat.Wildlife and wins name resolution over the
+                // `using KingdomsOfBharat.Combat;` import, so this must stay
+                // fully qualified.
+                _target.TakeDamage(damage, KingdomsOfBharat.Combat.DamageType.Melee, _selfAttackable);
                 _attackCooldown = attackInterval;
             }
         }

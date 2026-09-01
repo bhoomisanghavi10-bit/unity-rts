@@ -5,6 +5,117 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-01 — AoE-parity Phase 4.2: worker self-defense/cross-awareness (Roadmap Section 1 worker-mechanics-audit item)
+
+**Scope**: `AOE_PARITY_EXECUTION_PLAN.md` Phase 4.2 — the last open item from the
+2026-08-29 worker mechanics audit. `Gatherer` and `MeleeAttacker` had zero
+cross-awareness of each other: a worker being attacked mid-gather never
+auto-interrupted into a defensive state, unlike AoE, where villagers either fight
+back or flee once hit. Continued into this session from a prior one whose code
+changes were already saved on disk (`Gatherer.cs`, `Attackable.cs`,
+`MeleeAttacker.cs`, `BoatAttacker.cs`, `BuildingAttacker.cs`, `WildBoar.cs`,
+`WorkerFactory.cs`, `CombatResponse.cs`, `WorkerCombatResponseDefaults.cs`, and the
+new `GathererCombatResponseTests.cs`) but never run through the EditMode suite or
+live-verified — this session's job was exactly that: run the tests, verify live in
+Play mode, then log and update the roadmap.
+
+**Design** (as implemented, confirmed by reading the diff): new
+`Attackable.OnDamaged` event fires whenever a non-lethal hit lands, carrying the
+attacker's own `Attackable`. Every site that calls `Attackable.TakeDamage` now
+passes its own `Attackable` as the new optional `attacker` parameter —
+`MeleeAttacker`, `BoatAttacker`, `BuildingAttacker`, `WildBoar` — each resolving it
+lazily via a `Self` property rather than caching in `Awake`, matching the existing
+`GarrisonPoint`/`Repairable` sibling-component-ordering convention. New
+`CombatResponse` enum (Fight/Flee) and `WorkerCombatResponseDefaults`, a
+hand-written per-civ lookup in the same bespoke-hook convention as `TeamBonus`/
+`RajputDefianceHook` (a categorical behavior choice isn't representable as a
+`passiveBonuses` `StatModifier`): every civ defaults to Fight — matching the
+capability every Worker already had via its own weak `MeleeAttacker`, just now
+auto-triggered instead of requiring an explicit attack-move command — except
+Maratha, whose guerrilla hit-and-run identity (Ganimi Kava, already reflected in
+its Cavalry speed bonus and Phase 3.2 team bonus) extends here: its Workers flee.
+`Gatherer.HandleDamaged` subscribes to `OnDamaged` lazily in `Update` (not `Awake`
+— `WorkerFactory` adds `Gatherer` before `Attackable`), only interrupts while
+actively `MovingToNode`/`Gathering` (a load already in `MovingToDropOff` finishes
+its trip rather than losing it, the same carve-out `CancelGather` already uses),
+and either turns the worker's own `MeleeAttacker` on the attacker (Fight) or moves
+away via a new pure/testable `ComputeFleeDestination` helper (Flee).
+
+**Bugs found and fixed this session, all pre-existing/latent, none in the feature's
+own design**:
+1. **Ambiguous `DamageType` reference, `WildBoar.cs:118`** — the EditMode suite
+   returned 0 tests on the first several runs; root cause was a compile failure
+   (`EditorUtility.scriptCompilationFailed == true`) that the recent console log
+   didn't surface, only found by grepping the actual Unity `Editor.log` for
+   `error CS`. A second, unrelated `DamageType` enum already existed in the global
+   namespace (`Assets/Scripts/Data/Scripts/UnitDefinition.cs`, no `namespace`
+   block) alongside `KingdomsOfBharat.Combat.DamageType`. C# resolves an
+   unqualified name against enclosing namespace scopes *before* consulting `using`
+   directives, so `WildBoar.cs`'s newly-added explicit `DamageType.Melee` argument
+   (this call previously passed no `DamageType` at all, relying on `TakeDamage`'s
+   default parameter, which resolves at its own declaration site and was never
+   ambiguous) silently bound to the wrong enum and failed with CS1503. This bug
+   had been structurally latent since `UnitDefinition.cs` was written — nothing
+   had ever passed an explicit `DamageType` literal from inside
+   `KingdomsOfBharat.Wildlife` before this feature. Fixed by fully qualifying:
+   `KingdomsOfBharat.Combat.DamageType.Melee`.
+2. **`UnitMover._agent` cached in `Awake`**, not lazily. Once compilation was
+   fixed, 3 of the 12 new tests failed with `NullReferenceException` at
+   `Gatherer.GatherFrom` → `UnitMover.MoveTo`. This is the exact "`Awake` doesn't
+   run synchronously right after `AddComponent`" gotcha CLAUDE.md already
+   documents for `ConstructionSite`/`Repairable`, but it had never been hit for
+   `UnitMover` specifically because no prior EditMode test drove `Gatherer`'s real
+   `GatherFrom` (which needs a live mover) end-to-end. Fixed by converting
+   `_agent` to a lazy `Agent` property, same pattern as this diff's own
+   `MeleeAttacker.Self`/`BoatAttacker.Self`/`BuildingAttacker.Self`.
+3. **`MeleeAttacker._mover` cached in `Awake`**, not lazily — same class of bug,
+   one level deeper: fixing (2) surfaced a second `NullReferenceException` at
+   `MeleeAttacker.AttackMove`, since a Fight-response worker's own `MeleeAttacker`
+   hits this same ordering gotcha for its own `UnitMover` reference. Fixed the
+   same way (`Mover` lazy property), consistent with the `Self` lazy property this
+   diff had already added to the same class for `Attackable`.
+
+Also fixed the test file itself: `GathererCombatResponseTests.CreateWorker` never
+added a `UnitMover` component (needed for (2) above to even surface), and after
+(2)/(3) were fixed, Unity's newer Test Framework turned out not to suppress the
+expected "SetDestination can only be called on an active agent placed on a
+NavMesh" Editor error via `LogAssert.ignoreFailingMessages` alone (unlike the
+precedent `BuildingAttackerTests` documents for its own Editor-only VFX log) — it
+still failed affected tests as an "Unhandled log message" until explicitly
+consumed via `LogAssert.Expect`, added once per `MoveTo`-triggering call.
+
+**Tests**: All 117 EditMode tests pass (105 pre-existing + 12 new in
+`GathererCombatResponseTests.cs`: Fight/Flee interrupt-and-react behavior, the
+idle/null-attacker no-op cases, `ComputeFleeDestination`'s pure direction math,
+and the 5 per-civ `WorkerCombatResponseDefaults` cases).
+
+**Live verification**: Play mode via UnityMCP, through the real production event
+path (`Attackable.TakeDamage(amount, type, attacker)` → `OnDamaged` →
+`Gatherer.HandleDamaged`), not the internal `HandleDamaged` test shortcut. Used
+`CivilizationRegistry.Assign(FactionId.Player, civ)` + `WorkerFactory.Spawn` to
+spawn real Workers directly (bypassing the mission-select flow, same precedent as
+Phase 3.1's own verification) — first attempt spawned off the baked NavMesh
+entirely (`NavMeshAgent.isOnNavMesh == false` at world position (100,100));
+`NavMesh.CalculateTriangulation()` showed the actual baked bounds are roughly
+±49 units, so subsequent spawns used in-bounds coordinates. A Maurya Worker (Fight
+default), mid-`MovingToNode` toward a distant `ResourceNode`, hit by a real
+`Attackable.TakeDamage` call from a spawned enemy `Attackable`: immediately
+`IsWorking` false, `MeleeAttacker.IsAttacking` true, `NavMeshAgent.destination` set
+to the attacker's position — then, over the following real ticks, closed the
+actual ~4-unit NavMesh-pathed gap down to 0.21 units (visually standing on the
+attacker). A Maratha Worker (Flee default) under the identical setup: `IsWorking`
+false, `MeleeAttacker.IsAttacking` stayed false throughout, and its real tracked
+distance from the attacker increased from 19.9 to 25.9 units over the same window,
+never engaging. Screenshot saved to
+`Assets/Screenshots/phase4_2_flee_verification.png`. Test GameObjects cleaned up
+and Play mode exited afterward.
+
+**Roadmap**: Section 1's "Worker mechanics audit" item's self-defense sub-point
+marked closed; new "Worker self-defense/cross-awareness" item added (checked off)
+with full implementation detail; Section 5 priority-order list gained item 15.
+
+---
+
 ## 2026-09-01 — AoE-parity Phase 3.2: team-bonus / alliance economic stacking layer
 
 **Scope**: `AOE_PARITY_EXECUTION_PLAN.md` Phase 3.2, marked DECISION NEEDED at the end

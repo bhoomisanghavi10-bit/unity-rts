@@ -68,15 +68,46 @@ asset requirements, 5. Priority order).
   exact before/after-alliance A/B comparisons (Wall HP 250→287.5, Cavalry
   damage 6→7, Cavalry speed 6.5→7.15, Market sell/buy 0.70/1.30→0.75/1.25),
   including the negative/self-exclusion case (a civ's own building never
-  double-counts its own team bonus via the alliance path).
+  double-counts its own team bonus via the alliance path). **Phase 4.2
+  (worker self-defense/cross-awareness, the last open worker-mechanics-audit
+  item) closed 2026-09-01** in a follow-on session that continued from code
+  already saved on disk (a prior session had written the implementation but
+  never run the test suite or live-verified it) — see Roadmap Section 1's
+  matching item and `docs/SESSION_LOG.md`'s Phase 4.2 entry for full detail:
+  new `Attackable.OnDamaged` event, `CombatResponse` (Fight/Flee) enum, and
+  `WorkerCombatResponseDefaults` per-civ lookup (same bespoke-hook convention
+  as `TeamBonus`) — every civ's Workers now auto-fight back when attacked
+  mid-gather except Maratha's, which flee (guerrilla identity, consistent
+  with its other bonuses). This session's own verification pass found and
+  fixed 3 real latent bugs unrelated to the feature's own design: an
+  ambiguous `DamageType` reference in `WildBoar.cs` (a second, unrelated
+  global-namespace `DamageType` enum already existed in `UnitDefinition.cs`,
+  and C# resolves an unqualified name against the enclosing global namespace
+  *before* `using` directives — this had silently blocked EditMode
+  compilation, which is why `run_tests` was returning 0 tests with no
+  visible error until the actual Unity `Editor.log` was checked directly),
+  and `UnitMover`/`MeleeAttacker` both caching a sibling component in
+  `Awake` instead of lazily (the same "Awake doesn't run synchronously right
+  after AddComponent" gotcha already documented below for
+  `ConstructionSite`/`Repairable`, newly exposed because no prior EditMode
+  test had driven `Gatherer.GatherFrom` end-to-end). 12 new EditMode tests,
+  117 total, all pass. Live-verified both responses in Play mode via
+  UnityMCP through the real production event path (not a test shortcut): a
+  Maurya Worker closed a real ~4-unit NavMesh-pathed gap down to 0.21 units
+  onto its attacker; a Maratha Worker under the identical setup increased
+  its real tracked distance from 19.9 to 25.9 units, never engaging.
 - Currently on: nothing started yet for the next session. Section 5 items
   1-9 are all done, and items 11 (Repair), 12 (General garrisoning), 13
-  (resource-specific drop-off buildings), and 14 (team-bonus/alliance
-  economic stacking) are now done too. `AOE_PARITY_EXECUTION_PLAN.md`'s
-  Phases 1-3 are now fully resolved (Phase 1 deferred with a documented
-  reason, Phases 2 and 3 closed) — next session should check whether that
-  companion doc has further phases, or fall back to continued balance work/
-  other open Roadmap items if not. Item 7 (civ-specific
+  (resource-specific drop-off buildings), 14 (team-bonus/alliance economic
+  stacking), and 15 (worker self-defense/cross-awareness) are now done too
+  — **the worker-mechanics-audit is now fully closed, no open items remain
+  from it**. `AOE_PARITY_EXECUTION_PLAN.md`'s Phases 1-4 are now fully
+  resolved (Phase 1 deferred with a documented reason, Phases 2-4 closed) —
+  next session should check whether that companion doc has further phases
+  (it was handed in mid-session as loose text, not a file in this repo, so
+  re-confirm its existence/content with the user rather than assuming), or
+  fall back to continued balance work/other open Roadmap items if not. Item
+  7 (civ-specific
   building models) is fully closed — **all 5 civs,
   45/45 models landed** (Chola, Vijayanagara, Rajput, Maurya, Maratha).
   `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any future
@@ -93,11 +124,11 @@ asset requirements, 5. Priority order).
   Crusader Knight body" item) had its session 1 (tint-gap fix + scoping) closed
   the same day: the base-body decision is now made deliberately
   (**keep the current Human Character Dummy, don't swap** — see below), and the
-  Maurya/Maratha untinted-white tint bug is fixed. **Repair system and General
-  garrisoning system, 2 of the 3 worker-mechanics-audit items, both closed
-  2026-09-01** — see below; dedicated resource-specific drop-off buildings
-  from that same audit remains open, and is explicitly the next session (see
-  above). Remaining real options for a future session beyond that: the
+  Maurya/Maratha untinted-white tint bug is fixed. **All 4 worker-mechanics-
+  audit items — Repair, General garrisoning, resource-specific drop-off
+  buildings, and worker self-defense/cross-awareness — are now closed as of
+  2026-09-01** (see below and Roadmap Section 1). Remaining real options for
+  a future session: the
   **Crusader Knight body swap itself** (rig-compatibility verified positive in a
   concurrent session, base-body decision made 2026-09-01 to defer it — scale
   normalization + weapon re-parenting still unstarted, now scoped under the

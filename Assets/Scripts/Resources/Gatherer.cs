@@ -4,6 +4,7 @@ using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Vfx;
 using KingdomsOfBharat.Audio;
+using KingdomsOfBharat.Combat;
 
 namespace KingdomsOfBharat.ResourceGathering
 {
@@ -16,6 +17,7 @@ namespace KingdomsOfBharat.ResourceGathering
         [SerializeField] private float gatherRate = 5f; // units per second
         [SerializeField] private float carryCapacity = 10f;
         [SerializeField] private float interactionRange = 2.5f;
+        [SerializeField] private float fleeDistance = 6f;
 
         private enum State { Idle, MovingToNode, Gathering, MovingToDropOff }
 
@@ -31,6 +33,9 @@ namespace KingdomsOfBharat.ResourceGathering
         private float _vfxTimer;
         private float _auraMultiplier = 1f;
         private float _auraCheckTimer;
+        private CombatResponse _combatResponse = CombatResponse.Fight;
+        private Attackable _selfAttackable;
+        private bool _subscribedToDamage;
 
         // For SelectedUnitPanel (UI) to show a status line - true for the
         // whole round trip (walking to the node, gathering, walking back),
@@ -46,10 +51,12 @@ namespace KingdomsOfBharat.ResourceGathering
         // For AnimationDriver to pick Mining vs. Gathering animation.
         public ResourceType? CurrentResourceType => _targetNode != null ? _targetNode.ResourceType : (ResourceType?)null;
 
-        private void Awake()
-        {
-            _mover = GetComponent<UnitMover>();
-        }
+        // Resolved lazily, not cached in Awake - same "sibling component may
+        // not exist yet" gotcha documented on GarrisonPoint/Repairable/
+        // MeleeAttacker.Self: an EditMode test's AddComponent<Gatherer>()
+        // doesn't guarantee Awake has run on the RequireComponent-added
+        // UnitMover before GatherFrom is called synchronously right after.
+        private UnitMover Mover => _mover != null ? _mover : (_mover = GetComponent<UnitMover>());
 
         // Applied by WorkerFactory at spawn time from the worker's
         // civilization profile (e.g. Chola's faster gathering).
@@ -68,11 +75,18 @@ namespace KingdomsOfBharat.ResourceGathering
             _carryCapacityMultiplier = multiplier;
         }
 
+        // Applied by WorkerFactory from WorkerCombatResponseDefaults - see
+        // HandleDamaged for what each response actually does.
+        public void SetCombatResponse(CombatResponse response)
+        {
+            _combatResponse = response;
+        }
+
         public void GatherFrom(ResourceNode node)
         {
             _targetNode = node;
             _dropOff = null;
-            _mover.MoveTo(node.transform.position);
+            Mover.MoveTo(node.transform.position);
             _state = State.MovingToNode;
         }
 
@@ -89,8 +103,69 @@ namespace KingdomsOfBharat.ResourceGathering
             _state = State.Idle;
         }
 
+        private void OnDestroy()
+        {
+            if (_subscribedToDamage && _selfAttackable != null)
+            {
+                _selfAttackable.OnDamaged -= HandleDamaged;
+            }
+        }
+
+        // Roadmap Section 1 (worker self-defense/cross-awareness, AoE-parity
+        // Phase 4.2): reacts to Attackable.OnDamaged. Only interrupts while
+        // actively seeking/working a node (MovingToNode, Gathering) - a load
+        // already being carried home (MovingToDropOff) finishes its trip
+        // rather than losing it, same carve-out CancelGather already uses.
+        // Internal (not private) so EditMode tests can call it directly
+        // without needing to drive Attackable's event subscription timing -
+        // see Assets/Scripts/AssemblyInfo.cs's InternalsVisibleTo grant.
+        internal void HandleDamaged(Attackable attacker)
+        {
+            if (attacker == null || (_state != State.MovingToNode && _state != State.Gathering))
+            {
+                return;
+            }
+
+            _targetNode = null;
+            _state = State.Idle;
+
+            if (_combatResponse == CombatResponse.Fight)
+            {
+                if (TryGetComponent(out MeleeAttacker meleeAttacker))
+                {
+                    meleeAttacker.AttackMove(attacker);
+                }
+            }
+            else
+            {
+                Mover.MoveTo(ComputeFleeDestination(transform.position, attacker.transform.position, fleeDistance));
+            }
+        }
+
+        // Pure so it's directly EditMode-testable without a NavMeshAgent/
+        // baked NavMesh (same reasoning as AcceptsDropOff's own pure-function
+        // test coverage) - the actual pathing result is a live Play Mode
+        // concern, this only has to prove the destination points the right
+        // direction at the right distance.
+        internal static Vector3 ComputeFleeDestination(Vector3 selfPosition, Vector3 attackerPosition, float distance)
+        {
+            Vector3 away = selfPosition - attackerPosition;
+            away = away.sqrMagnitude > 0.0001f ? away.normalized : Vector3.forward;
+            return selfPosition + away * distance;
+        }
+
         private void Update()
         {
+            // Subscribed lazily rather than in Awake - same sibling-
+            // component-ordering gotcha as GarrisonPoint/Repairable's own
+            // lazy resolution: WorkerFactory adds Gatherer before Attackable,
+            // so an Awake-time GetComponent<Attackable> would find nothing.
+            if (!_subscribedToDamage && TryGetComponent(out _selfAttackable))
+            {
+                _selfAttackable.OnDamaged += HandleDamaged;
+                _subscribedToDamage = true;
+            }
+
             _auraCheckTimer -= Time.deltaTime;
             if (_auraCheckTimer <= 0f)
             {
@@ -172,7 +247,7 @@ namespace KingdomsOfBharat.ResourceGathering
 
             if (!WithinRange(_targetNode.transform.position))
             {
-                _mover.MoveTo(_targetNode.transform.position);
+                Mover.MoveTo(_targetNode.transform.position);
                 _state = State.MovingToNode;
                 return;
             }
@@ -205,7 +280,7 @@ namespace KingdomsOfBharat.ResourceGathering
                     return; // no drop-off exists yet; keep waiting
                 }
                 _dropOffApproachPoint = ComputeDropOffApproachPoint(_dropOff);
-                _mover.MoveTo(_dropOffApproachPoint);
+                Mover.MoveTo(_dropOffApproachPoint);
             }
 
             if (WithinRange(_dropOffApproachPoint))
@@ -228,7 +303,7 @@ namespace KingdomsOfBharat.ResourceGathering
         private Vector3 ComputeDropOffApproachPoint(Building dropOff)
         {
             return dropOff.TryGetComponent(out BuildingFootprintTag footprintTag)
-                ? footprintTag.GetNearestApproachPoint(transform.position, _mover.Radius + 0.1f)
+                ? footprintTag.GetNearestApproachPoint(transform.position, Mover.Radius + 0.1f)
                 : dropOff.transform.position;
         }
 
@@ -239,7 +314,7 @@ namespace KingdomsOfBharat.ResourceGathering
 
             if (_targetNode != null && !_targetNode.IsDepleted)
             {
-                _mover.MoveTo(_targetNode.transform.position);
+                Mover.MoveTo(_targetNode.transform.position);
                 _state = State.MovingToNode;
             }
             else

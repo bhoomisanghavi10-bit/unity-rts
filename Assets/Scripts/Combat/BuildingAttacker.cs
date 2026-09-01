@@ -28,6 +28,7 @@ namespace KingdomsOfBharat.Combat
         private GarrisonPoint _garrisonPoint;
         private FactionMember _faction;
         private bool _factionResolved;
+        private Attackable _self;
         private float _cooldown;
         private readonly List<Attackable> _hostileBuffer = new List<Attackable>();
         private readonly List<(Attackable target, float distance)> _candidateBuffer = new List<(Attackable, float)>();
@@ -67,6 +68,8 @@ namespace KingdomsOfBharat.Combat
             _garrisonPoint = garrisonPoint;
             maxBonusShots = newMaxBonusShots;
         }
+
+        private Attackable Self => _self != null ? _self : (_self = GetComponent<Attackable>());
 
         private FactionMember Faction
         {
@@ -110,7 +113,7 @@ namespace KingdomsOfBharat.Combat
             foreach (Attackable target in _hostileBuffer)
             {
                 float bonus = CombatBonus.Multiplier(UnitClass.Archer, target.Class);
-                target.TakeDamage(damage * bonus, DamageType.Pierce);
+                target.TakeDamage(damage * bonus, DamageType.Pierce, Self);
             }
 
             _cooldown = attackInterval;

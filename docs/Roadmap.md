@@ -112,11 +112,13 @@ entirely. What follows is the real remaining list.
   walking (nearest-drop-off) and carry capacity already match; multi-builder
   construction was flat-linear, not diminishing (fixed this session, see below);
   repair and general garrisoning are missing entirely (see the two new items
-  below); self-defense partially matches (workers have a weak `MeleeAttacker` and
-  can fight/hunt boars, but it's always an explicit player attack-move command —
-  `Gatherer` and `MeleeAttacker` have zero cross-awareness, so a worker being
-  attacked mid-gather is never auto-interrupted into a defensive state, unlike
-  AoE's pattern). **Multi-builder construction speed fixed same session**:
+  below); self-defense partially matched at audit time (workers had a weak
+  `MeleeAttacker` and could fight/hunt boars, but only via an explicit player
+  attack-move command — `Gatherer` and `MeleeAttacker` had zero cross-awareness,
+  so a worker being attacked mid-gather was never auto-interrupted into a
+  defensive state, unlike AoE's pattern; **closed 2026-09-01, see the
+  "Worker self-defense/cross-awareness" item below**). **Multi-builder
+  construction speed fixed same session (2026-08-29):**
   `ConstructionSite` now uses AoE II's diminishing-returns formula
   (`ConstructionSite.SpeedMultiplier`: 1x/1.6x/1.9x/2.2x for 1/2/3/4 simultaneous
   workers, +0.3x per worker beyond the 2nd) instead of flat-linear (`n` workers =
@@ -136,15 +138,160 @@ entirely. What follows is the real remaining list.
   buildings (Lumber Camp/Mining Camp/Mill-equivalent) over keeping unified
   TownCenter-only drop-off — logged as its own item below, not implemented this
   session (real new content, not a small tweak). See `docs/SESSION_LOG.md`.
-- [ ] **Dedicated resource-specific drop-off buildings** (from the worker mechanics
-  audit, 2026-08-29) — `Gatherer.FindNearestDropOff` currently only ever
-  considers `TownCenter`; user confirmed (over keeping unified TC-only drop-off)
-  that this should become real Lumber Camp/Mining Camp/Mill-equivalent buildings,
-  each valid only for its own resource type, with "nearest valid drop-off"
-  becoming meaningful the way it is in AoE. Real new content: new
-  building type(s), factory/placement/footprint wiring, and updating
-  `Gatherer.FindNearestDropOff` to filter by resource type per drop-off kind
-  instead of a hardcoded `is TownCenter` check. Not started.
+- [x] **Dedicated resource-specific drop-off buildings** (from the worker mechanics
+  audit, 2026-08-29; implemented as AoE-Parity Execution Plan Phase 3.1,
+  2026-09-01) — `Gatherer.FindNearestDropOff` used to only ever consider
+  `TownCenter`; now routes by resource type. **Closed 2026-09-01.** Verified
+  the plan's premise against the actual repo first (per instruction): confirmed
+  `Gatherer.FindNearestDropOff` really did hardcode `is TownCenter` with no
+  resource-type awareness, and `BuildingFootprint`/`BuildingFootprintTag` (incl.
+  `GetNearestApproachPoint`) needed no changes — the existing carve-obstacle/
+  approach-point system generalizes to new building kinds with zero code
+  changes, just a new `BuildingFootprint.DropOffTiles` constant. Added 3 new
+  marker buildings (`LumberCamp.cs`/`MiningCamp.cs`/`Mill.cs`, mirroring
+  `House.cs`'s shape exactly) + matching factories (100 Wood each, 200 HP,
+  2x2 footprint, matching House/Farm's cost tier), each accepting one resource
+  type per AoE convention (Lumber Camp: Wood; Mining Camp: Gold **and** Stone;
+  Mill: Food) via a new `Gatherer.AcceptsDropOff(Building, ResourceType)`
+  routing rule (`internal` for direct testing) — `TownCenter` stays the
+  universal drop-off, unchanged. 3 new procedural fallback silhouettes in
+  `ProceduralBuildingFactory` (log-pile shed, ore-heap shed, stilted granary)
+  so an unsourced civ model doesn't silently fall through to `BuildHut` (the
+  exact bug Market's own comment already flags). Full `BuildingPlacer` wiring
+  (3 new `BuildingKind` entries, hotkeys J/U/P — checked every existing
+  `KeyCode` usage across the codebase first to avoid collisions) and `BuildMenu`
+  wiring (3 new buttons duplicated from `DockButton` directly in the live scene
+  via UnityMCP, positioned in the placement-button column's already-established
+  36px-step layout, continuing past Market's slot — safe because the
+  placement-button group and the TownCenter-training-button group never
+  render simultaneously, confirmed by reading every existing button's
+  `RectTransform.anchoredPosition` in the scene rather than assuming a
+  contiguous 8-button layout, since Wall/Gate/Tower/Dock/Market's own Y values
+  turned out non-contiguous with Barracks/Farm/House's). 8 new EditMode tests
+  (`GathererDropOffTests.cs`, exercising `AcceptsDropOff` directly rather than
+  driving a full `Gatherer` state machine), all 99 pass. Live-verified in Play
+  mode via UnityMCP (bypassing the mission-select flow that normally gates
+  gameplay-entity spawn, by spawning a Player `TownCenter` + test scenario
+  directly): a Wood `ResourceNode` with a decoy `House` 3 units away (wrong
+  resource type) and a `LumberCamp` 6 units away, worker's real position/state
+  tracked across multiple gather-deposit cycles, and `Gatherer`'s private
+  `_dropOff` field read via reflection at the moment of a completed trip
+  confirmed it resolved to the `LumberCamp`, not the nearer `House` or the
+  much farther (40 units) `TownCenter` — the aggregate Wood-stockpile number
+  alone wasn't trustworthy evidence (jumped by inconsistent amounts between
+  checks, likely a passive income tick unrelated to gathering), so the
+  reflection check was the actual proof used. See `docs/SESSION_LOG.md`.
+- [x] **Team-bonus / alliance economic stacking layer** (AoE-Parity Execution Plan
+  Phase 3.2 — marked DECISION NEEDED after Phase 3.1, then user-confirmed "yes" when
+  asked directly whether they wanted it at all). **Closed 2026-09-01.** Researched
+  the existing diplomacy/civ-bonus infrastructure before writing any code: the
+  alliance plumbing already existed and worked (`DiplomacyRegistry.AreAllied`,
+  N-ary — Enemy/Enemy2 can ally each other, not just Player, and `AiController`
+  already forms alliances dynamically), but nothing consumed an alliance for any
+  economic/combat benefit. A `CivilizationDefinition.teamBonus` `StatModifier` field
+  was already scaffolded (parsed from `civ_bonus_template.csv`'s `TeamBonus` column
+  at CSV-import time) but never read anywhere at runtime — investigated why: most of
+  the 5 team bonuses target Houses/fortifications/Markets, none of which map to a
+  `UnitCategory` (no "Building" entry), so the generic regex-based
+  `ParseNumericEffect` can't reliably represent them; `CsvToScriptableObject.cs`'s
+  own comment already anticipated this needing "hand-written hooks... the same way
+  Rajput's dismount-survival and Vijayanagara's fortification-HP bonus already are."
+  Followed that existing bespoke-hook convention instead of forcing everything
+  through the generic field: new `TeamBonus.cs`
+  (`HasAlly(FactionId, CivilizationId)` + 5 named constants) wired into the 5
+  existing per-civ-bonus hook sites the CSV already specified as each civ's
+  "diluted" team version — Maurya (`BuildingPlacer.WoodMultiplierFor`, Player-only,
+  matching that method's existing scope): allied Houses -25% Wood; Vijayanagara
+  (`WallFactory`/`GateFactory`/`TowerFactory`'s existing `fortificationMultiplier`,
+  applies to AI-built fortifications too since it lives in the shared factory, not
+  the Player-only placer): allied Wall/Gate/Tower +15% HP; Rajput (`CavalryFactory`'s
+  existing `uniqueTechDamageBonus`): allied Cavalry +1 flat damage; Maratha
+  (`CavalryFactory`'s existing `agent.speed` multiplier line): allied Cavalry +10%
+  move speed; Chola (`Market.EffectiveSellRate`/`EffectiveBuyRate`, already a live
+  computed property, so this one needed no spawn-time baking unlike the other 4):
+  allied Markets get a narrowed +/-5-point spread. Every bonus is unconditional
+  (granted just by having an ally of that civ, not gated on the ally researching
+  anything) and `HasAlly` deliberately excludes the checking faction itself even
+  though `DiplomacyRegistry.AreAllied(a,a)` is true by design, so a civ's own bonus
+  is never double-counted as its own team bonus. 5 new EditMode tests
+  (`TeamBonusTests.cs`, pure `HasAlly` logic: no alliance, allied+matching civ,
+  allied+wrong civ, self-exclusion despite `AreAllied` self-true, war overrides a
+  prior alliance) plus one new case in `CivPassiveBonusTests.cs` for
+  `WoodMultiplierFor`'s ally path — 105 EditMode tests total, all pass (up from 99).
+  Live-verified all 5 bonuses in Play mode via UnityMCP with before/after-alliance
+  A/B spawns of the same building/unit type (not just the pure-logic unit tests):
+  Wall HP 250→287.5 (exact 1.15x), Cavalry damage 6→7 (exact +1 flat), Cavalry speed
+  6.5→7.15 (exact 1.10x), Market sell rate 0.70→0.75 / buy rate 1.30→1.25 (exact,
+  and confirmed live-dynamic — same `Market` instance re-read after
+  `DiplomacyRegistry.SetAllied` with no respawn needed), and `WoodMultiplierFor`
+  already covered directly by its own EditMode test. Also verified the negative/
+  self-exclusion case live: a Vijayanagara-owned Wall spawned while allied with
+  Player stayed at exactly 250 HP (not 287.5) — the ally-exclusion logic correctly
+  never lets a civ's own building pick up its own team bonus. Plan approved via
+  Plan Mode before implementation, per protocol. See `docs/SESSION_LOG.md`.
+- [x] **Worker self-defense/cross-awareness** (from the worker mechanics audit,
+  2026-08-29 — the last open item from that audit; implemented as AoE-Parity
+  Execution Plan Phase 4.2, 2026-09-01). **Closed 2026-09-01.** `Gatherer` and
+  `MeleeAttacker` had zero cross-awareness before this: a worker being attacked
+  mid-gather never auto-interrupted into a defensive state, unlike AoE, where
+  villagers either fight back or flee once hit. New `Attackable.OnDamaged`
+  event (fires whenever a non-lethal hit lands, carrying the attacker's own
+  `Attackable`) plumbed through every damage call site that previously called
+  `TakeDamage` without an attacker reference — `MeleeAttacker`, `BoatAttacker`,
+  `BuildingAttacker`, `WildBoar` — each now passes its own `Attackable` (lazily
+  resolved via a `Self` property, not cached in `Awake`, matching the existing
+  `GarrisonPoint`/`Repairable` sibling-component-ordering convention). New
+  `CombatResponse` enum (Fight/Flee) and `WorkerCombatResponseDefaults` (a
+  hand-written per-civ lookup, same bespoke convention as `TeamBonus`/
+  `RajputDefianceHook` — not representable as a `passiveBonuses`
+  `StatModifier`, a categorical behavior choice rather than a numeric stat):
+  every civ defaults to Fight (matching the pre-4.2 capability every Worker
+  already had via its own `MeleeAttacker`, just now auto-triggered instead of
+  requiring an explicit command) except Maratha, whose guerrilla hit-and-run
+  identity (Ganimi Kava — already reflected in its Cavalry speed bonus and
+  team bonus) extends here: its Workers flee instead. `Gatherer.HandleDamaged`
+  subscribes to `OnDamaged` lazily in `Update` (not `Awake` — `WorkerFactory`
+  adds `Gatherer` before `Attackable`), only interrupts while actively
+  seeking/working a node (`MovingToNode`/`Gathering` — a load already being
+  carried home in `MovingToDropOff` finishes its trip rather than losing it,
+  the same carve-out `CancelGather` already uses), and either turns the
+  worker's own `MeleeAttacker` on the attacker (Fight) or issues a move order
+  to a point away from the attacker via a new pure/testable
+  `ComputeFleeDestination` helper (Flee). Wired at spawn time in
+  `WorkerFactory` from `WorkerCombatResponseDefaults.For(civilization)`.
+  **Found and fixed 3 real latent bugs during this session's own
+  verification pass, none related to the feature's own logic**: (1) an
+  ambiguous `DamageType` reference at `WildBoar.cs:118` — a second,
+  unrelated global-namespace `DamageType` enum already existed in
+  `UnitDefinition.cs`, and C# resolves an unqualified name against the
+  enclosing global namespace *before* consulting `using` directives, so the
+  newly-added explicit `DamageType.Melee` argument there silently bound to
+  the wrong enum and failed to compile — fixed by fully qualifying it as
+  `KingdomsOfBharat.Combat.DamageType.Melee` (this had been latent since
+  `UnitDefinition.cs` was written; nothing had ever passed an explicit
+  `DamageType` from inside `KingdomsOfBharat.Wildlife` before). (2)/(3)
+  `UnitMover` and `MeleeAttacker` both cached their own sibling components
+  (`NavMeshAgent`, `UnitMover` respectively) in `Awake` rather than lazily —
+  the exact same "Awake doesn't run synchronously right after AddComponent"
+  gotcha CLAUDE.md already documents for `ConstructionSite`/`Repairable`, but
+  never previously hit because no EditMode test had exercised `Gatherer`'s
+  `GatherFrom` (which needs a live `UnitMover`) end-to-end before this
+  feature's own test needed to. Both converted to the same lazy-property
+  pattern already used elsewhere in this diff (`MeleeAttacker.Self`,
+  `Gatherer.Mover`). 12 new EditMode tests (`GathererCombatResponseTests.cs`:
+  Fight/Flee interrupt-and-react behavior, the idle/null-attacker no-op
+  cases, `ComputeFleeDestination`'s pure direction math, and the 5 per-civ
+  defaults), 117 EditMode tests total, all pass (up from 105 — the +12 gap
+  vs. Phase 3.2's own tests is fully accounted for). Live-verified both
+  responses in Play mode via UnityMCP through the real production event path
+  (`Attackable.TakeDamage(..., attacker)` → `OnDamaged` → `Gatherer.HandleDamaged`,
+  not the internal test shortcut): a live Maurya Worker mid-`MovingToNode`,
+  hit by a real `Attackable.TakeDamage` call, immediately stopped gathering
+  and turned its `MeleeAttacker` on the attacker, then closed a real ~4-unit
+  NavMesh-pathed distance down to 0.21 units over the following ticks; a live
+  Maratha Worker under the identical setup instead moved away, real tracked
+  distance from the attacker increasing from 19.9 to 25.9 units with its
+  `MeleeAttacker` never engaging. See `docs/SESSION_LOG.md`.
 - [x] **Repair system** (from the worker mechanics audit, 2026-08-29) — completely
   missing; no `Repair` anywhere in the codebase. AoE reference: right-click a
   damaged building/ship/siege unit with a worker selected to repair it, at a
@@ -982,6 +1129,32 @@ buying, or making an asset yourself:
     pre-existing narrow (durgOnly) behavior on the same class; Siege units
     excluded from garrisoning. Found and fixed a real latent NavMeshObstacle
     approach-point bug for TownCenter mid-session. See Section 1's matching
-    item and `docs/SESSION_LOG.md`. Dedicated resource-specific drop-off
-    buildings (the last worker-mechanics-audit item) is the explicit next
-    session.
+    item and `docs/SESSION_LOG.md`.
+13. ~~**Dedicated resource-specific drop-off buildings** (the last
+    worker-mechanics-audit item; implemented as AoE-Parity Execution Plan
+    Phase 3.1)~~ **Done** (2026-09-01). New Lumber Camp (Wood)/Mining Camp
+    (Gold+Stone)/Mill (Food) buildings, each a valid `Gatherer` drop-off only
+    for its own resource type via a new `Gatherer.AcceptsDropOff` routing
+    rule; `TownCenter` stays the universal drop-off. Full placement/BuildMenu
+    wiring alongside. See Section 1's matching item and `docs/SESSION_LOG.md`.
+14. ~~**Team-bonus / alliance economic stacking layer** (AoE-Parity Execution
+    Plan Phase 3.2, user-confirmed "yes" after being asked directly)~~ **Done**
+    (2026-09-01). New `TeamBonus.cs` hand-written hook (same bespoke-per-civ
+    convention as `UniqueTechDefinition`/`RajputDefianceHook`) shares a diluted
+    version of each civ's own unique-tech identity with every ally, gated on
+    the existing `DiplomacyRegistry.AreAllied` alliance state and unconditional
+    (not gated on the ally researching anything): Maurya allies get -25% Wood
+    on Houses, Vijayanagara allies get +15% Wall/Gate/Tower HP, Rajput allies
+    get +1 flat Cavalry damage, Maratha allies get +10% Cavalry move speed,
+    Chola allies get a narrowed +/-5-point Market spread. See Section 1's
+    matching item and `docs/SESSION_LOG.md`.
+15. ~~**Worker self-defense/cross-awareness** (the last worker-mechanics-audit
+    item; implemented as AoE-Parity Execution Plan Phase 4.2)~~ **Done**
+    (2026-09-01). New `Attackable.OnDamaged` event, `CombatResponse`
+    (Fight/Flee) enum, and `WorkerCombatResponseDefaults` per-civ lookup —
+    every civ's Workers fight back when attacked mid-gather except Maratha's,
+    which flee (guerrilla identity). Found and fixed 3 real latent bugs along
+    the way (an ambiguous global-vs-namespaced `DamageType` in `WildBoar.cs`,
+    and `UnitMover`/`MeleeAttacker` both caching sibling components in `Awake`
+    instead of lazily). See Section 1's matching item and
+    `docs/SESSION_LOG.md`.

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using KingdomsOfBharat.Vfx;
 using KingdomsOfBharat.Audio;
@@ -40,6 +41,17 @@ namespace KingdomsOfBharat.Combat
         {
             siegeImmune = value;
         }
+
+        // Roadmap Section 1 (worker self-defense/cross-awareness, AoE-parity
+        // Phase 4.2): fires whenever a hit lands and this Attackable survives
+        // it, carrying the attacker's own Attackable so a listener (e.g.
+        // Gatherer) can fight back or flee toward/away from a real target -
+        // not just "something hit me." Deliberately doesn't fire on a lethal
+        // hit (nothing left to react). Attackable stays decoupled from any
+        // specific reactor (Gatherer, a future auto-defense system) - it just
+        // announces the hit, same "generic event, specific listener" shape as
+        // every other cross-system hook in this project.
+        public event Action<Attackable> OnDamaged;
 
         public void Configure(float newMaxHealth)
         {
@@ -89,7 +101,7 @@ namespace KingdomsOfBharat.Combat
 
         // AoE's own floor: armor can blunt a hit a long way but never to
         // zero - every attack that lands does at least 1 damage.
-        public void TakeDamage(float amount, DamageType damageType = DamageType.Melee)
+        public void TakeDamage(float amount, DamageType damageType = DamageType.Melee, Attackable attacker = null)
         {
             if (IsDead)
             {
@@ -117,6 +129,12 @@ namespace KingdomsOfBharat.Combat
                     RajputDefianceHook.TrySpawnSurvivor(this);
                 }
                 Destroy(gameObject);
+                return;
+            }
+
+            if (attacker != null)
+            {
+                OnDamaged?.Invoke(attacker);
             }
         }
 

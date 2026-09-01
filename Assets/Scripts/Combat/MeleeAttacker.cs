@@ -19,6 +19,7 @@ namespace KingdomsOfBharat.Combat
         [SerializeField] private UnitClass unitClass = UnitClass.Infantry;
 
         private UnitMover _mover;
+        private Attackable _self;
         private Attackable _target;
         private float _cooldown;
         private float _damageMultiplier = 1f;
@@ -27,10 +28,14 @@ namespace KingdomsOfBharat.Combat
         // For SelectedUnitPanel/HoverTooltip (UI) to show a status line.
         public bool IsAttacking => _target != null;
 
-        private void Awake()
-        {
-            _mover = GetComponent<UnitMover>();
-        }
+        // Resolved lazily, not cached in Awake - same "sibling component
+        // may not exist yet" gotcha documented on GarrisonPoint/Repairable
+        // (factories add Attackable after MeleeAttacker in several cases;
+        // an EditMode test's AddComponent<MeleeAttacker>() doesn't
+        // guarantee Awake has run on the RequireComponent-added UnitMover
+        // before AttackMove is called synchronously right after).
+        private Attackable Self => _self != null ? _self : (_self = GetComponent<Attackable>());
+        private UnitMover Mover => _mover != null ? _mover : (_mover = GetComponent<UnitMover>());
 
         // Applied by SoldierFactory at spawn time from the soldier's
         // civilization profile (e.g. Rajput's combat-power bonus).
@@ -82,7 +87,7 @@ namespace KingdomsOfBharat.Combat
         {
             _target = target;
             _cooldown = 0f;
-            _mover.MoveTo(target.transform.position);
+            Mover.MoveTo(target.transform.position);
         }
 
         public void CancelAttack()
@@ -101,7 +106,7 @@ namespace KingdomsOfBharat.Combat
             float distance = DistanceToTarget();
             if (distance > attackRange)
             {
-                _mover.MoveTo(_target.transform.position);
+                Mover.MoveTo(_target.transform.position);
                 return;
             }
 
@@ -117,7 +122,7 @@ namespace KingdomsOfBharat.Combat
                 {
                     bonus = 1f;
                 }
-                _target.TakeDamage(baseDamage * bonus, damageType);
+                _target.TakeDamage(baseDamage * bonus, damageType, Self);
                 _cooldown = attackInterval;
             }
         }

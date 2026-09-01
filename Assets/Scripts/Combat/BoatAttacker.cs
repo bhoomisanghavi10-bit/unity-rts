@@ -19,6 +19,7 @@ namespace KingdomsOfBharat.Combat
         [SerializeField] private UnitClass unitClass = UnitClass.Naval;
 
         private WaterMover _mover;
+        private Attackable _self;
         private Attackable _target;
         private float _cooldown;
         private float _damageMultiplier = 1f;
@@ -30,6 +31,8 @@ namespace KingdomsOfBharat.Combat
         {
             _mover = GetComponent<WaterMover>();
         }
+
+        private Attackable Self => _self != null ? _self : (_self = GetComponent<Attackable>());
 
         public void SetDamageMultiplier(float multiplier)
         {
@@ -83,7 +86,7 @@ namespace KingdomsOfBharat.Combat
             {
                 float baseDamage = damage * _damageMultiplier + _damageBonus;
                 float bonus = CombatBonus.Multiplier(unitClass, _target.Class);
-                _target.TakeDamage(baseDamage * bonus, damageType);
+                _target.TakeDamage(baseDamage * bonus, damageType, Self);
                 _cooldown = attackInterval;
             }
         }

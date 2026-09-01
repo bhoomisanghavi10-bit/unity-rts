@@ -78,6 +78,11 @@ namespace KingdomsOfBharat.Units
             var gatherer = go.AddComponent<Gatherer>();
             gatherer.SetRateMultiplier(gatherRateMultiplier);
             gatherer.SetCarryCapacityMultiplier(carryCapacityMultiplier);
+            // Roadmap Section 1 (worker self-defense/cross-awareness,
+            // AoE-parity Phase 4.2): per-civ default for how this worker
+            // reacts to being attacked mid-gather - see
+            // WorkerCombatResponseDefaults.
+            gatherer.SetCombatResponse(WorkerCombatResponseDefaults.For(civilization));
             go.AddComponent<Builder>();
             go.AddComponent<Repairer>();
             go.AddComponent<FarmWorker>();
