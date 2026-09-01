@@ -5,6 +5,108 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-01 — AoE-parity Phase 3.1: resource-specific drop-off buildings
+
+**Scope**: `AOE_PARITY_EXECUTION_PLAN.md` Phase 3.1 (resource-specific drop-off
+buildings), sequenced before 3.2 (team-bonus/alliance economic stacking, marked
+DECISION NEEDED — not started, awaiting the user's direct answer on whether they
+want that layer at all before any implementation details are discussed). Same
+session as Phase 2's combat-calibration batch, continued at the user's explicit
+direction. This closes the last of the 3 worker-mechanics-audit items from
+2026-08-29 (Repair and General garrisoning closed earlier the same day).
+
+**Pre-flight verification (per instruction — check the plan's assumptions against
+the repo before coding)**: read `Gatherer.cs` and `BuildingFootprint.cs` directly.
+Confirmed `Gatherer.FindNearestDropOff` really did hardcode `building is TownCenter`
+with zero resource-type awareness — the plan's stated premise held. Also confirmed
+`BuildingFootprint.Attach`/`BuildingFootprintTag.GetNearestApproachPoint` (the
+NavMeshObstacle-carving + approach-point system fixed for TownCenter's drop-off
+case back on 2026-08-29) generalizes to any new building kind with zero code
+changes — only a new `BuildingFootprint.DropOffTiles` constant was needed, no
+changes to the approach-point math itself. Nothing about drop-off routing or
+building placement differed from what the plan assumed.
+
+**Implementation**: 3 new marker buildings — `LumberCamp.cs`, `MiningCamp.cs`,
+`Mill.cs` (each mirrors `House.cs`'s lazy-`ConstructionSite`-resolution shape
+exactly) — plus matching factories (`LumberCampFactory.cs`/`MiningCampFactory.cs`/
+`MillFactory.cs`, mirroring `HouseFactory.cs`: 100 Wood, 200 HP, 2x2 footprint,
+5s build time). Routing itself is a new `internal static Gatherer.AcceptsDropOff
+(Building, ResourceType)` method: `TownCenter` still accepts every resource type
+(stays the universal drop-off, unchanged AoE convention), Lumber Camp accepts only
+Wood, Mining Camp accepts both Gold and Stone (matching AoE's own single Mining
+Camp building covering both), Mill accepts only Food.
+`Gatherer.FindNearestDropOff`'s loop now calls this instead of the old `is
+TownCenter` check — everything else about the method (per-faction filtering,
+nearest-distance scan over `Building.All`) is unchanged. Made `internal` (not
+private) via the project's existing `InternalsVisibleTo("KingdomsOfBharat.Tests")`
+grant, same convention as `BuildingPlacer`'s civ-cost-multiplier helpers, so the
+routing rule could be tested directly instead of driving a full `Gatherer` state
+machine.
+
+Added 3 new procedural fallback silhouettes to `ProceduralBuildingFactory`
+(log-pile shed for Lumber Camp, ore-heap shed for Mining Camp, stilted granary for
+Mill) rather than letting them silently fall through to `BuildHut`'s generic hut
+shape — the exact bug Market's own code comment already flags as previously
+having shipped once. Full `BuildingPlacer` wiring: 3 new `BuildingKind` entries,
+new hotkeys (J/U/P — checked every existing `KeyCode.*` usage across
+`Assets/Scripts` first via grep to avoid colliding with any already-bound key,
+including ones bound only in `SettingsMenu.cs`'s rebind list rather than a
+placement key, like `T`/`G`/`C`/`R`/`V`), and the usual `TryConfirmPlacement`/
+`CanAfford`/`CurrentSize`/`CurrentFootprint` switch-case additions.
+
+**BuildMenu UI wiring** done directly in the live scene via UnityMCP rather than
+guessed at blind: read every existing placement button's `RectTransform.
+anchoredPosition` first, which revealed the 8 existing placement buttons
+(Barracks/Farm/House/Wall/Gate/Tower/Dock/Market) are NOT laid out as one
+contiguous column — Barracks/Farm/House sit at y=-4/-40/-76, then Wall/Gate/
+Tower/Dock/Market resume at y=-328/-364/-400/-436/-472, with the gap in between
+occupied by a *different* button group (Worker/Age/economy-tech buttons for the
+TownCenter-selected view) that shares the same screen real estate safely because
+`BuildMenu.Update()` never shows both groups at once. The 3 new buttons were
+duplicated directly from `DockButton` (preserving its exact RectTransform/Image/
+Button/TMP_Text child structure) and placed at y=-508/-544/-580, continuing the
+36px-step pattern past Market's slot with no additional collision risk for the
+same never-simultaneous reason. `BuildMenu.cs` gained 3 new `[SerializeField]
+Button` fields (no dedicated cost-label field needed — matching House/Farm/Wall's
+static-text convention, not Dock's dynamic-relabel one, since none of these 3 are
+gated on anything at placement time), wired via `manage_components.set_property`
+directly onto the live `BuildMenu` component instance and confirmed by reading
+the component back before saving the scene.
+
+**Tests**: 8 new EditMode tests (`GathererDropOffTests.cs`) exercising
+`AcceptsDropOff` directly — TownCenter against all 4 resource types, each new
+camp against its own type and every other type, and a plain `House` (an
+unrelated building) rejecting every type. All 99 EditMode tests pass (up from 91
+before this session's other work).
+
+**Live-verified in Play mode via UnityMCP**, working around the fact that the
+Main scene normally gates all gameplay-entity spawning behind a mission-select
+flow: entered Play mode and used `execute_code` to spawn a Player `TownCenter`
+and a purpose-built test scenario directly — a Wood `ResourceNode`, a decoy
+`House` 3 units away (a real building, but not a valid drop-off for Wood at all),
+a `LumberCamp` 6 units away, and a worker ordered to gather. Tracked the worker's
+real position across multiple full gather-deposit cycles over ~15 real seconds.
+The aggregate Wood-stockpile number turned out to be unreliable evidence on its
+own (it jumped by inconsistent amounts between checks — likely some passive
+income tick unrelated to gathering — so a rising number alone didn't prove the
+routing worked correctly); the actual proof used was reading `Gatherer`'s private
+`_dropOff` field via reflection at a moment mid-state, which resolved to the
+`LumberCamp` instance specifically, not the nearer `House` (correctly never
+selected — not a valid drop-off type) and not the far-away (40 units) `TownCenter`
+(also a valid drop-off, but farther) — confirming the "nearest *valid* drop-off"
+rule the plan asked for, not just "nearest drop-off of any kind." No console
+errors at any point (compile, scene-save, or Play mode).
+
+**Not started this session (per instruction)**: Phase 3.2 (team-bonus/alliance
+economic stacking) is DECISION NEEDED — the user has not yet been asked directly
+whether they want that layer at all, and no implementation approach should be
+proposed until they answer.
+
+Updated `docs/ROADMAP.md` Section 1 (item marked done) and Section 5 (new item 13,
+done) and this file. One scoped commit follows, referencing this roadmap item.
+
+---
+
 ## 2026-09-01 — AoE-parity Phase 2 (Combat calibration): audited 2.1/2.2/2.3, one approved multiplier change
 
 **Scope**: `AOE_PARITY_EXECUTION_PLAN.md` Phase 2, items 2.1 (audit `CombatBonus` against

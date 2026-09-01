@@ -24,6 +24,10 @@ namespace KingdomsOfBharat.Buildings
         public const int MarketTiles = 3;
         public const int BarracksTiles = 4;
         public const int TownCenterTiles = 6;
+        // Phase 3.1 (resource-specific drop-offs): Lumber Camp/Mining Camp/
+        // Mill share this footprint - same as Farm/House, no reason for a
+        // resource-collection shed to be bigger than either of those.
+        public const int DropOffTiles = 2;
 
         private const float ObstacleHeight = 10f;
         internal const float MinObstacleSize = 0.1f;

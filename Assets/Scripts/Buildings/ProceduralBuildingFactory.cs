@@ -69,6 +69,15 @@ namespace KingdomsOfBharat.Buildings
                 case "Dock":
                     BuildDock(container.transform, civColor);
                     break;
+                case "LumberCamp":
+                    BuildLumberCamp(container.transform, civColor);
+                    break;
+                case "MiningCamp":
+                    BuildMiningCamp(container.transform, civColor);
+                    break;
+                case "Mill":
+                    BuildMill(container.transform, civColor);
+                    break;
                 default:
                     BuildHut(container.transform, civColor);
                     break;
@@ -140,6 +149,59 @@ namespace KingdomsOfBharat.Buildings
             AddTierCube(parent, new Vector3(2.2f, 0.3f, 4f), 0f, color);
             AddOffsetCube(parent, new Vector3(0.3f, 1.2f, 0.3f), new Vector3(-0.9f, 0.6f, 1.7f), color);
             AddOffsetCube(parent, new Vector3(0.3f, 1.2f, 0.3f), new Vector3(0.9f, 0.6f, 1.7f), color);
+        }
+
+        // Phase 3.1 (resource-specific drop-offs): a low open-sided shed
+        // with a stack of log-like short posts out front, distinct from
+        // both House's solid hut and Farm's farmstead - reads as "wood
+        // storage," not "building you live in" (same "don't silently fall
+        // through to BuildHut" lesson Market's own comment already flags).
+        private static void BuildLumberCamp(Transform parent, Color color)
+        {
+            AddTierCube(parent, new Vector3(2f, 0.9f, 1.6f), 0f, color);
+            AddPyramid(parent, "ShedRoof", new Vector3(0f, 0.9f, 0f), 2.2f, 1.8f, 0.4f, color);
+
+            Vector3[] logSpots =
+            {
+                new Vector3(0.8f, 0f, -1f),
+                new Vector3(0.4f, 0f, -1f),
+                new Vector3(0f, 0f, -1f),
+            };
+            foreach (Vector3 spot in logSpots)
+            {
+                AddCylinder(parent, spot, 0.18f, 0.36f, color);
+            }
+        }
+
+        // A stone spoil-heap (stacked pyramid) beside a small shed - reads
+        // as "ore/stone stockpile," distinct from LumberCamp's log pile.
+        private static void BuildMiningCamp(Transform parent, Color color)
+        {
+            AddTierCube(parent, new Vector3(1.6f, 0.8f, 1.6f), 0f, color);
+            AddPyramid(parent, "ShedRoof", new Vector3(-0.2f, 0.8f, 0f), 1.8f, 1.8f, 0.4f, color);
+            AddPyramid(parent, "OrePile", new Vector3(0.9f, 0f, 0.6f), 1f, 1f, 0.8f, color);
+        }
+
+        // A granary-style building: a raised storehouse body on short
+        // stilts (keeps grain off the ground) plus a conical thatch roof -
+        // distinct from Farm's farmhouse-plus-silo pair.
+        private static void BuildMill(Transform parent, Color color)
+        {
+            const float stiltHeight = 0.4f;
+            Vector3[] stilts =
+            {
+                new Vector3(0.7f, 0f, 0.7f),
+                new Vector3(-0.7f, 0f, 0.7f),
+                new Vector3(0.7f, 0f, -0.7f),
+                new Vector3(-0.7f, 0f, -0.7f),
+            };
+            foreach (Vector3 stilt in stilts)
+            {
+                AddCylinder(parent, stilt, 0.12f, stiltHeight, color);
+            }
+
+            AddTierCube(parent, new Vector3(1.8f, 0.7f, 1.8f), stiltHeight, color);
+            AddPyramid(parent, "GranaryRoof", new Vector3(0f, stiltHeight + 0.7f, 0f), 2.2f, 2.2f, 0.8f, color);
         }
 
         // A single thin fortification slab - just tall/solid enough to

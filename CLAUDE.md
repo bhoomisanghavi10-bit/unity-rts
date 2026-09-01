@@ -7,7 +7,7 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- **This session (2026-09-01, same day as the two items below) worked
+- **This session (2026-09-01, same day as the items below) worked
   `AOE_PARITY_EXECUTION_PLAN.md`** (a new companion doc handed in mid-session,
   not previously part of this roadmap) instead of the item queued below —
   Phase 1 (Player Color System) was investigated and **deferred** (its own
@@ -26,16 +26,32 @@ asset requirements, 5. Priority order).
   counter — Infantry→Archer/Cavalry→Infantry audited and left unchanged,
   already decisive), 2.2/2.3 audited and logged as new open items (no
   soft-counter mechanic exists; Siege has no splash damage so formations are
-  cosmetic against it), not implemented. Session paused after the Phase 2
-  batch per instruction, awaiting explicit go-ahead to Phase 3 (resource
-  drop-off buildings, then team bonus layer). See `docs/SESSION_LOG.md`'s two
-  2026-09-01 entries (Phase 1, Phase 2) for full detail.
+  cosmetic against it), not implemented. **Phase 3.1 (dedicated
+  resource-specific drop-off buildings) closed the same day**, at the user's
+  explicit go-ahead — see Roadmap Section 1's matching item and
+  `docs/SESSION_LOG.md`'s Phase 3.1 entry for full detail: new Lumber
+  Camp/Mining Camp/Mill buildings, each a valid `Gatherer` drop-off only for
+  its own resource type via a new `Gatherer.AcceptsDropOff` rule
+  (`TownCenter` stays the universal drop-off), full `BuildingPlacer`/
+  `BuildMenu` wiring (3 new hotkeys J/U/P, 3 new scene buttons duplicated
+  from `DockButton`), 8 new EditMode tests (99 total, all pass), and a live
+  Play-mode verification (via UnityMCP, bypassing the mission-select flow
+  that normally gates gameplay-entity spawn) proving a Wood-carrying worker
+  routes to a farther-but-valid Lumber Camp over both a nearer wrong-type
+  building and a much-farther TownCenter — confirmed via reflection on
+  `Gatherer`'s private `_dropOff` field, since the aggregate Wood-stockpile
+  number alone wasn't trustworthy evidence (an unrelated passive-income tick
+  confounded it). **Session paused after Phase 3.1 per instruction — Phase
+  3.2 (team-bonus/alliance economic stacking) is DECISION NEEDED and the user
+  has not yet been asked directly whether they want that layer at all; no
+  implementation approach should be proposed until they answer.**
 - Currently on: nothing started yet for the next session. **Next session:
-  Dedicated resource-specific drop-off buildings** (the last of the 3
-  worker-mechanics-audit items — Lumber Camp/Mining Camp/Mill-equivalent
-  buildings, real new content; see Roadmap Section 1's matching item). Section
-  5 items 1-9 are all done, and items 11 (Repair) and 12 (General garrisoning)
-  are now done too. Item 7 (civ-specific
+  either Phase 3.2 (team-bonus/alliance economic stacking) if the user
+  confirms they want it — no implementation should be proposed until they
+  answer that question directly — or continued balance work/other open items
+  if they don't.** Section 5 items 1-9 are all done, and items 11 (Repair),
+  12 (General garrisoning), and 13 (resource-specific drop-off buildings) are
+  now done too. Item 7 (civ-specific
   building models) is fully closed — **all 5 civs,
   45/45 models landed** (Chola, Vijayanagara, Rajput, Maurya, Maratha).
   `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any future

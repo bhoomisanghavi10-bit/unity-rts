@@ -21,7 +21,7 @@ namespace KingdomsOfBharat.Buildings
         // Internal (not private) so EditMode tests can exercise
         // WoodMultiplierFor/StoneMultiplierFor directly - see
         // Assets/Scripts/AssemblyInfo.cs for the InternalsVisibleTo grant.
-        internal enum BuildingKind { Barracks, Farm, House, Wall, Gate, Tower, Market, Dock }
+        internal enum BuildingKind { Barracks, Farm, House, Wall, Gate, Tower, Market, Dock, LumberCamp, MiningCamp, Mill }
 
         [Header("Barracks")]
         [SerializeField] private KeyCode placeBarracksKey = KeyCode.B;
@@ -89,6 +89,30 @@ namespace KingdomsOfBharat.Buildings
         // on - see ProceduralGround).
         [SerializeField] private float dockMaxWaterDistance = 4f;
 
+        // Phase 3.1 (resource-specific drop-offs): Lumber Camp/Mining
+        // Camp/Mill, added so Gatherer.FindNearestDropOff can route by
+        // resource type instead of always defaulting to the TownCenter -
+        // see Gatherer.AcceptsDropOff. Costs/build time picked from the
+        // same range as House/Farm (100 Wood, no Stone, matching AoE's
+        // own cheap-early-economy-building convention for these).
+        [Header("Lumber Camp")]
+        [SerializeField] private KeyCode placeLumberCampKey = KeyCode.J;
+        [SerializeField] private float lumberCampWoodCost = 100f;
+        [SerializeField] private float lumberCampBuildTime = 5f;
+        [SerializeField] private Vector3 lumberCampSize = new Vector3(2f, 1.4f, 2f);
+
+        [Header("Mining Camp")]
+        [SerializeField] private KeyCode placeMiningCampKey = KeyCode.U;
+        [SerializeField] private float miningCampWoodCost = 100f;
+        [SerializeField] private float miningCampBuildTime = 5f;
+        [SerializeField] private Vector3 miningCampSize = new Vector3(2f, 1.4f, 2f);
+
+        [Header("Mill")]
+        [SerializeField] private KeyCode placeMillKey = KeyCode.P;
+        [SerializeField] private float millWoodCost = 100f;
+        [SerializeField] private float millBuildTime = 5f;
+        [SerializeField] private Vector3 millSize = new Vector3(2f, 1.4f, 2f);
+
         // SelectionManager checks this so a click meant to place/cancel a
         // building doesn't also register as a select/move/gather command.
         public static bool IsPlacing { get; private set; }
@@ -117,6 +141,9 @@ namespace KingdomsOfBharat.Buildings
             placeTowerKey = GameSettings.GetKey("PlaceTower", placeTowerKey);
             placeMarketKey = GameSettings.GetKey("PlaceMarket", placeMarketKey);
             placeDockKey = GameSettings.GetKey("PlaceDock", placeDockKey);
+            placeLumberCampKey = GameSettings.GetKey("PlaceLumberCamp", placeLumberCampKey);
+            placeMiningCampKey = GameSettings.GetKey("PlaceMiningCamp", placeMiningCampKey);
+            placeMillKey = GameSettings.GetKey("PlaceMill", placeMillKey);
         }
 
         // Gated behind Classical Age - gives the Age system real teeth
@@ -195,6 +222,30 @@ namespace KingdomsOfBharat.Buildings
         // For BuildMenu, to show/disable the Build Dock button.
         public static bool CanPlaceDock => WaterProximity.HasWater;
 
+        public void BeginPlacementLumberCamp()
+        {
+            if (!_placing)
+            {
+                StartPlacing(BuildingKind.LumberCamp);
+            }
+        }
+
+        public void BeginPlacementMiningCamp()
+        {
+            if (!_placing)
+            {
+                StartPlacing(BuildingKind.MiningCamp);
+            }
+        }
+
+        public void BeginPlacementMill()
+        {
+            if (!_placing)
+            {
+                StartPlacing(BuildingKind.Mill);
+            }
+        }
+
         private void Update()
         {
             if (!_placing)
@@ -230,6 +281,18 @@ namespace KingdomsOfBharat.Buildings
                 else if (Input.GetKeyDown(placeDockKey))
                 {
                     BeginPlacementDock();
+                }
+                else if (Input.GetKeyDown(placeLumberCampKey))
+                {
+                    BeginPlacementLumberCamp();
+                }
+                else if (Input.GetKeyDown(placeMiningCampKey))
+                {
+                    BeginPlacementMiningCamp();
+                }
+                else if (Input.GetKeyDown(placeMillKey))
+                {
+                    BeginPlacementMill();
                 }
             }
 
@@ -382,6 +445,18 @@ namespace KingdomsOfBharat.Buildings
                     stockpile.Add(ResourceType.Stone, -dockStoneCost * multiplier);
                     DockFactory.Place(point, FactionId.Player, dockBuildTime);
                     break;
+                case BuildingKind.LumberCamp:
+                    stockpile.Add(ResourceType.Wood, -lumberCampWoodCost * multiplier);
+                    LumberCampFactory.Place(point, FactionId.Player, lumberCampBuildTime);
+                    break;
+                case BuildingKind.MiningCamp:
+                    stockpile.Add(ResourceType.Wood, -miningCampWoodCost * multiplier);
+                    MiningCampFactory.Place(point, FactionId.Player, miningCampBuildTime);
+                    break;
+                case BuildingKind.Mill:
+                    stockpile.Add(ResourceType.Wood, -millWoodCost * multiplier);
+                    MillFactory.Place(point, FactionId.Player, millBuildTime);
+                    break;
             }
 
             CancelPlacing();
@@ -418,6 +493,12 @@ namespace KingdomsOfBharat.Buildings
                 case BuildingKind.Dock:
                     return stockpile.GetTotal(ResourceType.Wood) >= dockWoodCost * multiplier
                         && stockpile.GetTotal(ResourceType.Stone) >= dockStoneCost * multiplier;
+                case BuildingKind.LumberCamp:
+                    return stockpile.GetTotal(ResourceType.Wood) >= lumberCampWoodCost * multiplier;
+                case BuildingKind.MiningCamp:
+                    return stockpile.GetTotal(ResourceType.Wood) >= miningCampWoodCost * multiplier;
+                case BuildingKind.Mill:
+                    return stockpile.GetTotal(ResourceType.Wood) >= millWoodCost * multiplier;
                 default:
                     return stockpile.GetTotal(ResourceType.Wood) >= farmWoodCost * multiplier;
             }
@@ -434,6 +515,9 @@ namespace KingdomsOfBharat.Buildings
                 case BuildingKind.Tower: return towerSize;
                 case BuildingKind.Market: return marketSize;
                 case BuildingKind.Dock: return dockSize;
+                case BuildingKind.LumberCamp: return lumberCampSize;
+                case BuildingKind.MiningCamp: return miningCampSize;
+                case BuildingKind.Mill: return millSize;
                 default: return farmSize;
             }
         }
@@ -452,6 +536,10 @@ namespace KingdomsOfBharat.Buildings
                 case BuildingKind.Tower: return BuildingFootprint.Square(BuildingFootprint.TowerTiles);
                 case BuildingKind.Market: return BuildingFootprint.Square(BuildingFootprint.MarketTiles);
                 case BuildingKind.Dock: return new Vector2(dockSize.x, dockSize.z);
+                case BuildingKind.LumberCamp:
+                case BuildingKind.MiningCamp:
+                case BuildingKind.Mill:
+                    return BuildingFootprint.Square(BuildingFootprint.DropOffTiles);
                 default: return BuildingFootprint.Square(BuildingFootprint.FarmTiles);
             }
         }

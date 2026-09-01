@@ -256,7 +256,7 @@ namespace KingdomsOfBharat.ResourceGathering
 
             foreach (Building building in Building.All)
             {
-                if (!(building is TownCenter))
+                if (!AcceptsDropOff(building, _carriedType))
                 {
                     continue;
                 }
@@ -276,6 +276,36 @@ namespace KingdomsOfBharat.ResourceGathering
             }
 
             return nearest;
+        }
+
+        // Phase 3.1 (resource-specific drop-offs): TownCenter stays the
+        // universal drop-off (AoE convention - it always accepts every
+        // resource), but Lumber Camp/Mining Camp/Mill only accept their
+        // own resource type, so a worker routes to whichever drop-off is
+        // actually nearest for what it's carrying instead of always
+        // defaulting to the TownCenter. Internal (not private) so
+        // EditMode tests can exercise the routing rule directly without
+        // driving a full Gatherer state machine - see AssemblyInfo.cs's
+        // InternalsVisibleTo grant.
+        internal static bool AcceptsDropOff(Building building, ResourceType type)
+        {
+            if (building is TownCenter)
+            {
+                return true;
+            }
+
+            switch (type)
+            {
+                case ResourceType.Wood:
+                    return building is LumberCamp;
+                case ResourceType.Gold:
+                case ResourceType.Stone:
+                    return building is MiningCamp;
+                case ResourceType.Food:
+                    return building is Mill;
+                default:
+                    return false;
+            }
         }
 
         // Now that Player and Enemy each have their own Town Center, a

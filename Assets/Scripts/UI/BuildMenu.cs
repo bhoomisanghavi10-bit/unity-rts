@@ -42,6 +42,12 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button marketButton;
         [SerializeField] private Button dockButton;
         [SerializeField] private TMP_Text dockLabel;
+        // Phase 3.1 (resource-specific drop-offs): Lumber Camp/Mining
+        // Camp/Mill - no matching icon asset yet, stay text-only same as
+        // ungarrisonButton/fishingBoatButton/etc.
+        [SerializeField] private Button lumberCampButton;
+        [SerializeField] private Button miningCampButton;
+        [SerializeField] private Button millButton;
         [SerializeField] private Button workerButton;
         [SerializeField] private Button soldierButton;
         [SerializeField] private Button archerButton;
@@ -108,6 +114,9 @@ namespace KingdomsOfBharat.UI
             towerButton.onClick.AddListener(() => _placer.BeginPlacementTower());
             marketButton.onClick.AddListener(() => _placer.BeginPlacementMarket());
             dockButton.onClick.AddListener(() => _placer.BeginPlacementDock());
+            lumberCampButton.onClick.AddListener(() => _placer.BeginPlacementLumberCamp());
+            miningCampButton.onClick.AddListener(() => _placer.BeginPlacementMiningCamp());
+            millButton.onClick.AddListener(() => _placer.BeginPlacementMill());
             workerButton.onClick.AddListener(TrainWorkerAtSelected);
             soldierButton.onClick.AddListener(TrainSoldierAtSelected);
             archerButton.onClick.AddListener(TrainArcherAtSelected);
@@ -151,7 +160,8 @@ namespace KingdomsOfBharat.UI
             Button[] buttons =
             {
                 barracksButton, farmButton, houseButton, wallButton, gateButton, towerButton,
-                marketButton, dockButton, workerButton, soldierButton, archerButton, cavalryButton,
+                marketButton, dockButton, lumberCampButton, miningCampButton, millButton,
+                workerButton, soldierButton, archerButton, cavalryButton,
                 siegeButton, spearmanButton, uniqueUnitButton, uniqueUnitButton2, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
                 buyFoodButton, sellStoneButton, buyStoneButton, attackUpgradeButton, armorUpgradeButton,
@@ -209,7 +219,8 @@ namespace KingdomsOfBharat.UI
             // No matching icon asset (not in the original spec) - stay
             // text-only: ungarrisonButton, fishingBoatButton, warGalleyButton,
             // uniqueTechButton, improvedToolsButton, packMulesButton,
-            // tradeDiscountsButton.
+            // tradeDiscountsButton, lumberCampButton, miningCampButton,
+            // millButton.
         }
 
         // Adds a small icon to the left edge of a command-card button and
@@ -307,6 +318,9 @@ namespace KingdomsOfBharat.UI
                 dockLabel.text = BuildingPlacer.CanPlaceDock
                     ? "Build Dock (80 Wood, 20 Stone)"
                     : "Build Dock (Requires Water)";
+                lumberCampButton.interactable = true;
+                miningCampButton.interactable = true;
+                millButton.interactable = true;
             }
 
             if (townCenter != null)
@@ -455,6 +469,9 @@ namespace KingdomsOfBharat.UI
             towerButton.gameObject.SetActive(active);
             marketButton.gameObject.SetActive(active);
             dockButton.gameObject.SetActive(active);
+            lumberCampButton.gameObject.SetActive(active);
+            miningCampButton.gameObject.SetActive(active);
+            millButton.gameObject.SetActive(active);
         }
 
         private void UpdateTownCenterButtons(TownCenter townCenter)
