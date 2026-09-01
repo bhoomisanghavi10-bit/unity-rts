@@ -6,6 +6,13 @@ synthesizes it into what's genuinely open, and folds in anything from the earlie
 generic AAA-planning docs that still applies. Treat the source doc as the detailed
 commit-level log; treat this as the current punch list.
 
+A second, more recent companion plan — `docs/AOE_PARITY_EXECUTION_PLAN.md` — adds a
+separate phased execution order layered on top of this roadmap's own priorities
+(Section 5). **Section 6 below summarizes that plan's status** (what's closed, what's
+deferred and why, what's next) so this file alone is enough context to pick up
+either the roadmap's own priority order or the AoE-Parity plan's phases — the
+companion doc itself carries the full step-by-step detail for each phase.
+
 ---
 
 ## 0. Reality Check
@@ -1158,3 +1165,121 @@ buying, or making an asset yourself:
     and `UnitMover`/`MeleeAttacker` both caching sibling components in `Awake`
     instead of lazily). See Section 1's matching item and
     `docs/SESSION_LOG.md`.
+16. **Multiplayer determinism** (AoE-Parity Execution Plan Phase 5) — the
+    worker-mechanics-audit and all of Phases 1–4 are now closed; this is the
+    explicit next item. See Section 6 below for the plan's own scope and
+    `docs/AOE_PARITY_EXECUTION_PLAN.md` for full step-by-step detail. **Before
+    writing any code**: verify what `CommandBus`/`BuildingPlacer`/`StateHash`
+    actually do today against the repo (not this list's summary), and report
+    a clear "doable now without a transport" vs. "genuinely blocked on a
+    transport that doesn't exist yet" split back to the user before
+    proceeding — this phase has real scope in both categories, not one or
+    the other.
+
+---
+
+## 6. AoE-Parity Execution Plan Status
+
+`docs/AOE_PARITY_EXECUTION_PLAN.md` is the detailed, phase-by-phase reference
+(goals, decision points, step-by-step scope, named failure modes) — this section
+is the status summary so a session that only opens *this* file still has full
+context without also opening that one. Every "closed" claim below was
+cross-checked against the actual repo state (not just chat-log/session-log
+claims) on 2026-09-01 as part of this consolidation pass — file/method
+existence and wiring were grepped directly, not assumed.
+
+**Phase 1 — Player Color System: deferred, not dropped.**
+Item 1.1 asked "how should player color and civ color coexist," but before
+answering, the session found the item's own premise doesn't hold: it assumes
+an arbitrary-N player-slot system (its acceptance test is "two players on the
+same civ render as distinct colors"), and this codebase has no such thing —
+`FactionId` is exactly 3 fixed factions (Player, one human; Enemy/Enemy2, up to
+two AI — `Assets/Scripts/Core/FactionMember.cs`), not a multiplayer lobby.
+Building a player-color palette system now would be infrastructure with no
+current consumer. User agreed: all of 1.1–1.4 are deferred until a real
+arbitrary-player-count multiplayer path exists — **explicitly tied to this
+section's own Phase 5 below** (see Phase 5's "blocked on transport" split),
+not deleted from the plan. Civ tint stays exactly as-is
+(`HumanModelFactory.PaletteNameFor` — Chola→Red, Vijayanagara→Yellow,
+Rajput→Blue, Maurya→Gray, Maratha→Green).
+*Adjacent real bug found and fixed while checking*: `CivilizationSetup` could
+silently assign the same civilization to two of the three fixed factions in
+one match (the scene's own `aiCivilization` Inspector default is
+Vijayanagara, so a player picking Vijayanagara collided with it on an
+ordinary first match) — a live instance of the exact "can't tell factions
+apart" problem this phase exists to solve. Fixed with a deterministic dedup
+guard, confirmed still present:
+`CivilizationSetup.ResolveDistinctCivilization` (`Assets/Scripts/Core/CivilizationSetup.cs:160`).
+
+**Phase 2 — Combat calibration: closed.** Audited `CombatBonus`'s Archer↔Cavalry
+pairing against a numeric standard rather than eyeballing it — at the old 1.5x
+Archer→Cavalry multiplier, a stationary duel against base-stat Cavalry (40 HP)
+killed it in 7 hits, but Cavalry's own return hits left the Archer at just
+1.2/18 HP (7%) remaining when it died — tactically a coin-flip once any
+pathing/positioning noise is added, not a real hard counter. Raised to **2.0x**
+(`CombatBonus.Multiplier`, `Assets/Scripts/Combat/CombatBonus.cs:71`): the same
+duel now kills Cavalry in 5 hits with the Archer still at 6/18 HP (33%)
+remaining — a clear, not-a-coin-flip win. 2.5x was also modeled (4 hits, 47%
+HP remaining) and rejected as stronger than needed. Infantry→Archer and
+Cavalry→Infantry were audited in the same pass and left unchanged — both
+already resolve decisively (loser retains only ~20–30% max HP), so raising them
+further only compresses already-fast fights without changing the outcome.
+Items 2.2 (soft-counter mechanics — none exist; every relationship in
+`CombatBonus`/`CounterMatrix` is purely damage-multiplier based) and 2.3
+(formations vs. Siege — Siege has no splash damage, so the 5 shipped formation
+types are cosmetic against it, not functional) were audited and logged as new,
+separate open items in Section 1, not implemented — a numbers audit isn't
+license to build a new mechanic mid-item.
+
+**Phase 3.1 — Resource-specific drop-off buildings: closed.** `LumberCamp.cs`,
+`MiningCamp.cs`, `Mill.cs` (`Assets/Scripts/Buildings/`) and
+`Gatherer.AcceptsDropOff` (`Assets/Scripts/Resources/Gatherer.cs:365`) all
+confirmed present and wired — Lumber Camp/Mining Camp (Gold+Stone)/Mill (Food),
+`TownCenter` still the universal drop-off. Full `BuildingPlacer`/`BuildMenu`
+wiring alongside (hotkeys J/U/P).
+
+**Phase 3.2 — Team bonus / alliance economic stacking: closed, user
+explicitly confirmed wanting it.** Asked directly per the plan's own
+DECISION NEEDED gate ("does the user want a team-bonus layer at all") before
+scoping anything — user said yes, explicitly motivated by wanting the
+project's systemic depth to reach AoE IV's level. `TeamBonus.cs`
+(`Assets/Scripts/Core/TeamBonus.cs`) confirmed present and wired into all 5
+hook sites: `BuildingPlacer.WoodMultiplierFor` (Maurya, allied Houses -25%
+Wood), `WallFactory` (Vijayanagara, allied Wall/Gate/Tower +15% HP),
+`CavalryFactory` (Rajput +1 flat Cavalry damage; Maratha +10% Cavalry move
+speed), and `Market.EffectiveSellRate`/`EffectiveBuyRate` (Chola, narrowed
++/-5-point spread) — all confirmed by direct grep, not just SESSION_LOG claim.
+
+**Phase 4.1 — General garrisoning system: closed** (this is the same item as
+Roadmap Section 5's item 12 — the plan's Phase 4.1 folds in an
+already-scoped roadmap item rather than introducing a new one). `GarrisonPoint.cs`,
+`GarrisonSeeker.cs`, and `BuildingAttacker.cs` (generalized from the old
+Maratha-Durg-only `Garrison`/`TowerAttacker`) confirmed present; TownCenter
+confirmed to now have a baseline `Attacker` component
+(`TownCenterFactory.cs:46`, `AddComponent<BuildingAttacker>()`) where it
+previously had none.
+
+**Phase 4.2 — Worker self-defense/cross-awareness: closed.** `Attackable.OnDamaged`,
+`CombatResponse`, `WorkerCombatResponseDefaults` all confirmed present and wired
+(`Assets/Scripts/Combat/Attackable.cs:54`,
+`Assets/Scripts/Resources/CombatResponse.cs`,
+`Assets/Scripts/Core/WorkerCombatResponseDefaults.cs`). Design outcome: every
+civ's Workers auto-fight back when attacked mid-gather (matching the capability
+every Worker already had via its own weak `MeleeAttacker`, just now
+auto-triggered instead of requiring an explicit attack-move command) except
+Maratha's, which flee instead (guerrilla hit-and-run identity, consistent with
+its Phase 3.2 team bonus and existing Cavalry-speed bonus). 117 EditMode tests
+pass (confirmed by re-running the suite this pass, not just trusting the
+session-log count). Live-verified in Play mode through the real production
+event path: a Maurya Worker closed a real ~4-unit NavMesh-pathed gap down to
+0.21 units onto its attacker; a Maratha Worker under the identical setup
+increased its tracked distance from the attacker from 19.9 to 25.9 units,
+never engaging.
+
+**Phase 5 — Multiplayer determinism: not started.** See Roadmap Section 5 for
+the next-session plan and `docs/AOE_PARITY_EXECUTION_PLAN.md` for the full
+item-by-item scope.
+
+**Phase 6 — Home City-style meta-progression: deferred, do not start without
+explicit user request** (per the plan's own instruction — real new-system
+scope, not required for "AoE-level" parity on its own).

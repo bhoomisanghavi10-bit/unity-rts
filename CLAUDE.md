@@ -96,18 +96,31 @@ asset requirements, 5. Priority order).
   Maurya Worker closed a real ~4-unit NavMesh-pathed gap down to 0.21 units
   onto its attacker; a Maratha Worker under the identical setup increased
   its real tracked distance from 19.9 to 25.9 units, never engaging.
-- Currently on: nothing started yet for the next session. Section 5 items
-  1-9 are all done, and items 11 (Repair), 12 (General garrisoning), 13
-  (resource-specific drop-off buildings), 14 (team-bonus/alliance economic
-  stacking), and 15 (worker self-defense/cross-awareness) are now done too
-  — **the worker-mechanics-audit is now fully closed, no open items remain
-  from it**. `AOE_PARITY_EXECUTION_PLAN.md`'s Phases 1-4 are now fully
-  resolved (Phase 1 deferred with a documented reason, Phases 2-4 closed) —
-  next session should check whether that companion doc has further phases
-  (it was handed in mid-session as loose text, not a file in this repo, so
-  re-confirm its existence/content with the user rather than assuming), or
-  fall back to continued balance work/other open Roadmap items if not. Item
-  7 (civ-specific
+- **Consolidation pass done 2026-09-01**: the companion plan doc turned out
+  to genuinely exist (`~/Downloads/AOE_PARITY_EXECUTION_PLAN.md`, not "loose
+  chat text" as the prior status note here guessed) — copied into
+  `docs/AOE_PARITY_EXECUTION_PLAN.md` so it's actually reachable by a future
+  session, and Roadmap Section 6 ("AoE-Parity Execution Plan Status") now
+  summarizes every phase's real status, cross-checked against the actual repo
+  (grepped file/method existence directly, not trusted from session-log
+  claims). Confirmed: Phase 1 deferred (documented reason, tied to Phase 5),
+  Phase 2 closed (Archer→Cavalry 1.5x→2.0x, with the real before/after HP%
+  numbers), Phase 3.1 closed, Phase 3.2 closed (user-confirmed), Phase 4.1 —
+  which is the same item as this list's own item 12 (General garrisoning),
+  the plan folds it in rather than introducing a new one — closed, Phase 4.2
+  closed. Read Roadmap Section 6 for the full writeup, not this summary.
+- Currently on: **Phase 5 (multiplayer determinism) — investigation
+  done, implementation not started, holding for the user's go-ahead.**
+  Section 5 items 1-9 are all done, and items 11-15 (Repair, General
+  garrisoning, resource-specific drop-off buildings, team-bonus/alliance
+  economic stacking, worker self-defense/cross-awareness) are done too —
+  **the worker-mechanics-audit is now fully closed, no open items remain
+  from it**, and `AOE_PARITY_EXECUTION_PLAN.md`'s Phases 1-4 are fully
+  resolved (see the consolidation note above). Phase 5 was investigated
+  this session per instruction (report a "doable now" vs. "blocked on
+  transport" split before writing any code) — see the chat response for
+  the full split; not restated here since this file is for durable status,
+  not a running transcript. Item 7 (civ-specific
   building models) is fully closed — **all 5 civs,
   45/45 models landed** (Chola, Vijayanagara, Rajput, Maurya, Maratha).
   `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any future

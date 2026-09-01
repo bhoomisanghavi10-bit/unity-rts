@@ -5,7 +5,102 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
-## 2026-09-01 — AoE-parity Phase 4.2: worker self-defense/cross-awareness (Roadmap Section 1 worker-mechanics-audit item)
+## 2026-09-01 — Roadmap consolidation pass + Phase 5 (multiplayer determinism) investigation
+
+**Scope**: two parts, per instruction. First, a documentation consolidation: fold
+`AOE_PARITY_EXECUTION_PLAN.md`'s status into `docs/Roadmap.md` so a brand-new
+session that only opens the roadmap (not this log, not the plan doc separately) has
+full context. Second, investigate Phase 5 (multiplayer determinism) — report only,
+no code — and specifically split what's genuinely doable right now from what's
+blocked on a network transport that doesn't exist yet.
+
+**Consolidation**: the companion plan doc turned out to genuinely exist at
+`~/Downloads/AOE_PARITY_EXECUTION_PLAN.md` — outside the repo entirely, which is
+why an earlier session's status note guessed it was "loose chat text, not a file."
+Copied it into `docs/AOE_PARITY_EXECUTION_PLAN.md` so it's actually reachable by a
+future session (the roadmap's own new Section 6 references it by that path). Before
+writing the summary, cross-checked every "closed" claim against the actual repo
+rather than trusting prior session-log text:
+- **Phase 1** (Player Color System): confirmed deferred, not implemented — the
+  plan doc's own decision note (`## Phase 1`, item 1.1) already recorded the exact
+  reasoning and date. Confirmed the adjacent bug fix is still live:
+  `CivilizationSetup.ResolveDistinctCivilization` exists at
+  `Assets/Scripts/Core/CivilizationSetup.cs:160`.
+- **Phase 2** (Combat calibration): confirmed `CombatBonus.Multiplier` (Archer,
+  Cavalry) = 2.0f at `Assets/Scripts/Combat/CombatBonus.cs:71`, with the exact
+  before/after hit-count and HP% numbers already recorded in that file's own
+  comment block (7 hits/7% HP remaining at old 1.5x vs. 5 hits/33% HP remaining at
+  the new 2.0x).
+- **Phase 3.1** (drop-off buildings): confirmed `LumberCamp.cs`/`MiningCamp.cs`/
+  `Mill.cs` exist and `Gatherer.AcceptsDropOff` exists at
+  `Assets/Scripts/Resources/Gatherer.cs:365`.
+- **Phase 3.2** (team bonus): confirmed `TeamBonus.cs` exists and is actually
+  called (not just present) from all 5 claimed hook sites —
+  `BuildingPlacer.WoodMultiplierFor`, `WallFactory`, `CavalryFactory` (both Rajput
+  and Maratha bonuses), and `Market.EffectiveSellRate`/`EffectiveBuyRate` — via
+  direct grep, not a session-log trust.
+- **Phase 4.1**: this is the plan doc's label for the already-shipped "General
+  garrisoning system" (Roadmap Section 5 item 12), not a separate unimplemented
+  item — confirmed `GarrisonPoint.cs`, `GarrisonSeeker.cs`, `BuildingAttacker.cs`
+  all exist and `TownCenterFactory.cs:46` adds a `BuildingAttacker` (TownCenter's
+  previously-absent baseline `Attacker`).
+- **Phase 4.2**: confirmed via this same session's own EditMode run (117/117 pass)
+  and the live Play Mode verification already logged in the prior entry.
+
+Wrote all of this into a new `docs/Roadmap.md` Section 6 ("AoE-Parity Execution
+Plan Status"), added a pointer to it from the roadmap's own header, and added item
+16 to Section 5's priority list marking Phase 5 as the explicit next item.
+`CLAUDE.md`'s "Current status" updated to match (and to correct the stale "not a
+file in this repo" note about the plan doc, now that its real location is known).
+
+**Phase 5 investigation** (research only — no code written, per instruction to
+report the doable-vs-blocked split before proceeding): read
+`Assets/Scripts/Multiplayer/CommandBus.cs`, `SimClock.cs`, `StateHash.cs`,
+`Command.cs`/`MoveCommand.cs`/`TrainCommand.cs`/`AttackCommand.cs`, and the actual
+call sites in `SelectionManager.cs`/`BuildMenu.cs`/`BuildingPlacer.cs`/
+`AiController.cs`, plus `SaveManager.cs` for reusable serialization
+infrastructure. Findings (see the chat response for the full doable-vs-blocked
+split given back to the user):
+- `CommandBus`/`SimClock` are real and working: Move and Attack orders
+  (`SelectionManager.cs`) and every Train order (`BuildMenu.cs`) are already
+  wired through `CommandBus.Enqueue`, executing `InputDelayTicks` (4) ticks later
+  in fixed enqueue order — the actual lockstep input-delay-queue pattern, just
+  single-process with no peer yet.
+- `BuildingPlacer.TryConfirmPlacement` (`Assets/Scripts/Buildings/BuildingPlacer.cs:401`)
+  is a confirmed, genuine bypass: it deducts `ResourceStockpile` and calls
+  `XFactory.Place(...)` synchronously at click time, not through a `Command` at
+  all — unlike Train orders, where `Barracks.RequestTrain`'s own resource
+  deduction only happens inside `TrainCommand.Execute()`, i.e. at delayed
+  tick-execution time. This is a real, narrow, doable-now gap: build a
+  `BuildCommand` mirroring `TrainCommand`'s shape, move the affordability
+  check + deduction + `Factory.Place` call into its `Execute()`, keep only the
+  ghost-preview/placement-validity check (`IsClearForKind`) at click time. AI's
+  own building placement (`AiController.cs`) intentionally stays direct, matching
+  the existing precedent that automatic per-tick AI/simulation decisions don't
+  need to be queued (`AttackCommand.cs`'s own comment already states this
+  design principle for AI attack-move) — this only affects the Player's manual
+  placement clicks.
+- `StateHash.Compute()` exists and is a real, well-reasoned FNV-1a fold over
+  tick/position/faction/health — but it is **never called anywhere** in the
+  codebase (confirmed by grep — zero call sites outside its own file). The plan
+  doc's framing ("currently only detects desync, doesn't recover from it")
+  slightly overstates the current state: nothing currently detects anything live
+  either, since nothing calls `Compute()` or compares two results. What exists is
+  the hashing primitive, not a live detection loop.
+- `SaveManager.cs` (F5/F9 quicksave) is a real, working full-state JSON
+  serializer that could plausibly seed a resync/rollback snapshot format —
+  but it carries documented v1 limitations (no in-progress construction/
+  training countdowns, no unit orders/targets, no `ResourceNode` depletion
+  restored) that would resurface as the same gaps in a resync design if reused
+  naively.
+- Confirmed zero networking/transport code exists anywhere in the repo (grepped
+  for socket/transport/netcode-shaped names, found nothing genuine).
+
+**Outcome**: reported the split back to the user in chat rather than proceeding —
+per instruction, this phase pauses here for a decision on whether to do the
+doable-now `BuildingPlacer`/`CommandBus` wiring (and possibly a
+self-consistency-only resync design, testable without a live second machine) now,
+or hold the whole phase until real transport work lands.
 
 **Scope**: `AOE_PARITY_EXECUTION_PLAN.md` Phase 4.2 — the last open item from the
 2026-08-29 worker mechanics audit. `Gatherer` and `MeleeAttacker` had zero
