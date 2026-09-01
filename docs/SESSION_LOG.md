@@ -5,6 +5,157 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-01 — AoE-parity Phase 2 (Combat calibration): audited 2.1/2.2/2.3, one approved multiplier change
+
+**Scope**: `AOE_PARITY_EXECUTION_PLAN.md` Phase 2, items 2.1 (audit `CombatBonus` against
+AoE4's reference scale, DECISION NEEDED before any change), 2.2 (soft-counter mechanic
+audit), 2.3 (formations-vs-Siege splash-damage audit). Same session as Phase 1's
+deferral, continued at the user's explicit direction.
+
+**2.1 audit**: confirmed `CombatBonus.Multiplier()` (`Assets/Scripts/Combat/
+CombatBonus.cs`) is the actual damage-resolution path (`MeleeAttacker`/`BoatAttacker`/
+`BuildingAttacker` all read it) — `CounterMatrix` is genuinely inert, loaded into
+`DataRegistry` but never read by any damage-dealing code, confirming CLAUDE.md's
+documented separation is real, not stale. Compared current values against AoE4's 2x–3x
+hard-counter reference band: Infantry→Archer/Archer→Cavalry/Cavalry→Infantry all sat at
+1.5x ("slight advantage," not "hard counter" by that reference); Siege→Building (3x)
+and Spearman→Cavalry (2x) already matched. Per instruction, did not assume "more like
+AoE4" was automatically correct — instead hand-computed real 1v1 duel outcomes (using
+this project's actual flat-armor-subtraction `TakeDamage` formula and real base stats
+from `unit_roster_template.csv`) for all three Infantry/Archer/Cavalry pairings at
+1.5x/2.0x/2.5x, to show gameplay effect (hits-to-kill, HP retained) rather than just the
+raw numbers. Found: Infantry→Archer and Cavalry→Infantry already resolve decisively at
+1.5x (loser retains only ~20-30% max HP, 3-4 hits) — raising them further only saves one
+hit off an already-fast fight (a "hits to kill" ceiling effect of this project's damage
+model), so left unchanged. Archer→Cavalry was the real finding: at 1.5x, Archer "wins"
+its supposed hard counter with only 7% of its own HP left when Cavalry finally dies — a
+near coin-flip in practice once any pathing/positioning noise is added, not a decisive
+counter. **User-approved change**: raised Archer→Cavalry from 1.5x to 2.0x only (2.5x
+was modeled and rejected as stronger than needed) — CombatBonus.cs's own comment now
+carries the full 7%-vs-33%-HP rationale next to the value.
+
+**2.2 audit**: confirmed no soft-counter mechanic exists anywhere — every relationship in
+`CombatBonus`/`CounterMatrix` is pure damage-multiplier; no kiting AI, no
+armor-class-based mitigation independent of the multiplier table. Real, undesigned depth
+gap per the plan's own framing, not folded into 2.1's implementation.
+
+**2.3 audit**: confirmed Siege has no splash/area damage anywhere (`SiegeFactory` uses a
+plain `MeleeAttacker`, single-target, identical to every other unit). `FormationController`'s
+5 shapes rearrange units geometrically but nothing in combat resolution reads formation
+shape/spacing — so per the plan's own acceptance criterion, the 5 shipped formation types
+are cosmetic against Siege specifically, not functional, even though the feature reads as
+"closed" on its own terms.
+
+**What changed**: `Assets/Scripts/Combat/CombatBonus.cs` — Archer→Cavalry multiplier
+1.5f → 2f, plus an expanded design comment recording the audit numbers and rejection of
+2.5x.
+
+**Tests**: `Assets/Tests/EditMode/CombatBonusTests.cs` (new), 2 EditMode tests — the raw
+multiplier value, and a full simultaneous round-by-round duel simulation (real
+`CombatBonus.Multiplier` + real `Attackable.TakeDamage`, base CSV stats) asserting
+Cavalry dies in exactly 5 rounds with the Archer holding ~6/18 HP (33%), pinning the
+audit's own hand-computed numbers as a regression test. Hit a genuine multi-layered
+tooling snag getting this file to actually compile in: `Assets/Scripts/Data/Scripts/
+UnitDefinition.cs` declares a second, global-namespace `enum DamageType` distinct from
+`KingdomsOfBharat.Combat.DamageType` — an unqualified `DamageType.Melee` reference
+resolved ambiguously and needed full qualification; separately, `refresh_unity(mode=
+force, compile=request)` reported successful "idle"/"compiling" transitions several
+times in a row without the on-disk `KingdomsOfBharat.Tests.dll` actually changing (still
+had a stale AppDomain type list minus the new file) until a `CompilationPipeline.
+RequestScriptCompilation(CleanBuildCache)` forced a real rebuild — the underlying real
+compile errors (confirmed by reading `~/Library/Logs/Unity/Editor.log` directly, since
+`read_console` wasn't surfacing them) were an `Object` ambiguity (`UnityEngine.Object` vs
+`System.Object`, from an unnecessary stray `using System;`) and the `DamageType`
+ambiguity above. All 91 EditMode tests pass (89 prior + 2 new).
+
+**Manual verification**: Play Mode, via UnityMCP `execute_code`/`manage_camera` — spawned
+a real equal-cost squad fight (8 Archers = 600 resources vs. 5 Cavalry = 600 resources,
+via the actual `ArcherFactory`/`CavalryFactory` spawners, `AttackMove`-ordered round-robin
+at spawn, real ticked `Update()` over ~13 real seconds with `Application.runInBackground`
+set per the project's known Editor-ticking gotcha) rather than trusting the 1v1 hand-calc
+alone. Result: all 5 Cavalry dead, all 8 Archers alive at 132/144 total HP (92%
+retained) — a decisive win, even more lopsided than the 1v1 prediction since the
+numbers advantage compounds the counter. Screenshotted
+(`Assets/Screenshots/archer_vs_cavalry_2x_staged_fight.png`) and logged to
+`Assets/Design/playtest_log.csv` as a deliberate balance change per the project's
+existing convention (matching the multi-builder-speed-formula precedent's phrasing).
+
+**Roadmap**: 2.1/2.2/2.3 logged together as one batch in `ROADMAP.md` Section 1 per
+instruction (not piecemeal) — see that entry for the full checklist. Session paused here
+per instruction, batch entry shown to the user before Phase 3.
+
+---
+
+## 2026-09-01 — AoE-parity Phase 1 (Player Color System): investigated, deferred; live duplicate-civilization bug found and fixed
+
+**Scope**: `AOE_PARITY_EXECUTION_PLAN.md` (a new companion doc handed in this session,
+not previously part of `ROADMAP.md`) sequences a "Player Color System" as its first
+phase, opening with a DECISION NEEDED item (1.1): resolve the conflict where
+`HumanModelFactory.PaletteNameFor()` uses the same tint slot for civ identity that AoE
+uses for player identity.
+
+**Real assumption gap found before any code was written**: the plan's own framing —
+"assigns one palette entry per player slot at match/scenario setup," acceptance test
+"two players on the same civ render as visually distinct player colors" — presumes an
+arbitrary-N player-slot system. This repo doesn't have one. `FactionId`
+(`Assets/Scripts/Core/FactionMember.cs`) is exactly three fixed factions (Player,
+Enemy, Enemy2 — one human, up to two AI), not a general multiplayer lobby. Flagged to
+the user rather than silently building infrastructure with no consumer; user agreed
+and directed deferring all of 1.1/1.2/1.3/1.4 as scoped, tying it explicitly to the
+existing Phase 5 multiplayer-determinism blocker in `AOE_PARITY_EXECUTION_PLAN.md`
+rather than deleting it (see that doc's own updated Phase 1 section for the recorded
+decision).
+
+**Before deferring, user asked one cheap real-bug check**: can
+`CivilizationSetup.Assign` currently put the same civilization on two of the three
+fixed factions in the same skirmish today? Confirmed yes, and confirmed it's not
+theoretical — `CivilizationSetup`'s `aiCivilization` Inspector default in the actual
+scene is Vijayanagara, and `CivPicker` places no restriction on the player's own pick
+against it, so a player picking Vijayanagara collides with the AI's default civ on a
+totally ordinary first match, no special setup needed. Since civ identity is currently
+the *only* body tint that exists (`HumanModelFactory.PaletteNameFor`), a collision
+means two factions are visually identical — a small, live version of the exact
+"indistinguishable identity" problem Phase 1 was written to solve, but reachable today
+with zero new systems.
+
+**Fix**: `CivilizationSetup.BeginMatchCore` (`Assets/Scripts/Core/CivilizationSetup.cs`)
+now resolves `Enemy`/`Enemy2` around whatever the player picked (authoritative, never
+rerolled) via a new pure `internal static ResolveDistinctCivilization(CivilizationId
+desired, ICollection<CivilizationId> alreadyTaken)` helper — falls back deterministically
+to the first `CivilizationId` (enum declaration order) not already taken, rather than
+randomizing, so results stay reproducible. Enemy2's resolution takes both Player's and
+the already-resolved Enemy's civs into account, so all three (when the third faction is
+on) end up mutually distinct, not just pairwise-checked against the player.
+
+**Tests**: `Assets/Tests/EditMode/CivilizationSetupTests.cs`, 4 new EditMode tests
+(desired-not-taken passthrough, fallback-to-first-untaken-in-enum-order, all-civs-taken
+non-throwing fallback, and a direct reproduction of the real Vijayanagara/Vijayanagara
+collision). All 89 EditMode tests pass (85 prior + 4 new).
+
+**Manual verification**: Play Mode, via UnityMCP `execute_code` — called the real
+`CivilizationSetup.BeginMatch(CivilizationId.Vijayanagara)` against the actual scene's
+`CivilizationSetup` component (confirmed its live `aiCivilization` Inspector value is
+Vijayanagara before calling, not assumed from the C# default) through the full spawn
+pipeline, not the pure function in isolation. Result: `CivilizationRegistry.For(Enemy)`
+resolved to Chola (first untaken in enum order), confirmed distinct from Player's
+Vijayanagara; the actual spawned Enemy workers are even named "Enemy Chola Worker" by
+the pre-existing spawner naming convention. Read each side's live
+`Renderer.sharedMaterial.mainTextureOffset` directly (not just a screenshot, since fog
+of war hid the Enemy base from a game-view shot in this single-player-perspective
+scene) — Player workers at `(0, 0.75)` (Yellow/Vijayanagara's existing row), Enemy
+workers at `(0, 0.88)` (Red/Chola's existing row) — genuinely distinct palette rows
+through the real `HumanModelFactory.ApplyPaletteMaterial` path, not just distinct
+enum values in the registry.
+
+**Roadmap**: no `ROADMAP.md` Section 1 entry added — this was a small ad hoc fix
+surfaced while investigating a new companion doc's Phase 1, not itself a scoped
+punch-list item. `AOE_PARITY_EXECUTION_PLAN.md`'s own Phase 1 section now carries the
+decision/defer record and references this fix. Phase 1 is closed out (deferred, not
+implemented) — user explicitly directed moving on to Phase 2 item 2.1 (see the next
+log entry, if any, for what came of that) in the same session.
+
+---
+
 ## 2026-09-01 — General garrisoning system, AoE IV style (Roadmap Section 1 worker-mechanics-audit item / Section 5 item 12)
 
 **Scope**: the last-but-one of the 3 worker-mechanics-audit items (Repair closed

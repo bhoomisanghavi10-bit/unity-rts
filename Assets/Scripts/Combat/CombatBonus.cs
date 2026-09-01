@@ -11,7 +11,24 @@ namespace KingdomsOfBharat.Combat
     //    actually reaches melee range with them, so closing the gap is
     //    real counterplay, not just "attack it."
     //  - Archer vs Cavalry: ranged fire punishes a charging, lightly-
-    //    armored horse and rider before they close the distance.
+    //    armored horse and rider before they close the distance. AoE-parity
+    //    Phase 2 audit (2026-09-01): raised from 1.5x to 2.0x after a
+    //    numeric audit found 1.5x resolved this matchup as a near coin-flip
+    //    in practice, not a real hard counter - a stationary duel against
+    //    base-stat Cavalry (40 HP, 0.4x-penalized 6 dmg swing, see below)
+    //    killed Cavalry in 7 hits at 1.5x, but Cavalry's own return hits
+    //    landed the Archer at just 1.2/18 HP (7%) remaining when it died -
+    //    tactically indistinguishable from a coin-flip once any pathing/
+    //    positioning noise is added. 2.0x kills Cavalry in 5 hits with the
+    //    Archer still at 6/18 HP (33%) remaining - a clear, not-a-coin-flip
+    //    win. 2.5x was also modeled (4 hits, 47% HP remaining) and rejected
+    //    as stronger than needed; 1.5x/Cavalry->Infantry and Infantry->
+    //    Archer were audited in the same pass and left untouched - both
+    //    already resolve decisively (loser retains only ~20-30% max HP),
+    //    so raising them further only compresses already-fast fights
+    //    without changing the outcome (a "hits to kill" ceiling effect from
+    //    this project's flat-armor-subtraction damage model). User-approved
+    //    change, not a unilateral rebalance - see docs/SESSION_LOG.md.
     //  - Cavalry vs Archer (the other half of that same matchup, item 43
     //    balance pass): without this, the 1.5x Archer bonus above doesn't
     //    actually hold up - Cavalry's speed (6.5) outruns Archer's (3.8),
@@ -53,7 +70,7 @@ namespace KingdomsOfBharat.Combat
 
             if (attacker == UnitClass.Archer && target == UnitClass.Cavalry)
             {
-                return 1.5f;
+                return 2f;
             }
 
             if (attacker == UnitClass.Cavalry && target == UnitClass.Archer)

@@ -7,6 +7,29 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **This session (2026-09-01, same day as the two items below) worked
+  `AOE_PARITY_EXECUTION_PLAN.md`** (a new companion doc handed in mid-session,
+  not previously part of this roadmap) instead of the item queued below —
+  Phase 1 (Player Color System) was investigated and **deferred** (its own
+  premise assumes an arbitrary-N player-slot system this codebase doesn't
+  have — `FactionId` is exactly 3 fixed factions, Player/Enemy/Enemy2, not a
+  multiplayer lobby; tied to Phase 5's existing "real transport doesn't exist
+  yet" blocker rather than deleted from the plan), but a real live bug
+  surfaced while checking it was fixed: `CivilizationSetup` could silently
+  assign the same civilization to two of the three fixed factions (the
+  scene's own `aiCivilization` default collided with an ordinary player pick
+  of Vijayanagara) — fixed with a deterministic dedup guard
+  (`CivilizationSetup.ResolveDistinctCivilization`). Phase 2 (Combat
+  calibration) items 2.1/2.2/2.3 are logged as one batch in Section 1 below:
+  2.1 closed (raised `CombatBonus.Multiplier(Archer,Cavalry)` 1.5x→2.0x after
+  a numeric audit found the old value was a near coin-flip, not a real hard
+  counter — Infantry→Archer/Cavalry→Infantry audited and left unchanged,
+  already decisive), 2.2/2.3 audited and logged as new open items (no
+  soft-counter mechanic exists; Siege has no splash damage so formations are
+  cosmetic against it), not implemented. Session paused after the Phase 2
+  batch per instruction, awaiting explicit go-ahead to Phase 3 (resource
+  drop-off buildings, then team bonus layer). See `docs/SESSION_LOG.md`'s two
+  2026-09-01 entries (Phase 1, Phase 2) for full detail.
 - Currently on: nothing started yet for the next session. **Next session:
   Dedicated resource-specific drop-off buildings** (the last of the 3
   worker-mechanics-audit items — Lumber Camp/Mining Camp/Mill-equivalent

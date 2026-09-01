@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using KingdomsOfBharat.Progression;
 using KingdomsOfBharat.Match;
@@ -92,11 +94,25 @@ namespace KingdomsOfBharat.Core
 
             DiplomacyRegistry.Reset();
 
+            // AoE-parity gap-close: aiCiv/enemy2Civilization are fixed
+            // Inspector defaults, not player-aware - nothing previously
+            // stopped the player's own CivPicker choice from colliding
+            // with one of them (e.g. picking Vijayanagara against the
+            // default aiCivilization=Vijayanagara), which today makes two
+            // factions render as literally the same civ, since civ
+            // identity is the only body tint that exists
+            // (HumanModelFactory.PaletteNameFor). The player's pick is
+            // authoritative and never rerolled; AI factions resolve
+            // deterministically around it and each other.
+            var takenCivilizations = new HashSet<CivilizationId> { playerCivilization };
+            CivilizationId resolvedAiCiv = ResolveDistinctCivilization(aiCiv, takenCivilizations);
+            takenCivilizations.Add(resolvedAiCiv);
+
             CivilizationRegistry.Assign(FactionId.Player, playerCivilization);
-            CivilizationRegistry.Assign(FactionId.Enemy, aiCiv);
+            CivilizationRegistry.Assign(FactionId.Enemy, resolvedAiCiv);
 
             AgeProgress.Initialize(FactionId.Player, StartingAgeFor(playerCivilization));
-            AgeProgress.Initialize(FactionId.Enemy, StartingAgeFor(aiCiv));
+            AgeProgress.Initialize(FactionId.Enemy, StartingAgeFor(resolvedAiCiv));
 
             // Item 48: only touches Enemy2's registries when the 3rd
             // faction is actually on - an untouched CivilizationRegistry/
@@ -106,8 +122,11 @@ namespace KingdomsOfBharat.Core
             // the common 2-faction case.
             if (enableThirdFaction)
             {
-                CivilizationRegistry.Assign(FactionId.Enemy2, enemy2Civilization);
-                AgeProgress.Initialize(FactionId.Enemy2, StartingAgeFor(enemy2Civilization));
+                CivilizationId resolvedEnemy2Civ = ResolveDistinctCivilization(enemy2Civilization, takenCivilizations);
+                takenCivilizations.Add(resolvedEnemy2Civ);
+
+                CivilizationRegistry.Assign(FactionId.Enemy2, resolvedEnemy2Civ);
+                AgeProgress.Initialize(FactionId.Enemy2, StartingAgeFor(resolvedEnemy2Civ));
 
                 foreach (GameObject content in enemy2GatedContent)
                 {
@@ -131,6 +150,29 @@ namespace KingdomsOfBharat.Core
         private static AgeId StartingAgeFor(CivilizationId civ)
         {
             return civ == CivilizationId.Maurya ? AgeId.Classical : AgeId.Ancient;
+        }
+
+        // Falls back deterministically to the first CivilizationId (enum
+        // declaration order) not already in alreadyTaken, so results are
+        // reproducible/testable rather than randomized. Returns desired
+        // unchanged if every civ is somehow already taken (impossible
+        // today with 5 civs and 3 fixed factions).
+        internal static CivilizationId ResolveDistinctCivilization(CivilizationId desired, ICollection<CivilizationId> alreadyTaken)
+        {
+            if (!alreadyTaken.Contains(desired))
+            {
+                return desired;
+            }
+
+            foreach (CivilizationId candidate in (CivilizationId[])Enum.GetValues(typeof(CivilizationId)))
+            {
+                if (!alreadyTaken.Contains(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return desired;
         }
     }
 }

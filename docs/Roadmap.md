@@ -382,6 +382,41 @@ entirely. What follows is the real remaining list.
   Not guessed at with low-confidence packs per the cursor-pack precedent (see
   Section 4.4) — needs the user to source or commission per-civ.
 
+- [x] **AoE-parity Phase 2 — Combat calibration audit** (`AOE_PARITY_EXECUTION_PLAN.md`
+  Phase 2, 2026-09-01) — three-part audit of `CombatBonus`/`CounterMatrix` against
+  AoE4 reference design; logged as one batch per user instruction rather than three
+  disconnected entries.
+  - [x] 2.1 — Audit `CombatBonus` multiplier scale against AoE4's reference values.
+    **Closed.** Confirmed `CombatBonus.Multiplier()` is the real damage-resolution
+    path (`CounterMatrix` is inert, loaded but never read by damage code — the
+    documented separation is real, not stale). Infantry→Archer/Archer→Cavalry/
+    Cavalry→Infantry all sat at 1.5x against AoE4's 2x-3x hard-counter band; a
+    hand-computed 1v1 duel audit (real armor-subtraction formula, real base stats)
+    found Infantry→Archer and Cavalry→Infantry already decisive at 1.5x (loser
+    retains ~20-30% HP) — left unchanged, raising them only shaves a hit off an
+    already-fast fight. Archer→Cavalry was the real gap: 1.5x won with only 7% Archer
+    HP left (a coin-flip in practice) — **raised to 2.0x** (33% HP left, clear win;
+    2.5x modeled and rejected as unneeded), user-approved after seeing the specific
+    numbers, not assumed from "AoE4 is 2-3x." See `CombatBonus.cs`'s own comment and
+    `docs/SESSION_LOG.md` for the full rationale, EditMode test
+    (`CombatBonusTests.cs`), and a live equal-cost squad fight (8 Archers vs. 5
+    Cavalry, both 600 resources) logged to `Assets/Design/playtest_log.csv`.
+  - [ ] 2.2 — Evaluate adding a soft-counter mechanic. **Audited, not implemented.**
+    Confirmed no soft-counter mechanic exists anywhere in this codebase — every
+    relationship in `CombatBonus`/`CounterMatrix` is pure damage-multiplier, no
+    kiting AI, no armor-class mitigation independent of the multiplier table. Real,
+    undesigned depth gap; scoped as its own future item per the execution plan's own
+    instruction not to fold an audit into an ad hoc new-mechanic implementation.
+  - [ ] 2.3 — Verify formations actually do something against Siege. **Audited, not
+    implemented.** Confirmed Siege has no splash/area damage anywhere (`SiegeFactory`
+    uses a plain single-target `MeleeAttacker`, same as every other unit) and
+    `FormationController`'s 5 shapes rearrange units geometrically with nothing in
+    combat resolution reading formation shape/spacing — so the 5 shipped formation
+    types are cosmetic against Siege specifically, a "shipped but not delivering the
+    AoE experience" gap even though the feature itself reads as closed. Flagged as a
+    new item (add splash/area damage to the Siege class) per the plan's own
+    instruction, not folded into this audit.
+
 ### Lower priority — real gaps, but not urgent
 
 - [ ] **Music is entirely absent** — item 42's audio pass was explicitly SFX-only.
