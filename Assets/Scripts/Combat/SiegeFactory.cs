@@ -62,6 +62,14 @@ namespace KingdomsOfBharat.Combat
             attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Siege));
             attacker.SetRange(def != null ? def.attackRange : 3f);
             attacker.SetUnitClass(UnitClass.Siege);
+            // Roadmap Section 1 Phase 2.3 (AoE-parity execution plan):
+            // splash damage is what makes Line vs. Staggered/Flank/
+            // Skirmish formations matter against Siege at all - see
+            // MeleeAttacker.SetSplashRadius's own comment. 2.25 exceeds
+            // FormationDefinition's default 1.5 unitSpacing (so a tight
+            // Line rank's neighbors are reliably caught) while staying
+            // tunable here if live testing shows it needs adjustment.
+            attacker.SetSplashRadius(2.25f);
             go.AddComponent<StanceController>();
 
             go.AddComponent<FactionMember>().Configure(faction);

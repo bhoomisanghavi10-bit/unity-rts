@@ -561,15 +561,44 @@ entirely. What follows is the real remaining list.
     kiting AI, no armor-class mitigation independent of the multiplier table. Real,
     undesigned depth gap; scoped as its own future item per the execution plan's own
     instruction not to fold an audit into an ad hoc new-mechanic implementation.
-  - [ ] 2.3 — Verify formations actually do something against Siege. **Audited, not
-    implemented.** Confirmed Siege has no splash/area damage anywhere (`SiegeFactory`
-    uses a plain single-target `MeleeAttacker`, same as every other unit) and
-    `FormationController`'s 5 shapes rearrange units geometrically with nothing in
-    combat resolution reading formation shape/spacing — so the 5 shipped formation
-    types are cosmetic against Siege specifically, a "shipped but not delivering the
-    AoE experience" gap even though the feature itself reads as closed. Flagged as a
-    new item (add splash/area damage to the Siege class) per the plan's own
-    instruction, not folded into this audit.
+  - [x] 2.3 — Verify formations actually do something against Siege. **Closed
+    2026-09-02.** Followed up on the prior audit's finding (Siege had no splash/area
+    damage, so all 5 `FormationController` shapes were cosmetic against it) with a
+    real implementation: `MeleeAttacker.SetSplashRadius(float)` (Siege-only, every
+    other `MeleeAttacker` user keeps the default 0/disabled) — a hit also damages
+    nearby hostile `Unit.All`/`Building.All` members within `splashRadius` of the
+    primary target's position, each getting its own `CombatBonus` multiplier. New
+    `HostileFilter.cs` extracts the shared faction-hostility check out of
+    `BuildingAttacker.IsHostile` so both splash and building-attack code share one
+    implementation. `SiegeFactory` wires `SetSplashRadius(2.25f)`. 5 new EditMode
+    tests (`SiegeSplashTests.cs`, 127 total, all pass) — hit and fixed a real
+    interaction bug while writing them: once a test uses `LogAssert.Expect` (for the
+    pre-existing SetDestination error) at all, `ignoreFailingMessages` alone no
+    longer suppresses other unexpected error logs in this Unity Test Framework
+    version, so `Attackable.TakeDamage`'s VFX-destroy log (already documented for
+    `BuildingAttackerTests`) needed its own explicit `Expect`, once per hit, not just
+    the blanket ignore flag.
+    **Live-verified via UnityMCP against the real production `Tick()` path, and this
+    verification pass found and fixed a second real bug, not in this item's own
+    diff**: the acceptance check (two identical 8-Soldier squads, Line vs. Staggered,
+    hit by the same Siege attack, Staggered should take fewer casualties) initially
+    showed the opposite — Staggered took DOUBLE Line's casualties (4/8 hit vs. 2/8,
+    56 vs. 28 total damage) at the shipped 2.25 radius. Root cause was in
+    `GroupFormation.StaggeredOffset` (pre-existing, unrelated to Siege splash): it
+    paired consecutive units into the same lateral slot only half a spacing apart in
+    depth — tighter than Line's own full-spacing rank neighbors — so any splash
+    radius wide enough to span a Line rank also spanned a Staggered pair even more
+    easily; confirmed mathematically that no splash-radius value could fix this,
+    since it's a geometry ordering bug, not a tuning gap. User approved fixing it in
+    this same session (see `docs/SESSION_LOG.md`'s Phase 2.3 entry for the full
+    before/after math). Fixed by keeping each unit's lateral position identical to
+    Line's own `RankOffset` and pushing only odd-indexed units back by 1.5x spacing
+    (a deliberate Pythagorean choice: a lateral neighbor's diagonal distance then
+    clears a splash radius tuned to just span Line's own rank spacing). Re-verified
+    live: Staggered now takes 1/8 hit (14 total damage) vs. Line's 3/8 (42 total
+    damage) for the same attack on each squad's middle unit — a clear, measurable
+    3x reduction, matching the acceptance criterion. All 127 EditMode tests still
+    pass after the `GroupFormation` fix (no test pinned the old formula).
 
 ### Lower priority — real gaps, but not urgent
 
@@ -1240,12 +1269,17 @@ HP remaining) and rejected as stronger than needed. Infantry→Archer and
 Cavalry→Infantry were audited in the same pass and left unchanged — both
 already resolve decisively (loser retains only ~20–30% max HP), so raising them
 further only compresses already-fast fights without changing the outcome.
-Items 2.2 (soft-counter mechanics — none exist; every relationship in
-`CombatBonus`/`CounterMatrix` is purely damage-multiplier based) and 2.3
-(formations vs. Siege — Siege has no splash damage, so the 5 shipped formation
-types are cosmetic against it, not functional) were audited and logged as new,
-separate open items in Section 1, not implemented — a numbers audit isn't
-license to build a new mechanic mid-item.
+Item 2.2 (soft-counter mechanics — none exist; every relationship in
+`CombatBonus`/`CounterMatrix` is purely damage-multiplier based) was audited and
+logged as a new, separate open item in Section 1, not implemented — a numbers
+audit isn't license to build a new mechanic mid-item. **Item 2.3 (formations vs.
+Siege) is now closed (2026-09-02)**: `MeleeAttacker.SetSplashRadius` gives Siege
+real area damage (`SiegeFactory` wires 2.25), live-verified via UnityMCP that
+Staggered now takes measurably fewer casualties than Line under the same attack
+(1/8 hit vs. 3/8) — see Section 1's matching item for the full writeup, including
+a real pre-existing `GroupFormation.StaggeredOffset` geometry bug found and fixed
+along the way (the old formula made Staggered take MORE splash damage than Line,
+not less).
 
 **Phase 3.1 — Resource-specific drop-off buildings: closed.** `LumberCamp.cs`,
 `MiningCamp.cs`, `Mill.cs` (`Assets/Scripts/Buildings/`) and

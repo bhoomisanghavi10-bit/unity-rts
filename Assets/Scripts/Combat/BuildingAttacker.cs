@@ -174,17 +174,7 @@ namespace KingdomsOfBharat.Combat
 
         private bool IsHostile(Attackable candidate)
         {
-            if (!candidate.TryGetComponent(out FactionMember candidateFaction))
-            {
-                return true;
-            }
-
-            if (Faction == null)
-            {
-                return true;
-            }
-
-            return candidateFaction.Faction != Faction.Faction;
+            return HostileFilter.IsHostile(candidate, Faction);
         }
     }
 }

@@ -7,7 +7,37 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- **This session (2026-09-01, same day as the items below) worked
+- **This session (2026-09-02) closed AoE-parity Phase 2.3 (Siege splash/area
+  damage, Roadmap Section 1)** — the item logged by the prior Phase 2 combat
+  audit ("formations are cosmetic against Siege, it has no splash damage").
+  Implementation (`MeleeAttacker.SetSplashRadius`, new `HostileFilter.cs`,
+  `SiegeFactory` wiring 2.25) was already on disk at session start; this
+  session verified it via Unity MCP. EditMode: 5 new `SiegeSplashTests.cs`
+  needed a fix mid-session — mixing `LogAssert.Expect` (pre-existing
+  SetDestination error) with `ignoreFailingMessages` stopped the latter from
+  suppressing `Attackable.TakeDamage`'s VFX-destroy log in this Unity Test
+  Framework version, needing an explicit `Expect` per hit instead. 127
+  EditMode tests total, all pass. **Live Play Mode verification (via
+  UnityMCP, real `SoldierFactory`/`GroupFormation`/`SiegeFactory`, one real
+  attack cycle through the production `Tick()` path) found a second real
+  bug, not in this item's own diff**: the acceptance check (Staggered should
+  take fewer splash casualties than Line) initially showed the opposite —
+  Staggered took double Line's casualties (4/8 hit vs 2/8) at the shipped
+  2.25 splash radius. Root cause was a pre-existing geometry bug in
+  `GroupFormation.StaggeredOffset` (paired consecutive units only half a
+  spacing apart in depth, tighter than Line's own full-spacing rank
+  neighbors) — proved no splash-radius value could fix it, asked the user
+  per protocol rather than silently expanding scope, user approved fixing it
+  this same session. Fixed by keeping each unit's lateral position identical
+  to Line's own and staggering depth alone by 1.5x spacing (a Pythagorean
+  choice so a lateral neighbor's diagonal distance clears the splash
+  radius). Re-verified live: Staggered now takes 1/8 hit vs Line's 3/8 (14
+  vs 42 total damage) for the same attack — a clear 3x reduction, matching
+  the acceptance criterion. See `docs/SESSION_LOG.md`'s 2026-09-02 Phase 2.3
+  entry and Roadmap Section 1/Section 6 for full detail. One scoped commit
+  covers `HostileFilter.cs` (new), `BuildingAttacker.cs`, `MeleeAttacker.cs`,
+  `SiegeFactory.cs`, `GroupFormation.cs`, and `SiegeSplashTests.cs` (new).
+- **Prior session (2026-09-01, same day as the items below) worked
   `AOE_PARITY_EXECUTION_PLAN.md`** (a new companion doc handed in mid-session,
   not previously part of this roadmap) instead of the item queued below —
   Phase 1 (Player Color System) was investigated and **deferred** (its own
@@ -168,7 +198,9 @@ asset requirements, 5. Priority order).
 - Currently on: nothing started for the next session. Section 5 items 1-9 and
   11-15 are all done — **the worker-mechanics-audit is fully closed** — and
   `AOE_PARITY_EXECUTION_PLAN.md`'s Phases 1-4 are fully resolved (see the
-  consolidation note above). **Phase 5 (item 16) is now fully closed on its
+  consolidation note above), **including item 2.3 (Siege splash/area damage
+  vs. formations), closed 2026-09-02** — see this session's own bullet above
+  for the full writeup. **Phase 5 (item 16) is now fully closed on its
   doable-now scope** — everything left (real cross-peer desync detection,
   validating resync under real network conditions, cross-machine determinism
   testing) is genuinely blocked on a network transport that doesn't exist

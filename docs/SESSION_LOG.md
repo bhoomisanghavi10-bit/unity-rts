@@ -5,6 +5,82 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-02 — AoE-parity Phase 2.3: Siege splash/area damage
+
+**Scope**: closed the AoE-parity Phase 2.3 open item logged in the prior Phase 2 audit
+(`docs/ROADMAP.md` Section 1) — Siege had no splash/area damage, so all 5
+`FormationController` shapes were cosmetic against it. Implementation was written
+before this session (working tree, uncommitted); this session verified it via Unity
+MCP (EditMode tests, then live Play Mode) per the strict session protocol.
+
+**Implementation** (already on disk at session start): new
+`Assets/Scripts/Combat/HostileFilter.cs` extracts the shared faction-hostility check
+out of `BuildingAttacker.IsHostile` so splash resolution and building-attack targeting
+share one implementation, not two copies. `MeleeAttacker` gained
+`SetSplashRadius(float)` (Siege-only — every other user keeps the default 0/disabled),
+`Update()` refactored into `internal Tick(float deltaTime)` (same convention as
+`BuildingAttacker`), and `ResolveHit`/`ResolveSplash` — a hit also damages nearby
+hostile `Unit.All`/`Building.All` members within `splashRadius` of the primary
+target's position, each getting its own `CombatBonus` multiplier. `SiegeFactory` wires
+`SetSplashRadius(2.25f)`.
+
+**EditMode verification**: confirmed Unity MCP connectivity, forced an asset
+refresh/recompile (external file changes weren't yet imported), zero compile errors.
+`Assets/Tests/EditMode/SiegeSplashTests.cs` (5 new tests) initially failed 4/5 with
+"Unhandled log message: Destroy may not be called from edit mode" — a variant of the
+already-documented `Attackable.TakeDamage` VFX-burst gotcha (`BuildingAttackerTests`),
+but this file also uses `LogAssert.Expect` for the pre-existing SetDestination error;
+once a test uses `Expect` at all, `ignoreFailingMessages` alone stops suppressing
+*other* unexpected error logs in this Unity Test Framework version. Fixed by adding an
+explicit `LogAssert.Expect` for the VFX-destroy log, once per hit the test causes (2 for
+tests where the primary target and a splash victim both take damage, 1 otherwise). All
+127 EditMode tests pass (122 pre-existing + 5 new), no regressions from the `Tick`
+refactor.
+
+**Live Play Mode verification — found and fixed a real bug not in this item's own
+diff**: per the roadmap's own acceptance criterion, spawned two real 8-Soldier squads
+via the actual `SoldierFactory`/`GroupFormation` pipeline (Line vs. Staggered, default
+1.5 spacing) and a real `SiegeFactory` attacker per squad, then drove one real attack
+cycle through the production `Tick()` path (reflection-invoked once, deterministically,
+rather than waiting on real-time `Update()` ticks — a first attempt using real elapsed
+wall-clock time hit the project's known "Editor not ticking while unfocused" gotcha,
+worked around with `Application.runInBackground = true` +
+`EditorApplication.QueuePlayerLoopUpdate()`, but was still unusable for a *precise*
+single-hit comparison because of unpredictable tool-round-trip latency between issuing
+the attack order and reading results).
+
+Initial result was the **opposite** of the acceptance criterion: Staggered took
+*double* Line's casualties (4/8 hit vs. 2/8, 56 vs. 28 total damage) at the shipped
+2.25 splash radius. Root cause, confirmed by hand-computing pairwise distances and
+then live-verified: `GroupFormation.StaggeredOffset` (pre-existing, unrelated to this
+item's diff) paired consecutive unit indices into the *same lateral slot*, offset only
+half a spacing apart in depth — tighter together than Line's own full-spacing rank
+neighbors — so any splash radius wide enough to span a Line rank's neighbor also spans
+a Staggered pair even more easily. Proved mathematically that no splash-radius value
+in `SiegeFactory.cs` could fix this (the flaw is in the formation's geometry ordering,
+not a tuning gap), so per CLAUDE.md's scope-flagging protocol, asked the user how to
+proceed rather than silently expanding scope or reporting a false success. User chose
+to fix it in this same session.
+
+**Fix**: rewrote `StaggeredOffset` (`Assets/Scripts/Units/GroupFormation.cs`) to keep
+each unit's lateral position identical to what plain Line would give it (reusing
+Line's own `RankOffset(index, total, spacing, moveDirection, ...)` call) and push only
+odd-indexed units back in depth by `1.5x spacing` — a deliberate Pythagorean choice: a
+lateral neighbor's diagonal distance (`spacing`, `1.5x spacing`) then safely clears a
+splash radius tuned to just span Line's own 1x-spacing rank neighbors. No existing
+test pinned the old formula. Re-ran all 127 EditMode tests (still pass) and re-verified
+live: attacking each squad's middle unit, Line now hits 3/8 (42 total damage) and the
+fixed Staggered hits only 1/8 (14 total damage) — a clear, measurable 3x reduction,
+matching the acceptance criterion.
+
+**Roadmap**: Section 1's Phase 2 batch item 2.3 and Section 6's Phase 2 status
+checked off/updated as closed (previously "audited, not implemented"). CLAUDE.md's
+"Current status" updated. No committed change yet to `GroupFormation.cs`,
+`HostileFilter.cs`, `MeleeAttacker.cs`, `SiegeFactory.cs`, or the new
+`SiegeSplashTests.cs` before this session — one scoped commit follows this entry.
+
+---
+
 ## 2026-09-02 — AoE-parity Phase 5: resync-on-desync logic
 
 **Scope**: the last remaining Phase 5 item with any doable-now work in it -

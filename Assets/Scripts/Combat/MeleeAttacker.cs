@@ -1,5 +1,8 @@
+using System.Collections.Generic;
 using UnityEngine;
+using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Units;
+using KingdomsOfBharat.Buildings;
 
 namespace KingdomsOfBharat.Combat
 {
@@ -17,13 +20,17 @@ namespace KingdomsOfBharat.Combat
         [SerializeField] private float attackInterval = 1f;
         [SerializeField] private DamageType damageType = DamageType.Melee;
         [SerializeField] private UnitClass unitClass = UnitClass.Infantry;
+        [SerializeField] private float splashRadius;
 
         private UnitMover _mover;
         private Attackable _self;
         private Attackable _target;
+        private FactionMember _faction;
+        private bool _factionResolved;
         private float _cooldown;
         private float _damageMultiplier = 1f;
         private float _damageBonus;
+        private readonly List<Attackable> _splashBuffer = new List<Attackable>();
 
         // For SelectedUnitPanel/HoverTooltip (UI) to show a status line.
         public bool IsAttacking => _target != null;
@@ -36,6 +43,19 @@ namespace KingdomsOfBharat.Combat
         // before AttackMove is called synchronously right after).
         private Attackable Self => _self != null ? _self : (_self = GetComponent<Attackable>());
         private UnitMover Mover => _mover != null ? _mover : (_mover = GetComponent<UnitMover>());
+
+        private FactionMember Faction
+        {
+            get
+            {
+                if (!_factionResolved)
+                {
+                    TryGetComponent(out _faction);
+                    _factionResolved = true;
+                }
+                return _faction;
+            }
+        }
 
         // Applied by SoldierFactory at spawn time from the soldier's
         // civilization profile (e.g. Rajput's combat-power bonus).
@@ -83,6 +103,20 @@ namespace KingdomsOfBharat.Combat
             _damageBonus = bonus;
         }
 
+        // Applied by SiegeFactory only (Roadmap Section 1 Phase 2.3 -
+        // AoE-parity execution plan) - every other MeleeAttacker user
+        // keeps the default 0 (disabled), so Soldier/Archer/Cavalry/
+        // Spearman/Worker behavior is unchanged. A hit also damages any
+        // other hostile Unit/Building within this radius of the primary
+        // target's position (the impact point, not the Siege unit's own
+        // position) - this is what makes Line vs. Staggered formation
+        // spacing actually matter in combat, not just cosmetically
+        // rearrange units on a move order.
+        public void SetSplashRadius(float radius)
+        {
+            splashRadius = radius;
+        }
+
         public void AttackMove(Attackable target)
         {
             _target = target;
@@ -97,6 +131,18 @@ namespace KingdomsOfBharat.Combat
 
         private void Update()
         {
+            Tick(Time.deltaTime);
+        }
+
+        // Internal (not private) so EditMode tests can drive combat
+        // resolution directly with an explicit deltaTime instead of
+        // depending on Unity's Update loop actually ticking - same
+        // convention as BuildingAttacker/Repairable/ConstructionSite's own
+        // Tick/EnsureInitialized (see AssemblyInfo.cs's InternalsVisibleTo
+        // grant). Pure refactor of the previous Update() body otherwise -
+        // no behavior change for any existing (non-splash) caller.
+        internal void Tick(float deltaTime)
+        {
             if (_target == null || _target.IsDead)
             {
                 _target = null;
@@ -110,20 +156,73 @@ namespace KingdomsOfBharat.Combat
                 return;
             }
 
-            _cooldown -= Time.deltaTime;
+            _cooldown -= deltaTime;
             if (_cooldown <= 0f)
             {
-                float baseDamage = damage * _damageMultiplier + _damageBonus;
-                float bonus = CombatBonus.Multiplier(unitClass, _target.Class);
-                // Roadmap Section 5 item 3: a Durg Garrison unit inside
-                // this building strips Siege's usual 3x anti-building
-                // bonus down to a flat 1x - see Attackable.SiegeImmune.
-                if (unitClass == UnitClass.Siege && _target.SiegeImmune)
+                ResolveHit(_target);
+                if (splashRadius > 0f)
                 {
-                    bonus = 1f;
+                    ResolveSplash(_target);
                 }
-                _target.TakeDamage(baseDamage * bonus, damageType, Self);
                 _cooldown = attackInterval;
+            }
+        }
+
+        private void ResolveHit(Attackable victim)
+        {
+            float baseDamage = damage * _damageMultiplier + _damageBonus;
+            float bonus = CombatBonus.Multiplier(unitClass, victim.Class);
+            // Roadmap Section 5 item 3: a Durg Garrison unit inside this
+            // building strips Siege's usual 3x anti-building bonus down to
+            // a flat 1x - see Attackable.SiegeImmune.
+            if (unitClass == UnitClass.Siege && victim.SiegeImmune)
+            {
+                bonus = 1f;
+            }
+            victim.TakeDamage(baseDamage * bonus, damageType, Self);
+        }
+
+        // Scans both Unit.All and Building.All - same registries and
+        // hostile-filter convention as BuildingAttacker.FindNearestHostiles
+        // (splash should hit a nearby enemy building same as a nearby
+        // enemy unit, since Siege's whole job is anti-building and
+        // CombatBonus's Siege->Building bonus should apply per splash
+        // victim too). Centered on the primary target's position (the
+        // impact point), not this unit's own position.
+        private void ResolveSplash(Attackable primaryTarget)
+        {
+            _splashBuffer.Clear();
+            Vector3 impactPoint = primaryTarget.transform.position;
+
+            foreach (Unit unit in Unit.All)
+            {
+                if (!unit.TryGetComponent(out Attackable candidate) || candidate == primaryTarget || candidate.IsDead)
+                {
+                    continue;
+                }
+
+                if (HostileFilter.IsHostile(candidate, Faction) && Vector3.Distance(impactPoint, unit.transform.position) <= splashRadius)
+                {
+                    _splashBuffer.Add(candidate);
+                }
+            }
+
+            foreach (Building building in Building.All)
+            {
+                if (!building.TryGetComponent(out Attackable candidate) || candidate == primaryTarget || candidate.IsDead)
+                {
+                    continue;
+                }
+
+                if (HostileFilter.IsHostile(candidate, Faction) && Vector3.Distance(impactPoint, building.transform.position) <= splashRadius)
+                {
+                    _splashBuffer.Add(candidate);
+                }
+            }
+
+            foreach (Attackable victim in _splashBuffer)
+            {
+                ResolveHit(victim);
             }
         }
 

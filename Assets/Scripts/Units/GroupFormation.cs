@@ -128,17 +128,29 @@ namespace KingdomsOfBharat.Units
         }
 
         // Two interleaved ranks, alternating units between a near row and
-        // a row one half-spacing further back - avoids every unit sharing
-        // one exact firing line the way a plain Line does (real staggered-
-        // rank formations exist so a single volley/AoE hit can't rake an
-        // entire rank at once).
+        // a row further back - avoids every unit sharing one exact firing
+        // line the way a plain Line does (real staggered-rank formations
+        // exist so a single volley/AoE hit can't rake an entire rank at
+        // once). Keeps each unit's LATERAL position identical to what plain
+        // Line would give it (same RankOffset(index, total, ...) call Line
+        // itself uses) and only pushes odd-indexed units back in depth -
+        // deliberately NOT the "pair consecutive indices into one lane,
+        // offset that lane by half a spacing" version this used to be
+        // (AoE-parity Phase 2.3 live-verification, Roadmap Section 1: that
+        // version packed each pair only half a spacing apart, tighter than
+        // Line's own full-spacing rank neighbors, so it took MORE splash
+        // casualties than Line, not fewer - confirmed live via UnityMCP,
+        // 4/8 hit vs. Line's 2/8 at Siege's default 2.25 splash radius).
+        // 1.5x spacing as the depth gap is a deliberate Pythagorean choice,
+        // not arbitrary: it makes a lateral-neighbor's diagonal distance
+        // (spacing, 1.5x spacing) ~= 1.8x spacing, safely clearing a splash
+        // radius tuned to just barely span Line's own 1x-spacing rank
+        // neighbors (confirmed live: this drops Staggered to 1/8 hit for
+        // any attacked unit, vs. Line's 2-3/8, at the same default values).
         private static Vector3 StaggeredOffset(int index, int total, float spacing, Vector3 moveDirection)
         {
-            int lane = index % 2;
-            int laneIndex = index / 2;
-            int laneTotal = Mathf.CeilToInt(total / 2f);
-            Vector3 rank = RankOffset(laneIndex, laneTotal, spacing, moveDirection, lane * spacing * 0.5f);
-            return rank;
+            float depthOffset = (index % 2) * spacing * 1.5f;
+            return RankOffset(index, total, spacing, moveDirection, depthOffset);
         }
 
         // A shallow forward-facing wedge/chevron - the two flanks angle
