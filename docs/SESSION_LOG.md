@@ -5,6 +5,99 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-02 — Remove 2 broken civ building models + close Naval balance findings
+
+**Note**: this session started on the Crusader Knight body-swap item (Roadmap Section
+1/5.10), but its source glTF files (`Assets/importedmodels/Item47/TemplarKnight`,
+`.../HospitalierKnight`) turned out to have been deleted the same day, in the
+"Remove confirmed-unused asset scrap" commit — genuinely gone, not present in the
+working tree or git history in usable form. Flagged to the user rather than restored
+silently; user chose to stop that item and pick two different, unblocked follow-ups
+instead: removing 2 other pre-existing broken assets, and closing the two Naval
+balance findings flagged-but-not-fixed in the 2026-08-28 Naval balance session.
+
+**Part 1 — Rajput TownCenter / Maurya Tower removed (Roadmap Section 5, item 7
+follow-up)**: `Assets/Resources/buildings/Rajput/_Source/TownCenter/TownCenter_model.fbx`
+and `.../Maurya/_Source/Tower/Tower_model.fbx` are 0 bytes — confirmed via
+`git cat-file -s` back through every commit that ever touched them (`9d8b627`,
+`319b06f`, and the current HEAD), including the very commits that originally "wired"
+them in. There's no earlier good version to recover; the source delivery was
+corrupted/incomplete from the start, matching what CLAUDE.md's status already flagged
+("2 pre-existing broken civ building models found... not caused by anything recent").
+Since asset sourcing isn't a code task and there's no valid file to fall back to,
+deleted the broken civ-specific prefabs and their `_Source/` folders entirely
+(`Assets/Resources/buildings/Rajput/TownCenter.prefab` + `.meta`,
+`Assets/Resources/buildings/Maurya/Tower.prefab` + `.meta`, and both `_Source`
+subfolders including their now-orphaned `.meta` files) rather than leaving them in
+place silently rendering nothing. `BuildingModelFactory.Spawn`'s existing fallback
+chain (`Buildings/{civId}/{resourceName}` → `Buildings/{resourceName}` → nested
+variants) already handles a missing civ-specific asset by design — no code changes
+needed.
+
+**Live verification** (Play Mode via UnityMCP, `execute_code`): assigned
+`CivilizationRegistry` to Rajput/Maurya and spawned a real TownCenter/Tower via
+`TownCenterFactory.Place`/`TowerFactory.Place`. Confirmed via `Resources.Load`
+directly that the civ-specific paths now return null and the shared fallback paths
+still resolve; confirmed the spawned models' first child is named `TownCenter(Clone)`
+and `scene(Clone)` respectively — real clones of the shared imported models, **not**
+`Procedural_TownCenter`/`Procedural_Tower` (the primitive-shape fallback one level
+further down the chain), proving the intended fallback tier was hit, not the last-resort
+one. Confirmed the other 8 Rajput and 8 Maurya buildings were untouched by this change
+(only the two specific prefabs/folders were removed). All 127 EditMode tests still
+pass unmodified — no test targeted these two specific prefabs.
+
+**Docs**: Roadmap Section 5 item 7 updated from "45/45" to "43/45 civ-specific building
+models complete," with the 2 removed assets and the reason noted as a pending
+re-sourcing need, not a code task.
+
+**Part 2 — Naval balance findings closed (Roadmap Section 1, follow-up to the
+2026-08-28 Naval balance pass)**: that session flagged, but deliberately didn't fix,
+two adjacent findings. User decided: fix the first, document-only on the second.
+
+1. **`WarGalleyFactory` now applies per-class upgrade bonuses.** Added
+   `UpgradeProgress.ClassArmorBonus(faction, UnitClass.Naval)` to both the melee and
+   pierce terms in `attackable.ConfigureArmor(...)`, and
+   `UpgradeProgress.ClassDamageBonus(faction, UnitClass.Naval)` to
+   `attacker.SetDamageBonus(...)` — the exact pattern every land factory
+   (`SoldierFactory`, `ArcherFactory`, etc.) already uses. `FishingBoatFactory` is
+   untouched — it has no `Attackable`/attacker component (non-combat by design).
+   This is currently inert in live play: nothing in `BuildMenu`/`AiController` ever
+   advances `UnitClass.Naval`'s per-class research tiers today (a separate,
+   pre-existing gap noted in `UpgradeProgress.cs`'s own "item 40" comment) — but it
+   makes Naval consistent with the rest of the combat-factory convention instead of
+   silently missing out the moment Naval per-class research is ever wired up.
+2. **`BoatAttacker`'s 1.5s vs `MeleeAttacker`'s 1.0s attack interval — left unchanged,
+   documented as intentional.** Added a comment explaining the difference is Naval's
+   own range (4) and move speed (3.0) advantage over land units acting as the
+   offsetting tradeoff for its slower cadence, per the reasoning the 2026-08-28
+   session itself used to judge the War Galley vs. Siege matchup as
+   working-as-designed. No behavior change.
+
+**Live verification** (Play Mode via UnityMCP): spawned a War Galley via
+`WarGalleyFactory.Spawn` before and after calling
+`UpgradeProgress.AdvanceClassArmor`/`AdvanceClassAttack(faction, UnitClass.Naval)`,
+reading `Attackable`'s private `meleeArmor`/`pierceArmor` fields and `BoatAttacker`'s
+private `_damageBonus` field via reflection (same convention as prior sessions'
+private-field verification, e.g. `Gatherer._dropOff`). Confirmed exactly the expected
+deltas: armor 0→0.5/0.5 (both melee and pierce), damage bonus 0→1, matching
+`UpgradeProgress`'s own `ClassArmorPerTier`/`ClassDamagePerTier` constants. All 127
+EditMode tests pass unmodified (no test asserted the old formula; the added term is
+additive and zero unless a Naval tier is actually advanced).
+
+**Console**: no new errors/warnings from either change; the 3 entries present
+(a duplicate-AiController scaffolding warning, 2 "depth surface... memoryless"
+render-pipeline notices) are pre-existing and unrelated.
+
+**Roadmap/CLAUDE.md**: Section 1's Naval balance item's two adjacent findings marked
+closed; Section 5 item 7 updated to 43/45 (see Part 1 above).
+
+**Code changes**: `Assets/Scripts/Units/WarGalleyFactory.cs` (2 one-line additions +
+header comment), `Assets/Scripts/Combat/BoatAttacker.cs` (comment only, no logic
+change), plus the 4 deleted asset paths from Part 1. `docs/ROADMAP.md`,
+`docs/SESSION_LOG.md`, and `CLAUDE.md`'s status section.
+
+---
+
 ## 2026-09-02 — AoE-parity Phase 2.3: Siege splash/area damage
 
 **Scope**: closed the AoE-parity Phase 2.3 open item logged in the prior Phase 2 audit

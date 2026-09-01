@@ -13,6 +13,17 @@ namespace KingdomsOfBharat.Units
     // naval balance pass (see UnitClass.cs/CombatBonus.cs) - every other
     // pairing is still flat 1x, a real but simple first pass rather than a
     // fully balanced naval/land interaction matrix.
+    //
+    // Naval balance pass follow-up (2026-09-02): now applies
+    // UpgradeProgress.ClassArmorBonus/ClassDamageBonus(UnitClass.Naval),
+    // matching every land factory (SoldierFactory/ArcherFactory/etc) - the
+    // original naval balance session found this missing but left it unfixed
+    // since it was out of that session's audit-only scope. Currently inert
+    // in practice (no BuildMenu/AiController path ever advances
+    // UnitClass.Naval's per-class research tiers yet - see UpgradeProgress.cs's
+    // own "item 40" note), but keeps War Galley consistent with the rest of
+    // the combat-factory convention instead of silently missing out the
+    // moment Naval research is wired up.
     public static class WarGalleyFactory
     {
         public static GameObject Spawn(Vector3 position, FactionId faction)
@@ -41,8 +52,8 @@ namespace KingdomsOfBharat.Units
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure((def != null ? def.maxHP : 45f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
-                meleeArmor: (def != null ? def.meleeArmor : 0f) + UpgradeProgress.ArmorBonus(faction),
-                pierceArmor: (def != null ? def.pierceArmor : 0f) + UpgradeProgress.ArmorBonus(faction));
+                meleeArmor: (def != null ? def.meleeArmor : 0f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Naval),
+                pierceArmor: (def != null ? def.pierceArmor : 0f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Naval));
             attackable.ConfigureClass(UnitClass.Naval);
             go.AddComponent<KingdomsOfBharat.Combat.Repairable>();
             go.AddComponent<HealthBar>();
@@ -50,7 +61,7 @@ namespace KingdomsOfBharat.Units
             var attacker = go.AddComponent<BoatAttacker>();
             attacker.SetBaseDamage(def != null ? def.attackDamage : 8f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
-            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction));
+            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Naval));
             attacker.SetRange(def != null ? def.attackRange : 4f);
 
             go.AddComponent<FactionMember>().Configure(faction);

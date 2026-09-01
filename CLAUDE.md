@@ -7,7 +7,40 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- **This session (2026-09-02) closed AoE-parity Phase 2.3 (Siege splash/area
+- **This session (2026-09-02) started on the Crusader Knight body-swap item
+  (Section 1/5.10 — fix the ~247x `Animator.humanScale` anomaly and re-parent
+  sword/shield/staff props via `WeaponAttachment`) but found it genuinely
+  blocked**: its source glTF files (`Assets/importedmodels/Item47/TemplarKnight`,
+  `.../HospitalierKnight`) were deleted the same day in the "Remove
+  confirmed-unused asset scrap" commit — not recoverable from git history in
+  usable form. Flagged to the user rather than silently restoring or
+  proceeding; user chose to stop that item and picked two unblocked follow-ups
+  instead, both closed this session (see `docs/SESSION_LOG.md`'s matching
+  entry for full detail): **(1)** removed the 2 other pre-existing broken civ
+  building models — Rajput TownCenter and Maurya Tower, whose raw source FBX
+  files were confirmed 0 bytes in every commit that ever touched them (no good
+  version to recover) — so both now fall through to the shared model via
+  `BuildingModelFactory`'s existing fallback chain instead of silently
+  rendering nothing (43/45 civ-specific models complete, was stated as 45/45;
+  see Roadmap Section 5 item 7). Live-verified via UnityMCP: spawned both,
+  confirmed the civ-specific `Resources.Load` paths are now null, and the
+  spawned models are real clones of the shared imported assets
+  (`TownCenter(Clone)`/`scene(Clone)`), not the procedural-shape last-resort
+  fallback. **(2)** Closed both adjacent findings from the 2026-08-28 Naval
+  balance session: `WarGalleyFactory` now applies
+  `UpgradeProgress.ClassArmorBonus`/`ClassDamageBonus(UnitClass.Naval)`,
+  matching every land factory's convention (live-verified via reflection:
+  armor +0.5/+0.5, damage bonus +1 once a Naval class tier is advanced —
+  currently inert in live play since nothing yet wires up Naval per-class
+  research UI, a separate pre-existing gap); `BoatAttacker`'s 1.5s vs
+  `MeleeAttacker`'s 1.0s attack interval was reviewed and left unchanged,
+  now documented as a deliberate tradeoff for Naval's range/speed edge
+  rather than an unexplained inconsistency. All 127 EditMode tests pass
+  unmodified for both parts (additive-only changes, no existing test
+  asserted the old values). The Crusader Knight item itself remains open,
+  now explicitly blocked on re-sourcing the 2 model files — not resumable
+  as pure code/wiring work until new assets exist.
+- **Earlier session (2026-09-02) closed AoE-parity Phase 2.3 (Siege splash/area
   damage, Roadmap Section 1)** — the item logged by the prior Phase 2 combat
   audit ("formations are cosmetic against Siege, it has no splash damage").
   Implementation (`MeleeAttacker.SetSplashRadius`, new `HostileFilter.cs`,
@@ -199,20 +232,21 @@ asset requirements, 5. Priority order).
   11-15 are all done — **the worker-mechanics-audit is fully closed** — and
   `AOE_PARITY_EXECUTION_PLAN.md`'s Phases 1-4 are fully resolved (see the
   consolidation note above), **including item 2.3 (Siege splash/area damage
-  vs. formations), closed 2026-09-02** — see this session's own bullet above
+  vs. formations), closed 2026-09-02** — see that session's own bullet above
   for the full writeup. **Phase 5 (item 16) is now fully closed on its
   doable-now scope** — everything left (real cross-peer desync detection,
   validating resync under real network conditions, cross-machine determinism
   testing) is genuinely blocked on a network transport that doesn't exist
   yet, exactly as flagged in the original investigation. Nothing further to
-  do on Phase 5 until a transport exists — next session should check with
-  the user on priorities (Phase 6 is explicitly deferred without a request;
-  fall back to other open Roadmap items, e.g. the 2 pre-existing broken civ
-  building models found this session — Rajput TownCenter/Maurya Tower, both
-  zero-byte raw FBX files even in the original pre-this-session state, not
-  caused by anything recent). Item 7 (civ-specific
-  building models) is fully closed — **all 5 civs,
-  45/45 models landed** (Chola, Vijayanagara, Rajput, Maurya, Maratha).
+  do on Phase 5 until a transport exists. **Both Naval balance follow-up
+  findings closed 2026-09-02** (see this session's own bullet above) — no
+  longer an open item. Item 7 (civ-specific building models) is at
+  **43/45** — Chola/Vijayanagara/Maratha are 9/9 each; Rajput and Maurya are
+  8/9 each, missing TownCenter and Tower respectively (their source FBX
+  files were confirmed 0 bytes from the original delivery, unrecoverable
+  from git history — removed 2026-09-02 rather than left silently broken,
+  both civ/building combos now render the shared fallback model; re-sourcing
+  real art for these 2 is a pending asset need, not a code task).
   `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any future
   civ-model work, but every lesson below stays load-bearing: never trust bounds
   alone (an angled `game_view` screenshot at identity can *look* upright via
@@ -232,17 +266,22 @@ asset requirements, 5. Priority order).
   buildings, and worker self-defense/cross-awareness — are now closed as of
   2026-09-01** (see below and Roadmap Section 1). Remaining real options for
   a future session: the
-  **Crusader Knight body swap itself** (rig-compatibility verified positive in a
-  concurrent session, base-body decision made 2026-09-01 to defer it — scale
-  normalization + weapon re-parenting still unstarted, now scoped under the
-  per-civ-soldier-visuals initiative rather than its own separate item),
+  **Crusader Knight body swap itself — now explicitly blocked, not just
+  deferred** (rig-compatibility was verified positive in a concurrent
+  2026-08-28 session, but this session found its 2 source glTF files
+  — `Assets/importedmodels/Item47/TemplarKnight`/`HospitalierKnight` — were
+  deleted the same day as "confirmed-unused asset scrap" and are not
+  recoverable from git history in usable form; the user chose to stop rather
+  than restore/re-source when told. Needs new source models (same files
+  restored, or replacements) before the ~247x `humanScale` fix and
+  weapon-re-parenting work can resume — see this session's own bullet above),
   **per-civ gear/prop variants** (helmet/shield/weapon style per civ — real new
   asset need, spec written 2026-09-01, needs the user to source),
-  other "everything else" items (music, tutorial, performance profiling,
-  store assets, multiplayer determinism gaps, README drift), two adjacent findings
-  from a concurrent Naval balance session (Naval factories missing
-  `ClassArmorBonus`/`ClassDamageBonus`; `BoatAttacker`'s 1.5s vs `MeleeAttacker`'s
-  1.0s attack interval), or continued balance work — user's call.
+  **re-sourcing the Rajput TownCenter / Maurya Tower models** (see item 7
+  above — same "needs new art, not code" shape as the Crusader Knight
+  blocker), other "everything else" items (music, tutorial, performance
+  profiling, store assets, multiplayer determinism gaps, README drift), or
+  continued balance work — user's call.
 - Last completed (this session): **General garrisoning system, AoE IV style**
   (Roadmap Section 1 worker-mechanics-audit item / Section 5 item 12) — pooled
   capacity, any eligible friendly land unit, scaling defensive firepower, and

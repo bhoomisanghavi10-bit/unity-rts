@@ -14,6 +14,13 @@ namespace KingdomsOfBharat.Combat
     {
         [SerializeField] private float damage = 8f;
         [SerializeField] private float attackRange = 4f;
+        // Deliberately slower than MeleeAttacker's 1.0s (flagged as an
+        // unexplained-looking difference by the 2026-08-28 naval balance
+        // pass, left undecided at the time). Kept as-is: Naval's own
+        // range (4) and move speed (3.0) already give it a real
+        // engagement-distance advantage over land units per that same
+        // session's Galley-vs-Siege writeup - a slower cadence is the
+        // tradeoff for that reach, not an oversight.
         [SerializeField] private float attackInterval = 1.5f;
         [SerializeField] private DamageType damageType = DamageType.Pierce;
         [SerializeField] private UnitClass unitClass = UnitClass.Naval;

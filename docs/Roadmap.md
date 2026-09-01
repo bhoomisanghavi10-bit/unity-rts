@@ -464,6 +464,17 @@ entirely. What follows is the real remaining list.
   factories never call `ClassArmorBonus`/`ClassDamageBonus` (every land factory does),
   and `BoatAttacker`'s attack interval (1.5s) vs `MeleeAttacker`'s (1.0s) is a real
   structural asymmetry independent of `CombatBonus`. See `docs/SESSION_LOG.md`.
+  **Both adjacent findings closed 2026-09-02.** `WarGalleyFactory` now applies
+  `UpgradeProgress.ClassArmorBonus`/`ClassDamageBonus(UnitClass.Naval)`, matching every
+  land factory's convention — live-verified (before/after reflection check on a spawned
+  War Galley: armor +0.5/+0.5, damage bonus +1 once a Naval class tier is advanced).
+  Currently inert in practice since no `BuildMenu`/`AiController` path yet advances
+  `UnitClass.Naval`'s tiers (a separate, pre-existing gap per `UpgradeProgress.cs`'s own
+  "item 40" note) — this just stops it from silently missing out the moment that's
+  wired up. The attack-interval difference was reviewed and kept as-is (documented in
+  `BoatAttacker.cs` as deliberate: Naval's range/speed edge over land units is the
+  offsetting tradeoff, per this same session's own Galley-vs-Siege reasoning) — no
+  behavior change. See `docs/SESSION_LOG.md`'s 2026-09-02 entry.
 - [x] **UI skin (item 47's second half)** — art delivered, alpha-fixed, and wired in
   as of 2026-08-28 (see the full entry under Section 4.3). One content gap remains,
   tracked as its own Section 4.3 item: no build-placement cursor asset. (The Maurya
@@ -1130,8 +1141,13 @@ buying, or making an asset yourself:
    changes needed per asset.~~ **Code groundwork done.** Actual civ-specific models
    are a separate content project (see Section 4.3) — Chola (9/9, 2026-08-28),
    Vijayanagara (9/9, 2026-08-31), Rajput (9/9, 2026-08-31), Maurya (9/9,
-   2026-09-01), and Maratha (9/9, 2026-09-01) done. **All 5 civs' civ-specific
-   building models complete (45/45).**
+   2026-09-01), and Maratha (9/9, 2026-09-01) done. **43/45 civ-specific building
+   models complete** (Rajput TownCenter and Maurya Tower's raw source FBX files
+   turned out to be 0 bytes in every commit that ever touched them — no good
+   version to recover; removed 2026-09-02 so those 2 building/civ combos fall
+   through to the shared model via `BuildingModelFactory`'s existing fallback
+   chain instead of rendering nothing. Re-sourcing real art for these 2 is a
+   pending asset need, not a code task — see `docs/SESSION_LOG.md`.)
 8. ~~**Visual closure for the 4 Maurya/Maratha unique units** — real Meshy-sourced
    models, rigged via Blender command-line scripting (3 onto the existing shared
    human rig, the War Elephant onto a real third-party elephant skeleton+animation
