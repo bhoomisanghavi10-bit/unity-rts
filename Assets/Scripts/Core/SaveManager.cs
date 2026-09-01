@@ -96,7 +96,10 @@ namespace KingdomsOfBharat.Core
         // represents "this faction was never in play."
         private static readonly FactionId[] AllFactions = { FactionId.Player, FactionId.Enemy, FactionId.Enemy2 };
 
-        private static MatchSaveData Capture()
+        // AoE-Parity Phase 5 (resync-on-desync): internal rather than
+        // private so DesyncRecovery can capture an authoritative snapshot
+        // outside the Save()/file-I/O path - see DesyncRecovery.cs.
+        internal static MatchSaveData Capture()
         {
             var data = new MatchSaveData { mapId = (int)MapRegistry.CurrentId };
 
@@ -174,10 +177,20 @@ namespace KingdomsOfBharat.Core
                 factionData.classArmorTiers.Add(new ClassTierEntry { unitClass = (int)unitClass, tier = UpgradeProgress.ClassArmorTier(faction, unitClass) });
             }
 
+            // AoE-Parity Phase 5 fix: ResourceStockpile.For(Enemy2) returns
+            // null whenever the 3rd faction isn't enabled (the normal case -
+            // its stockpile is scene-authored but never spawned/activated
+            // for a standard match) - this class's own AllFactions comment
+            // already documents the intent ("Enemy2's entry is just harmless
+            // defaults... when no 2nd AiController ever spawned"), but the
+            // implementation crashed instead of actually doing that. Pre-
+            // existing bug (would have crashed the F5 quicksave feature too,
+            // not just DesyncRecovery), found while live-verifying Apply()
+            // against a real 2-faction match.
             ResourceStockpile stockpile = ResourceStockpile.For(faction);
             foreach (ResourceType type in (ResourceType[])Enum.GetValues(typeof(ResourceType)))
             {
-                factionData.resources.Add(new ResourceEntry { resourceType = (int)type, amount = stockpile.GetTotal(type) });
+                factionData.resources.Add(new ResourceEntry { resourceType = (int)type, amount = stockpile != null ? stockpile.GetTotal(type) : 0f });
             }
 
             return factionData;
@@ -322,6 +335,29 @@ namespace KingdomsOfBharat.Core
             yield return null;
             yield return null;
 
+            ApplySnapshotToRunningMatch(data);
+
+            Debug.Log("[SaveManager] Loaded from " + path);
+        }
+
+        // AoE-Parity Phase 5 (resync-on-desync): the actual "apply a
+        // captured snapshot's dynamic state to whatever's currently
+        // running" operation, extracted from LoadRoutine's own tail so
+        // DesyncRecovery can reuse it directly - see DesyncRecovery.cs.
+        // Deliberately does NOT touch civ/map selection or call
+        // CivilizationSetup.BeginMatch: those only make sense when starting
+        // a fresh match from a file (LoadRoutine's job above this method),
+        // not when correcting an already-running match's diverged state
+        // (DesyncRecovery's job) - the civ/map are already correct in that
+        // case, only units/buildings/factions have drifted.
+        internal static void ApplySnapshotToRunningMatch(MatchSaveData data)
+        {
+            FactionSaveData playerData = data.factions.Find(f => f.faction == (int)FactionId.Player);
+            FactionSaveData enemyData = data.factions.Find(f => f.faction == (int)FactionId.Enemy);
+            FactionSaveData enemy2Data = data.factions.Find(f => f.faction == (int)FactionId.Enemy2);
+            bool enemy2InPlay = data.units.Exists(u => u.faction == (int)FactionId.Enemy2)
+                || data.buildings.Exists(b => b.faction == (int)FactionId.Enemy2);
+
             WipeCurrentMatch();
             RestoreFactionState(FactionId.Player, playerData);
             RestoreFactionState(FactionId.Enemy, enemyData);
@@ -331,8 +367,6 @@ namespace KingdomsOfBharat.Core
             }
             RestoreBuildings(data.buildings);
             RestoreUnits(data.units);
-
-            Debug.Log("[SaveManager] Loaded from " + path);
         }
 
         private static void WipeCurrentMatch()

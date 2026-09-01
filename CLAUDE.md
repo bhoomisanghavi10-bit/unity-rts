@@ -138,15 +138,47 @@ asset requirements, 5. Priority order).
   environment quirks hit and worked around (Age-gated `BeginPlacementBarracks`,
   stale/off-screen cached `Input.mousePosition`), neither caused by this
   session's changes.
+- **Phase 5's doable-now scope fully closed 2026-09-02** (via Plan Mode,
+  approved before implementation): resync-on-desync logic, the last item
+  with any non-transport-blocked work in it. `StateHash` wired to
+  `SimClock.OnTick` (genuinely live for the first time — previously zero
+  call sites anywhere), `SaveManager.Capture`/a new
+  `ApplySnapshotToRunningMatch` extracted for reuse outside the file-based
+  save/load flow, new `DesyncRecovery.Apply` as the transport-facing entry
+  point. **Found and fixed a real, pre-existing bug while live-verifying,
+  not before it**: `SaveManager.Capture()` crashed with a
+  `NullReferenceException` in any standard (non-3rd-faction) match — Enemy2's
+  `ResourceStockpile` is scene-authored but never active without
+  `enableThirdFaction`, and this would have crashed the existing F5
+  quicksave feature too, not just this new code. 2 new EditMode tests (123
+  total, up from 121) after working through several genuine EditMode-only
+  artifacts (documented in full in `docs/SESSION_LOG.md` — `Unit.OnEnable`/
+  `Destroy()` not firing/taking-effect synchronously, `FindObjectsByType`
+  not preserving creation order which briefly looked like a real recovery
+  bug before direct debugging cleared it, and `LogAssert.ignoreFailingMessages`
+  not suppressing a specific Editor-only error in this UTF version). Live-
+  verified in Play mode via UnityMCP against a real running match: real
+  perturbation, real `StateHash` divergence, real reconvergence after
+  `DesyncRecovery.Apply`. Also hit and recovered from a real mid-session
+  mistake, unrelated to the feature: an EditMode cleanup script accidentally
+  deleted the Main scene's own real `ResourceStockpile` instances — caught
+  immediately, fixed by reloading the scene from disk (nothing had been
+  saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
+  for full detail.
 - Currently on: nothing started for the next session. Section 5 items 1-9 and
   11-15 are all done — **the worker-mechanics-audit is fully closed** — and
   `AOE_PARITY_EXECUTION_PLAN.md`'s Phases 1-4 are fully resolved (see the
-  consolidation note above). Phase 5 (item 16) is now partially closed (see
-  above); remaining scope is genuinely blocked on a network transport that
-  doesn't exist yet (real cross-peer desync detection, resync/rollback
-  recovery logic, cross-machine determinism testing) — next session should
-  check with the user before attempting more of Phase 5, or fall back to
-  other open Roadmap items. Item 7 (civ-specific
+  consolidation note above). **Phase 5 (item 16) is now fully closed on its
+  doable-now scope** — everything left (real cross-peer desync detection,
+  validating resync under real network conditions, cross-machine determinism
+  testing) is genuinely blocked on a network transport that doesn't exist
+  yet, exactly as flagged in the original investigation. Nothing further to
+  do on Phase 5 until a transport exists — next session should check with
+  the user on priorities (Phase 6 is explicitly deferred without a request;
+  fall back to other open Roadmap items, e.g. the 2 pre-existing broken civ
+  building models found this session — Rajput TownCenter/Maurya Tower, both
+  zero-byte raw FBX files even in the original pre-this-session state, not
+  caused by anything recent). Item 7 (civ-specific
   building models) is fully closed — **all 5 civs,
   45/45 models landed** (Chola, Vijayanagara, Rajput, Maurya, Maratha).
   `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any future

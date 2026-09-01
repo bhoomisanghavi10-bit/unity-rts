@@ -1165,21 +1165,32 @@ buying, or making an asset yourself:
     and `UnitMover`/`MeleeAttacker` both caching sibling components in `Awake`
     instead of lazily). See Section 1's matching item and
     `docs/SESSION_LOG.md`.
-16. **Multiplayer determinism** (AoE-Parity Execution Plan Phase 5) — in
-    progress. Investigated first (no code), reported the doable-vs-blocked
-    split, user approved the doable-now part. ~~`BuildingPlacer` wired
-    through `CommandBus`~~ **Done** (2026-09-01): the one remaining
-    Player-input path that bypassed the lockstep input-delay queue now goes
-    through a new `BuildCommand`, live-verified in Play mode (resource spend
-    + building spawn genuinely deferred ~4 ticks, not immediate). ~~Add a
-    `CommandBus`/`StateHash` self-consistency test~~ **Done** (2026-09-01):
-    4 new EditMode tests proving "same inputs → same state" directly (121
-    total, up from 117). **Remaining, explicitly not done**: real desync
-    detection (needs two peers), resync/rollback recovery logic (design-only
-    doable now, real validation blocked on a transport), and cross-machine
-    NavMeshAgent/physics determinism (needs two real machines). See Section 6
-    below for full detail and `docs/AOE_PARITY_EXECUTION_PLAN.md` for the
-    plan's own step-by-step scope of what's left.
+16. **Multiplayer determinism** (AoE-Parity Execution Plan Phase 5) — the
+    doable-now scope is fully closed. Investigated first (no code), reported
+    the doable-vs-blocked split, user approved the doable-now part.
+    ~~`BuildingPlacer` wired through `CommandBus`~~ **Done** (2026-09-01):
+    the one remaining Player-input path that bypassed the lockstep
+    input-delay queue now goes through a new `BuildCommand`, live-verified
+    in Play mode (resource spend + building spawn genuinely deferred ~4
+    ticks, not immediate). ~~Add a `CommandBus`/`StateHash` self-consistency
+    test~~ **Done** (2026-09-01): 4 new EditMode tests proving "same inputs
+    → same state" directly (121 total, up from 117). ~~Design and implement
+    resync-on-desync logic using StateHash~~ **Done** (2026-09-02): new
+    `DesyncRecovery.Apply`, `StateHash` wired to `SimClock` so it computes a
+    real live value for the first time (previously dead code, zero call
+    sites), `SaveManager.Capture`/a new `ApplySnapshotToRunningMatch`
+    extracted for reuse outside the file-based save/load flow. 2 new
+    EditMode tests plus live Play-mode verification against a real running
+    match (123 EditMode tests total, up from 121) — see Section 6 below for
+    full detail, including a real pre-existing `SaveManager.Capture` crash
+    (Enemy2's null `ResourceStockpile` in any non-3rd-faction match) found
+    and fixed along the way. **Remaining, explicitly not done, blocked on a
+    transport that doesn't exist yet**: real cross-peer desync detection
+    (needs two peers to compare hashes against), validating the resync logic
+    under real network conditions, and cross-machine NavMeshAgent/physics
+    determinism testing (needs two real machines). Nothing further to do on
+    Phase 5 until a transport exists. See `docs/AOE_PARITY_EXECUTION_PLAN.md`
+    for the plan's own step-by-step scope.
 
 ---
 
@@ -1332,14 +1343,78 @@ unchanged immediately after the click** (500 Wood, 1 House) while a real
 `BuildCommand` was genuinely enqueued in `CommandBus`, then, after ~2 real
 seconds (far past the 200ms `InputDelayTicks` window), confirmed Wood actually
 dropped to 474.5 (30 base cost × Chola's -15% civ discount, exact match) and a
-second House existed. **Remaining, explicitly not done this pass**: real
-desync detection (needs two peers to compare hashes against), resync/rollback
-recovery logic (the plan's own scope, genuinely blocked on having a transport
-to validate against — `SaveManager`'s existing F5/F9 JSON serializer is a
-plausible snapshot-format starting point but carries its own documented v1
-gaps), and cross-machine NavMeshAgent/physics determinism testing (needs two
-real machines). See Roadmap Section 5 item 16 and `docs/AOE_PARITY_EXECUTION_PLAN.md`
-for the full item-by-item scope of what's left.
+second House existed.
+
+**Resync-on-desync logic — closed 2026-09-02** (via Plan Mode, approved
+before implementation). `StateHash.Compute()` had zero call sites before this
+— now wired to `SimClock.OnTick` (`StateHash.Subscribe`, called once per
+match start from the same block that reseeds `DeterministicRandom`), storing
+a `LatestHash`/`LatestHashTick` recomputed once per simulated second — the
+piece a future transport would actually read to compare against a peer.
+`SaveManager.Capture()` changed from `private` to `internal`, and
+`LoadRoutine()`'s tail (from its second `WipeCurrentMatch()` through
+`RestoreUnits`) extracted into a new `internal static
+ApplySnapshotToRunningMatch(MatchSaveData)` — the actual "wipe + restore
+dynamic state" operation, reusable outside the file-based Load flow, and
+deliberately not touching civ/map selection or `BeginMatch` (that ceremony
+only makes sense starting a fresh match from a save file, not correcting an
+already-running one). New `Assets/Scripts/Multiplayer/DesyncRecovery.cs`:
+`public static void Apply(MatchSaveData)`, a thin wrapper giving the
+"when hashes disagree, do this" policy its own transport-facing name,
+separate from `SaveManager`'s own save/load feature. **Found and fixed a
+real, pre-existing bug while live-verifying, not before it**:
+`SaveManager.Capture()`'s `CaptureFaction` crashed with a
+`NullReferenceException` reading `ResourceStockpile.For(FactionId.Enemy2)`
+in any standard (non-3rd-faction) match — Enemy2's stockpile is
+scene-authored but never active without `enableThirdFaction`, and this
+class's own `AllFactions` comment already documented the intended behavior
+("Enemy2's entry is just harmless defaults... when no 2nd AiController ever
+spawned") but the implementation didn't actually do that — it would have
+crashed the pre-existing F5 quicksave feature too, not just this new code.
+Fixed with a null-check defaulting to 0 resources, matching the documented
+intent. 2 new EditMode tests (`DesyncRecoveryTests.cs`): replaying a
+diverge-then-recover scenario and confirming `StateHash` reconverges (with a
+negative-case guard that the perturbation actually changed the hash first),
+plus a direct non-hash check (exact position/health) guarding against a hash
+collision masking a real bug. Hit and worked through several real EditMode-
+only artifacts along the way, all confirmed via direct debugging rather than
+assumed: `Unit.OnEnable()` not firing synchronously (same gotcha as the
+`CommandBusDeterminismTests` fix, worked around the same way);
+`WipeCurrentMatch`'s `Destroy()` (correct for real Play mode) not taking
+effect synchronously in EditMode, meaning stale pre-recovery units and their
+`Unit.All` order have to be scrubbed/rebuilt by hand — including discovering
+that `FindObjectsByType`'s return order doesn't preserve creation order,
+which briefly looked like a real recovery bug (hash mismatch) before direct
+debugging showed every restored unit's position/faction/health was already
+exactly correct and only `Unit.All`'s enumeration order (which `StateHash`
+folds order-sensitively) was reshuffled; and `LogAssert.ignoreFailingMessages`
+not suppressing the resulting Editor-only "Destroy may not be called" error
+in this Unity Test Framework version — needed an exact-count
+`LogAssert.Expect` instead (14 and 8 respectively, empirically measured, not
+guessed — `SoldierFactory`'s own weapon-mesh trimming via
+`WeaponAttachment.KeepOnlyFirstMesh` also calls `Destroy()` per extra
+renderer, on top of `WipeCurrentMatch`'s own per-unit calls). 123 EditMode
+tests total, all pass (up from 121). **Live-verified in Play mode via
+UnityMCP against a real running match** (not EditMode dummies): captured a
+real snapshot via reflection, perturbed a real worker's position and a real
+building's HP, confirmed `StateHash` differed, called `DesyncRecovery.Apply`
+with the real baseline snapshot, and confirmed `StateHash` reconverged to
+the exact baseline value with real unit/building counts intact. Also hit and
+recovered from a real mistake mid-session: an EditMode cleanup script
+(`FindObjectsByType<ResourceStockpile>` + `DestroyImmediate`, meant to
+scrub leftover EditMode test debug objects) accidentally deleted the Main
+scene's own real scene-authored `ResourceStockpile` instances — caught
+immediately by re-checking the scene, fixed by reloading `Main.unity` from
+disk (safe — nothing had been saved).
+
+**Remaining, explicitly not done, blocked on a transport that doesn't exist
+yet**: real cross-peer desync detection (needs two peers to actually compare
+hashes against — nothing does today, single-process only), validating the
+resync logic under real network conditions, and cross-machine
+NavMeshAgent/physics determinism testing (needs two real machines). Nothing
+further to do on Phase 5 until a transport exists. See Roadmap Section 5
+item 16 and `docs/AOE_PARITY_EXECUTION_PLAN.md` for the plan's own
+step-by-step scope.
 
 **Phase 6 — Home City-style meta-progression: deferred, do not start without
 explicit user request** (per the plan's own instruction — real new-system

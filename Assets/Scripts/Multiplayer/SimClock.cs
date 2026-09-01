@@ -70,6 +70,9 @@ namespace KingdomsOfBharat.Multiplayer
                 DeterministicRandom.ReseedMatch(MapRegistry.Current.ResourceSeed == -1
                     ? System.Environment.TickCount
                     : MapRegistry.Current.ResourceSeed);
+                // AoE-Parity Phase 5 (resync-on-desync): StateHash reacts to
+                // OnTick same as CommandBus does - see StateHash.Subscribe.
+                StateHash.Subscribe();
             }
 
             _accumulator += Time.deltaTime;

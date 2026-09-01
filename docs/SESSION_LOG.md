@@ -5,6 +5,119 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-02 — AoE-parity Phase 5: resync-on-desync logic
+
+**Scope**: the last remaining Phase 5 item with any doable-now work in it -
+"design and implement resync-on-desync logic using the existing StateHash."
+Went through Plan Mode first (touches SaveManager, a sensitive existing
+system, plus new Multiplayer files). User confirmed continuing into this
+specific item after the prior session closed the `BuildingPlacer`/`CommandBus`
+wiring and self-consistency test.
+
+**Design**: `StateHash.Compute()` had zero call sites anywhere before this -
+now genuinely live. `StateHash.Subscribe()` hooks `SimClock.OnTick` (called
+once per match start, same block that reseeds `DeterministicRandom`),
+recomputing `LatestHash`/`LatestHashTick` once per simulated second rather
+than every tick (no consumer yet to justify hashing full state 20x/sec).
+`SaveManager.Capture()` changed `private` → `internal`; `LoadRoutine()`'s
+tail (from its second `WipeCurrentMatch()` through `RestoreUnits`) extracted
+into a new `internal static ApplySnapshotToRunningMatch(MatchSaveData)` -
+the actual wipe-and-restore-dynamic-state operation, reusable outside the
+file-based Load flow and deliberately skipping the civ/map/`BeginMatch`
+ceremony (only relevant when starting a match from a save file, not
+correcting an already-running one). New `Assets/Scripts/Multiplayer/
+DesyncRecovery.cs`: `public static void Apply(MatchSaveData)`, a thin
+wrapper over `ApplySnapshotToRunningMatch` - kept separate so the "when
+hashes disagree, do this" policy has its own transport-facing name to plug
+a real transport into later.
+
+**Real bug found and fixed while live-verifying, not before it**:
+`SaveManager.Capture()`'s `CaptureFaction` threw a `NullReferenceException`
+reading `ResourceStockpile.For(FactionId.Enemy2)` in any standard match
+without the 3rd faction enabled - Enemy2's stockpile is scene-authored but
+never activated in that case. This class's own `AllFactions` comment already
+documented the intended behavior ("Enemy2's entry is just harmless
+defaults... when no 2nd AiController ever spawned"), but the actual
+implementation didn't do that - it crashed instead. This isn't new-code-only
+scope: the pre-existing F5 quicksave feature would have hit the exact same
+crash in any normal 2-faction match, just never got exercised that way
+before. Fixed with a null-check defaulting to 0 resources, matching the
+already-documented intent.
+
+**Tests**: `Assets/Tests/EditMode/DesyncRecoveryTests.cs`, 2 tests -
+replaying a diverge-then-recover scenario and confirming `StateHash`
+reconverges (with a negative-case guard that the perturbation actually
+changed the hash, so the positive case isn't trivially true), plus a direct
+non-hash check (exact restored position/health) guarding against a hash
+collision masking a real bug. Hit and worked through several genuine
+EditMode-only artifacts, each confirmed via direct debugging rather than
+assumed:
+- `Unit.OnEnable()` doesn't fire synchronously after `AddComponent<Unit>()`
+  in EditMode (same gotcha the prior session's `CommandBusDeterminismTests`
+  already hit) - worked around the same way (register into `Unit.All`
+  directly), applied to both the test's own dummy units and the real
+  Factory-spawned replacement units `RestoreUnits` creates.
+- `WipeCurrentMatch`'s `Destroy()` (correct for real Play mode) doesn't take
+  effect synchronously in EditMode either, so stale pre-recovery units are
+  still physically present (and still in `Unit.All`) at the moment recovery
+  "finishes" within a single synchronous test method - had to be scrubbed
+  and the newly-restored ones found via `Object.FindObjectsByType` instead
+  (unaffected by the `Unit.All`-registration gotcha, since it queries
+  Unity's own object graph).
+- That fix's first draft still failed on a hash mismatch that looked like a
+  real recovery bug - direct debugging showed every restored unit's
+  position/faction/health was already byte-for-byte correct, and only
+  `Unit.All`'s enumeration order (via `FindObjectsByType`, which doesn't
+  preserve creation order) differed from the original capture order -
+  `StateHash` folds order-sensitively, so a real Play-mode frame boundary
+  (where `OnEnable` registers units in actual spawn order) wouldn't hit this
+  at all. Fixed by sorting the found units back into snapshot order
+  (matched by position) before re-registering.
+- `LogAssert.ignoreFailingMessages = true` does not suppress the resulting
+  Editor-only "Destroy may not be called from edit mode" error in this Unity
+  Test Framework version (confirmed directly, twice) - neither does swapping
+  `Debug.unityLogger.logHandler` to filter it (the test framework's own log
+  capture sits ahead of that hook). The only mechanism that actually works
+  is an *exact-count* `LogAssert.Expect` queue - and the count isn't simply
+  "1 per unit": `SoldierFactory.Spawn`'s own weapon attachment
+  (`WeaponAttachment.KeepOnlyFirstMesh`) also calls `Destroy()` once per
+  extra renderer sub-mesh the sourced weapon model happens to have, on top
+  of `WipeCurrentMatch`'s per-unit calls - measured directly off a real test
+  run's captured console output (14 and 8 for the two tests respectively),
+  not guessed. Also found, separately, that `Unit.All`/`Building.All` being
+  shared static lists across the *whole* EditMode run meant another test
+  file's imperfect cleanup could leave stale entries that would have
+  inflated this count unpredictably - fixed by clearing both in this test
+  class's own `[SetUp]` first.
+
+123 EditMode tests total, all pass (up from 121).
+
+**Live verification**: Play mode via UnityMCP, against a real running match
+(`CivilizationSetup.BeginMatch`) - not EditMode dummies. Captured a real
+snapshot via reflection (`SaveManager.Capture` is `internal`), perturbed a
+real worker's position and a real building's HP via `Attackable.TakeDamage`,
+confirmed `StateHash.Compute()` differed from the baseline, called
+`DesyncRecovery.Apply` with the real baseline snapshot, and confirmed
+`StateHash` reconverged to the exact baseline value - with real unit/building
+counts intact (8 units, 2 buildings, matching pre-perturbation). Also hit and
+recovered from a real mistake mid-session, unrelated to the feature itself:
+an EditMode-scene cleanup script (`FindObjectsByType<ResourceStockpile>` +
+`DestroyImmediate`, meant to scrub leftover debug objects from earlier
+manual `execute_code` testing) accidentally deleted the Main scene's own
+real scene-authored `ResourceStockpile` instances. Caught immediately by
+re-checking the scene hierarchy afterward rather than assuming success;
+fixed by reloading `Main.unity` from disk (safe - nothing had been saved),
+confirmed both real instances were back before continuing.
+
+**Roadmap**: Section 6's Phase 5 writeup and Section 5 item 16 both updated -
+the doable-now scope of Phase 5 is now fully closed. What's left (real
+cross-peer desync detection, validating resync under real network
+conditions, cross-machine NavMeshAgent/physics determinism) is genuinely
+blocked on a transport that doesn't exist yet, exactly as flagged in the
+prior session's investigation - nothing further to do on Phase 5 until then.
+
+---
+
 ## 2026-09-01 — AoE-parity Phase 5: BuildingPlacer→CommandBus wiring + self-consistency hash test
 
 **Scope**: the doable-now half of Phase 5, approved by the user after the prior

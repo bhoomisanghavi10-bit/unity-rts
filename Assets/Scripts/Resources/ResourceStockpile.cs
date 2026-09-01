@@ -11,6 +11,15 @@ namespace KingdomsOfBharat.ResourceGathering
     {
         [SerializeField] private FactionId faction = FactionId.Player;
 
+        // Every real instance is scene-authored via the Inspector - this
+        // only exists so tests can create one programmatically (e.g.
+        // DesyncRecoveryTests, which needs a real per-faction stockpile for
+        // SaveManager.Capture() to find via For()).
+        public void Configure(FactionId newFaction)
+        {
+            faction = newFaction;
+        }
+
         // Self-healing per faction: if Enter Play Mode's "Reload Domain" is
         // off, a cached entry can go stale across Play/Stop cycles instead
         // of resetting. A scene lookup per faction (not one shared cache
