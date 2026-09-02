@@ -5,6 +5,73 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-02 — Civ-by-civ visual quality audit (Roadmap Section 4.1/4.2)
+
+**Scope**: user-requested audit ("do the civ-by-civ visual quality audit," following
+a request to flag anything not up to AoE IV graphic quality) against the AoE IV
+visual standard already specced in `docs/ROADMAP.md` Section 4.1 (poly count,
+texture resolution, material workflow, style differentiation) - Section 4.2 had
+flagged this as "not yet audited" for over a month. Pure investigation/reporting,
+no code changes - findings written into Section 4.2 directly, replacing its stale
+pre-civ-model-landing text.
+
+**Method**: live, not estimated. Play mode via UnityMCP; `execute_code` spawned
+every one of the 45 civ-specific buildings (5 civs x TownCenter/Barracks/Tower/
+Market/Farm/House/Wall/Gate/Dock) one at a time via `BuildingModelFactory.Spawn`
+directly, measuring real triangle counts (`MeshFilter.sharedMesh.triangles.Length/3`),
+texture resolution, and shader name off the actual spawned `Renderer`/`Material`
+objects before destroying each and moving to the next. Also measured a shared
+Soldier (Human Character Dummy), the Pillar Edict Scholar unique unit, and the War
+Galley the same way. Screenshotted TownCenters and a Barracks side by side for the
+style-differentiation half of the audit (qualitative, not measurable).
+
+**Findings** (full detail now in Roadmap Section 4.2 - summary here):
+
+1. **Building polycount badly fails spec - the headline finding.** Every
+   civ-specific building measured came back ~1.7-2.0 million triangles (Chola
+   TownCenter: 1,828,917 tris, one single un-decimated mesh) against a spec of
+   8,000-20,000 - roughly 100-250x over budget. Raw undecimated Sketchfab-style
+   exports, never caught by any prior per-civ import session since those checked
+   rotation/scale, not polycount. Texture resolution (2048) and shader workflow
+   (`Universal Render Pipeline/Lit`) both pass cleanly on all 43 real civ-specific
+   models - polycount is the one real failure.
+2. **Style differentiation mostly real, one soft spot**: Rajput (fort/haveli -
+   verified via a live-spawned Barracks: arched facade, corner chhatri domes,
+   crenellated parapet) and Maratha (dark Deccan hill-fort) both clearly read as
+   distinct traditions. Chola and Vijayanagara's TownCenters read as the same
+   architectural family at a glance (both stepped-pyramid gopuram towers, same
+   stone tone) - Vijayanagara's doesn't clearly land Hampi's more distinct granite
+   Deccan style the spec calls for. Maurya's TownCenter (large gilded dome over
+   colonnades) is visually striking and clearly distinct from the other 4, but
+   reads closer to Mughal/colonial palace architecture than actual Mauryan-era
+   style (no big central dome historically) - an authenticity nuance, not a "looks
+   bad" finding.
+3. Confirmed live (not just from file state): Rajput TownCenter and Maurya Tower
+   render the shared fallback model, exactly as expected from this same day's
+   earlier broken-model removal - not a new bug.
+4. **Shared Human Character Dummy body is the most visually obvious gap,
+   confirmed live**: 5 civ soldiers spawned side by side are the identical
+   mannequin body, differentiated only by flat color tint. Body swap (Crusader
+   Knight) is blocked on missing assets; gear/prop variants remain unsourced. Its
+   128x128 palette texture is technically under the 1024 minimum but is a flat-
+   color swatch sheet, not a detail texture - no real fidelity loss, not worth
+   flagging for re-sourcing on its own.
+5. Pillar Edict Scholar (Maurya unique unit) passes cleanly (7,084 tris, 2048
+   texture, clean URP/Lit shader) - a good reference example of the pipeline done
+   right.
+6. War Galley mixes two shaders on one model (`Universal Render Pipeline/Lit` +
+   an unconverted raw glTFast `Shader Graphs/glTF-pbrMetallicRoughness`) -
+   inconsistent material workflow, low urgency (doesn't look visibly broken).
+
+**Not done this session**: environment props (trees/mines/quarries/farmland)
+weren't poly/texture-audited - flagged as remaining scope for a future pass, not
+silently skipped.
+
+**Roadmap**: Section 4.2 rewritten with these live findings, replacing its stale
+pre-civ-art text. No code/test changes - pure investigation.
+
+---
+
 ## 2026-09-02 — Bug fix: pink cow material, grey palm tree material
 
 **Scope**: ad hoc user bug report from a live Play mode screenshot - a livestock

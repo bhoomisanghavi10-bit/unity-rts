@@ -698,22 +698,78 @@ level, not a stylized low-poly look. Concretely:
 | Style reference | Each civ's buildings should read as a distinct real-world architectural tradition — Chola (Dravidian temple architecture, gopuram-style towers), Vijayanagara (Hampi's granite/Deccan style), Rajput (fort/haveli architecture, chhatris), Maurya (Mauryan pillar/stupa motifs), Maratha (Deccan hill-fort style) — not just a palette swap on one shared building kit |
 
 ### 4.2 Existing Assets — Audit Against the Standard
-Not everything already wired in necessarily clears this bar. Worth a deliberate
-pass, not silent replacement:
-- **TownCenter, Barracks, Tower, Market, Tavern, Farm, Wall, Gate, ships, Dock**:
-  sourced as real detailed models, plausibly close to standard already — verify each
-  against the poly/texture targets above before assuming they pass.
-  **Building style differentiation is not close to standard yet**, though — the
-  current 5 civs at least share one visual building set; per-civ architectural
-  identity (per the 4.1 reference list) hasn't been built.
-- **Shared "Human Character Dummy" base body**: this is the one most likely to fall
-  short of "AAA representation" — it was picked for rig availability, not fidelity.
-  Worth a direct decision: keep it and only upgrade weapon/mount attachments, or
-  replace the base body wholesale (this is exactly what the 2 unused Crusader Knight
-  models were sourced for — if a body swap happens, do it once, deliberately, with a
-  full rig-compatibility check, not as another ad hoc addition).
-- **Environment props (trees, mines, quarries, farmland)**: functional multi-variant
-  coverage exists; not yet audited against the 4.1 poly/texture targets.
+**Superseded 2026-09-02 by a real civ-by-civ live audit** (all 5 civs' building sets
++ shared soldier body + a sample unique unit + naval unit, measured directly via
+UnityMCP `execute_code` against real spawned meshes/materials — not estimated).
+This paragraph's earlier claim ("the current 5 civs... share one visual building
+set; per-civ architectural identity hasn't been built") is now stale — all 5 civs'
+civ-specific building art landed across sessions since (43/45; see Section 5 item
+7) — the findings below replace it with what's actually true today:
+
+- **Building poly count badly fails the 8,000–20,000 tri target — this is the
+  single biggest finding.** Every one of the 45 civ-specific buildings measured
+  came back at **~1.7–2.0 million triangles each** (e.g. Chola TownCenter: 1,828,917
+  tris / 1,084,727 verts, in one single un-decimated mesh) — roughly **100–250x**
+  over budget. These are raw, undecimated Sketchfab/photogrammetry-style exports
+  that were never retopologized/decimated before import. Never caught by any prior
+  per-civ import session, because those sessions checked rotation/scale/visual
+  placement, not polycount. A full 9-building civ base on screen at once is ~17M+
+  triangles from buildings alone — a real, likely-significant rendering cost at
+  any real match scale, not just a spec-compliance nitpick. **Needs a decimation
+  pass** (either re-export each source model at a sane poly budget, or run them
+  through a decimation tool before/during import) — this is a task Claude Code
+  could plausibly help script/automate (e.g. via a mesh-simplification library),
+  worth scoping as its own item rather than folding into asset-sourcing requests.
+  Texture resolution passes cleanly (2048×2048 on every civ-specific building,
+  matching the standard's low end), and shader workflow passes for the 43 real
+  civ-specific models (all cleanly on `Universal Render Pipeline/Lit`) — poly
+  count is the one real failure here, not texture/shader.
+- **Building style differentiation is real and mostly working, with one soft
+  spot.** Live side-by-side comparison: Rajput (fort/haveli — arched facade,
+  corner chhatri domes, crenellated parapet, sandstone tone) and Maratha (dark
+  Deccan hill-fort — thick sloped bastion walls, small pavilion cap) both read as
+  clearly distinct traditions, matching their 4.1 spec entries well. **Chola and
+  Vijayanagara's TownCenters read as the same architectural family at a glance** —
+  both are stepped-pyramid gopuram-style temple towers in a near-identical
+  grey-brown stone tone; Vijayanagara's is essentially a smaller version of
+  Chola's silhouette rather than Hampi's more distinct granite Deccan style the
+  4.1 table calls for. Not necessarily worth re-sourcing (both are individually
+  well-detailed), but worth knowing this pair doesn't clear the "distinct
+  tradition" bar as cleanly as Rajput/Maratha do. **Maurya's TownCenter is
+  visually striking and clearly distinct from the other 4** (a large gilded dome
+  over a colonnaded terrace) but reads architecturally closer to a
+  Mughal/colonial-era domed palace than to actual Mauryan-era architecture
+  (Ashokan pillars, stupas, polished sandstone, no big central dome) — flagged as
+  an authenticity nuance, not a "looks bad" finding.
+- **Rajput TownCenter and Maurya Tower currently show the shared/generic
+  fallback model** (confirmed live, not just from the earlier session's file
+  check) — expected, not a new bug: their source art was corrupted at delivery
+  and removed 2026-09-02 (see Section 5 item 7). Re-sourcing is a pending asset
+  need, not a code task.
+- **Shared "Human Character Dummy" base body is a real, visible gap, confirmed
+  live**: 5 civ soldiers spawned side by side are the exact same mannequin-like
+  body — same limbs, same faceless head, zero clothing/armor/gear geometry —
+  differentiated *only* by a flat solid-color tint (red/yellow/blue/grey/green).
+  This is the most immediately obvious quality gap of anything audited; a body
+  swap (the Crusader Knight item) is blocked on missing source assets as of this
+  session, and per-civ gear/prop variants remain unsourced. Texture-wise the
+  shared palette texture is only 128×128 — technically under the 1024×1024
+  standard, but this is a flat-color swatch sheet, not a detail texture, so no
+  visible fidelity is actually being lost at that resolution; not worth
+  re-sourcing on its own.
+- **Sample unique unit (Pillar Edict Scholar, Maurya) passes cleanly**: 7,084
+  tris, 2048 texture, clean `Universal Render Pipeline/Lit` shader — a genuine
+  example of the pipeline done right, worth using as the reference case for what
+  "meets the standard" looks like here.
+- **War Galley (shared naval unit) mixes two shaders on one model**: some
+  submeshes use `Universal Render Pipeline/Lit`, others still use the raw
+  glTFast-generated `Shader Graphs/glTF-pbrMetallicRoughness` — never converted,
+  unlike every civ building model. Polycount (4,030 tris) is fine. Worth a
+  cleanup pass converting the remaining submeshes to URP/Lit for a consistent
+  material workflow, though not urgent since it doesn't look visually broken.
+- **Environment props (trees, mines, quarries, farmland)**: still not
+  poly/texture-audited this pass — out of this session's scope, flagged as
+  remaining work for a future pass.
 
 ### 4.3 Asset Requirements — What's Actually Needed Next
 Specced to the 4.1 standard, so whatever you arrange or create has a concrete target

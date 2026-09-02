@@ -7,6 +7,24 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Civ-by-civ visual quality audit (2026-09-02)**, user-requested, against
+  Roadmap Section 4.1's AoE IV visual standard. Live-measured (not estimated)
+  via UnityMCP: every civ-specific building's real triangle count/texture
+  resolution/shader, plus side-by-side style comparisons. **Headline finding:
+  every civ-specific building is ~1.7-2.0 million un-decimated triangles**
+  (100-250x over the 8,000-20,000 tri spec) — texture resolution and shader
+  workflow both pass cleanly, polycount is the one real failure, and it was
+  never caught by any prior per-civ import session (those checked rotation/
+  scale, not polycount). Style differentiation mostly works (Rajput/Maratha
+  read as clearly distinct traditions) but Chola/Vijayanagara's TownCenters
+  read as the same architectural family, and Maurya's gilded-dome TownCenter
+  is visually striking but reads more Mughal/colonial than authentically
+  Mauryan. Confirmed live: the shared Human Character Dummy soldier body is
+  the single most visually obvious gap (5 civs = identical mannequin, tint
+  only). Full findings in Roadmap Section 4.2 (rewritten, replacing stale
+  pre-civ-art text) and `docs/SESSION_LOG.md`. Pure investigation, no code
+  changes — a mesh-decimation pass for the building polycount problem is a
+  real candidate for a future session (flagged, not started).
 - **Ad hoc bug fix (2026-09-02, same day as the LAN transport session below,
   reported from a live Play mode screenshot)**: livestock Cow rendered fully
   pink and one Palm2 tree rendered grey/flat. Two different root causes, not
