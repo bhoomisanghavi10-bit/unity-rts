@@ -1233,9 +1233,28 @@ buying, or making an asset yourself:
     transport that doesn't exist yet**: real cross-peer desync detection
     (needs two peers to compare hashes against), validating the resync logic
     under real network conditions, and cross-machine NavMeshAgent/physics
-    determinism testing (needs two real machines). Nothing further to do on
-    Phase 5 until a transport exists. See `docs/AOE_PARITY_EXECUTION_PLAN.md`
-    for the plan's own step-by-step scope.
+    determinism testing (needs two real machines).
+    ~~Real LAN transport MVP (2-player, no matchmaking/NAT traversal)~~
+    **Done** (2026-09-02, user explicitly asked not to leave this deferred
+    any longer; confirmed LAN-only/2-player scope, online play deferred to
+    end of project): new `NetworkId`/`Wire/NetMessage.cs`/`CommandSerializer`/
+    `LanTransport`/`NetworkDriver`/`NetworkMatch`/`NetworkDesyncMonitor`/
+    `LanMatchMenu` (see `docs/AOE_PARITY_EXECUTION_PLAN.md`'s Phase 5 entry
+    for the full breakdown). `SimClock` now genuinely gates tick advancement
+    on the remote peer's acknowledged tick when a network match is active —
+    single-player is completely unaffected. This closes real cross-peer
+    desync detection and resync-under-real-network-conditions: live-verified
+    via two real TCP `LanTransport` peers (a real host + a real second socket
+    acting as a scripted stand-in for the remote human) exchanging real Move/
+    Train/Build/Attack orders and `StateHash` values, including a genuine
+    forced mismatch that correctly triggered a real `SaveManager.Capture()`
+    snapshot sent over the wire. 18 new EditMode tests (145 total, up from
+    127). **Still explicitly open, not claimed as done**: true cross-machine
+    NavMeshAgent/physics determinism testing — this session's live
+    verification used two real sockets within one process/machine, not two
+    separate physical machines, which only the user can actually run. See
+    `docs/SESSION_LOG.md`'s 2026-09-02 entry and
+    `docs/AOE_PARITY_EXECUTION_PLAN.md` for full detail.
 
 ---
 

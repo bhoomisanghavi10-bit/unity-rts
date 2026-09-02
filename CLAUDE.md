@@ -7,7 +7,55 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
-- **This session (2026-09-02) started on the Crusader Knight body-swap item
+- **This session (2026-09-02) built a real LAN transport MVP for AoE-Parity
+  Phase 5 (multiplayer determinism)**, at the user's explicit instruction not
+  to leave it deferred any longer (confirmed scope: LAN-only, 2 human
+  players; online play/matchmaking deferred to "end of the project"). New
+  `Assets/Scripts/Multiplayer/` files: `NetworkId` (deterministic
+  spawn-order integer identity for units/buildings, hooked into
+  `Unit.OnEnable`/`Building.OnEnable`), `Wire/NetMessage.cs` (pure-data DTOs
+  for Move/Train/Build/Attack/StateHash/ResyncSnapshot/Heartbeat/Hello),
+  `CommandSerializer` (real `Command` ↔ wire DTO conversion), `LanTransport`
+  (raw TCP host/join, length-prefixed JSON, background threads → main-thread
+  queue), `NetworkDriver` (drains that queue into `CommandBus`/
+  `NetworkDesyncMonitor`/`DesyncRecovery`), `NetworkMatch` (`LocalFaction` —
+  the "who am I" seam that didn't exist before; `RemoteMaxAckedTick` — the
+  actual lockstep gate), `NetworkDesyncMonitor` (real cross-peer `StateHash`
+  exchange/comparison, host-authoritative resync), and `LanMatchMenu`
+  (minimal runtime-built uGUI Host/Join panel — a disclosed visual-only
+  compromise, not a functional gap). `SimClock` now genuinely gates tick
+  advancement on the remote peer's acknowledged tick when a network match is
+  active (single-player completely unaffected —
+  `NetworkMatch.IsActive` stays false). Every hardcoded `FactionId.Player`
+  "who's clicking" reference across `SelectionManager`/`BuildMenu`/
+  `BuildingPlacer` (~40 occurrences) now reads `NetworkMatch.LocalFaction`
+  instead, and each of the 4 order-origination sites (Move/Attack/Train/
+  Build) sends the matching wire message when a network match is active. 18
+  new EditMode tests (145 total, up from 127), including real two-socket TCP
+  loopback tests (`LanTransportTests.cs`). **Live-verified far beyond the
+  EditMode tests**, via UnityMCP: two real `LanTransport` TCP peers (a real
+  host + a real second socket standing in for the remote human) proved the
+  lockstep gate genuinely stalls/unblocks on real elapsed time, a local Move
+  order serializes correctly to the wire, a remote-originated Move order is
+  received/resolved/enqueued/executed against a real spawned unit (moving it
+  to the exact remote-specified destination), the real `StateHash` is
+  exchanged, and — the key proof — a **genuinely forced desync** (a
+  deliberately wrong hash sent from the "remote" socket) was correctly
+  detected and triggered a real `SaveManager.Capture()` snapshot (3987 bytes)
+  sent back over the actual TCP connection. This closes 2 of Phase 5's 3
+  remaining transport-blocked checklist items (real cross-peer desync
+  detection; validating resync under real network conditions) with genuine
+  live evidence, not the earlier single-process synthetic test. **Not done,
+  explicitly still open**: true cross-machine NavMeshAgent/physics
+  determinism testing — this session's own verification used two real
+  sockets within one machine/process, not two separate physical
+  machines/OSes; that needs the user's own second machine to actually run.
+  Not built (explicit user instruction to defer): online play/matchmaking/
+  NAT traversal, reconnect-after-drop, >2 players, spectators. See
+  `docs/SESSION_LOG.md`'s 2026-09-02 "Phase 5: real LAN transport MVP" entry
+  and `docs/AOE_PARITY_EXECUTION_PLAN.md`'s Phase 5 section for full detail.
+- **Earlier the same day (2026-09-02), started on the Crusader Knight
+  body-swap item
   (Section 1/5.10 — fix the ~247x `Animator.humanScale` anomaly and re-parent
   sword/shield/staff props via `WeaponAttachment`) but found it genuinely
   blocked**: its source glTF files (`Assets/importedmodels/Item47/TemplarKnight`,
@@ -233,12 +281,15 @@ asset requirements, 5. Priority order).
   `AOE_PARITY_EXECUTION_PLAN.md`'s Phases 1-4 are fully resolved (see the
   consolidation note above), **including item 2.3 (Siege splash/area damage
   vs. formations), closed 2026-09-02** — see that session's own bullet above
-  for the full writeup. **Phase 5 (item 16) is now fully closed on its
-  doable-now scope** — everything left (real cross-peer desync detection,
-  validating resync under real network conditions, cross-machine determinism
-  testing) is genuinely blocked on a network transport that doesn't exist
-  yet, exactly as flagged in the original investigation. Nothing further to
-  do on Phase 5 until a transport exists. **Both Naval balance follow-up
+  for the full writeup. **Phase 5 (item 16) — the LAN transport MVP closed
+  2026-09-02** (see this session's own bullet above for full detail): real
+  cross-peer desync detection and resync-under-real-network-conditions are
+  now genuinely done, live-verified over real TCP sockets. **Only remaining
+  Phase 5 item**: true cross-machine NavMeshAgent/physics determinism
+  testing, which needs the user's own second physical machine — nothing
+  further Claude Code can do on that specific item alone. Online
+  play/matchmaking/NAT traversal deferred per explicit user instruction
+  ("at the end of the project"). **Both Naval balance follow-up
   findings closed 2026-09-02** (see this session's own bullet above) — no
   longer an open item. Item 7 (civ-specific building models) is at
   **43/45** — Chola/Vijayanagara/Maratha are 9/9 each; Rajput and Maurya are

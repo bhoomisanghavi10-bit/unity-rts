@@ -3,6 +3,7 @@ using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Progression;
 using KingdomsOfBharat.Multiplayer;
+using KingdomsOfBharat.Multiplayer.Wire;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -11,9 +12,11 @@ namespace KingdomsOfBharat.Buildings
     // both funnel through BeginPlacementBarracks()/BeginPlacementFarm()/
     // BeginPlacementHouse(). Move the mouse to preview it (green if
     // affordable and clear, red otherwise), left-click to confirm,
-    // right-click/Escape to cancel. Always places for FactionId.Player -
+    // right-click/Escape to cancel. Always places for NetworkMatch.LocalFaction -
     // it's an inherently player-driven tool, not a spawned/faction-tagged
-    // entity itself, so it hardcodes that rather than trying to derive it.
+    // entity itself, so it reads "who am I" from there rather than trying
+    // to derive it (defaults to FactionId.Player, matching every
+    // single-player/AI-opponent match - see NetworkMatch.cs).
     // Actual GameObject creation is BarracksFactory's/FarmFactory's/
     // HouseFactory's job (shared with AiController's programmatic
     // placement, for Barracks and House).
@@ -153,14 +156,14 @@ namespace KingdomsOfBharat.Buildings
         // so the requirement is symmetric between Player and AI.
         public void BeginPlacementBarracks()
         {
-            if (!_placing && AgeProgress.CurrentAge(FactionId.Player) != AgeId.Ancient)
+            if (!_placing && AgeProgress.CurrentAge(NetworkMatch.LocalFaction) != AgeId.Ancient)
             {
                 StartPlacing(BuildingKind.Barracks);
             }
         }
 
         // For BuildMenu, to show/disable the Build Barracks button.
-        public static bool CanPlaceBarracks => AgeProgress.CurrentAge(FactionId.Player) != AgeId.Ancient;
+        public static bool CanPlaceBarracks => AgeProgress.CurrentAge(NetworkMatch.LocalFaction) != AgeId.Ancient;
 
         public void BeginPlacementFarm()
         {
@@ -372,7 +375,7 @@ namespace KingdomsOfBharat.Buildings
                 return 1f;
             }
 
-            if (CivilizationRegistry.For(FactionId.Player) == CivilizationId.Maurya)
+            if (CivilizationRegistry.For(NetworkMatch.LocalFaction) == CivilizationId.Maurya)
             {
                 return 0f;
             }
@@ -381,7 +384,7 @@ namespace KingdomsOfBharat.Buildings
             // Houses cost 25% less Wood (a diluted version of Maurya's own
             // free-Houses bonus above). Player-only, same scope as this
             // method already has - see TeamBonus.cs.
-            return TeamBonus.HasAlly(FactionId.Player, CivilizationId.Maurya)
+            return TeamBonus.HasAlly(NetworkMatch.LocalFaction, CivilizationId.Maurya)
                 ? TeamBonus.MauryaHouseWoodMultiplier
                 : 1f;
         }
@@ -392,7 +395,7 @@ namespace KingdomsOfBharat.Buildings
         internal static float StoneMultiplierFor(BuildingKind kind)
         {
             bool isFortification = kind == BuildingKind.Wall || kind == BuildingKind.Gate || kind == BuildingKind.Tower;
-            if (isFortification && CivilizationRegistry.For(FactionId.Player) == CivilizationId.Vijayanagara)
+            if (isFortification && CivilizationRegistry.For(NetworkMatch.LocalFaction) == CivilizationId.Vijayanagara)
             {
                 return 0.8f;
             }
@@ -420,9 +423,68 @@ namespace KingdomsOfBharat.Buildings
             }
 
             BuildingKind kind = _kind;
-            CommandBus.Enqueue(new BuildCommand(FactionId.Player, this, () => ExecuteBuild(kind, point)));
+            FactionId faction = NetworkMatch.LocalFaction;
+            int tick = CommandBus.Enqueue(new BuildCommand(faction, this, () => ExecuteBuild(kind, point)));
+
+            // Phase 5 LAN transport MVP: the remote peer needs this exact
+            // order too, scheduled for the exact same tick - see
+            // CommandSerializer.cs/LanTransport.cs. No-op in single-player
+            // (NetworkMatch.IsActive stays false).
+            if (NetworkMatch.IsActive)
+            {
+                NetworkMatch.Transport.Send(CommandSerializer.ForBuild(tick, faction, ToNetBuildKind(kind), point));
+            }
 
             CancelPlacing();
+        }
+
+        // The receiving peer's counterpart to TryConfirmPlacement's local
+        // enqueue above - CommandSerializer.ToCommand resolves a received
+        // NetBuildCommand into a BuildCommand wrapping a call to this
+        // (internal rather than the private ExecuteBuild it forwards to,
+        // exactly as much visibility as the network layer needs and no
+        // more).
+        internal void ExecuteBuildFromNetwork(NetBuildKind netKind, Vector3 point)
+        {
+            ExecuteBuild(ToBuildingKind(netKind), point);
+        }
+
+        private static NetBuildKind ToNetBuildKind(BuildingKind kind)
+        {
+            return kind switch
+            {
+                BuildingKind.Barracks => NetBuildKind.Barracks,
+                BuildingKind.Farm => NetBuildKind.Farm,
+                BuildingKind.House => NetBuildKind.House,
+                BuildingKind.Wall => NetBuildKind.Wall,
+                BuildingKind.Gate => NetBuildKind.Gate,
+                BuildingKind.Tower => NetBuildKind.Tower,
+                BuildingKind.Market => NetBuildKind.Market,
+                BuildingKind.Dock => NetBuildKind.Dock,
+                BuildingKind.LumberCamp => NetBuildKind.LumberCamp,
+                BuildingKind.MiningCamp => NetBuildKind.MiningCamp,
+                BuildingKind.Mill => NetBuildKind.Mill,
+                _ => NetBuildKind.Farm,
+            };
+        }
+
+        private static BuildingKind ToBuildingKind(NetBuildKind kind)
+        {
+            return kind switch
+            {
+                NetBuildKind.Barracks => BuildingKind.Barracks,
+                NetBuildKind.Farm => BuildingKind.Farm,
+                NetBuildKind.House => BuildingKind.House,
+                NetBuildKind.Wall => BuildingKind.Wall,
+                NetBuildKind.Gate => BuildingKind.Gate,
+                NetBuildKind.Tower => BuildingKind.Tower,
+                NetBuildKind.Market => BuildingKind.Market,
+                NetBuildKind.Dock => BuildingKind.Dock,
+                NetBuildKind.LumberCamp => BuildingKind.LumberCamp,
+                NetBuildKind.MiningCamp => BuildingKind.MiningCamp,
+                NetBuildKind.Mill => BuildingKind.Mill,
+                _ => BuildingKind.Farm,
+            };
         }
 
         // Re-checks IsClearForKind/CanAfford again before spending anything -
@@ -438,77 +500,77 @@ namespace KingdomsOfBharat.Buildings
                 return;
             }
 
-            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
+            ResourceStockpile stockpile = ResourceStockpile.For(NetworkMatch.LocalFaction);
             // Phase 6 gap-close: EconomyTechProgress's TradeDiscounts tech
             // stacks multiplicatively with the civ's own build-cost bonus
             // (e.g. Chola's existing -15%), same "multiply everything
             // relevant together" convention as every other layered bonus.
-            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).BuildCostMultiplier
-                * (EconomyTechProgress.HasResearched(FactionId.Player, EconomyTech.TradeDiscounts) ? EconomyTechDefinition.For(EconomyTech.TradeDiscounts).Bonus : 1f);
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(NetworkMatch.LocalFaction)).BuildCostMultiplier
+                * (EconomyTechProgress.HasResearched(NetworkMatch.LocalFaction, EconomyTech.TradeDiscounts) ? EconomyTechDefinition.For(EconomyTech.TradeDiscounts).Bonus : 1f);
 
             switch (kind)
             {
                 case BuildingKind.Barracks:
                     stockpile.Add(ResourceType.Wood, -barracksWoodCost * multiplier);
                     stockpile.Add(ResourceType.Stone, -barracksStoneCost * multiplier);
-                    BarracksFactory.Place(point, FactionId.Player, barracksBuildTime);
+                    BarracksFactory.Place(point, NetworkMatch.LocalFaction, barracksBuildTime);
                     break;
                 case BuildingKind.Farm:
                     stockpile.Add(ResourceType.Wood, -farmWoodCost * multiplier);
-                    FarmFactory.Place(point, FactionId.Player, farmBuildTime);
+                    FarmFactory.Place(point, NetworkMatch.LocalFaction, farmBuildTime);
                     break;
                 case BuildingKind.House:
                     stockpile.Add(ResourceType.Wood, -houseWoodCost * multiplier * WoodMultiplierFor(kind));
-                    HouseFactory.Place(point, FactionId.Player, houseBuildTime);
+                    HouseFactory.Place(point, NetworkMatch.LocalFaction, houseBuildTime);
                     break;
                 case BuildingKind.Wall:
                     stockpile.Add(ResourceType.Stone, -wallStoneCost * multiplier * StoneMultiplierFor(kind));
-                    WallFactory.Place(point, FactionId.Player, wallBuildTime);
+                    WallFactory.Place(point, NetworkMatch.LocalFaction, wallBuildTime);
                     break;
                 case BuildingKind.Gate:
                     stockpile.Add(ResourceType.Stone, -gateStoneCost * multiplier * StoneMultiplierFor(kind));
                     stockpile.Add(ResourceType.Wood, -gateWoodCost * multiplier);
-                    GateFactory.Place(point, FactionId.Player, gateBuildTime);
+                    GateFactory.Place(point, NetworkMatch.LocalFaction, gateBuildTime);
                     break;
                 case BuildingKind.Tower:
                     stockpile.Add(ResourceType.Wood, -towerWoodCost * multiplier);
                     stockpile.Add(ResourceType.Stone, -towerStoneCost * multiplier * StoneMultiplierFor(kind));
-                    TowerFactory.Place(point, FactionId.Player, towerBuildTime);
+                    TowerFactory.Place(point, NetworkMatch.LocalFaction, towerBuildTime);
                     break;
                 case BuildingKind.Market:
                     stockpile.Add(ResourceType.Wood, -marketWoodCost * multiplier);
                     stockpile.Add(ResourceType.Gold, -marketGoldCost * multiplier);
-                    MarketFactory.Place(point, FactionId.Player, marketBuildTime);
+                    MarketFactory.Place(point, NetworkMatch.LocalFaction, marketBuildTime);
                     break;
                 case BuildingKind.Dock:
                     stockpile.Add(ResourceType.Wood, -dockWoodCost * multiplier);
                     stockpile.Add(ResourceType.Stone, -dockStoneCost * multiplier);
-                    DockFactory.Place(point, FactionId.Player, dockBuildTime);
+                    DockFactory.Place(point, NetworkMatch.LocalFaction, dockBuildTime);
                     break;
                 case BuildingKind.LumberCamp:
                     stockpile.Add(ResourceType.Wood, -lumberCampWoodCost * multiplier);
-                    LumberCampFactory.Place(point, FactionId.Player, lumberCampBuildTime);
+                    LumberCampFactory.Place(point, NetworkMatch.LocalFaction, lumberCampBuildTime);
                     break;
                 case BuildingKind.MiningCamp:
                     stockpile.Add(ResourceType.Wood, -miningCampWoodCost * multiplier);
-                    MiningCampFactory.Place(point, FactionId.Player, miningCampBuildTime);
+                    MiningCampFactory.Place(point, NetworkMatch.LocalFaction, miningCampBuildTime);
                     break;
                 case BuildingKind.Mill:
                     stockpile.Add(ResourceType.Wood, -millWoodCost * multiplier);
-                    MillFactory.Place(point, FactionId.Player, millBuildTime);
+                    MillFactory.Place(point, NetworkMatch.LocalFaction, millBuildTime);
                     break;
             }
         }
 
         private bool CanAfford(BuildingKind kind)
         {
-            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
+            ResourceStockpile stockpile = ResourceStockpile.For(NetworkMatch.LocalFaction);
             // Phase 6 gap-close: EconomyTechProgress's TradeDiscounts tech
             // stacks multiplicatively with the civ's own build-cost bonus
             // (e.g. Chola's existing -15%), same "multiply everything
             // relevant together" convention as every other layered bonus.
-            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).BuildCostMultiplier
-                * (EconomyTechProgress.HasResearched(FactionId.Player, EconomyTech.TradeDiscounts) ? EconomyTechDefinition.For(EconomyTech.TradeDiscounts).Bonus : 1f);
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(NetworkMatch.LocalFaction)).BuildCostMultiplier
+                * (EconomyTechProgress.HasResearched(NetworkMatch.LocalFaction, EconomyTech.TradeDiscounts) ? EconomyTechDefinition.For(EconomyTech.TradeDiscounts).Bonus : 1f);
 
             switch (kind)
             {

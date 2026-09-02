@@ -9,6 +9,7 @@ using KingdomsOfBharat.Wildlife;
 using KingdomsOfBharat.Camera;
 using KingdomsOfBharat.Audio;
 using KingdomsOfBharat.Multiplayer;
+using KingdomsOfBharat.Multiplayer.Wire;
 
 namespace KingdomsOfBharat.Selection
 {
@@ -530,16 +531,18 @@ namespace KingdomsOfBharat.Selection
                     repairer?.CancelRepair();
                     FactionId attackFaction = unit.TryGetComponent(out FactionMember attackUnitFaction)
                         ? attackUnitFaction.Faction
-                        : FactionId.Player;
-                    CommandBus.Enqueue(new AttackCommand(attackFaction, attacker, attackable, attacker.AttackMove));
+                        : NetworkMatch.LocalFaction;
+                    int attackTick = CommandBus.Enqueue(new AttackCommand(attackFaction, attacker, attackable, attacker.AttackMove));
+                    SendNetworkCommand(CommandSerializer.ForAttack(attackTick, attackFaction, unit, attackable));
                 }
                 else if (hitAttackable && boatAttacker != null && IsHostileTarget(unit, attackable))
                 {
                     boatGatherer?.CancelGather();
                     FactionId attackFaction = unit.TryGetComponent(out FactionMember attackUnitFaction)
                         ? attackUnitFaction.Faction
-                        : FactionId.Player;
-                    CommandBus.Enqueue(new AttackCommand(attackFaction, boatAttacker, attackable, boatAttacker.AttackMove));
+                        : NetworkMatch.LocalFaction;
+                    int boatAttackTick = CommandBus.Enqueue(new AttackCommand(attackFaction, boatAttacker, attackable, boatAttacker.AttackMove));
+                    SendNetworkCommand(CommandSerializer.ForAttack(boatAttackTick, attackFaction, unit, attackable));
                 }
                 else
                 {
@@ -558,8 +561,10 @@ namespace KingdomsOfBharat.Selection
                             : GroupFormation.GetOffset(_currentFormation, formationIndex, _selected.Count, formationSpacing, formationMoveDirection);
                         FactionId faction = unit.TryGetComponent(out FactionMember unitFaction)
                             ? unitFaction.Faction
-                            : FactionId.Player;
-                        CommandBus.Enqueue(new MoveCommand(faction, mover, hit.point + offset));
+                            : NetworkMatch.LocalFaction;
+                        Vector3 destination = hit.point + offset;
+                        int moveTick = CommandBus.Enqueue(new MoveCommand(faction, mover, destination));
+                        SendNetworkCommand(CommandSerializer.ForMove(moveTick, faction, unit, destination));
                         formationIndex++;
                     }
                     else if (unit.TryGetComponent(out WaterMover waterMover))
@@ -697,6 +702,18 @@ namespace KingdomsOfBharat.Selection
             }
         }
 
+        // Phase 5 LAN transport MVP: the remote peer needs this exact
+        // order too, scheduled for the same tick CommandBus.Enqueue already
+        // computed - see CommandSerializer.cs/LanTransport.cs. No-op in
+        // single-player (NetworkMatch.IsActive stays false).
+        private static void SendNetworkCommand(NetMessageEnvelope envelope)
+        {
+            if (NetworkMatch.IsActive)
+            {
+                NetworkMatch.Transport.Send(envelope);
+            }
+        }
+
         // No FactionMember present is treated as "not player-controllable"
         // here (unlike the fail-open combat/build checks below) - every
         // spawner tags its units, so absence would mean something's wrong
@@ -705,7 +722,7 @@ namespace KingdomsOfBharat.Selection
         private static bool IsPlayerControllable(Unit unit)
         {
             return unit.TryGetComponent(out FactionMember factionMember)
-                && factionMember.Faction == FactionId.Player;
+                && factionMember.Faction == NetworkMatch.LocalFaction;
         }
 
         // Neutral (no FactionMember) targets/sites are always valid - see
@@ -738,8 +755,8 @@ namespace KingdomsOfBharat.Selection
         private static bool IsFriendlyToPlayer(Component target)
         {
             return !target.TryGetComponent(out FactionMember targetFaction)
-                || targetFaction.Faction == FactionId.Player
-                || DiplomacyRegistry.AreAllied(FactionId.Player, targetFaction.Faction);
+                || targetFaction.Faction == NetworkMatch.LocalFaction
+                || DiplomacyRegistry.AreAllied(NetworkMatch.LocalFaction, targetFaction.Faction);
         }
 
         private static bool IsSameFaction(Unit source, Component target)

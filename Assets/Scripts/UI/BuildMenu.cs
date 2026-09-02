@@ -7,6 +7,7 @@ using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Progression;
 using KingdomsOfBharat.Multiplayer;
+using KingdomsOfBharat.Multiplayer.Wire;
 using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.UI
@@ -262,7 +263,7 @@ namespace KingdomsOfBharat.UI
             Building selected = _selectionManager != null ? _selectionManager.SelectedBuilding : null;
             bool ownsSelected = selected != null
                 && selected.TryGetComponent(out FactionMember factionMember)
-                && factionMember.Faction == FactionId.Player;
+                && factionMember.Faction == NetworkMatch.LocalFaction;
 
             bool showPlacement = selected == null
                 && _placer != null && !BuildingPlacer.IsPlacing && HasBuilderSelected();
@@ -365,13 +366,13 @@ namespace KingdomsOfBharat.UI
             UpdateUpgradeButton(
                 attackUpgradeButton, attackUpgradeLabel, "Attack",
                 barracks.IsComplete, barracks.IsResearchingAttack, barracks.AttackResearchProgress,
-                UpgradeProgress.AttackTier(FactionId.Player), UpgradeProgress.HasNextAttackTier(FactionId.Player),
+                UpgradeProgress.AttackTier(NetworkMatch.LocalFaction), UpgradeProgress.HasNextAttackTier(NetworkMatch.LocalFaction),
                 barracks.NextAttackUpgradeCost);
 
             UpdateUpgradeButton(
                 armorUpgradeButton, armorUpgradeLabel, "Armor",
                 barracks.IsComplete, barracks.IsResearchingArmor, barracks.ArmorResearchProgress,
-                UpgradeProgress.ArmorTier(FactionId.Player), UpgradeProgress.HasNextArmorTier(FactionId.Player),
+                UpgradeProgress.ArmorTier(NetworkMatch.LocalFaction), UpgradeProgress.HasNextArmorTier(NetworkMatch.LocalFaction),
                 barracks.NextArmorUpgradeCost);
 
             UpdateUniqueTechButton(barracks);
@@ -489,14 +490,14 @@ namespace KingdomsOfBharat.UI
                 return;
             }
 
-            if (!AgeProgress.HasNextAge(FactionId.Player))
+            if (!AgeProgress.HasNextAge(NetworkMatch.LocalFaction))
             {
                 ageButton.interactable = false;
                 ageLabel.text = "Imperial Age (Max)";
                 return;
             }
 
-            AgeProfile next = AgeProfile.For(AgeProgress.NextAge(FactionId.Player));
+            AgeProfile next = AgeProfile.For(AgeProgress.NextAge(NetworkMatch.LocalFaction));
             ageButton.interactable = true;
             ageLabel.text = $"Advance to {next.DisplayName} ({(int)next.WoodCost} Wood, {(int)next.StoneCost} Stone)";
         }
@@ -533,7 +534,7 @@ namespace KingdomsOfBharat.UI
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is TownCenter townCenter)
             {
-                CommandBus.Enqueue(new TrainCommand(BuildingFaction(townCenter), townCenter, townCenter.RequestTrain));
+                EnqueueTrain(townCenter, townCenter.RequestTrain, NetTrainKind.Soldier);
             }
         }
 
@@ -541,7 +542,7 @@ namespace KingdomsOfBharat.UI
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
-                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrain));
+                EnqueueTrain(barracks, barracks.RequestTrain, NetTrainKind.Soldier);
             }
         }
 
@@ -549,7 +550,7 @@ namespace KingdomsOfBharat.UI
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
-                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrainArcher));
+                EnqueueTrain(barracks, barracks.RequestTrainArcher, NetTrainKind.Archer);
             }
         }
 
@@ -557,7 +558,7 @@ namespace KingdomsOfBharat.UI
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
-                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrainCavalry));
+                EnqueueTrain(barracks, barracks.RequestTrainCavalry, NetTrainKind.Cavalry);
             }
         }
 
@@ -565,7 +566,7 @@ namespace KingdomsOfBharat.UI
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
-                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrainSiege));
+                EnqueueTrain(barracks, barracks.RequestTrainSiege, NetTrainKind.Siege);
             }
         }
 
@@ -573,7 +574,7 @@ namespace KingdomsOfBharat.UI
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
-                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrainSpearman));
+                EnqueueTrain(barracks, barracks.RequestTrainSpearman, NetTrainKind.Spearman);
             }
         }
 
@@ -581,7 +582,7 @@ namespace KingdomsOfBharat.UI
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
-                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, barracks.RequestTrainUniqueUnit));
+                EnqueueTrain(barracks, barracks.RequestTrainUniqueUnit, NetTrainKind.UniqueUnit);
             }
         }
 
@@ -589,7 +590,7 @@ namespace KingdomsOfBharat.UI
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
-                CommandBus.Enqueue(new TrainCommand(BuildingFaction(barracks), barracks, () => barracks.RequestTrainUniqueUnit(1)));
+                EnqueueTrain(barracks, () => barracks.RequestTrainUniqueUnit(1), NetTrainKind.UniqueUnitSlot1);
             }
         }
 
@@ -610,7 +611,7 @@ namespace KingdomsOfBharat.UI
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Dock dock)
             {
-                CommandBus.Enqueue(new TrainCommand(BuildingFaction(dock), dock, dock.RequestTrainFishingBoat));
+                EnqueueTrain(dock, dock.RequestTrainFishingBoat, NetTrainKind.FishingBoat);
             }
         }
 
@@ -618,7 +619,23 @@ namespace KingdomsOfBharat.UI
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Dock dock)
             {
-                CommandBus.Enqueue(new TrainCommand(BuildingFaction(dock), dock, dock.RequestTrainWarGalley));
+                EnqueueTrain(dock, dock.RequestTrainWarGalley, NetTrainKind.WarGalley);
+            }
+        }
+
+        // Phase 5 LAN transport MVP: every Train button funnels through
+        // here instead of calling CommandBus.Enqueue directly, so the
+        // matching NetTrainCommand only needs writing once. No-op network
+        // send in single-player (NetworkMatch.IsActive stays false) - see
+        // NetworkMatch.cs.
+        private static void EnqueueTrain(Building source, System.Action requestTrain, NetTrainKind netKind)
+        {
+            FactionId faction = BuildingFaction(source);
+            int tick = CommandBus.Enqueue(new TrainCommand(faction, source, requestTrain));
+
+            if (NetworkMatch.IsActive)
+            {
+                NetworkMatch.Transport.Send(CommandSerializer.ForTrain(tick, faction, source, netKind));
             }
         }
 
@@ -641,7 +658,7 @@ namespace KingdomsOfBharat.UI
 
         private static FactionId BuildingFaction(Component building)
         {
-            return building.TryGetComponent(out FactionMember member) ? member.Faction : FactionId.Player;
+            return building.TryGetComponent(out FactionMember member) ? member.Faction : NetworkMatch.LocalFaction;
         }
 
         private void ResearchAttackAtSelected()
@@ -671,7 +688,7 @@ namespace KingdomsOfBharat.UI
         private void RequestAgeUpAtSelected()
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is TownCenter townCenter
-                && !townCenter.IsAgingUp && AgeProgress.HasNextAge(FactionId.Player))
+                && !townCenter.IsAgingUp && AgeProgress.HasNextAge(NetworkMatch.LocalFaction))
             {
                 townCenter.RequestAgeUp();
             }

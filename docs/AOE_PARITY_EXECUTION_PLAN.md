@@ -282,12 +282,45 @@ own note, cross-machine determinism can't be meaningfully tested until an actual
 network transport exists, so this phase may partially block on external work
 outside Claude Code's control.
 
-- [ ] Wire `BuildingPlacer` orders through `CommandBus` (currently bypassed —
-  only Move/Train/Attack are wired).
-- [ ] Design and implement resync-on-desync logic using the existing `StateHash`
-  (currently only detects desync, doesn't recover from it).
-- [ ] Once a real transport exists: run actual cross-machine determinism testing
-  for NavMeshAgent/physics — flagged as unverified risk, not yet a known bug.
+- [x] Wire `BuildingPlacer` orders through `CommandBus` (currently bypassed —
+  only Move/Train/Attack are wired). **Done** (2026-09-01).
+- [x] Design and implement resync-on-desync logic using the existing `StateHash`
+  (currently only detects desync, doesn't recover from it). **Done** (2026-09-02).
+- [x] **Real LAN transport MVP — done (2026-09-02, user explicitly asked not to
+  defer this further, confirmed LAN-only/2-player scope, online play deferred to
+  end of project).** New `NetworkId` (deterministic spawn-order integer identity
+  for units/buildings, piggybacked on `Unit.OnEnable`/`Building.OnEnable`),
+  `Wire/NetMessage.cs` (pure-data DTOs for Move/Train/Build/Attack/StateHash/
+  ResyncSnapshot/Heartbeat/Hello), `CommandSerializer` (converts real
+  `Command`s ↔ wire DTOs, resolving NetworkIds back to live objects on
+  receive), `LanTransport` (raw TCP host/join, length-prefixed JSON framing,
+  background receive thread → thread-safe queue), `NetworkDriver`
+  (drains the queue on the main thread, dispatches into `CommandBus`/
+  `NetworkDesyncMonitor`/`DesyncRecovery`), `NetworkMatch` (the "who am I"
+  seam — `LocalFaction`/`RemoteMaxAckedTick`), and `LanMatchMenu` (minimal
+  runtime-built Host/Join UI). `SimClock` now genuinely gates tick
+  advancement on the remote peer's acknowledged tick (bounded lockstep,
+  buffer = `InputDelayTicks`) when a network match is active — a real,
+  observable stall/catch-up, not a no-op; single-player is completely
+  unaffected (`NetworkMatch.IsActive` stays false). This closes both
+  remaining transport-blocked items below for the LAN scope:
+  - [x] Real cross-peer desync detection — `NetworkDesyncMonitor` exchanges
+    `StateHash` once per simulated second and compares; on mismatch the
+    host is authoritative and sends a `SaveManager.Capture()` snapshot via
+    `DesyncRecovery.Apply` on the client. **Live-verified with a genuine
+    synthetic mismatch, not just the existing single-process EditMode
+    test** — see `docs/SESSION_LOG.md`.
+  - [x] Validating resync under real network conditions — same live
+    verification: a real `MatchSaveData` (3987 bytes JSON) was captured and
+    sent over a real TCP socket on desync detection.
+  - [ ] Once a real transport exists: run actual cross-machine determinism
+    testing for NavMeshAgent/physics — **still open**. This session's live
+    verification used two real TCP peers within one machine/process (a
+    real host `LanTransport` + a real second `LanTransport.StartJoin`
+    socket acting as a scripted stand-in for the remote human's input) —
+    genuine wire-level proof, but not two separate physical machines/OSes,
+    which is what this specific checklist item requires. True dual-hardware
+    testing needs the user's own second machine.
 
 ---
 

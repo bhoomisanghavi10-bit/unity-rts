@@ -5,6 +5,166 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-02 — Phase 5: real LAN transport MVP (2-player)
+
+**Scope**: user explicitly asked not to leave Phase 5 (multiplayer determinism)
+deferred any further. Clarified scope first (LAN-only, 2 human players; online
+play/matchmaking explicitly deferred to "end of the project" per the user's own
+words) before any implementation, since the full AoE-Parity execution plan's
+Phase 5 checklist was blocked on "a real transport that doesn't exist yet" for:
+real cross-peer desync detection, validating resync under real network
+conditions, and cross-machine determinism testing. Plan Mode used given the
+size (new greenfield subsystem, ~10 new files, edits across 7 existing files).
+
+**What already existed and had to be reused, not rebuilt**: `CommandBus`
+(input-delay queue, `InputDelayTicks=4`), `Command`/`MoveCommand`/
+`TrainCommand`/`BuildCommand`/`AttackCommand` (live-object/closure-based, not
+serializable), `SimClock` (20Hz tick clock), `StateHash` (FNV-1a hash of
+Unit.All's positions/faction/health, recomputed once/sim-second), and
+`DesyncRecovery.Apply`/`SaveManager.Capture`/`ApplySnapshotToRunningMatch`
+(already `[Serializable]`/JSON-round-tripped for F5/F9 quicksave, already
+built as the intended transport-facing seam per its own prior comment). None
+of the existing multiplayer-foundation code needed restructuring — this
+session's job was building the missing pieces around it.
+
+**New code** (`Assets/Scripts/Multiplayer/`):
+- `NetworkId.cs` — a deterministic spawn-order integer identity for units/
+  buildings, assigned centrally from `Unit.OnEnable`/`Building.OnEnable`
+  (one line added to each) rather than touching any of the ~15 factory
+  files. Reset once, at the very top of `CivilizationSetup.BeginMatchCore`
+  (before any gated spawner activates a match's initial units/buildings —
+  had to be here rather than in `SimClock`'s own match-start block, which
+  fires a frame later, after those initial spawns already happened).
+- `Wire/NetMessage.cs` — pure-data DTOs (`NetMessageEnvelope` + `NetTrainKind`/
+  `NetBuildKind` enums) for every command type plus StateHash/ResyncSnapshot/
+  Heartbeat/Hello messages. One shared envelope struct (not polymorphic
+  types) since `JsonUtility` can't serialize a C# union - `kind` discriminates
+  which fields are meaningful.
+- `CommandSerializer.cs` — the one place that knows how to go from a real
+  `Command` to its DTO (using data already at hand at each origination call
+  site, not reflection into private fields) and back (resolving NetworkIds to
+  live objects, re-deriving the same delegate shape each factory's own
+  `RequestTrain*`/`ExecuteBuild`/`AttackMove` call already uses).
+- `LanTransport.cs` — raw TCP (not UDP: lockstep needs guaranteed in-order
+  delivery, and LAN latency is irrelevant against the existing 200ms
+  `InputDelayTicks` budget), length-prefixed JSON framing, a background
+  accept/connect thread and a background receive thread pushing into a
+  `ConcurrentQueue` — every Unity API touch stays on the main thread.
+- `NetworkDriver.cs` — self-installing `MonoBehaviour` (same convention as
+  `SimClock`/`SaveManager`) that drains that queue once per `Update()` and
+  dispatches into `CommandBus.EnqueueAt`/`NetworkDesyncMonitor`/
+  `DesyncRecovery.Apply`.
+- `NetworkMatch.cs` — the "who am I" seam that was missing entirely before
+  this: `LocalFaction` (defaults to `FactionId.Player`, so every existing
+  single-player/AI-opponent flow is untouched), `RemoteMaxAckedTick` (the
+  actual lockstep gate `SimClock` reads).
+- `NetworkDesyncMonitor.cs` — exchanges `StateHash` once per simulated second;
+  on a real mismatch, the host (authoritative) captures and sends a real
+  `MatchSaveData` snapshot, the client applies it via the existing
+  `DesyncRecovery.Apply`.
+- `LanMatchMenu.cs` — minimal Host/Join entry point, built entirely at
+  runtime via plain uGUI (`Text`/`Button`/`InputField`, no 9-slice theming) —
+  a disclosed, deliberate visual-polish compromise (flagged per CLAUDE.md's
+  own "flag when something needs real art/UI work" rule), not a functional
+  gap. Handshake protocol: once TCP connects, host sends `HostHello` (its own
+  civ pick + map + a freshly generated seed) and joiner sends `JoinHello`
+  (its own civ pick) independently, neither waiting on the other first; each
+  side finalizes (`NetworkMatch.Begin` + a new
+  `CivilizationSetup.BeginNetworkMatch`) the moment it receives the other's
+  Hello.
+
+**Modified**: `Unit.cs`/`Building.cs` (NetworkId assignment hook),
+`CivilizationSetup.cs` (NetworkId.Reset() call + new `BeginNetworkMatch` entry
+point sourcing civs from the handshake instead of Inspector defaults, mirroring
+`BeginScenarioMatch`'s existing pattern; `NetworkMatch.End()` added to
+`OnDestroy`), `SimClock.cs` (the actual lockstep gate — ticks won't advance
+past `NetworkMatch.RemoteMaxAckedTick`, an initial handshake Heartbeat breaks
+the chicken-and-egg at tick 1, ongoing Heartbeats sent after each tick fires;
+`NetworkMatch.PendingSeed` takes priority over the single-player reseed
+fallback), `BuildingPlacer.cs`/`BuildMenu.cs`/`SelectionManager.cs` (every
+hardcoded `FactionId.Player` "who is clicking" reference replaced with
+`NetworkMatch.LocalFaction` — ~40 occurrences across the 3 files, all of them
+genuinely meant "the local human," never literally "the enum value Player";
+each of the 4 order-origination call sites — Move/Attack in
+`SelectionManager`, Train in `BuildMenu`, Build in `BuildingPlacer` — now also
+sends the matching wire envelope when `NetworkMatch.IsActive`, no-op otherwise).
+
+**Tests**: 18 new EditMode tests (145 total, up from 127) — `NetworkIdTests.cs`
+(assignment determinism, stale-reference resolution, separate unit/building
+sequences, Reset semantics), `CommandSerializerTests.cs` (receive-side
+reconstruction for all 4 command types incl. stale-NetworkId → null, plus a
+`NetMessageEnvelope` JSON round-trip fidelity check), and `LanTransportTests.cs`
+— genuinely two real OS TCP sockets talking over 127.0.0.1 within one test
+process (connect, bidirectional delivery with field fidelity, disconnect
+propagation) - the closest thing to "real cross-peer" achievable inside a
+single EditMode run.
+
+**Live verification** (Play mode via UnityMCP) — went well beyond the EditMode
+tests specifically to prove the "real cross-peer" claim genuinely, not just
+in-memory: started a real match, opened a real `LanTransport.StartHost`, and
+a real second `LanTransport.StartJoin("127.0.0.1", ...)` socket standing in
+for the remote human (a real second OS TCP connection, not a mock). Called
+`NetworkMatch.Begin`/`CivilizationSetup.BeginNetworkMatch` directly (bypassing
+`LanMatchMenu`'s UI clicks, same "bypass the menu flow" convention prior
+sessions used for gameplay-entity spawn testing) to start a genuine
+network-gated match. Proved, in order:
+1. **Lockstep gating is real, not a no-op**: `SimClock.CurrentTick` stayed
+   pinned at 0 across real elapsed Play-mode time until the "remote" peer's
+   handshake Heartbeat was actually received - confirmed by directly reading
+   `SimClock.CurrentTick`/`NetworkMatch.RemoteMaxAckedTick` between separate
+   `execute_code` calls (each call's own synchronous execution blocks Unity's
+   main thread, so real wall-clock elapsed *between* calls, not within one, is
+   what let `Update()`/ticks actually progress).
+2. Once the remote's Heartbeat arrived, `CurrentTick` advanced to exactly the
+   acknowledged bound (4) and correctly stalled again there.
+3. A locally-originated `MoveCommand` (spawned via the real `SoldierFactory`)
+   was serialized and delivered to the "remote" socket with the exact
+   scheduled tick/faction/unitNetId/destination intact.
+4. A `Move` order **sent from the "remote" socket** for a separately-spawned
+   Enemy-faction unit was received, resolved via `NetworkId`, enqueued into
+   the real `CommandBus`, and executed at its scheduled tick — the unit's
+   `NavMeshAgent` genuinely moved to the exact remote-specified destination
+   (verified via position before/after). Hit and worked around one
+   test-artifact false alarm along the way: an enemy unit spawned far outside
+   the baked NavMesh silently failed `SetDestination` ("not close enough to
+   the NavMesh") - not a networking bug, fixed by respawning within the
+   actual playable area.
+5. The real `StateHash` (recomputed once/sim-second) was sent to the peer and
+   matched.
+6. **Forced a genuine desync**: sent a deliberately wrong hash from the
+   "remote" socket for a tick the host had already hashed - the host's
+   `NetworkDesyncMonitor` logged the real mismatch (`[NetworkDesyncMonitor]
+   Desync detected...`) and, being host/authoritative, captured a real
+   `SaveManager.Capture()` snapshot (3987 bytes of JSON) and sent it over the
+   actual TCP connection as a `ResyncSnapshot` message - confirmed by
+   dequeuing it from the "remote" socket's own receive queue.
+
+This directly closes 2 of Phase 5's 3 remaining transport-blocked checklist
+items with genuine live evidence (real cross-peer desync detection; validating
+resync under real network conditions) - not the earlier single-process
+synthetic test. **Not claimed as done**: true cross-machine NavMeshAgent/
+physics determinism testing - this verification used two real sockets within
+one machine/process, not two separate physical machines/OSes, which needs the
+user's own second machine to actually run.
+
+**Console**: only 1 self-caused error (the off-NavMesh spawn noted above), and
+1 pre-existing unrelated scaffolding warning (`AiController on
+'TestAi_MultiFront'...`) - no new errors from any of this session's own code.
+
+**Roadmap/CLAUDE.md**: Section 1's Phase 5 item and
+`docs/AOE_PARITY_EXECUTION_PLAN.md`'s Phase 5 checklist updated - both
+transport-blocked items closed for the LAN scope, cross-machine testing
+explicitly still open pending the user's own hardware.
+
+**Not built this session, deliberately**: online play/matchmaking/NAT
+traversal (explicit user instruction to defer to later), reconnect-after-drop,
+>2 players, spectators. `MatchSaveData`'s pre-existing v1 fidelity gaps
+(in-progress construction/training countdowns, rally points, current unit
+orders - see `SaveManager.cs`'s own documented limitations) are inherited
+unchanged by the resync path, not newly introduced or fixed here.
+
+---
+
 ## 2026-09-02 — Remove 2 broken civ building models + close Naval balance findings
 
 **Note**: this session started on the Crusader Knight body-swap item (Roadmap Section
