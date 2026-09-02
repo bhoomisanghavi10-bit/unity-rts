@@ -904,12 +904,11 @@ civ-specific building art landed across sessions since (43/45; see Section 5 ite
   Mughal/colonial-era domed palace than to actual Mauryan-era architecture
   (Ashokan pillars, stupas, polished sandstone, no big central dome) — flagged as
   an authenticity nuance, not a "looks bad" finding.
-- **Rajput TownCenter and Maurya Tower currently show the shared/generic
-  fallback model** (confirmed live, not just from the earlier session's file
-  check) — expected, not a new bug: their source art was corrupted at delivery
-  and removed 2026-09-02 (see Section 5 item 7). Re-sourcing is a pending asset
-  need, not a code task. **Rajput TownCenter re-sourced and wired 2026-09-02**
-  (same day, later session) — Maurya Tower remains on the shared fallback.
+- **Rajput TownCenter and Maurya Tower previously showed the shared/generic
+  fallback model** — expected at the time, not a bug: their source art was
+  corrupted at delivery and removed 2026-09-02 (see Section 5 item 7).
+  **Both re-sourced and wired: Rajput TownCenter 2026-09-02, Maurya Tower
+  2026-09-03** — all 45/45 civ-specific buildings are now complete.
 - **Shared "Human Character Dummy" base body is a real, visible gap, confirmed
   live**: 5 civ soldiers spawned side by side are the exact same mannequin-like
   body — same limbs, same faceless head, zero clothing/armor/gear geometry —
@@ -1407,6 +1406,36 @@ buying, or making an asset yourself:
    post-fix. All 146 EditMode tests pass unmodified throughout (including
    `BuildingPolycountTests`), no test code changes needed — pure asset-pipeline
    and prefab-transform-data work. See `docs/SESSION_LOG.md`'s matching entry.
+   **Maurya Tower re-sourced and wired 2026-09-03 — closes the last civ-specific-
+   building gap, 45/45 complete.** The user supplied a fresh delivery at
+   `/Volumes/US/all civ buildings/Maurya/` (`Meshy_AI_Ivory_Sentinel_Tower_...`,
+   identified unambiguously by its internal Meshy filename against the other 6
+   sibling folders already wired 2026-09-01). Packed the raw separate
+   `_metallic.png`/`_roughness.png` into a `_metallicSmoothness.png` via the same
+   scratchpad Python/Pillow approach as the Rajput session (R=metallic,
+   A=1-roughness). Rotation: per this project's own documented gotcha, tested
+   all 6 cardinal-axis candidates against the raw FBX's world bounds first — this
+   asset ties Y-tallest on `X+90`/`X-90` (its raw "up" axis is local Z, not local
+   Y like prior Towers), and per the "always visually confirm both tying
+   candidates" rule, screenshotted both: `X+90` renders upside-down (flared cap
+   at the visual bottom, thin plinth at the visual top), `X-90` matches the
+   Watchtower concept art exactly (stepped lion-guarded base, pillared shaft with
+   slit windows, crenellated parapet with corner turrets, domed cap with
+   finial) — also confirmed via a true top-down shot (compact square footprint,
+   not the elongated one the wrong candidate gives). Solved algebraically for the
+   modelRotationCorrection to bake at import given the fixed civ-blind
+   `ImportRotationCorrections["Tower"]` parent stomp (`Euler(0,0,-90)`):
+   `Quaternion.Inverse(parentStomp) * Euler(-90,0,0)` = `Euler(0,-90,90)` — same
+   solve-don't-guess method the Rajput Tower fix used, then verified visually via
+   the real `BuildingModelFactory.Spawn` path post-import (height matched the
+   computed target to the last decimal, footprint reads as thin/tower-like, not
+   sprawling). Scale: worker height re-measured fresh (1.960884, vs. the
+   documented 1.902692 baseline) and the established Maurya ratio hierarchy's
+   Tower value (8.00) scaled proportionally to 8.245 rather than reused blind.
+   Decimated 1,979,816 → 500,000 tris via `BuildingMeshDecimator`, matching every
+   other building's already-validated target. All 146 EditMode tests pass
+   unmodified — pure asset-pipeline work, no test changes needed. See
+   `docs/SESSION_LOG.md`'s matching entry.
 8. ~~**Visual closure for the 4 Maurya/Maratha unique units** — real Meshy-sourced
    models, rigged via Blender command-line scripting (3 onto the existing shared
    human rig, the War Elephant onto a real third-party elephant skeleton+animation

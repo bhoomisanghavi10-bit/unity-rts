@@ -7,6 +7,37 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Maurya Tower re-sourced and wired (2026-09-03, Section 1/5 item 7)** —
+  closes the last civ-specific-building gap: **45/45 civ-specific buildings now
+  complete** across all 5 civs. User supplied a fresh delivery at
+  `/Volumes/US/all civ buildings/Maurya/` (folder `Meshy_AI_Ivory_Sentinel_Tower_...`,
+  identified unambiguously by its internal Meshy filename). Packed the raw
+  separate metallic/roughness textures into a `_metallicSmoothness.png` via a
+  scratchpad Python/Pillow script (same approach as the 2026-09-02 Rajput
+  session), then wired via the existing `MeshyBuildingImporter`/
+  `BuildingMeshDecimator` pipeline unchanged, no code changes needed.
+  **Rotation determined empirically, not guessed**: tested all 6 cardinal-axis
+  candidates against the raw FBX's own world bounds first (per
+  `feedback_tower_rotation_correction.md`); this asset ties Y-tallest on
+  `X+90`/`X-90` (its raw up-axis is local Z, unlike prior Towers' local Y) —
+  screenshotted both tying candidates against the folder's own Watchtower
+  concept art before committing: `X+90` was upside-down (flared cap at the
+  visual bottom), `X-90` matched the concept art exactly (stepped lion-guarded
+  base, pillared shaft, crenellated parapet, domed cap), also confirmed via a
+  true top-down shot (compact square footprint, not the elongated one the wrong
+  candidate gives). Solved algebraically for the prefab's baked
+  `modelRotationCorrection` given the fixed civ-blind
+  `ImportRotationCorrections["Tower"]` parent stomp
+  (`Quaternion.Inverse(parentStomp) * Euler(-90,0,0)` = `Euler(0,-90,90)`), then
+  verified via the real `BuildingModelFactory.Spawn` path post-import (world
+  height matched the computed target to the last decimal). Scale: worker height
+  re-measured fresh (1.960884, vs. the previously-documented 1.902692 baseline)
+  and the established Maurya ratio hierarchy's Tower value (8.00) scaled
+  proportionally to 8.245 rather than reused blind. Decimated 1,979,816 →
+  500,000 tris via `BuildingMeshDecimator`, matching every other building's
+  already-validated target. All 146 EditMode tests pass unmodified — pure
+  asset-pipeline work, no test changes needed. See `docs/SESSION_LOG.md`'s
+  matching entry for full detail.
 - **Rajput TownCenter/Barracks re-sourced, Rajput Tower rotation fixed
   (2026-09-02/03, Section 1/5 item 7)** — closes the 2 findings the mesh-
   decimation session flagged but didn't fix (see this file's own note below).
@@ -411,10 +442,11 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: **Rajput TownCenter/Barracks re-sourced and Rajput Tower's
-  rotation bug fixed (2026-09-02/03) — both findings flagged by the mesh-
-  decimation session are now closed**, see this file's own bullet above for
-  full detail. The mesh decimation pass itself (Section 1/5 item 17) closed
+- Currently on: **Maurya Tower re-sourced and wired (2026-09-03) — closes the
+  last civ-specific-building gap, 45/45 complete**, see this file's own bullet
+  above for full detail. Before that: Rajput TownCenter/Barracks re-sourced and
+  Rajput Tower's rotation bug fixed (2026-09-02/03) — both findings flagged by
+  the mesh-decimation session, closed. The mesh decimation pass itself (Section 1/5 item 17) closed
   2026-09-02 — see Roadmap Section 1/5 for full detail (44/45 buildings
   decimated to ~500,000 tris each, real target-ratio finding, new regression
   test). Otherwise: Section 5 items 1-9 and
@@ -432,14 +464,10 @@ asset requirements, 5. Priority order).
   play/matchmaking/NAT traversal deferred per explicit user instruction
   ("at the end of the project"). **Both Naval balance follow-up
   findings closed 2026-09-02** (see this session's own bullet above) — no
-  longer an open item. Item 7 (civ-specific building models) is at
-  **44/45** — Chola/Vijayanagara/Rajput/Maratha are 9/9 each (Rajput's
-  TownCenter and Barracks re-sourced 2026-09-02/03, see this file's own bullet
-  above); Maurya is 8/9, missing Tower (its source FBX was confirmed 0 bytes
-  from the original delivery, unrecoverable from git history — removed
-  2026-09-02 rather than left silently broken, renders the shared fallback
-  model; re-sourcing real art for it is a pending asset need, not a code
-  task).
+  longer an open item. **Item 7 (civ-specific building models) is now
+  45/45, fully complete** — all 5 civs are 9/9 (Rajput's TownCenter and
+  Barracks re-sourced 2026-09-02/03; Maurya's Tower re-sourced 2026-09-03, see
+  this file's own bullet above for both).
   `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any future
   civ-model work, but every lesson below stays load-bearing: never trust bounds
   alone (an angled `game_view` screenshot at identity can *look* upright via
@@ -469,12 +497,11 @@ asset requirements, 5. Priority order).
   restored, or replacements) before the ~247x `humanScale` fix and
   weapon-re-parenting work can resume — see this session's own bullet above),
   **per-civ gear/prop variants** (helmet/shield/weapon style per civ — real new
-  asset need, spec written 2026-09-01, needs the user to source),
-  **re-sourcing the Rajput TownCenter / Maurya Tower models** (see item 7
-  above — same "needs new art, not code" shape as the Crusader Knight
-  blocker), other "everything else" items (music, tutorial, performance
-  profiling, store assets, multiplayer determinism gaps, README drift), or
-  continued balance work — user's call.
+  asset need, spec written 2026-09-01, needs the user to source; item 7's
+  civ-specific building models are now fully done, 45/45), other
+  "everything else" items (music, tutorial, performance profiling, store
+  assets, multiplayer determinism gaps, README drift), or continued balance
+  work — user's call.
 - Last completed (this session): **General garrisoning system, AoE IV style**
   (Roadmap Section 1 worker-mechanics-audit item / Section 5 item 12) — pooled
   capacity, any eligible friendly land unit, scaling defensive firepower, and

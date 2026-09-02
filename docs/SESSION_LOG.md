@@ -5,6 +5,108 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Re-source Maurya Tower; closes 45/45 civ-specific buildings
+
+**Scope**: the last remaining civ-specific-building gap (Roadmap Section 1/5 item
+7) — Maurya Tower's original source FBX was confirmed 0 bytes and removed
+2026-09-02, falling back to the shared/generic model. The user located and
+supplied a fresh delivery at `/Volumes/US/all civ buildings/Maurya/` and asked
+for it to be identified and wired in.
+
+**Identification**: the delivery folder had 7 UUID-named subfolders plus 2
+human-named ones (`maurya barrack`, `maurya towncenter`, already wired). Each
+UUID folder's internal Meshy filename was checked directly rather than guessed:
+`Domed_Stone_Sanctuary`→House, `Harbor_Lion_Temple`→Dock,
+`Ancient_Fortress_Wall`→Wall, `Lion_Gate_Citadel`→Gate,
+`Domed_Bazaar_Pavilion`→Market, `Lion_Temple_Farmstead`→Farm — all 6 matching
+buildings already wired 2026-09-01 (no duplicate/ambiguous work needed) — and
+`Ivory_Sentinel_Tower` (folder `01a041e0-a38a-7430-adcd-fd978bbfa3aa`) as the one
+genuinely missing building, Tower. Unambiguous by filename alone.
+
+**Texture packing**: `MeshyBuildingImporter.ImportBuilding` requires a
+pre-packed `*_metallicSmoothness.png`; the raw delivery only had separate
+`_metallic.png`/`_roughness.png`. Packed via a new scratchpad
+Python/numpy/Pillow script (R=metallic, A=1-roughness, same approach the
+2026-09-02/03 Rajput session established), writing into the scratchpad — the
+user's original delivery folder was never modified.
+
+**Rotation — determined empirically per this project's own documented gotcha**
+(`feedback_tower_rotation_correction.md`: test all 6 axis candidates for
+Y-tallest bounds, never guess the counter-rotation axis mathematically). Via
+UnityMCP `execute_code`, instantiated the raw FBX standalone under all 6
+cardinal-axis rotations and measured world bounds:
+
+| rotation | size (x,y,z) |
+|---|---|
+| identity | (0.678, 0.678, **1.903**) |
+| X+90 | (0.678, **1.903**, 0.678) |
+| X-90 | (0.678, **1.903**, 0.678) |
+| Y+90 | (**1.903**, 0.678, 0.678) |
+| Y-90 | (**1.903**, 0.678, 0.678) |
+| Z+90 | (0.678, 0.678, **1.903**) |
+| Z-90 | (0.678, 0.678, **1.903**) |
+
+This asset's raw "up" axis is local Z (not local Y like every prior Tower
+asset), so the tying pair here is X+90/X-90, not the usual Y+90/Y-90 — a new
+variant of the same documented trap, not the identical case. Screenshotted both
+tying candidates (single positioned shots per
+`feedback_unitymcp_batch_screenshot_bug.md`, not `batch="surround"`): X+90
+rendered upside-down (a wide flared "capital" shape at the visual bottom, thin
+plinth at the visual top); X-90 matched the Maurya folder's own Watchtower
+concept art closely — stepped lion-guarded base, pillared shaft with slit
+windows, crenellated parapet with corner turrets, domed cap with finial. A true
+top-down shot of X-90 also confirmed a compact, roughly square footprint (not
+the elongated one X+90 gives), ruling out the "lying on its back but bounds
+look plausible" trap. `Euler(-90,0,0)` locked in as the correct absolute
+orientation.
+
+Since `BuildingModelFactory`'s civ-blind `ImportRotationCorrections["Tower"]`
+stomp (`Euler(0,0,-90)`, applied to the outer wrapper at spawn time) composes
+with whatever `modelRotationCorrection` gets baked onto the nested model child
+at import, the import-time value was solved algebraically rather than guessed:
+`Quaternion.Inverse(parentStomp) * Euler(-90,0,0)` = `Euler(0,-90,90)` — same
+method the 2026-09-02/03 Rajput Tower fix used. Verified by composing forward
+in code (`stomp * candidate` ≈ `Euler(-90,0,0)`, confirmed to float rounding)
+before wiring, then re-verified visually via the real
+`BuildingModelFactory.Spawn` path after import (see Live verification below).
+
+**Scale**: worker height re-measured fresh via UnityMCP (1.960884), differing
+from the previously-documented 1.902692 baseline (likely pose-state
+sensitivity in the measurement, not a regression). Rather than reusing Maurya's
+established Tower ratio value (8.00) blind, scaled it proportionally:
+`8.00 * (1.960884 / 1.902692)` = 8.245, computed `extraScale` from the raw
+model's measured height at the correct rotation (1.902831) to hit that target.
+
+**Import + decimation**: wired via the existing pipeline unchanged —
+`MeshyBuildingImporter.ImportBuilding("Maurya", "Tower", <scratchpad
+folder>, 4.332845f, <solved rotation>)`, then
+`BuildingMeshDecimator.DecimateBuilding("Maurya", "Tower", 500000)` — the
+same 500,000-tri target every other 44 buildings already use (established
+2026-09-02, no new proof-of-concept needed). Console confirmed: `1979816 ->
+500000 tris`.
+
+**Live verification** (UnityMCP, real `BuildingModelFactory.Spawn` path, not
+just the saved prefab): spawned world bounds measured `(2.939, 8.245, 2.939)` —
+height exactly matching the computed target to the last decimal, footprint
+thin and tower-like (not sprawling). Screenshotted 3/4 view (upright, correct
+silhouette, matches concept art), true top-down (compact square footprint), and
+a side-by-side scale comparison against a live-spawned worker with the real
+Maurya civ tint (tower dwarfs the worker as expected, ~4x height). All 146
+EditMode tests pass unmodified — pure asset-pipeline work, no test changes
+needed.
+
+**Result**: 45/45 civ-specific buildings complete across all 5 civs — the last
+gap from the 2026-09-02 mesh-decimation session's own findings is now closed.
+Commit covers `Assets/Resources/Buildings/Maurya/Tower.prefab`,
+`Assets/Resources/Buildings/Maurya/_Source/Tower/`,
+`Assets/Resources/Buildings/Maurya/_Decimated/Tower_decimated.asset`, and the
+matching Roadmap Section 1/5 item 7 + CLAUDE.md status updates. Untracked
+verification screenshots and other pre-existing unstaged files left alone, per
+this session's own scope (matching the 2026-09-02/03 Rajput session's
+precedent).
+
+---
+
 ## 2026-09-02/03 — Re-source Rajput TownCenter and Barracks; fix Rajput Tower rotation
 
 **Scope**: two flagged, unresolved gaps from the same-day mesh-decimation session
