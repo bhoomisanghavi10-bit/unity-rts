@@ -7,6 +7,23 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 4 (Diplomacy — Tribute) closed
+  (2026-09-03)** — picked up right after item 3 per the user's "start item
+  4". That item's own first instruction (check the live UI before writing
+  a new panel) found the stance UI already fully existed
+  (`DiplomacyMenu.cs`, F11, real War/Allied toggle per faction) — only
+  Tribute itself was missing. Asked the user directly (AskUserQuestion)
+  whether Tribute should be alliance-gated or open to any faction (real
+  AoE II's actual rule); confirmed: any faction. New
+  `Assets/Scripts/Core/Tribute.cs` (`Tribute.Send`, 20% tax, deliberately
+  not gated by `DiplomacyRegistry`), 4 new tribute icon buttons per row in
+  `DiplomacyMenu.cs` (flat 50 per click, affordability-gated like
+  `BuildMenu`'s Market buttons). 5 new EditMode tests (164 total, all
+  pass), live-verified via UnityMCP through the real button `onClick` (not
+  just the isolated method) — Player Wood 200→150, Enemy Wood +40 (50 ×
+  0.8 tax) — see `docs/SESSION_LOG.md`'s matching entry. Next per the plan
+  doc's own recommended order: item 5 (Renewable resource / Farms — verify
+  first, then fix if needed), not started.
 - **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 3 (Area of Effect / Trample)
   closed (2026-09-03)** — picked up right after item 2 per the user's
   "start item 3". The plan doc flagged a real design decision (reuse
@@ -537,14 +554,16 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 3 (Area of
-  Effect / Trample) closed (2026-09-03)** — see this file's own bullet
-  above for full detail. Next per that plan doc's own recommended order:
-  item 4 (Diplomacy — tribute), not started, unless the user says
-  otherwise. Before that: **item 2 (Victory Conditions) closed
+- Currently on: **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 4 (Diplomacy —
+  Tribute) closed (2026-09-03)** — see this file's own bullet above for
+  full detail. Next per that plan doc's own recommended order: item 5
+  (Renewable resource / Farms), not started, unless the user says
+  otherwise. Before that: **item 3 (Area of Effect / Trample) closed
   (2026-09-03)** — see this file's own bullet above for full detail.
-  Before that: **item 1 (Hotkeys) closed (2026-09-03)** — see this file's
-  own bullet above for full detail. Before that:
+  Before that: **item 2 (Victory Conditions) closed (2026-09-03)** — see
+  this file's own bullet above for full detail. Before that: **item 1
+  (Hotkeys) closed (2026-09-03)** — see this file's own bullet above for
+  full detail. Before that:
   **"Everything else" items scoped (2026-09-03)** — Music,
   Tutorial, Profiling, Store/marketing assets, and README drift each given a
   concrete scope in Roadmap Section 1; see this file's own bullet above for

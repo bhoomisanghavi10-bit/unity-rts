@@ -5,6 +5,60 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Partial-Elements Fix Plan item 4: Diplomacy (Tribute)
+
+**Scope**: `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 4 ("Diplomacy — tribute and a
+player-facing stance UI"), picked up right after item 3 per the user's "start item
+4". The plan doc's own first instruction for this item is to check the live UI
+before writing a new panel, since it flagged the stance UI as merely "unconfirmed"
+rather than confirmed missing. A direct read of `Assets/Scripts/UI/DiplomacyMenu.cs`
+found it **already fully built and wired**: F11 opens a real panel listing every
+assigned other faction with a live War/Allied toggle, backed by the existing
+`DiplomacyRegistry`. **Tribute (resource transfer) was the only genuinely missing
+piece** (confirmed via grep — no such method existed anywhere).
+
+The plan doc flags one real design decision: gate Tribute behind an existing
+alliance, or allow it to any faction regardless of stance (real AoE II's actual
+rule). Asked the user directly (via AskUserQuestion) rather than picking one
+silently: **any faction, matching AoE II** — confirmed.
+
+**Implementation** (Plan Mode, approved before coding): new
+`Assets/Scripts/Core/Tribute.cs` — a small dedicated static class (matching this
+project's convention of focused single-purpose statics like `TeamBonus.cs`, rather
+than piling a resource-mutating method into `DiplomacyRegistry`, which is purely
+relation-state today). `Tribute.Send(from, to, type, amount)` deducts the full
+amount from the sender's `ResourceStockpile` and credits the receiver with 80% of it
+(`TaxRate = 0.20f`, matching `Market`'s own "tax as friction" convention), rejecting
+self-tribute, non-positive amounts, and insufficient funds — deliberately **no**
+`DiplomacyRegistry` check, per the user's confirmed decision. `DiplomacyMenu.cs`
+gained 4 small icon buttons per faction row (Wood/Food/Stone/Gold, reusing the
+existing `resource_{wood,food,stone,gold}` icons `BuildMenu` already loads for
+Market's Buy/Sell buttons), each sending a flat 50 (`TributeAmount`, same
+flat-increment convention as `BuildMenu.MarketTradeAmount`) and refreshing;
+affordability-gated per resource the same way `BuildMenu.UpdateTradeButton` already
+gates Market's buttons. Box widened 460→800 to fit the new buttons alongside the
+existing name label + War/Allied toggle per row.
+
+**Testing**: 5 new EditMode tests (`TributeTests.cs`, 164 total, all pass) —
+tax-applied-correctly, insufficient-funds-rejected, self-tribute-rejected,
+non-positive-amount-rejected, and (the one behavior this session's design decision
+actually changes) succeeds-while-at-war with no `DiplomacyRegistry.SetAllied` call in
+that test. Live-verified via UnityMCP through the real production path, not just the
+isolated static method: opened the real Diplomacy panel in a running match
+(screenshot confirmed all 4 tribute icons render correctly per row, box widened
+cleanly), confirmed the affordability gate correctly read `False` for 3 unfunded
+resources and `True` for Wood once credited, then invoked the real Wood tribute
+button's own `onClick` (not a direct call to `Tribute.Send`) and confirmed the real
+transfer: Player Wood 200→150 (charged the full 50), Enemy Wood +40 (50 × 0.8 tax).
+
+**Files**: `Assets/Scripts/Core/Tribute.cs` (new), `Assets/Scripts/UI/
+DiplomacyMenu.cs`, `Assets/Tests/EditMode/TributeTests.cs` (new). One scoped commit.
+`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 4 marked done (noting the UI was already
+present, not built new); item 5 (Renewable resource / Farms) is next per that doc's
+recommended order, not started.
+
+---
+
 ## 2026-09-03 — Partial-Elements Fix Plan item 3: Area of Effect / Trample (Cavalry)
 
 **Scope**: `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 3 ("Area of Effect / Trample

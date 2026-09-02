@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using KingdomsOfBharat.Core;
+using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.UI
 {
@@ -29,9 +31,26 @@ namespace KingdomsOfBharat.UI
         private const string ToggleActionId = "ToggleDiplomacy";
         private static readonly KeyCode ToggleDefault = KeyCode.F11;
 
+        // Item 4 (Diplomacy): flat per-click gift amount, same convention as
+        // BuildMenu.MarketTradeAmount - no free-text amount input exists
+        // anywhere in this project's UI, so this doesn't introduce one.
+        private const float TributeAmount = 50f;
+        private static readonly ResourceType[] TributeTypes =
+        {
+            ResourceType.Wood, ResourceType.Food, ResourceType.Stone, ResourceType.Gold,
+        };
+        private static readonly string[] TributeIconNames =
+        {
+            "resource_wood", "resource_food", "resource_stone", "resource_gold",
+        };
+
         private GameObject _panel;
         private FactionId[] _otherFactions = System.Array.Empty<FactionId>();
         private TMP_Text[] _relationTexts = System.Array.Empty<TMP_Text>();
+        // Flat list (not per-row) since every row's Nth tribute button shares
+        // the identical affordability check (the Player's own stockpile) -
+        // RefreshDisplayedValues just walks this once.
+        private readonly List<(Button Button, ResourceType Type)> _tributeButtons = new List<(Button, ResourceType)>();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -70,12 +89,29 @@ namespace KingdomsOfBharat.UI
             RefreshDisplayedValues();
         }
 
+        // Item 4 (Diplomacy): deliberately no DiplomacyRegistry check here -
+        // Tribute.Send itself is stance-independent (user-confirmed, matches
+        // real AoE II - see Tribute.cs). Silent success/no-op on failure,
+        // same minimal-feedback convention BuildMenu's Market Buy/Sell
+        // buttons already use.
+        private void SendTribute(FactionId other, ResourceType type)
+        {
+            Tribute.Send(FactionId.Player, other, type, TributeAmount);
+            RefreshDisplayedValues();
+        }
+
         private void RefreshDisplayedValues()
         {
             for (int i = 0; i < _otherFactions.Length; i++)
             {
                 bool allied = DiplomacyRegistry.AreAllied(FactionId.Player, _otherFactions[i]);
                 _relationTexts[i].text = allied ? "Allied" : "War";
+            }
+
+            ResourceStockpile playerStockpile = ResourceStockpile.For(FactionId.Player);
+            foreach ((Button button, ResourceType type) in _tributeButtons)
+            {
+                button.interactable = playerStockpile != null && playerStockpile.GetTotal(type) >= TributeAmount;
             }
         }
 
@@ -123,6 +159,7 @@ namespace KingdomsOfBharat.UI
             }
             _otherFactions = active.ToArray();
             _relationTexts = new TMP_Text[_otherFactions.Length];
+            _tributeButtons.Clear();
 
             float y = 40f;
             for (int i = 0; i < _otherFactions.Length; i++)
@@ -131,6 +168,19 @@ namespace KingdomsOfBharat.UI
                 CreateLabel(_rowContainer, other.ToString(), new Vector2(-140f, y), 17, TextAlignmentOptions.Left);
                 _relationTexts[i] = CreateButton(_rowContainer, "", new Vector2(110f, y), new Vector2(160f, 32f),
                     () => ToggleAlliance(other));
+
+                // Item 4 (Diplomacy): 4 flat tribute icon buttons per row,
+                // to the right of the War/Allied button - see TributeTypes/
+                // TributeIconNames above.
+                for (int r = 0; r < TributeTypes.Length; r++)
+                {
+                    ResourceType type = TributeTypes[r];
+                    float iconX = 240f + r * 40f;
+                    Button tributeButton = CreateIconButton(_rowContainer, TributeIconNames[r], new Vector2(iconX, y), 32f,
+                        () => SendTribute(other, type));
+                    _tributeButtons.Add((tributeButton, type));
+                }
+
                 y -= 44f;
             }
         }
@@ -164,7 +214,10 @@ namespace KingdomsOfBharat.UI
             var boxRect = boxGo.GetComponent<RectTransform>();
             boxRect.anchorMin = new Vector2(0.5f, 0.5f);
             boxRect.anchorMax = new Vector2(0.5f, 0.5f);
-            boxRect.sizeDelta = new Vector2(460f, 260f);
+            // Widened from 460 (Item 4, Diplomacy session) to fit 4 tribute
+            // icon buttons per row alongside the existing name label +
+            // War/Allied button - see RebuildRows.
+            boxRect.sizeDelta = new Vector2(800f, 260f);
             boxRect.anchoredPosition = Vector2.zero;
 
             CreateLabel(boxGo.transform, "Diplomacy", new Vector2(0f, 90f), 26, TextAlignmentOptions.Center);
@@ -233,6 +286,36 @@ namespace KingdomsOfBharat.UI
             tmp.color = UIStyleTheme.Current.TextPrimary;
             tmp.alignment = TextAlignmentOptions.Center;
             return tmp;
+        }
+
+        // Item 4 (Diplomacy): a square icon-only button (no text label) for
+        // the tribute row - same icon set BuildMenu.AddCommandIcon already
+        // loads for Market's Buy/Sell buttons
+        // (Resources/UI/Icons/resource_{wood,food,stone,gold}.png).
+        private static Button CreateIconButton(Transform parent, string iconName, Vector2 position, float size, System.Action onClick)
+        {
+            var go = new GameObject("TributeButton_" + iconName);
+            go.transform.SetParent(parent, false);
+            var rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(size, size);
+            rect.anchoredPosition = position;
+
+            var image = go.AddComponent<Image>();
+            Sprite icon = Resources.Load<Sprite>("UI/Icons/" + iconName);
+            if (icon != null)
+            {
+                image.sprite = icon;
+            }
+            else
+            {
+                UIStyleTheme.Current.ApplyButton(image);
+            }
+
+            var button = go.AddComponent<Button>();
+            button.onClick.AddListener(() => onClick());
+            return button;
         }
     }
 }

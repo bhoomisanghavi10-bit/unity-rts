@@ -15,7 +15,7 @@ one item per session, Plan Mode before nontrivial changes, test before done, log
 | 1 | Hotkey | **Done (2026-09-03)** — see the item's own section and `docs/SESSION_LOG.md` |
 | 2 | Victory conditions | **Done (2026-09-03)** — Conquest already existed; Time Limit + Draw added |
 | 3 | Area of Effect / Trample damage | **Done (2026-09-03)** — Cavalry trample via a generalized splash-damage multiplier |
-| 4 | Diplomacy (tribute) | Reuses existing DiplomacyRegistry, UI-only + small resource-transfer logic |
+| 4 | Diplomacy (tribute) | **Done (2026-09-03)** — stance UI already existed; added Tribute + buttons |
 | 5 | Renewable resource (Farm reseed) | Needs a verification pass first before any code is written |
 | 6 | Scenario Editor | Largest scope question — recommend the lightweight path, flag the heavy path |
 
@@ -179,7 +179,23 @@ decision is made.
 
 ---
 
-## 4. Diplomacy — tribute and a player-facing stance UI
+## 4. Diplomacy — tribute and a player-facing stance UI — **Done (2026-09-03)**
+
+**Result**: this item's own first instruction — check the live UI before writing a
+new panel — found the stance UI was **already fully built**
+(`Assets/Scripts/UI/DiplomacyMenu.cs`, F11, real War/Allied toggle per faction), not
+just "unconfirmed." Only Tribute itself was genuinely missing. New
+`Assets/Scripts/Core/Tribute.cs` (`Tribute.Send(from, to, type, amount)`, 20% tax,
+deliberately **not** gated behind `DiplomacyRegistry` — user-confirmed to match real
+AoE II's rule that tribute works regardless of War/Allied stance). `DiplomacyMenu`
+gained 4 flat-amount (50) tribute icon buttons per faction row (reusing the existing
+`resource_{wood,food,stone,gold}` icons), affordability-gated the same way
+`BuildMenu`'s Market Buy/Sell buttons already are. 5 new EditMode tests
+(`TributeTests.cs`), live-verified via UnityMCP through the real button `onClick` (not
+just the isolated static method) — see `docs/SESSION_LOG.md` for the exact numbers.
+
+<details>
+<summary>Original plan (for reference)</summary>
 
 **Gap:** `DiplomacyRegistry` supports alliance state (already consumed by the Team Bonus
 system) but there's no tribute (resource transfer between players) and no confirmed
@@ -206,6 +222,8 @@ funds rejected) mirroring `Repairable`'s cost-deduction test pattern; live-verif
 UnityMCP.
 
 **Estimated size:** Small-medium.
+
+</details>
 
 ---
 
