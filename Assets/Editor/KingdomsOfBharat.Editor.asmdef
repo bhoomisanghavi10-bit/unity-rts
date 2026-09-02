@@ -2,7 +2,8 @@
     "name": "KingdomsOfBharat.Editor",
     "rootNamespace": "",
     "references": [
-        "KingdomsOfBharat.Runtime"
+        "KingdomsOfBharat.Runtime",
+        "Whinarn.UnityMeshSimplifier.Runtime"
     ],
     "includePlatforms": [
         "Editor"

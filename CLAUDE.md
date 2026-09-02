@@ -7,6 +7,68 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Building mesh decimation pass closed (2026-09-02, Section 1/5 item 17)**
+  — `UnityMeshSimplifier` package + new `Assets/Editor/BuildingMeshDecimator.cs`
+  decimated 43/45 civ-specific buildings (Rajput TownCenter/Maurya Tower's
+  pre-existing 0-byte-source gaps correctly skipped) from ~1.7-2.0M
+  un-decimated triangles down to ~500,000 each. **The real finding**: the
+  spec's literal 8,000-20,000 tri target, and even the 30,000-60,000
+  fallback, both proved unreachable on this raw un-retopologized Meshy
+  geometry without either visible carved-relief artifacts (proven via
+  screenshot on Chola TownCenter at the tighter target) or computationally
+  impractical simplifier settings — one tuning attempt (raising
+  `VertexLinkDistance`) pegged the Editor at 99% CPU for 25+ minutes with no
+  completion and no way to cancel a synchronous call, resolved by killing
+  and relaunching Unity at the user's explicit instruction. 500,000 tris/
+  building is the real, evidence-backed, screenshot-verified-clean target
+  (~3.65x reduction, a full base drops from ~17M+ to ~4.5M triangles). Also
+  fixed a genuine Unity `AssetDatabase` caching bug hit along the way
+  (`Resources.Load`/`AssetDatabase.LoadAssetAtPath` served a stale prefab
+  graph with a null mesh after a re-run, even though the saved prefab was
+  correct on disk — fixed via an explicit `AssetDatabase.ImportAsset(...,
+  ForceUpdate)` after each save). New `BuildingPolycountTests.cs` regression
+  test (146 EditMode tests total, up from 145), all pass. **Two findings
+  flagged, not fixed (out of scope for this item)**: spawning Rajput
+  TownCenter's shared-fallback model produces a `MeshFilter` with a null
+  `sharedMesh` (pre-existing, unrelated to mesh decimation); and — raised
+  mid-session by the user with a reference image — Rajput Barracks' actual
+  sourced model (a small boxy shape, confirmed already present in the
+  original un-decimated FBX, so not caused by this session) doesn't match
+  the grand multi-turret courtyard-fort concept art the user expects —
+  looks like a wrong/mismatched asset was sourced/identified in an earlier
+  session, a real asset-sourcing gap for a future session, not a rotation
+  or mesh-processing bug (a separate "tilted sideways" concern raised in the
+  same exchange was checked directly and ruled out — every transform in the
+  hierarchy is identity, confirmed upright via a true ground-level
+  front-elevation shot; the original angled screenshot's steep camera angle
+  was just foreshortening the roofline, the same parallax illusion this
+  project's history has hit before). Also found 6 additional
+  `Maurya/_Source/*.mat` files plus the already-documented Cow/Palm2 fix
+  were pending-but-unsaved from an earlier session and got flushed to disk
+  by this session's own `AssetDatabase.SaveAssets()` calls — left unstaged,
+  not bundled into this session's commit (not this session's work to claim
+  or decide about). See `docs/SESSION_LOG.md`'s matching entry for full
+  detail.
+- **Crusader Knight body-swap sourcing spec written (2026-09-02), not started**
+  — user picked up this item after the mesh-decimation one was scoped by a
+  concurrent session; asked to scope only, not implement (nothing to
+  implement yet — it's still blocked on new source model files). Spec
+  written into Roadmap Section 1's matching item, derived directly from the
+  2026-08-28 rig-compatibility verification's own findings so a replacement
+  doesn't repeat the same problems blind: FBX preferred (glTF works too, per
+  that session's proof `AvatarBuilder.BuildHumanAvatar` builds a valid Avatar
+  from a hand-authored `HumanDescription` with no Blender step), any standard
+  Humanoid biped rig, modeled in meters near the scene's ~1.9-unit worker
+  height (the deleted models' `(2.54,2.54,2.54)` baked Hips scale was the
+  actual root cause of the ~247x `humanScale` anomaly — cleaner sourcing
+  avoids that fix entirely), no embedded animation needed, and either no
+  sculpted hand-held weapons (reuse `WeaponAttachment.AttachToBone`, the
+  precedent already used for the 3 unique units) or weapon meshes that are
+  separable/re-parentable to a hand bone rather than static scene-root props.
+  Also flagged a normal real-time polycount range, tying back to the same
+  day's building-polycount audit finding. Docs-only session, no code/asset
+  changes. Still needs the user to actually source a replacement file before
+  any wiring work can start.
 - **Building mesh decimation pass scoped (2026-09-02), not started** — the
   visual-audit session's headline finding (every civ-specific building is
   ~1.7-2.0M un-decimated triangles) needs its own dedicated session per the
@@ -321,12 +383,11 @@ asset requirements, 5. Priority order).
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
 - Currently on: **the building mesh decimation pass (Section 1/5 item 17) is
-  the clear next session** — fully scoped 2026-09-02, not started, user
-  explicitly wants it as its own dedicated session given the size (45
-  assets). See this file's own bullet above and Roadmap Section 1 for the
-  full plan (UnityMeshSimplifier package, proof-of-concept on Chola
-  TownCenter first, then batch the rest, plus a new regression test).
-  Otherwise: Section 5 items 1-9 and
+  closed** — see this file's own bullet above and Roadmap Section 1/5 for full
+  detail (43/45 buildings decimated to ~500,000 tris each, real target-ratio
+  finding, new regression test, 2 findings flagged for future sessions: the
+  Rajput TownCenter null-mesh fallback, and Rajput Barracks' sourced model
+  not matching its concept art). Otherwise: Section 5 items 1-9 and
   11-15 are all done — **the worker-mechanics-audit is fully closed** — and
   `AOE_PARITY_EXECUTION_PLAN.md`'s Phases 1-4 are fully resolved (see the
   consolidation note above), **including item 2.3 (Siege splash/area damage

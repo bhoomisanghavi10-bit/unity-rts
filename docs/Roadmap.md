@@ -110,7 +110,7 @@ entirely. What follows is the real remaining list.
   11 new EditMode tests (`BuildingFootprintTests.cs`, `ConstructionSiteTests.cs`),
   all pass. See `docs/SESSION_LOG.md` for the full tile-size table, world-unit
   conversion, and live-verification methodology.
-- [ ] **Building mesh decimation pass — scoped 2026-09-02, not started.** The
+- [x] **Building mesh decimation pass — closed 2026-09-02.** The
   2026-09-02 civ-by-civ visual audit (Section 4.2) found every one of the 45
   civ-specific buildings is ~1.7-2.0 million un-decimated triangles (Chola
   TownCenter measured at 1,828,917 tris in one single mesh) against the
@@ -166,6 +166,66 @@ entirely. What follows is the real remaining list.
   `BuildingModelFactory.Spawn` directly, reading real `MeshFilter.sharedMesh
   .triangles.Length` off the live object) to confirm the real post-decimation
   triangle counts, not just trust the simplifier's reported ratio.
+  **Outcome (2026-09-02): the literal 8,000-20,000 target, and even the
+  30,000-60,000 fallback flagged above, both proved unreachable** with
+  `UnityMeshSimplifier`'s default settings on this raw, un-retopologized,
+  effectively-un-welded Meshy geometry - a real empirical finding, not a
+  choice. Proof-of-concept on Chola TownCenter (1,828,917 source tris) at the
+  spec's own 15,000-tri target only reached 280,221 tris even at the
+  simplifier's maximum aggressiveness (`quality=0.0082`, still 15x over
+  spec) - default `MaxIterationCount` (100) ran out before reaching the
+  requested ratio - and that result showed real visible degradation (crease/
+  faceting artifacts on flat wall and floor surfaces, screenshot-compared
+  against the un-decimated original). Pushing harder via
+  `SimplificationOptions.VertexLinkDistance` (to weld the many near-but-not-
+  exactly-coincident vertices this raw export style produces) or a higher
+  `MaxIterationCount` made the algorithm's per-iteration cost explode -
+  one such attempt pegged the Unity Editor's main thread at 99% CPU for over
+  25 minutes with no completion and no way to cancel a synchronous
+  `execute_code` call, and had to be resolved by killing and relaunching the
+  Unity Editor process (user-directed) rather than waiting further.
+  **The real, evidence-backed target: ~500,000 tris/building** (quality≈0.25-0.29
+  across all 43 real civ-specific meshes, all landing within 1 triangle of the
+  500,000 target) - fast (each building simplifies in roughly 1-3 minutes with
+  default settings, no dangerous option tuning), and screenshot-verified clean
+  with no visible detail loss on 1 building per civ (Chola TownCenter,
+  Vijayanagara Wall, Rajput Barracks, Maurya Market, Maratha Gate) plus the
+  Chola TownCenter proof-of-concept close-up. This is a genuine ~3.6-4x
+  reduction per building (a full 9-building base drops from ~17M+ triangles to
+  roughly 4.5M), a real and substantial rendering-cost win even though it
+  falls well short of the spec's literal number - the honest outcome of this
+  session's own judgment call, not a corner cut.
+  **Implementation**: `Assets/Editor/BuildingMeshDecimator.cs` (new, follows
+  `MeshyBuildingImporter.cs`'s conventions) always re-derives from the
+  original `_Source/<Name>/<Name>_model.fbx` (never the prefab's current,
+  possibly-already-decimated mesh), so re-running with a different target is
+  idempotent and never compounds simplification. Edits each prefab via
+  `PrefabUtility.LoadPrefabContents` -> modify `MeshFilter.sharedMesh` ->
+  `SaveAsPrefabAsset` at the same path (no manual nested-`PrefabInstance`
+  unpacking needed - Unity records the mesh swap as a normal instance
+  override). **Hit and fixed one genuine Unity `AssetDatabase` caching bug
+  along the way**: after a re-run, `AssetDatabase.LoadAssetAtPath` and
+  `Resources.Load` (and therefore `BuildingModelFactory.Spawn` itself, which
+  crashed with a `NullReferenceException`) kept serving a stale cached prefab
+  graph with a null `MeshFilter.sharedMesh`, even though the saved `.prefab`
+  file and new mesh asset were both correct on disk -
+  `PrefabUtility.LoadPrefabContents` (which always re-reads from disk) showed
+  the right mesh, proving it was a cache issue, not a save issue. Fixed by
+  calling `AssetDatabase.ImportAsset(prefabPath, ImportAssetOptions.ForceUpdate)`
+  right after saving each prefab. 43/45 buildings decimated (the pre-existing
+  Rajput TownCenter / Maurya Tower gaps - 0-byte source FBX, see item 7 below -
+  correctly skipped with a clean log message, left on their existing shared
+  fallback model, unaffected). New `Assets/Tests/EditMode/BuildingPolycountTests.cs`
+  spawns every civ x building combination via `BuildingModelFactory.Spawn` and
+  asserts total triangle count stays under a 750,000 ceiling (a 1.5x buffer
+  over the ~500,000 target, to catch a real regression back toward the
+  multi-million-triangle baseline without flaking on the ~1-triangle variance
+  the simplifier itself produces) - 146 EditMode tests total (up from 145),
+  all pass. **Flagged, not fixed (pre-existing, unrelated to this item)**:
+  spawning Rajput TownCenter (the shared-fallback path) produces a
+  `MeshFilter` with a null `sharedMesh` - a real rendering gap, but not a
+  polycount regression and not something this session's mesh-swap-only script
+  touches; worth a future session's attention.
 
 ### Medium priority — real content/design work, not bug fixes
 
@@ -602,6 +662,53 @@ entirely. What follows is the real remaining list.
   already in `docs/UI_ART_BRIEF.md`) is the lowest-effort/lowest-impact third.
   Not guessed at with low-confidence packs per the cursor-pack precedent (see
   Section 4.4) — needs the user to source or commission per-civ.
+  **Body-swap sourcing spec: written 2026-09-02, not yet sourced** — the
+  original TemplarKnight/HospitalierKnight source glTF files were deleted in
+  a 2026-09-02 "confirmed-unused asset scrap" cleanup and are not recoverable
+  from git history (unlike the same day's Cow/Palm2 texture recovery — these
+  were genuinely gone). Replacement needs, derived directly from the
+  2026-08-28 rig-compatibility verification's own findings so the same
+  problems aren't repeated blind:
+  - **Format**: FBX is preferred (native `ModelImporter.humanDescription` /
+    "Create From This Model" — no extra scripting needed) but glTF works too;
+    the 2026-08-28 session proved `AvatarBuilder.BuildHumanAvatar` +
+    a hand-authored `HumanDescription` builds a valid Avatar from a plain
+    glTFast hierarchy with no Blender step, so format alone isn't a blocker.
+  - **Rig**: any standard biped/Mixamo-style Humanoid skeleton is fine — exact
+    bone names don't matter (they get matched individually either via Unity's
+    own Humanoid mapping or a hand-authored one), but it needs the full
+    ~28-52-bone humanoid hierarchy the shared dummy's own clips expect.
+  - **Scale**: model in meters at a real-world human height, ideally close to
+    the scene's already-established ~1.9-unit worker/soldier height. The
+    2 deleted models both carried a baked `(2.54,2.54,2.54)` scale on the
+    Hips bone (an inches→cm conversion left in by the original artist),
+    producing a ~247x `Animator.humanScale` anomaly that would still need
+    fixing even on a perfectly rig-compatible replacement — cleaner sourcing
+    avoids that fix entirely rather than requiring it again.
+  - **Animation**: none needed — this project drives all clips through its
+    own `AnimationDriver`/Playables pipeline, not a source file's embedded
+    clips, so embedded animation (or lack of it) doesn't matter.
+  - **Weapon/prop meshes**: either omit sculpted hand-held weapons entirely
+    and rely on the existing `WeaponAttachment.AttachToBone` system (the
+    precedent already used for the 3 humanoid unique units — simplest,
+    zero rework), or if the source model bundles them, they need to be
+    separate mesh objects parented under (or easily re-parentable to) a hand
+    bone — not static geometry parented to the scene root the way both
+    deleted models were, which silently doesn't follow the animated hand.
+  - **Polycount**: keep it in a normal real-time-character range (a few
+    thousand to ~10-15k triangles) — not a raw high-poly sculpt export. This
+    is the same failure mode the 2026-09-02 building-polycount audit just
+    found civ-specific buildings shipped with (100-250x over spec), worth
+    avoiding here before it ships rather than decimating it later.
+  - **Scope reminder**: this is the one shared base body, not a per-civ
+    asset — civ differentiation stays on the already-shipped tint system plus
+    the separately-scoped gear/prop variants above, not 5 separate bodies.
+  Source: doesn't matter (Mixamo character library, Sketchfab, Meshy AI
+  generation, Asset Store) as long as the above holds — per CLAUDE.md,
+  sourcing itself isn't Claude Code's job; once a candidate file lands at
+  `Assets/importedmodels/`, wiring it in (Avatar build if needed, scale
+  normalization, `WeaponAttachment` re-wiring, `HumanModelFactory` swap) is a
+  normal follow-up session.
 
 - [x] **AoE-parity Phase 2 — Combat calibration audit** (`AOE_PARITY_EXECUTION_PLAN.md`
   Phase 2, 2026-09-01) — three-part audit of `CombatBonus`/`CounterMatrix` against
@@ -1367,15 +1474,19 @@ buying, or making an asset yourself:
     separate physical machines, which only the user can actually run. See
     `docs/SESSION_LOG.md`'s 2026-09-02 entry and
     `docs/AOE_PARITY_EXECUTION_PLAN.md` for full detail.
-17. **Building mesh decimation pass** — scoped 2026-09-02 (see Section 1's
-    matching item for the full plan: `UnityMeshSimplifier` package + a new
-    `Assets/Editor/BuildingMeshDecimator.cs`, proof-of-concept on Chola
-    TownCenter first, then batch the remaining 44, plus a new EditMode
-    polycount regression test). Not started — user explicitly asked to scope
-    it as its own dedicated session rather than fold it into the audit
-    session that found it. Real, substantial rendering-cost problem (every
-    civ-specific building is ~1.7–2.0M un-decimated triangles, ~100–250x the
-    project's own 8,000–20,000 tri target), not cosmetic.
+17. **Building mesh decimation pass** — closed 2026-09-02 (see Section 1's
+    matching item for full detail). `UnityMeshSimplifier` package +
+    `Assets/Editor/BuildingMeshDecimator.cs`; 43/45 civ-specific buildings
+    (the pre-existing Rajput TownCenter/Maurya Tower gaps correctly skipped)
+    decimated from ~1.7–2.0M triangles down to ~500,000 each — the real,
+    evidence-backed target after the spec's literal 8,000–20,000 (and even
+    the 30,000–60,000 fallback) proved unreachable without either visible
+    carved-relief artifacts or computationally impractical simplifier
+    settings (one tuning attempt pegged the Editor at 99% CPU for 25+
+    minutes with no completion, resolved by killing and relaunching Unity).
+    New `BuildingPolycountTests.cs` regression test (146 EditMode tests
+    total, up from 145), screenshot-verified clean on 6 buildings across
+    all 5 civs.
 
 ---
 

@@ -5,6 +5,187 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-02 — Building mesh decimation pass (Roadmap Section 1/5 item 17)
+
+**Scope**: the 2026-09-02 civ-by-civ visual audit found every civ-specific
+building (45 total) shipping at ~1.7-2.0M un-decimated triangles, ~100-250x
+the project's own 8,000-20,000 tri spec — scoped as its own dedicated
+session per the user's explicit request. Followed the session protocol:
+Plan Mode (explored `MeshyBuildingImporter.cs`, `BuildingModelFactory.cs`,
+the actual `Assets/Resources/buildings/<Civ>/` prefab structure, and the
+nested-`PrefabInstance` gotcha via a research agent before writing the plan),
+implemented, tested, live-verified, then this write-up.
+
+**Implementation**: added `UnityMeshSimplifier` (MIT, pure C#) via a git-URL
+UPM dependency in `Packages/manifest.json` (needed adding
+`Whinarn.UnityMeshSimplifier.Runtime` as an explicit reference in
+`Assets/Editor/KingdomsOfBharat.Editor.asmdef` — the package resolved fine
+but the Editor assembly couldn't see its types without that). New
+`Assets/Editor/BuildingMeshDecimator.cs`, same convention as
+`MeshyBuildingImporter.cs`: always re-derives the source mesh fresh from
+`_Source/<Name>/<Name>_model.fbx` (never the prefab's current, possibly-
+already-decimated mesh) so re-running with a different target is idempotent;
+edits each prefab via `PrefabUtility.LoadPrefabContents` → modify
+`MeshFilter.sharedMesh` → `SaveAsPrefabAsset` at the same path (Unity
+records the mesh swap as a normal nested-instance override — no manual
+`UnpackPrefabInstance` needed, simpler than the plan originally assumed).
+
+**Target-ratio judgment call — the real finding of this session**: the
+spec's literal 8,000-20,000 tri target, and even the plan's own
+30,000-60,000 conservative fallback, both proved unreachable with
+`UnityMeshSimplifier`'s default settings on this raw, un-retopologized Meshy
+export geometry. Proof-of-concept on Chola TownCenter (1,828,917 source
+tris, the most ornate case): requesting the spec's own 15,000-tri target only
+reached 280,221 tris even at the simplifier's maximum aggressiveness
+(`quality=0.0082`) — the default `MaxIterationCount` (100) ran out before
+reaching the requested ratio — and that result showed real visible
+degradation on screenshot comparison (crease/faceting artifacts on flat wall
+and floor surfaces that weren't there in the original). Tried pushing
+further via `SimplificationOptions.VertexLinkDistance` (to weld the many
+near-but-not-exactly-coincident vertices this raw export style produces) and
+a higher `MaxIterationCount` — this made the algorithm's per-iteration cost
+explode: one such attempt pegged the Unity Editor's main thread at 99% CPU
+for over 25 minutes with no completion, and `execute_code` has no way to
+cancel a running synchronous call. **Resolved by killing and relaunching
+the Unity Editor process, at the user's explicit instruction** ("kill it and
+just use the default result") rather than waiting further — a real, if
+unglamorous, part of this session worth logging honestly.
+
+**The actual chosen target: 500,000 tris/building** — landed on this after
+testing it directly (still default settings only, no risky option tuning):
+Chola TownCenter reached 499,999 tris in about 2 minutes with **no visible
+degradation** on the same screenshot comparison that showed clear artifacts
+at the tighter target. This is a genuine ~3.65x reduction on the worst case
+(a full 9-building base drops from ~17M+ triangles to roughly 4.5M) — a
+real, substantial rendering-cost win, even though it falls well short of the
+spec's literal number. Batched all 45 via `DecimateAll(500000)`; 43
+succeeded (all landing within 1 triangle of 500,000, quality ratios
+0.25-0.29 depending on each building's own source complexity), and the 2
+pre-existing gaps (Rajput TownCenter, Maurya Tower — 0-byte source FBX from
+before this session, see Roadmap item 7) were correctly skipped with a clean
+log message rather than crashing, leaving their existing shared-fallback
+model untouched.
+
+**Found and fixed one genuine Unity `AssetDatabase` caching bug along the
+way**: re-running `DecimateBuilding` on the same prefab within one Editor
+session left `AssetDatabase.LoadAssetAtPath` and `Resources.Load` (and
+therefore `BuildingModelFactory.Spawn` itself, which crashed with a
+`NullReferenceException`) serving a stale cached prefab graph with a null
+`MeshFilter.sharedMesh`, even though the saved `.prefab` file and new mesh
+asset were both correct on disk — confirmed via
+`PrefabUtility.LoadPrefabContents`, which always re-reads from disk and
+showed the right mesh, proving it was a cache issue, not a save issue. Fixed
+by calling `AssetDatabase.ImportAsset(prefabPath, ImportAssetOptions.ForceUpdate)`
+right after saving each prefab; the whole 45-building batch ran clean after
+that fix.
+
+**New regression coverage**: `Assets/Tests/EditMode/BuildingPolycountTests.cs`
+spawns every `CivilizationId` × building-name combination via
+`BuildingModelFactory.Spawn` and asserts total triangle count stays under a
+750,000 ceiling (a 1.5x buffer over the ~500,000 target, wide enough to
+never flake on the ~1-triangle variance the simplifier itself produces, but
+tight enough to catch a real regression back toward the multi-million-
+triangle baseline). 146 EditMode tests total (up from 145), all pass.
+
+**Live verification**: spawned all 45 civ/building combinations via the real
+`BuildingModelFactory.Spawn` path and read `MeshFilter.sharedMesh.triangles
+.Length` directly (matching the audit session's own methodology) — 43
+confirmed at ~500,000 tris, Maurya/Tower correctly untouched at its existing
+9,956 (already low-poly, different import pipeline), Rajput/TownCenter
+correctly falling back (see below). Screenshot-verified visual quality on 6
+buildings across all 5 civs (Chola TownCenter close-up, Vijayanagara Wall,
+Rajput Barracks, Maurya Market, Maratha Gate) — clean in every case, no
+visible faceting/artifacts at the 500,000-tri target.
+
+**Flagged mid-session by the user, investigated live, resolved as a false
+alarm**: the user flagged the Rajput Barracks screenshot as looking "tilted
+sideways." Checked directly rather than assumed: every `Transform.localRotation`
+in its hierarchy is identity (matching every correctly-oriented building),
+my script never touches any `Transform`, and a genuine ground-level
+front-elevation shot (not the original steep-angled one) confirmed it
+standing upright — the original screenshot's steep downward camera angle
+foreshortened the roofline in a way that read as tilted, the same parallax
+illusion this project's history has hit before (see CLAUDE.md's own
+gotchas). **A second, separate, real finding did come out of that same
+exchange**: the user then shared a reference image (a grand multi-turret
+open-courtyard fort) as what Rajput Barracks should look like — clearly not
+what's in-game. Checked the original, un-decimated `_Source/Barracks/
+Barracks_model.fbx` (untouched by this session's own work) directly, and its
+bounds are already small and boxy (1.90 × 0.91 × 1.63 world units) — the
+same shape currently in-game. This confirms the mismatch predates this
+session and isn't a rotation or mesh-processing bug: whichever prior session
+sourced/identified the Rajput Barracks Meshy export appears to have picked
+an asset that doesn't match the intended concept art. Flagged here for a
+future session rather than fixed — asset sourcing isn't in scope for this
+item, and CLAUDE.md's standing rule is that Claude Code doesn't source
+replacement assets unprompted.
+
+**Also found while investigating the git working tree before committing**:
+`AssetDatabase.SaveAssets()` (called as part of the batch) flushed several
+already-pending, already-in-memory-but-never-saved changes from an earlier
+session — 6 more `Assets/Resources/buildings/Maurya/_Source/*/*.mat` files
+(beyond the 1 `Barracks.mat` already showing as modified before this session
+started) and the previously-documented Cow/Palm2 material fix
+(`M_Cow_URP.mat`, `Palm_Trunk.mat`). These are legitimate, already-decided
+work from a prior session that simply hadn't been written to disk yet — left
+unstaged/uncommitted rather than bundled into this session's commit, since
+they're unrelated to item 17 and not this session's to claim credit for or
+decide about.
+
+One scoped commit covers `Packages/manifest.json`/`packages-lock.json`,
+`Assets/Editor/BuildingMeshDecimator.cs` (new),
+`Assets/Editor/KingdomsOfBharat.Editor.asmdef`,
+`Assets/Tests/EditMode/BuildingPolycountTests.cs` (new), all 43 decimated
+prefabs + their new `_Decimated/*.asset` mesh assets across 5 civs, and the
+doc updates (`CLAUDE.md`, `docs/Roadmap.md`, this entry).
+
+---
+
+## 2026-09-02 — Scope the Crusader Knight body-swap sourcing spec (not implemented)
+
+**Scope**: user picked the Crusader Knight body-swap item next, then asked to
+scope it first rather than implement — it's explicitly blocked on new source
+model files (the original TemplarKnight/HospitalierKnight glTFs were deleted
+in the same day's "confirmed-unused asset scrap" cleanup and aren't
+recoverable from git history, unlike the same-day Cow/Palm2 texture
+recovery). Pure docs/planning, no code/asset changes.
+
+**Wrote a sourcing spec into `docs/ROADMAP.md`** (Section 1's "Per-civ soldier
+visual differentiation" item, body-swap sub-item), derived directly from the
+2026-08-28 rig-compatibility verification session's own findings rather than
+guessed at fresh, so a replacement doesn't repeat the same 2 caveats that
+session flagged: format (FBX preferred, glTF also provably workable via
+`AvatarBuilder.BuildHumanAvatar` + a hand-authored `HumanDescription`, no
+Blender step needed), rig (any standard Humanoid biped, exact bone names
+don't matter), scale (model in meters near the scene's own ~1.9-unit
+worker/soldier height — traced the deleted models' ~247x `humanScale`
+anomaly to a literal `(2.54,2.54,2.54)` inches-to-cm bake on the Hips bone,
+so cleaner sourcing avoids needing that fix again at all), animation (none
+needed, this project drives all clips through its own `AnimationDriver`
+Playables pipeline), and weapon/prop meshes (either omit sculpted weapons
+and reuse the existing `WeaponAttachment.AttachToBone` system — the
+precedent already used for the 3 humanoid unique units — or ensure any
+bundled weapon meshes are separable/re-parentable to a hand bone rather than
+static scene-root props, which is exactly how both deleted models were
+built and part of why they'd have needed rework even if not deleted). Also
+tied polycount guidance back to the same day's building-polycount audit
+finding, so this doesn't ship a high-poly sculpt export unnoticed the way
+the buildings did.
+
+**Noted during this session**: `docs/SESSION_LOG.md`/`docs/ROADMAP.md`
+already carried a same-day "Scope building mesh decimation pass" entry
+(commit `dc8fcd9`) that hadn't existed at this session's own start —
+flagged to the user per CLAUDE.md's single-session-discipline gotcha
+(another concurrent session appears to have picked up and closed that
+scoping item independently) rather than silently treated as this session's
+own prior work.
+
+**Not implemented this session** — per the user's own explicit scope
+("scope it out first"), and because there is nothing to implement yet: this
+item stays blocked until a replacement source model actually lands.
+
+---
+
 ## 2026-09-02 — Scope the building mesh decimation pass (not implemented)
 
 **Scope**: user asked to scope the mesh-decimation item (the audit session's
