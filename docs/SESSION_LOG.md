@@ -5,6 +5,54 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-02 — Scope the building mesh decimation pass (not implemented)
+
+**Scope**: user asked to scope the mesh-decimation item (the audit session's
+headline finding — every civ-specific building is ~1.7-2.0M un-decimated
+triangles) as its own dedicated future session, rather than implement it now.
+Pure research/planning, no code/asset changes.
+
+**Investigated feasibility**:
+- **Blender is not available in this environment** — checked directly
+  (`which blender`, `find`/`mdfind` for `Blender.app`, all came back empty).
+  This matters because an earlier session's own log entry mentions "rigged via
+  Blender command-line scripting" for the Maurya/Maratha unique units — that
+  must have run under different provisioning than this session has, so it
+  can't be assumed available going forward without the user confirming/
+  installing it.
+- **Unity's own Editor API has no mesh-simplification method** — checked via
+  reflection over the entire `UnityEditor`-containing assembly for any type/
+  method matching "simplify"/"decimate": only `UnityEditor.MeshUtility` and
+  `UnityEditor.InternalMeshUtil` matched by name, and `MeshUtility`'s actual
+  methods (`Optimize`, `OptimizeIndexBuffers`, `OptimizeReorderVertexBuffer`)
+  are vertex-cache/index-buffer *ordering* optimizations, not polygon
+  *reduction* — confirmed by listing every public/non-public static method on
+  the type directly, not assumed from the name alone.
+- **Internet access confirmed working** (`curl` to github.com/
+  raw.githubusercontent.com both succeeded) — meaning a UPM git-URL package
+  dependency is actually fetchable in this environment, unlike relying on a
+  missing local Blender install.
+
+**Plan written into `docs/ROADMAP.md`** (Section 1's new item + Section 5 item
+17): add [UnityMeshSimplifier](https://github.com/Whinarn/UnityMeshSimplifier)
+(MIT, pure C#, no native binary) via `Packages/manifest.json`, drive it from a
+new `Assets/Editor/BuildingMeshDecimator.cs` (same convention as the existing
+`MeshyBuildingImporter.cs`) that decimates each civ-specific building's mesh
+and repoints its prefab's `MeshFilter` at the result — no gameplay code
+changes needed. Recommended process: proof-of-concept on Chola TownCenter
+first (the most ornately-detailed case) to pick a real target ratio before
+batching the other 44, since the spec's stated 8,000-20,000 tri target implies
+a ~99.2% reduction that could visibly collapse fine carved-relief detail at
+that extremity — explicitly flagged as a judgment call to make with visual
+verification, not a number to hit blindly. Also scoped a new EditMode
+regression test (building polycount ceiling) since this exact problem had zero
+test coverage before the audit found it live.
+
+**Not implemented this session** — per the user's own explicit instruction,
+this is scoped only, to be picked up as its own dedicated session.
+
+---
+
 ## 2026-09-02 — Civ-by-civ visual quality audit (Roadmap Section 4.1/4.2)
 
 **Scope**: user-requested audit ("do the civ-by-civ visual quality audit," following

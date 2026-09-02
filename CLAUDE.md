@@ -7,6 +7,21 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Building mesh decimation pass scoped (2026-09-02), not started** — the
+  visual-audit session's headline finding (every civ-specific building is
+  ~1.7-2.0M un-decimated triangles) needs its own dedicated session per the
+  user's explicit request rather than being folded into the audit itself.
+  Full plan in Roadmap Section 1/5 item 17: no Blender available in this
+  environment (checked directly), no built-in Unity mesh-simplification API
+  either (checked via reflection) — plan is to add the
+  `UnityMeshSimplifier` package (MIT, pure C#, git-fetchable — internet
+  access confirmed working) and a new `Assets/Editor/BuildingMeshDecimator.cs`,
+  proof-of-concept on Chola TownCenter first to pick a real target ratio
+  (the spec's 8,000-20,000 tri target may be too aggressive for the ornate
+  carved-relief buildings — a judgment call, not a fixed number), then batch
+  the remaining 44 with a screenshot-verified sample per civ, plus a new
+  EditMode regression test asserting building polycount stays under a
+  ceiling going forward (zero such coverage existed before this finding).
 - **Civ-by-civ visual quality audit (2026-09-02)**, user-requested, against
   Roadmap Section 4.1's AoE IV visual standard. Live-measured (not estimated)
   via UnityMCP: every civ-specific building's real triangle count/texture
@@ -305,7 +320,13 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: nothing started for the next session. Section 5 items 1-9 and
+- Currently on: **the building mesh decimation pass (Section 1/5 item 17) is
+  the clear next session** — fully scoped 2026-09-02, not started, user
+  explicitly wants it as its own dedicated session given the size (45
+  assets). See this file's own bullet above and Roadmap Section 1 for the
+  full plan (UnityMeshSimplifier package, proof-of-concept on Chola
+  TownCenter first, then batch the rest, plus a new regression test).
+  Otherwise: Section 5 items 1-9 and
   11-15 are all done — **the worker-mechanics-audit is fully closed** — and
   `AOE_PARITY_EXECUTION_PLAN.md`'s Phases 1-4 are fully resolved (see the
   consolidation note above), **including item 2.3 (Siege splash/area damage

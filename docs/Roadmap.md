@@ -110,6 +110,62 @@ entirely. What follows is the real remaining list.
   11 new EditMode tests (`BuildingFootprintTests.cs`, `ConstructionSiteTests.cs`),
   all pass. See `docs/SESSION_LOG.md` for the full tile-size table, world-unit
   conversion, and live-verification methodology.
+- [ ] **Building mesh decimation pass — scoped 2026-09-02, not started.** The
+  2026-09-02 civ-by-civ visual audit (Section 4.2) found every one of the 45
+  civ-specific buildings is ~1.7-2.0 million un-decimated triangles (Chola
+  TownCenter measured at 1,828,917 tris in one single mesh) against the
+  project's own 8,000-20,000 tri target - raw Sketchfab-style exports that were
+  never retopologized before import, missed by every prior per-civ session
+  since those checked rotation/scale/placement, not polycount. A full 9-building
+  base on screen is ~17M+ triangles from buildings alone - a real rendering-cost
+  problem, not just a spec nitpick. User asked to scope this as its own session
+  (not fold it into this audit session) rather than start it immediately, given
+  the size (45 assets).
+  **Why this is a code task, not an asset-sourcing one**: no Blender install is
+  available in this environment (checked directly - not on this machine, despite
+  a prior session's own note about Blender command-line scripting being used for
+  unique-unit rigging, which must have run somewhere else/differently
+  provisioned). Confirmed internet access works (`curl` to github.com
+  succeeds), and confirmed Unity's own Editor API has no built-in mesh
+  simplification (`UnityEditor.MeshUtility`'s only mesh-shrinking methods are
+  vertex-cache/index-buffer *optimization*, not polygon *reduction* - checked
+  directly via reflection over the whole `UnityEditor` assembly, nothing else
+  matched "simplify"/"decimate"). The concrete plan: add
+  [UnityMeshSimplifier](https://github.com/Whinarn/UnityMeshSimplifier) (MIT,
+  pure C#, fetchable via a UPM git URL in `Packages/manifest.json` - no native
+  binary/external tool dependency) and drive it from a new Editor script
+  (`Assets/Editor/BuildingMeshDecimator.cs`, same convention as the existing
+  `MeshyBuildingImporter.cs`) that loads each civ-specific building's imported
+  mesh, runs `MeshSimplifier.SimplifyMesh` at a target ratio, and writes the
+  result back as a new `Mesh` asset the prefab's `MeshFilter` is repointed at -
+  no `BuildingModelFactory.cs`/gameplay code changes needed, this is purely an
+  asset-level swap.
+  **Target polycount - a real decision, not just "hit the spec number"**:
+  the spec's 8,000-20,000 tri target implies a ~99.2% reduction from the
+  current ~1.9M baseline, which risks visibly collapsing the fine carved-relief
+  detail on the more ornate builds (Chola/Vijayanagara's temple facades
+  especially) - quadric-edge-collapse simplifiers (what UnityMeshSimplifier
+  uses) generally handle large architectural forms well but can mangle fine
+  surface detail at extreme ratios. Recommend running Chola TownCenter (the
+  most detailed case) as a single proof-of-concept first, at a couple of
+  candidate ratios, and visually verifying via screenshot before deciding
+  whether to hold the letter of the 8,000-20,000 target or accept a more
+  conservative number (e.g. 30,000-60,000, still a 30-60x win) if the tighter
+  target visibly degrades detail - a real per-tier judgment call, not a single
+  global ratio applied blind.
+  **Process for the remaining 44 once the proof-of-concept looks right**: batch
+  through all 5 civs' 9 buildings each, screenshot-verifying at least one
+  building per civ (not just the proof-of-concept) since detail density differs
+  a lot between e.g. Wall (simple) and TownCenter (ornate).
+  **New regression coverage this item should add**: an EditMode test asserting
+  every civ-specific building prefab's total triangle count stays under a sane
+  ceiling - this exact regression had zero test coverage before the audit found
+  it live, and should never be able to silently reappear.
+  **Live verification**: use the same measurement method the audit session
+  established (`execute_code` spawning each building via
+  `BuildingModelFactory.Spawn` directly, reading real `MeshFilter.sharedMesh
+  .triangles.Length` off the live object) to confirm the real post-decimation
+  triangle counts, not just trust the simplifier's reported ratio.
 
 ### Medium priority — real content/design work, not bug fixes
 
@@ -1311,6 +1367,15 @@ buying, or making an asset yourself:
     separate physical machines, which only the user can actually run. See
     `docs/SESSION_LOG.md`'s 2026-09-02 entry and
     `docs/AOE_PARITY_EXECUTION_PLAN.md` for full detail.
+17. **Building mesh decimation pass** — scoped 2026-09-02 (see Section 1's
+    matching item for the full plan: `UnityMeshSimplifier` package + a new
+    `Assets/Editor/BuildingMeshDecimator.cs`, proof-of-concept on Chola
+    TownCenter first, then batch the remaining 44, plus a new EditMode
+    polycount regression test). Not started — user explicitly asked to scope
+    it as its own dedicated session rather than fold it into the audit
+    session that found it. Real, substantial rendering-cost problem (every
+    civ-specific building is ~1.7–2.0M un-decimated triangles, ~100–250x the
+    project's own 8,000–20,000 tri target), not cosmetic.
 
 ---
 
