@@ -908,7 +908,8 @@ civ-specific building art landed across sessions since (43/45; see Section 5 ite
   fallback model** (confirmed live, not just from the earlier session's file
   check) — expected, not a new bug: their source art was corrupted at delivery
   and removed 2026-09-02 (see Section 5 item 7). Re-sourcing is a pending asset
-  need, not a code task.
+  need, not a code task. **Rajput TownCenter re-sourced and wired 2026-09-02**
+  (same day, later session) — Maurya Tower remains on the shared fallback.
 - **Shared "Human Character Dummy" base body is a real, visible gap, confirmed
   live**: 5 civ soldiers spawned side by side are the exact same mannequin-like
   body — same limbs, same faceless head, zero clothing/armor/gear geometry —
@@ -1359,14 +1360,53 @@ buying, or making an asset yourself:
    building models can land incrementally, one civ/building at a time, with no code
    changes needed per asset.~~ **Code groundwork done.** Actual civ-specific models
    are a separate content project (see Section 4.3) — Chola (9/9, 2026-08-28),
-   Vijayanagara (9/9, 2026-08-31), Rajput (9/9, 2026-08-31), Maurya (9/9,
-   2026-09-01), and Maratha (9/9, 2026-09-01) done. **43/45 civ-specific building
-   models complete** (Rajput TownCenter and Maurya Tower's raw source FBX files
-   turned out to be 0 bytes in every commit that ever touched them — no good
-   version to recover; removed 2026-09-02 so those 2 building/civ combos fall
-   through to the shared model via `BuildingModelFactory`'s existing fallback
-   chain instead of rendering nothing. Re-sourcing real art for these 2 is a
-   pending asset need, not a code task — see `docs/SESSION_LOG.md`.)
+   Vijayanagara (9/9, 2026-08-31), Rajput (9/9, 2026-08-31, re-sourced 2026-09-02 —
+   see below), Maurya (9/9, 2026-09-01, missing only Tower — see below), and
+   Maratha (9/9, 2026-09-01) done. **44/45 civ-specific building models complete**
+   (Maurya Tower's raw source FBX turned out to be 0 bytes in every commit that
+   ever touched it — no good version to recover; removed 2026-09-02 so that one
+   building/civ combo falls through to the shared model via
+   `BuildingModelFactory`'s existing fallback chain instead of rendering nothing.
+   Re-sourcing real art for it is a pending asset need, not a code task — see
+   `docs/SESSION_LOG.md`.) **Rajput TownCenter and Barracks re-sourced 2026-09-02**:
+   TownCenter's original source FBX was confirmed 0 bytes and had been removed
+   (falling back to the shared model); Barracks' original wired model was a
+   small boxy shape that didn't match its "grand multi-turret courtyard-fort"
+   concept art (flagged, not fixed, in the same-day mesh-decimation session). The
+   user supplied correct source deliveries for both
+   (`Meshy_AI_Rosestone_Citadel_.../Meshy_AI_Desert_Citadel_Miniat_...`) in an
+   external folder; both wired via the existing `MeshyBuildingImporter` pipeline
+   with `Quaternion.Euler(-90,0,0)` (both were lying on their back at import,
+   confirmed via 3/4-view and top-down screenshots against the concept art before
+   committing to the correction, not assumed), scaled to 4.34 (Barracks)/11.28
+   (TownCenter) world-unit heights against the established Rajput ratio hierarchy
+   (TownCenter now the tallest building, Barracks between Tower and House as
+   expected), and decimated to ~500,000 tris each via `BuildingMeshDecimator`
+   (from ~1.9-2.0M raw). **TownCenter needed a second pass mid-session**: the
+   user caught that the folder's first delivery was the wrong file (their own
+   upload mistake, not a pipeline bug) after it was already wired and screenshot-
+   verified — replaced with the correct delivery once re-uploaded, re-imported/
+   re-rotated/re-scaled/re-decimated from scratch (the raw mesh's own bounds
+   differed between the two deliveries, so the rotation and scale were
+   re-verified fresh rather than reused). **Also found and fixed a real,
+   pre-existing bug in the same session, flagged live by the user from the
+   running scene**: Rajput's Tower (not touched by this session's own changes)
+   was spawning upside-down through the real `BuildingModelFactory.Spawn` path.
+   Root cause: `BuildingModelFactory`'s civ-blind `ImportRotationCorrections["Tower"]`
+   stomp (`Euler(0,0,-90)`, applied to the outer wrapper at spawn time) composes
+   with the civ-specific model's own baked child correction — Rajput's baked
+   value (`Euler(0,90,0)`, set in the original 2026-08-31 Rajput session) turned
+   out to be the wrong one of the Y+90/Y-90 tying-bounds pair this project's own
+   history had already flagged as ambiguous (`feedback_tower_rotation_correction.md`).
+   Fixed by testing the raw source FBX standalone against the Watchtower concept
+   art to find the correct absolute orientation (`Euler(-90,0,0)` — chhatri domes/
+   crenellated parapet on top, buttressed base at bottom), then solving for the
+   child's required local rotation given the fixed parent stomp
+   (`Quaternion.Inverse(parentStomp) * targetWorld` = `Euler(0,-90,90)`) rather
+   than guessing, and verified via the real `BuildingModelFactory.Spawn` path
+   post-fix. All 146 EditMode tests pass unmodified throughout (including
+   `BuildingPolycountTests`), no test code changes needed — pure asset-pipeline
+   and prefab-transform-data work. See `docs/SESSION_LOG.md`'s matching entry.
 8. ~~**Visual closure for the 4 Maurya/Maratha unique units** — real Meshy-sourced
    models, rigged via Blender command-line scripting (3 onto the existing shared
    human rig, the War Elephant onto a real third-party elephant skeleton+animation

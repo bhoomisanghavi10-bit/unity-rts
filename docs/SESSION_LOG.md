@@ -5,6 +5,102 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-02/03 — Re-source Rajput TownCenter and Barracks; fix Rajput Tower rotation
+
+**Scope**: two flagged, unresolved gaps from the same-day mesh-decimation session
+(Roadmap Section 1/5 item 7) — Rajput TownCenter had no civ-specific model at all
+(its original source FBX was confirmed 0 bytes and removed, falling back to the
+shared model), and Rajput Barracks' wired model was a small boxy shape that didn't
+match its "grand multi-turret courtyard-fort" concept art. The user located and
+supplied correct source deliveries in an external folder
+(`/Volumes/US/all civ buildings/Rajput/rajput towncenter/`,
+`.../rajput barrack/`) and asked for them to be wired in. Went through Plan Mode
+first (multi-step Unity asset-pipeline work: texture packing, import, rotation/
+scale verification, decimation, live testing).
+
+**Implementation**: `MeshyBuildingImporter.ImportBuilding` requires a pre-packed
+`*_metallicSmoothness.png` the raw deliveries didn't have (only separate
+`_metallic.png`/`_roughness.png`) — packed via a new scratchpad Python/numpy/Pillow
+script (R=metallic, A=1-roughness), copies made into the scratchpad rather than
+editing the user's original delivery folder. Both buildings wired via the existing
+`MeshyBuildingImporter`/`BuildingMeshDecimator` pipeline, no code changes needed —
+same one-shot pipeline every prior civ-model session has used.
+
+**Orientation**: both raw exports were lying on their back at import (Meshy's
+usual Z-up-into-Y-up gap). Per this project's own documented gotcha (a bounds-only
+check is not enough, especially for wide/sprawling shapes), each was verified via
+3/4-view and top-down screenshots against its own concept art before committing to
+`Quaternion.Euler(-90,0,0)` for both — confirmed correct for Barracks (reads as
+the courtyard fort with 4 corner chhatri turrets, crenellated walls, staircase,
+open interior — an exact match to its concept art) and, on the second attempt, for
+TownCenter (see below).
+
+**TownCenter needed a second pass mid-session**: the first delivery in the
+`rajput towncenter` folder was wired, rotation-verified, scaled, decimated, and
+about to be documented as done when the user caught that it was the wrong file —
+their own upload mistake, not a pipeline bug. They replaced it with the correct
+delivery (`Meshy_AI_Rosestone_Citadel_0902182129_texture.fbx`, same concept art
+target); the new raw mesh's bounds differed from the first (a wide/sprawling
+tiered-dome-and-staircase palace, not the same shape at all), so rotation and
+scale were re-verified from scratch rather than reusing the first pass's numbers.
+Confirmed correct via top-down (reads as a real building plan — courtyard, corner
+domes, central structure, staircase wing — not a flat facade) and 3/4-view
+screenshots against the concept art: a tiered stepped-pyramid palace with domes,
+matching "a single isolated grand Rajput fort-and-haveli architectural complex."
+
+**Scale**: measured live worker height (~1.9-2.0, consistent with this project's
+established baseline) and targeted the existing Rajput ratio hierarchy (Tower
+8.00 > Market 4.85 > Barracks ≈4.36 > Dock 3.81 > Wall/Gate 2.66 > House 2.58 >
+Farm 2.09, TownCenter as the largest) — landed on Barracks height 4.34 and
+TownCenter height 11.28, both confirmed via live `BuildingModelFactory.Spawn`
+bounds and screenshots (worker dwarfed appropriately; TownCenter reads as the
+grandest building, wider and taller than Tower; Barracks sits between Tower and
+House). Both decimated to ~500,000 tris via `BuildingMeshDecimator` (from
+~1.9-2.0M raw Meshy exports), screenshot-confirmed clean at that target (no
+visible carved-relief artifacts, matching every other already-decimated civ
+building).
+
+**Adjacent bug found and fixed, flagged live by the user mid-session (not part of
+this item's own original scope, but directly on-topic and immediately actionable)**:
+while comparing TownCenter against the neighboring Tower for scale context, the
+user noticed Rajput's Tower — untouched by this session's own changes — was
+spawning upside-down through the real `BuildingModelFactory.Spawn` path. Root
+cause: `BuildingModelFactory`'s civ-blind `ImportRotationCorrections["Tower"]`
+runtime stomp (`Quaternion.Euler(0,0,-90)`, applied to the outer wrapper at spawn
+time, unconditionally for any building named "Tower") composes with the
+civ-specific model's own baked child correction one level down — Rajput's baked
+value (`Euler(0,90,0)`, set in the original 2026-08-31 Rajput building session)
+turned out to be the wrong one of the Y+90/Y-90 tying-bounds pair this project's
+own history had already flagged as a real trap
+(`feedback_tower_rotation_correction.md` in cross-session memory: both give
+identical Y-tallest bounds, only one is upright). Root-caused rather than
+guessed: tested the raw source FBX standalone (outside the factory's stomp) to
+find its correct absolute orientation against the Watchtower concept art
+(`Euler(-90,0,0)` — chhatri domes and crenellated parapet on top, buttressed base
+at bottom, matching the reference art closely), then solved algebraically for the
+child's required local rotation given the fixed parent stomp
+(`Quaternion.Inverse(parentStomp) * targetWorld` = `Euler(0,-90,90)`, verified by
+composing both in a throwaway test hierarchy before touching the real prefab).
+Applied directly to `Assets/Resources/Buildings/Rajput/Tower.prefab`'s nested
+child transform via `PrefabUtility.LoadPrefabContents`/`SaveAsPrefabAsset`
+(the standard scripted-prefab-editing pattern this project's tooling already
+uses elsewhere, e.g. `BuildingMeshDecimator`) and re-verified upright through the
+real `BuildingModelFactory.Spawn` path afterward, not just the prefab file.
+
+**Tests**: all 146 EditMode tests pass unmodified throughout every stage of this
+session (including `BuildingPolycountTests`, which would have caught a
+decimation regression) — no test code changes needed, consistent with every
+prior civ-model session (pure asset-pipeline and prefab-transform-data work, no
+new logic).
+
+**Roadmap**: Section 1/5 item 7 updated — 44/45 civ-specific building models
+complete (only Maurya Tower remains on the shared fallback, a separate
+pre-existing 0-byte-source gap unrelated to this session), Rajput's own 9/9 is
+now genuinely complete end-to-end (model + correct orientation). Section 4.2's
+Rajput TownCenter fallback note updated to reflect the fix.
+
+---
+
 ## 2026-09-02 — Building mesh decimation pass (Roadmap Section 1/5 item 17)
 
 **Scope**: the 2026-09-02 civ-by-civ visual audit found every civ-specific

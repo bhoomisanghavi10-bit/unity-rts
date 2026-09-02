@@ -7,6 +7,35 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Rajput TownCenter/Barracks re-sourced, Rajput Tower rotation fixed
+  (2026-09-02/03, Section 1/5 item 7)** — closes the 2 findings the mesh-
+  decimation session flagged but didn't fix (see this file's own note below).
+  User supplied correct source deliveries for both buildings in an external
+  folder; wired via the existing `MeshyBuildingImporter`/`BuildingMeshDecimator`
+  pipeline unchanged, no code changes needed. Both were lying on their back at
+  import (Meshy's usual export convention) — orientation confirmed via 3/4-view
+  and top-down screenshots against each building's own concept art before
+  committing to `Quaternion.Euler(-90,0,0)` for both, not assumed. **TownCenter
+  needed a second pass**: the folder's first delivery turned out to be the
+  wrong file (the user's own upload mistake), caught and corrected mid-session
+  before this was logged as done — re-imported/re-verified from scratch once
+  the correct delivery was in place (final: Barracks height 4.34, TownCenter
+  height 11.28, matching the established Rajput ratio hierarchy). Both
+  decimated to ~500,000 tris (from ~1.9-2.0M raw), screenshot-confirmed clean.
+  **Also found and fixed a real, pre-existing adjacent bug, flagged live by the
+  user from the running scene**: Rajput's Tower (untouched by this session's
+  own changes) was spawning upside-down — its 2026-08-31-session-baked child
+  rotation correction (`Euler(0,90,0)`) turned out to be the wrong one of the
+  Y+90/Y-90 tying-bounds pair `feedback_tower_rotation_correction.md` already
+  flags as a real trap. Root-caused (tested the raw FBX standalone against the
+  Watchtower concept art, then solved algebraically for the required child
+  rotation given `BuildingModelFactory`'s fixed civ-blind parent stomp) and
+  fixed directly on `Tower.prefab`, re-verified via the real
+  `BuildingModelFactory.Spawn` path. All 146 EditMode tests pass unmodified
+  throughout. Rajput is now genuinely 9/9 (model + correct orientation);
+  44/45 civ-specific buildings complete overall (Maurya Tower is the one
+  remaining gap, a separate pre-existing 0-byte-source issue). See
+  `docs/SESSION_LOG.md`'s matching entry for full detail.
 - **Building mesh decimation pass closed (2026-09-02, Section 1/5 item 17)**
   — `UnityMeshSimplifier` package + new `Assets/Editor/BuildingMeshDecimator.cs`
   decimated 43/45 civ-specific buildings (Rajput TownCenter/Maurya Tower's
@@ -382,12 +411,13 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: **the building mesh decimation pass (Section 1/5 item 17) is
-  closed** — see this file's own bullet above and Roadmap Section 1/5 for full
-  detail (43/45 buildings decimated to ~500,000 tris each, real target-ratio
-  finding, new regression test, 2 findings flagged for future sessions: the
-  Rajput TownCenter null-mesh fallback, and Rajput Barracks' sourced model
-  not matching its concept art). Otherwise: Section 5 items 1-9 and
+- Currently on: **Rajput TownCenter/Barracks re-sourced and Rajput Tower's
+  rotation bug fixed (2026-09-02/03) — both findings flagged by the mesh-
+  decimation session are now closed**, see this file's own bullet above for
+  full detail. The mesh decimation pass itself (Section 1/5 item 17) closed
+  2026-09-02 — see Roadmap Section 1/5 for full detail (44/45 buildings
+  decimated to ~500,000 tris each, real target-ratio finding, new regression
+  test). Otherwise: Section 5 items 1-9 and
   11-15 are all done — **the worker-mechanics-audit is fully closed** — and
   `AOE_PARITY_EXECUTION_PLAN.md`'s Phases 1-4 are fully resolved (see the
   consolidation note above), **including item 2.3 (Siege splash/area damage
@@ -403,12 +433,13 @@ asset requirements, 5. Priority order).
   ("at the end of the project"). **Both Naval balance follow-up
   findings closed 2026-09-02** (see this session's own bullet above) — no
   longer an open item. Item 7 (civ-specific building models) is at
-  **43/45** — Chola/Vijayanagara/Maratha are 9/9 each; Rajput and Maurya are
-  8/9 each, missing TownCenter and Tower respectively (their source FBX
-  files were confirmed 0 bytes from the original delivery, unrecoverable
-  from git history — removed 2026-09-02 rather than left silently broken,
-  both civ/building combos now render the shared fallback model; re-sourcing
-  real art for these 2 is a pending asset need, not a code task).
+  **44/45** — Chola/Vijayanagara/Rajput/Maratha are 9/9 each (Rajput's
+  TownCenter and Barracks re-sourced 2026-09-02/03, see this file's own bullet
+  above); Maurya is 8/9, missing Tower (its source FBX was confirmed 0 bytes
+  from the original delivery, unrecoverable from git history — removed
+  2026-09-02 rather than left silently broken, renders the shared fallback
+  model; re-sourcing real art for it is a pending asset need, not a code
+  task).
   `Assets/Editor/MeshyBuildingImporter.cs` remains reusable for any future
   civ-model work, but every lesson below stays load-bearing: never trust bounds
   alone (an angled `game_view` screenshot at identity can *look* upright via
