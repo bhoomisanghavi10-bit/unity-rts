@@ -77,9 +77,14 @@ namespace KingdomsOfBharat.UI
         private const string ToggleActionId = "ToggleSettings";
         private static readonly KeyCode ToggleDefault = KeyCode.F10;
 
+        // Item 2 (Victory Conditions): 0 = Off, matching GameSettings.
+        // TimeLimitMinutes' own default-means-old-behavior convention.
+        private static readonly int[] TimeLimitPresets = { 0, 15, 30, 45, 60 };
+
         private GameObject _panel;
         private TMP_Text _difficultyValueText;
         private TMP_Text _colorblindValueText;
+        private TMP_Text _timeLimitValueText;
         private TMP_Text[] _keyButtonTexts = new TMP_Text[Actions.Length];
         private string _rebindingActionId;
 
@@ -176,6 +181,8 @@ namespace KingdomsOfBharat.UI
 
             _difficultyValueText.text = GameSettings.Difficulty.ToString();
             _colorblindValueText.text = GameSettings.ColorblindMode ? "On" : "Off";
+            int timeLimit = GameSettings.TimeLimitMinutes;
+            _timeLimitValueText.text = timeLimit <= 0 ? "Off" : $"{timeLimit} min";
 
             for (int i = 0; i < Actions.Length; i++)
             {
@@ -202,6 +209,17 @@ namespace KingdomsOfBharat.UI
         private void ToggleColorblind()
         {
             GameSettings.ColorblindMode = !GameSettings.ColorblindMode;
+            GameSettings.Save();
+            RefreshDisplayedValues();
+        }
+
+        // Item 2 (Victory Conditions): same cycle-through-presets shape as
+        // CycleDifficulty above.
+        private void CycleTimeLimit()
+        {
+            int currentIndex = System.Array.IndexOf(TimeLimitPresets, GameSettings.TimeLimitMinutes);
+            int nextIndex = (currentIndex + 1) % TimeLimitPresets.Length; // -1 (unknown/corrupt value) wraps to 0 = Off, a safe fallback
+            GameSettings.TimeLimitMinutes = TimeLimitPresets[nextIndex];
             GameSettings.Save();
             RefreshDisplayedValues();
         }
@@ -237,47 +255,133 @@ namespace KingdomsOfBharat.UI
             var boxRect = boxGo.GetComponent<RectTransform>();
             boxRect.anchorMin = new Vector2(0.5f, 0.5f);
             boxRect.anchorMax = new Vector2(0.5f, 0.5f);
-            boxRect.sizeDelta = new Vector2(520f, 620f);
+            // Grown from the original 520x620 (Item 2, Victory Conditions
+            // session): Actions.Length grew from 12 to 34 across the prior
+            // hotkey-coverage session without the box or layout being
+            // resized to match, so most rows rendered below the panel's own
+            // background - a real regression, caught via a live screenshot
+            // while adding this item's own new row. Fixed properly below by
+            // scrolling the list instead of just growing the box further
+            // (34+ rows still wouldn't fit any reasonably-sized single
+            // screen), but the extra height/width here gives the fixed rows
+            // above the list (Difficulty/Colorblind/Time Limit) more room.
+            boxRect.sizeDelta = new Vector2(560f, 700f);
             boxRect.anchoredPosition = Vector2.zero;
 
-            float y = 270f;
+            float y = 320f;
             CreateLabel(boxGo.transform, "Settings", new Vector2(0f, y), 28, TextAlignmentOptions.Center);
             y -= 50f;
 
-            CreateLabel(boxGo.transform, "Difficulty", new Vector2(-140f, y), 18, TextAlignmentOptions.Left);
-            _difficultyValueText = CreateButton(boxGo.transform, "", new Vector2(120f, y), new Vector2(160f, 32f), CycleDifficulty);
+            CreateLabel(boxGo.transform, "Difficulty", new Vector2(-150f, y), 18, TextAlignmentOptions.Left);
+            _difficultyValueText = CreateButton(boxGo.transform, "", new Vector2(130f, y), new Vector2(160f, 32f), CycleDifficulty);
             y -= 44f;
 
-            CreateLabel(boxGo.transform, "Colorblind Mode", new Vector2(-140f, y), 18, TextAlignmentOptions.Left);
-            _colorblindValueText = CreateButton(boxGo.transform, "", new Vector2(120f, y), new Vector2(160f, 32f), ToggleColorblind);
+            CreateLabel(boxGo.transform, "Colorblind Mode", new Vector2(-150f, y), 18, TextAlignmentOptions.Left);
+            _colorblindValueText = CreateButton(boxGo.transform, "", new Vector2(130f, y), new Vector2(160f, 32f), ToggleColorblind);
+            y -= 44f;
+
+            CreateLabel(boxGo.transform, "Time Limit", new Vector2(-150f, y), 18, TextAlignmentOptions.Left);
+            _timeLimitValueText = CreateButton(boxGo.transform, "", new Vector2(130f, y), new Vector2(160f, 32f), CycleTimeLimit);
             y -= 50f;
 
             CreateLabel(boxGo.transform, "Key Bindings", new Vector2(0f, y), 20, TextAlignmentOptions.Center);
-            y -= 36f;
+            y -= 26f;
 
+            // Item 2 (Victory Conditions): the list itself scrolls instead
+            // of growing the box to fit every row - Actions.Length (34+) at
+            // any readable row height doesn't fit a single screen. Standard
+            // uGUI ScrollRect + Viewport (RectMask2D-clipped) + Content
+            // (sized to the full row count, top-pivoted so rows can be
+            // positioned by distance-from-top exactly like the old
+            // unscrolled loop was). Mouse-wheel and drag-scroll both work
+            // for free via ScrollRect - no separate Scrollbar needed for a
+            // functional fix.
+            const float rowHeight = 32f;
+            const float scrollWidth = 480f;
+            float scrollBottom = -290f;
+            float scrollHeight = y - scrollBottom;
+
+            var scrollGo = new GameObject("KeyBindingsScroll");
+            scrollGo.transform.SetParent(boxGo.transform, false);
+            var scrollRect = scrollGo.AddComponent<RectTransform>();
+            // Anchored to the box's CENTER (0.5,0.5), matching every other
+            // row above - NOT the box's top edge (0.5,1f), which was this
+            // section's first-draft bug: anchoredPosition.y is measured
+            // from wherever anchorMin/Max place the reference point, so a
+            // top-edge anchor made `y` (already center-relative, like every
+            // other row's own y) put the whole scroll area far too high,
+            // overlapping Difficulty/Colorblind/Time Limit - caught via a
+            // live screenshot. Pivot stays top (0.5,1f) so anchoredPosition
+            // still refers to this rect's own TOP edge, letting it hang
+            // downward from y by scrollHeight.
+            scrollRect.anchorMin = new Vector2(0.5f, 0.5f);
+            scrollRect.anchorMax = new Vector2(0.5f, 0.5f);
+            scrollRect.pivot = new Vector2(0.5f, 1f);
+            scrollRect.sizeDelta = new Vector2(scrollWidth, scrollHeight);
+            scrollRect.anchoredPosition = new Vector2(0f, y);
+            var scroll = scrollGo.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = rowHeight;
+
+            var viewportGo = new GameObject("Viewport");
+            viewportGo.transform.SetParent(scrollGo.transform, false);
+            var viewportRect = viewportGo.AddComponent<RectTransform>();
+            viewportRect.anchorMin = Vector2.zero;
+            viewportRect.anchorMax = Vector2.one;
+            viewportRect.offsetMin = Vector2.zero;
+            viewportRect.offsetMax = Vector2.zero;
+            viewportGo.AddComponent<RectMask2D>();
+            // Near-transparent rather than fully transparent so this Image
+            // still catches drag/scroll input over the whole viewport, not
+            // just where a row's own Button graphic sits.
+            var viewportImage = viewportGo.AddComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
+
+            var contentGo = new GameObject("Content");
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            var contentRect = contentGo.AddComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.sizeDelta = new Vector2(0f, Actions.Length * rowHeight);
+            contentRect.anchoredPosition = Vector2.zero;
+
+            scroll.viewport = viewportRect;
+            scroll.content = contentRect;
+
+            float rowY = 0f;
             for (int i = 0; i < Actions.Length; i++)
             {
                 string actionId = Actions[i].Id;
-                CreateLabel(boxGo.transform, Actions[i].Label, new Vector2(-100f, y), 15, TextAlignmentOptions.Left);
-                _keyButtonTexts[i] = CreateButton(boxGo.transform, "", new Vector2(170f, y), new Vector2(120f, 28f),
-                    () => { _rebindingActionId = actionId; RefreshDisplayedValues(); });
-                y -= 32f;
+                CreateLabel(contentGo.transform, Actions[i].Label, new Vector2(-100f, rowY), 15, TextAlignmentOptions.Left, anchorY: 1f);
+                _keyButtonTexts[i] = CreateButton(contentGo.transform, "", new Vector2(170f, rowY), new Vector2(120f, 28f),
+                    () => { _rebindingActionId = actionId; RefreshDisplayedValues(); }, anchorY: 1f);
+                rowY -= rowHeight;
             }
 
-            y -= 10f;
-            CreateButton(boxGo.transform, "Close", new Vector2(0f, y), new Vector2(140f, 34f),
+            CreateButton(boxGo.transform, "Close", new Vector2(0f, scrollBottom - 30f), new Vector2(140f, 34f),
                 () => _panel.SetActive(false));
 
             RefreshDisplayedValues();
         }
 
-        private static TMP_Text CreateLabel(Transform parent, string text, Vector2 position, int fontSize, TextAlignmentOptions alignment)
+        // anchorY: 0.5 (default) for rows parented directly to the box,
+        // matching every pre-existing call site exactly. 1f for rows
+        // parented to Content in the scrollable Key Bindings list, so
+        // anchoredPosition.y is measured from Content's top edge (matching
+        // Content's own top pivot) rather than its center, which is what
+        // lets `rowY -= rowHeight` behave the same way the old unscrolled
+        // loop's `y -= 32f` did.
+        private static TMP_Text CreateLabel(Transform parent, string text, Vector2 position, int fontSize, TextAlignmentOptions alignment, float anchorY = 0.5f)
         {
             var go = new GameObject("Label_" + text);
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.anchorMin = new Vector2(0.5f, anchorY);
+            rect.anchorMax = new Vector2(0.5f, anchorY);
+            rect.pivot = new Vector2(0.5f, anchorY);
             rect.sizeDelta = new Vector2(300f, 30f);
             rect.anchoredPosition = position;
 
@@ -289,13 +393,14 @@ namespace KingdomsOfBharat.UI
             return tmp;
         }
 
-        private static TMP_Text CreateButton(Transform parent, string text, Vector2 position, Vector2 size, System.Action onClick)
+        private static TMP_Text CreateButton(Transform parent, string text, Vector2 position, Vector2 size, System.Action onClick, float anchorY = 0.5f)
         {
             var go = new GameObject("Button_" + (string.IsNullOrEmpty(text) ? "Value" : text));
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.anchorMin = new Vector2(0.5f, anchorY);
+            rect.anchorMax = new Vector2(0.5f, anchorY);
+            rect.pivot = new Vector2(0.5f, anchorY);
             rect.sizeDelta = size;
             rect.anchoredPosition = position;
 

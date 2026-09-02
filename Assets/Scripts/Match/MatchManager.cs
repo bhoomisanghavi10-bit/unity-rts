@@ -11,6 +11,10 @@ namespace KingdomsOfBharat.Match
         Ongoing,
         Victory,
         Defeat,
+        // Item 2 (Victory Conditions): only reachable via the Time Limit
+        // path (ResolveTimeLimitOutcome) - elimination and scripted
+        // missions (ScenarioManager.EvaluateOutcome) never produce this.
+        Draw,
     }
 
     // AoE-style conquest victory: a faction is eliminated once it has zero
@@ -74,7 +78,12 @@ namespace KingdomsOfBharat.Match
         // or "destroy the enemy Barracks" shouldn't also trigger Victory
         // just because the AI happened to lose every unit some other way.
         // A plain skirmish never sets ActiveScenario, so this branch never
-        // fires and the elimination logic below runs exactly as before.
+        // fires and the elimination/time-limit logic below runs exactly as
+        // before this item's Time Limit addition (a 0 GameSettings.
+        // TimeLimitMinutes - the default - makes IsTimeLimitReached always
+        // false, so EvaluateSkirmishOutcome behaves identically to the old
+        // inline elimination-only logic for anyone who never touches the
+        // new setting).
         private void Evaluate()
         {
             if (ScenarioManager.ActiveScenario != null)
@@ -87,14 +96,35 @@ namespace KingdomsOfBharat.Match
                 return;
             }
 
-            bool playerAlive = FactionHasForces(FactionId.Player);
-
-            if (!playerAlive)
+            MatchOutcome outcome = EvaluateSkirmishOutcome(IsTimeLimitReached());
+            if (outcome != MatchOutcome.Ongoing)
             {
-                Declare(MatchOutcome.Defeat);
-                return;
+                Declare(outcome);
+            }
+        }
+
+        private bool IsTimeLimitReached()
+        {
+            int limitMinutes = GameSettings.TimeLimitMinutes;
+            return limitMinutes > 0 && (Time.unscaledTime - _matchStartedAt) >= limitMinutes * 60f;
+        }
+
+        // Item 2 (Victory Conditions): extracted from Evaluate() as the
+        // testable seam (same convention as ConstructionSite.internal Tick/
+        // CommandBus.internal EnqueueAt) - EditMode tests spawn real Unit/
+        // Building/FactionMember objects and call this directly, no
+        // Update()/timer/Time.unscaledTime mocking needed. Elimination
+        // (Defeat/Victory) always takes priority over the time limit - a
+        // decisive event beats an approximate timer even if both would fire
+        // the same tick.
+        internal static MatchOutcome EvaluateSkirmishOutcome(bool timeLimitReached)
+        {
+            if (!FactionHasForces(FactionId.Player))
+            {
+                return MatchOutcome.Defeat;
             }
 
+            bool allHostilesEliminated = true;
             foreach (FactionId faction in AllFactions)
             {
                 if (faction == FactionId.Player || DiplomacyRegistry.AreAllied(FactionId.Player, faction))
@@ -104,11 +134,50 @@ namespace KingdomsOfBharat.Match
 
                 if (FactionHasForces(faction))
                 {
-                    return;
+                    allHostilesEliminated = false;
+                    break;
                 }
             }
 
-            Declare(MatchOutcome.Victory);
+            if (allHostilesEliminated)
+            {
+                return MatchOutcome.Victory;
+            }
+
+            return timeLimitReached ? ResolveTimeLimitOutcome() : MatchOutcome.Ongoing;
+        }
+
+        // "Declare the winner by total remaining population, or draw if
+        // tied" per docs/PARTIAL_ELEMENTS_FIX_PLAN.md item 2 - deliberately
+        // simple since no Score system exists yet (that's a separate,
+        // deferred victory condition per the same plan doc). Ally-aware
+        // grouping mirrors EvaluateSkirmishOutcome's own hostile-faction
+        // loop above, so a Player ally's population counts toward the
+        // Player's side rather than against it.
+        internal static MatchOutcome ResolveTimeLimitOutcome()
+        {
+            int playerSide = 0;
+            int hostileSide = 0;
+
+            foreach (FactionId faction in AllFactions)
+            {
+                int population = Population.Current(faction);
+                if (faction == FactionId.Player || DiplomacyRegistry.AreAllied(FactionId.Player, faction))
+                {
+                    playerSide += population;
+                }
+                else
+                {
+                    hostileSide += population;
+                }
+            }
+
+            if (playerSide > hostileSide)
+            {
+                return MatchOutcome.Victory;
+            }
+
+            return playerSide < hostileSide ? MatchOutcome.Defeat : MatchOutcome.Draw;
         }
 
         // TargetDummy never counts here: it's tagged Enemy faction as a

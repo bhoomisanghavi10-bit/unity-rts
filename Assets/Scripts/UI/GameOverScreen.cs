@@ -30,9 +30,24 @@ namespace KingdomsOfBharat.UI
             }
 
             panelRoot.SetActive(true);
-            bool won = MatchManager.Outcome == MatchOutcome.Victory;
-            titleLabel.text = won ? "VICTORY!" : "DEFEAT";
-            titleLabel.color = won ? new Color(1f, 0.85f, 0.2f) : new Color(0.85f, 0.2f, 0.2f);
+            // Item 2 (Victory Conditions): Draw is only reachable via the
+            // Time Limit tiebreaker (MatchManager.ResolveTimeLimitOutcome) -
+            // elimination and scripted missions never produce it.
+            switch (MatchManager.Outcome)
+            {
+                case MatchOutcome.Victory:
+                    titleLabel.text = "VICTORY!";
+                    titleLabel.color = new Color(1f, 0.85f, 0.2f);
+                    break;
+                case MatchOutcome.Draw:
+                    titleLabel.text = "DRAW";
+                    titleLabel.color = new Color(0.75f, 0.75f, 0.75f);
+                    break;
+                default:
+                    titleLabel.text = "DEFEAT";
+                    titleLabel.color = new Color(0.85f, 0.2f, 0.2f);
+                    break;
+            }
         }
 
         // Time.timeScale must be restored before the reload - MatchManager's

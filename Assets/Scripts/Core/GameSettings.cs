@@ -14,6 +14,7 @@ namespace KingdomsOfBharat.Core
     {
         private const string DifficultyKey = "Settings_Difficulty";
         private const string ColorblindKey = "Settings_Colorblind";
+        private const string TimeLimitKey = "Settings_TimeLimitMinutes";
         private const string KeyPrefix = "Settings_Key_";
 
         // AiController's own [SerializeField] difficulty stays the source
@@ -37,6 +38,17 @@ namespace KingdomsOfBharat.Core
         {
             get => PlayerPrefs.GetInt(ColorblindKey, 0) == 1;
             set => PlayerPrefs.SetInt(ColorblindKey, value ? 1 : 0);
+        }
+
+        // Item 2 (Victory Conditions): 0 = Off (no time limit), matching
+        // this project's "unset/zero means the old behavior" convention -
+        // a match that never touches this setting behaves identically to
+        // before this property existed (MatchManager.IsTimeLimitReached
+        // always returns false for a 0 limit).
+        public static int TimeLimitMinutes
+        {
+            get => PlayerPrefs.GetInt(TimeLimitKey, 0);
+            set => PlayerPrefs.SetInt(TimeLimitKey, value);
         }
 
         // actionId identifies one rebindable action (e.g. "CycleStance",

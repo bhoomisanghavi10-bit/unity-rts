@@ -13,7 +13,7 @@ one item per session, Plan Mode before nontrivial changes, test before done, log
 | # | Element | Why this position |
 |---|---|---|
 | 1 | Hotkey | **Done (2026-09-03)** — see the item's own section and `docs/SESSION_LOG.md` |
-| 2 | Victory conditions | Closes a real core-loop gap (Conquest + Time Limit only, no new assets) |
+| 2 | Victory conditions | **Done (2026-09-03)** — Conquest already existed; Time Limit + Draw added |
 | 3 | Area of Effect / Trample damage | Reuses existing splash-damage infrastructure, needs one design decision |
 | 4 | Diplomacy (tribute) | Reuses existing DiplomacyRegistry, UI-only + small resource-transfer logic |
 | 5 | Renewable resource (Farm reseed) | Needs a verification pass first before any code is written |
@@ -74,7 +74,26 @@ Input-driven fixes in this project's history.
 
 ---
 
-## 2. Victory conditions — Conquest + Time Limit first
+## 2. Victory conditions — Conquest + Time Limit first — **Done (2026-09-03)**
+
+**Result**: this item's own premise turned out half wrong once checked against the
+actual repo (not just trusted) — see `docs/SESSION_LOG.md`'s 2026-09-03 entry for full
+detail. **Conquest was already fully implemented** (`MatchManager.Evaluate`, present
+before this session) and the "new art" Victory/Defeat splash already existed too
+(`GameOverScreen.cs`) — neither needed building. **Time Limit was the real, only gap**,
+now closed: `GameSettings.TimeLimitMinutes` (Off/15/30/45/60, cycled via a new Settings
+row), `MatchManager.EvaluateSkirmishOutcome`/`ResolveTimeLimitOutcome` (population
+tiebreaker, ally-aware, `Draw` on a tie — a new 4th `MatchOutcome` value),
+`GameOverScreen` extended to render Draw. 9 new EditMode tests
+(`MatchManagerTests.cs`), live-verified via UnityMCP through the real
+`Update()`/`Time.unscaledTime` path, not just the isolated pure functions. **Also fixed
+a real regression found while touching the same Settings screen**: `SettingsMenu`'s
+Key Bindings list had silently overflowed its panel background since the prior
+session's hotkey-coverage pass grew it from 12 to 34 rows with no layout resize —
+fixed with a proper scrollable list (`ScrollRect`/`Viewport`/`Content`), screenshot-
+verified scrolled to both ends.
+
+**Original plan (for reference):**
 
 **Gap:** Mission-based objectives exist (`MissionObjective`/`MissionTrigger`) for scripted
 campaign missions, but there's no standard skirmish victory condition (Conquest, Time Limit,

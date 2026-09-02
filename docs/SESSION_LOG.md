@@ -5,6 +5,88 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Partial-Elements Fix Plan item 2: Victory Conditions (Time Limit + Draw), Settings overflow fix
+
+**Scope**: `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 2 ("Victory conditions — Conquest +
+Time Limit"), picked up immediately after item 1 (Hotkeys) per the user's "start item
+2". A direct read of `Assets/Scripts/Match/MatchManager.cs` found the plan doc's own
+premise was half wrong, unverified against the actual repo (same class of drift this
+project's history has hit before, e.g. the 2026-09-02 Rajput/Maurya sessions'
+"treat prior claims as unverified" lesson): **Conquest was already fully
+implemented** — `MatchManager.Evaluate()` already declared Defeat when the Player has
+zero units/buildings and Victory when every non-allied hostile faction does too. The
+plan's "new art" ask (a Victory/Defeat splash) also already existed
+(`GameOverScreen.cs`). **Time Limit was the only real gap** (confirmed via grep — zero
+hits for `TimeLimit`/`MatchLength` anywhere in the codebase before this session).
+
+**Implementation** (Plan Mode, approved before coding): `GameSettings.TimeLimitMinutes`
+(int, PlayerPrefs-backed, default 0 = Off, same property-pair convention as
+`Difficulty`/`ColorblindMode`). `MatchManager`'s old inline elimination logic was
+extracted into `internal static MatchOutcome EvaluateSkirmishOutcome(bool
+timeLimitReached)` (identical behavior to before when the limit is Off, the default -
+a pure additive change for anyone who never touches the new setting) plus a new
+`internal static MatchOutcome ResolveTimeLimitOutcome()` - sums `Population.Current`
+(unit count) across the Player's side (Player + allies, mirroring the elimination
+check's own ally-aware grouping) vs. the hostile side and declares Victory/Defeat/
+**Draw** (a new 4th `MatchOutcome` value - only reachable via this path, never
+elimination or scripted missions) on a tie. `MatchManager.Evaluate()` itself is now a
+thin wrapper calling these + `Declare()`. `GameOverScreen.cs`'s Victory/Defeat ternary
+became a 3-way switch adding Draw in a neutral color; `MissionToast.cs` needed no
+change (its own ternary only ever reads scripted-mission outcomes via
+`ScenarioManager.EvaluateOutcome()`, which can't produce Draw). New Settings row
+(`CycleTimeLimit()`, presets Off/15/30/45/60 min, same cycle-button shape as
+`CycleDifficulty`).
+
+**Found and fixed a real regression while touching the same Settings screen for that
+new row, not silent scope creep**: a live screenshot taken to place the new row
+showed `SettingsMenu`'s Key Bindings list (grown from 12 to 34 rows by the prior
+session's own hotkey-coverage work) rendering roughly 27 of its 34 rows *below* the
+panel's own background image, floating directly over the game world behind it - the
+box size/layout was never adjusted when `Actions` grew. Fixed properly (not just by
+growing the box further, which wouldn't fit 34+ rows on any reasonable screen anyway):
+a real `ScrollRect`/`Viewport` (`RectMask2D`-clipped)/`Content` (top-pivoted,
+sized to the full row count) scrollable list - no precedent for `ScrollRect` existed
+in this codebase before now. Hit and fixed a real bug in this new code during its own
+live verification, not guessed at: the first draft anchored the scroll container to
+the box's *top edge* while every other row anchors to the box's *center*, so the
+existing center-relative `y` coordinate was measured from the wrong reference point,
+placing the whole scrollable area far too high (visibly overlapping
+Difficulty/Colorblind Mode/Time Limit in a screenshot) - fixed by anchoring the
+scroll container to box-center too (keeping only its own pivot top, so
+`anchoredPosition` still means "distance from center to this rect's top edge").
+Re-verified via 2 more screenshots (scrolled to top and to bottom) confirming every
+row is visible and clipped cleanly with no overflow.
+
+**Testing**: 9 new EditMode tests (`MatchManagerTests.cs`, 155 total, all pass) against
+the extracted `EvaluateSkirmishOutcome`/`ResolveTimeLimitOutcome` static methods (the
+testable seam, same convention as `ConstructionSite.internal Tick`/`CommandBus.internal
+EnqueueAt`) with real spawned `Unit`+`FactionMember` objects, covering elimination
+Defeat/Victory (incl. an allied faction surviving not blocking Victory), Ongoing while
+the time limit isn't reached, and all 3 tiebreaker outcomes including the ally-aware
+population grouping. Live-verified via UnityMCP against the real production path, not
+just the isolated functions: started a real match (`CivilizationSetup.BeginMatch`),
+called `EvaluateSkirmishOutcome(true)` via reflection against real spawned Workers to
+confirm Victory (Player 2 vs Enemy 1) and Draw (evened to 1 vs 1); then separately
+rigged a real `MatchManager` instance's own `_matchStartedAt`/`_timer` fields and let
+its actual `Update()` loop (not a direct call) discover the reached time limit and
+`Declare()` an outcome from real live game state (population had shifted by then from
+AI activity during the session, correctly producing Defeat) - proving the full
+`Time.unscaledTime`-driven wiring works end to end, not just the pure logic in
+isolation. **One disclosed live-verification gap**: `GameOverScreen` has no instance
+in this session's running scene (a pre-existing scene-wiring absence, not caused by
+this session's changes - confirmed via `FindFirstObjectByType` returning null), so its
+new Draw-handling switch case could be verified by direct code review and compilation
+only, not a live screenshot of the actual splash text/color.
+
+**Files**: `Assets/Scripts/Match/MatchManager.cs`, `Assets/Scripts/UI/GameOverScreen.cs`,
+`Assets/Scripts/UI/SettingsMenu.cs`, `Assets/Scripts/Core/GameSettings.cs`,
+`Assets/Tests/EditMode/MatchManagerTests.cs` (new). One scoped commit.
+`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 2 marked done (with its Conquest premise
+corrected); item 3 (Area of Effect / Trample damage) is next per that doc's
+recommended order, not started.
+
+---
+
 ## 2026-09-03 — Partial-Elements Fix Plan item 1: Hotkeys (coverage + selection-scoping bug fix)
 
 **Scope**: `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 1 ("Hotkey — audit and
