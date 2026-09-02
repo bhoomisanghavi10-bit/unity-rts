@@ -7,6 +7,17 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Ad hoc bug fix (2026-09-02, same day as the LAN transport session below,
+  reported from a live Play mode screenshot)**: livestock Cow rendered fully
+  pink and one Palm2 tree rendered grey/flat. Two different root causes, not
+  one: the Cow's FBX had a dangling material GUID remap (fixed by creating a
+  real `M_Cow_URP.mat` on the pack's own textures); the Palm2 materials had
+  the correct URP shader but empty texture slots, because a same-day "remove
+  unused assets" cleanup deleted 5 texture files a still-in-use Palm2
+  material actually needed (recovered via `git checkout` from the deleting
+  commit's parent — unlike the Crusader Knight files, these were still
+  reachable). Live-verified via UnityMCP screenshots; no test changes needed
+  (pure asset data). See `docs/SESSION_LOG.md`'s matching entry.
 - **This session (2026-09-02) built a real LAN transport MVP for AoE-Parity
   Phase 5 (multiplayer determinism)**, at the user's explicit instruction not
   to leave it deferred any longer (confirmed scope: LAN-only, 2 human

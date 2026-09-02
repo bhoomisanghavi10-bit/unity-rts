@@ -5,6 +5,74 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-02 — Bug fix: pink cow material, grey palm tree material
+
+**Scope**: ad hoc user bug report from a live Play mode screenshot - a livestock
+Cow rendered fully magenta/pink, and one of two spawned Palm2 trees looked grey/
+flat instead of textured. Not a roadmap item; investigated and fixed directly,
+same convention as prior ad hoc bug-report sessions (rally-flag raycast/deposit
+soft-lock, etc).
+
+**Root causes were different for each, despite looking like the same "broken
+material" symptom**:
+
+1. **Cow (pink)** - `Assets/Resources/Environment/Livestock/SK_Cow.fbx`'s
+   `ModelImporter` remaps its material slot to an external material by GUID
+   (`285081fa0fe474425b4223e77f374d68`, named "M_Cow") - and that GUID doesn't
+   belong to any material asset anywhere in the project (confirmed via a
+   project-wide grep across every `.meta` file). Unity's fallback for a
+   dangling material reference is its own default pink/magenta material -
+   exactly the reported symptom. The `Shepherd_Valley` pack this cow model
+   ships with does have `M_Cow.mat`/`Cow_URP.mat` on disk, but **neither is
+   actually that missing GUID**, and both use an HDRP-only shader GUID that
+   doesn't resolve in this URP project either - so pointing the remap at
+   either existing file would have just swapped one broken material for
+   another. Fixed by creating a real new `Universal Render Pipeline/Lit`
+   material (`Assets/Shepherd_Valley/HDRP/Materials/M_Cow_URP.mat`) wired to
+   the pack's own `T_Cow_B/N/M.png` textures (already correctly imported as
+   albedo/normal/mask - no import-setting changes needed), then editing
+   `SK_Cow.fbx.meta`'s external-material remap to point at this new
+   material's real GUID instead of the dangling one.
+
+2. **Palm2 tree (grey)** - a genuinely different bug: `Palm_Leaf.mat`/
+   `Palm_Trunk.mat`'s shader was already correctly `Universal Render Pipeline/
+   Lit` (confirmed via `manage_material.get_material_info`, not just reading
+   the raw YAML) - the problem was that both materials' `_BaseMap`/`_BumpMap`/
+   `_MetallicGlossMap` texture slots were empty (`fileID: 0`), so they
+   rendered as flat grey/white with no texture at all, not a shader error.
+   Root-caused via `git log --diff-filter=D`: the same "Remove
+   confirmed-unused asset scrap" commit that deleted the Crusader Knight
+   files (flagged blocked in an earlier session today) also deleted
+   `Assets/Tree_Packs/PalmTreePack/Prefabs/Textures/` as "PalmTreePack's
+   orphaned Prefabs/Textures cache" - true for the *Palm1* pack this texture
+   folder primarily served, but wrong for *Palm2*, whose still-in-use
+   materials referenced 5 files inside that same folder by GUID. Unlike the
+   Crusader Knight files, these were recoverable: `git log --diff-filter=D`
+   found the exact deleting commit, and `git checkout <parent commit> --
+   <path>` restored the 5 exact texture files (2 `.psd` leaf textures + 1
+   `.psd` metallic mask + 2 `.png` trunk textures) at their original paths
+   with their original GUIDs intact - confirmed by grepping each restored
+   `.meta`'s `guid:` line against what the materials actually reference.
+   Re-wired both materials' texture slots via `manage_material` once the
+   files existed again.
+
+**Live-verified** via UnityMCP in Play mode (bypassed the CivPicker flow via
+`CivilizationSetup.BeginMatch`, same convention prior sessions used):
+screenshotted a real spawned `SK_Cow` (now shows its real black-and-white
+coat, not pink) and a real spawned `Palm_2_1` tree (now shows real bark
+texture on the trunk and real green frond texture on the leaves, not flat
+grey). No new console errors from either fix. No test changes needed - both
+fixes are pure asset-pipeline/material data, no logic touched (confirmed:
+all 145 EditMode tests still pass unmodified).
+
+**Asset-quality note flagged to the user** (per CLAUDE.md's standing
+"flag when something needs real art, don't just note a fallback gap"
+instruction): the user separately asked to be told whenever an asset isn't at
+AoE IV-level quality. Answered directly in chat rather than fixed here (out
+of this bug-fix's own scope) - see the chat response for the specific list.
+
+---
+
 ## 2026-09-02 — Phase 5: real LAN transport MVP (2-player)
 
 **Scope**: user explicitly asked not to leave Phase 5 (multiplayer determinism)
