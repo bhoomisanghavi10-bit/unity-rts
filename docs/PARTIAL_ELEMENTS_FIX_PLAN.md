@@ -14,7 +14,7 @@ one item per session, Plan Mode before nontrivial changes, test before done, log
 |---|---|---|
 | 1 | Hotkey | **Done (2026-09-03)** — see the item's own section and `docs/SESSION_LOG.md` |
 | 2 | Victory conditions | **Done (2026-09-03)** — Conquest already existed; Time Limit + Draw added |
-| 3 | Area of Effect / Trample damage | Reuses existing splash-damage infrastructure, needs one design decision |
+| 3 | Area of Effect / Trample damage | **Done (2026-09-03)** — Cavalry trample via a generalized splash-damage multiplier |
 | 4 | Diplomacy (tribute) | Reuses existing DiplomacyRegistry, UI-only + small resource-transfer logic |
 | 5 | Renewable resource (Farm reseed) | Needs a verification pass first before any code is written |
 | 6 | Scenario Editor | Largest scope question — recommend the lightweight path, flag the heavy path |
@@ -129,7 +129,22 @@ in Play mode via UnityMCP by forcing both conditions in a real match.
 
 ---
 
-## 3. Area of Effect / Trample damage — cavalry charge damage
+## 3. Area of Effect / Trample damage — cavalry charge damage — **Done (2026-09-03)**
+
+**Result**: implemented option (a) with the user-confirmed refinement of reduced
+secondary damage — see `docs/SESSION_LOG.md`'s 2026-09-03 entry for full detail.
+`MeleeAttacker.SetSplashRadius` gained an optional `damageMultiplier` parameter
+(default 1f, so Siege's existing single-arg call is byte-for-byte unchanged);
+`CavalryFactory` wires `SetSplashRadius(1.25f, 0.35f)` — a radius below formation
+spacing (so only units clumped tight around the impact point are caught, not a full
+adjacent rank) at 35% secondary damage (a minor effect even stacked on Cavalry's
+existing 1.5x hard-counter bonus vs. Infantry). No new VFX needed — the existing
+per-hit particle burst already fires for trample hits. 4 new EditMode tests
+(`CavalryTrampleTests.cs`), live-verified via UnityMCP through the real
+`CavalryFactory`/`SoldierFactory`/`MeleeAttacker.Tick` production path.
+
+<details>
+<summary>Original plan (for reference)</summary>
 
 **Gap:** Siege splash/area damage is implemented and live-verified (`HostileFilter`,
 `MeleeAttacker.SetSplashRadius`). Cavalry trample — damage to infantry a charging cavalry
@@ -159,6 +174,8 @@ formation, run one real attack cycle, compare casualties with/without).
 
 **Estimated size:** Small-medium — mostly a tuning/verification pass once the design
 decision is made.
+
+</details>
 
 ---
 

@@ -21,6 +21,11 @@ namespace KingdomsOfBharat.Combat
         [SerializeField] private DamageType damageType = DamageType.Melee;
         [SerializeField] private UnitClass unitClass = UnitClass.Infantry;
         [SerializeField] private float splashRadius;
+        // Item 3 (Area of Effect / Trample): defaults to 1f so Siege's own
+        // single-arg SetSplashRadius(2.25f) call keeps splash victims at
+        // full primary-hit damage, byte-for-byte unchanged. Cavalry's
+        // trample uses a reduced value here instead - see CavalryFactory.
+        [SerializeField] private float splashDamageMultiplier = 1f;
 
         private UnitMover _mover;
         private Attackable _self;
@@ -112,9 +117,15 @@ namespace KingdomsOfBharat.Combat
         // position) - this is what makes Line vs. Staggered formation
         // spacing actually matter in combat, not just cosmetically
         // rearrange units on a move order.
-        public void SetSplashRadius(float radius)
+        // Item 3 (Area of Effect / Trample): damageMultiplier defaults to
+        // 1f (full primary-hit damage), matching every existing call site
+        // before this parameter existed - only Cavalry passes a reduced
+        // value, keeping its trample a minor secondary effect rather than
+        // Siege-tier splash.
+        public void SetSplashRadius(float radius, float damageMultiplier = 1f)
         {
             splashRadius = radius;
+            splashDamageMultiplier = damageMultiplier;
         }
 
         public void AttackMove(Attackable target)
@@ -168,7 +179,10 @@ namespace KingdomsOfBharat.Combat
             }
         }
 
-        private void ResolveHit(Attackable victim)
+        // extraMultiplier defaults to 1f for the primary-target call site in
+        // Tick() (unaffected by this item's own addition); ResolveSplash
+        // below passes splashDamageMultiplier instead.
+        private void ResolveHit(Attackable victim, float extraMultiplier = 1f)
         {
             float baseDamage = damage * _damageMultiplier + _damageBonus;
             float bonus = CombatBonus.Multiplier(unitClass, victim.Class);
@@ -179,7 +193,7 @@ namespace KingdomsOfBharat.Combat
             {
                 bonus = 1f;
             }
-            victim.TakeDamage(baseDamage * bonus, damageType, Self);
+            victim.TakeDamage(baseDamage * bonus * extraMultiplier, damageType, Self);
         }
 
         // Scans both Unit.All and Building.All - same registries and
@@ -222,7 +236,7 @@ namespace KingdomsOfBharat.Combat
 
             foreach (Attackable victim in _splashBuffer)
             {
-                ResolveHit(victim);
+                ResolveHit(victim, splashDamageMultiplier);
             }
         }
 

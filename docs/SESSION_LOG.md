@@ -5,6 +5,60 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Partial-Elements Fix Plan item 3: Area of Effect / Trample (Cavalry)
+
+**Scope**: `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 3 ("Area of Effect / Trample
+damage — cavalry charge damage"), picked up right after item 2 per the user's "start
+item 3". The plan doc itself flags a real design decision before writing any code:
+Siege's existing splash mechanism (`MeleeAttacker.SetSplashRadius`,
+`SiegeFactory.cs` at radius 2.25) applies the *same full primary-hit damage* to every
+splash victim (`ResolveSplash` → `ResolveHit`, no damage scaling) — appropriate for
+Siege (anti-formation/building is its entire niche) but reusing it as-is for Cavalry
+would mean every trampled unit takes a full extra Cavalry hit, stacking with
+Cavalry's existing 1.5x hard-counter bonus vs. Infantry (`CombatBonus.cs`) - closer to
+a second Siege than a "minor" trample. Asked the user directly (via AskUserQuestion,
+in Plan Mode) rather than picking one silently: **reduced secondary damage**,
+confirmed.
+
+**Implementation**: `MeleeAttacker.SetSplashRadius(float radius, float
+damageMultiplier = 1f)` — the added parameter defaults to 1f, so `SiegeFactory`'s
+existing single-arg call is byte-for-byte unchanged (verified by the existing
+`SiegeSplashTests.cs` continuing to pass unmodified, not just by inspection).
+`ResolveHit` gained a matching `extraMultiplier` parameter (default 1f for the
+primary-target call site); `ResolveSplash` now passes `splashDamageMultiplier`
+per victim instead of calling the bare method. `CavalryFactory` wires
+`attacker.SetSplashRadius(1.25f, 0.35f)` — radius chosen below
+`SelectionManager.formationSpacing` (1.5), unlike Siege's deliberately
+spacing-spanning 2.25, so trample only catches units clumped tight around the
+impact point rather than a full adjacent formation rank; 35% secondary damage keeps
+it reading as minor. No new VFX needed — `Attackable.TakeDamage` already spawns its
+hit-burst particle effect unconditionally per hit (primary and splash alike),
+confirmed live rather than assumed.
+
+**Testing**: 4 new EditMode tests (`CavalryTrampleTests.cs`, mirroring
+`SiegeSplashTests.cs`'s structure/helpers — 159 total, all pass): primary target
+takes the full (unreduced) hit; a hostile within the 1.25-unit radius takes exactly
+35% of a full hit; a hostile beyond the radius is untouched; a friendly (same-
+faction) unit in radius is untouched. Live-verified via UnityMCP through the real
+production path, not just the isolated pure functions: spawned a real
+`CavalryFactory`-built Cavalry and 3 real `SoldierFactory`-built Enemy Soldiers
+(30 HP each, real CSV-driven stats/armor, not the tests' synthetic 1000 HP),
+positioned the trampled target 0.80 units from the primary target and the
+unaffected one 8.50 units away, drove `MeleeAttacker.AttackMove`/`Tick` directly
+(bypassing NavMesh pathing timing for a deterministic single-tick check, same
+approach the EditMode tests use). Result matched the design exactly: primary
+30→20.2 HP, trampled 30→27.22 HP (a real, expected non-1:1 ratio to the primary's
+own damage drop, since armor is subtracted as a flat amount post-multiplier rather
+than scaling proportionally — not a bug), far unit untouched at 30 HP. Screenshotted
+the live hit to confirm the existing VFX reads fine with no changes needed.
+
+**Files**: `Assets/Scripts/Combat/MeleeAttacker.cs`, `Assets/Scripts/Combat/
+CavalryFactory.cs`, `Assets/Tests/EditMode/CavalryTrampleTests.cs` (new). One
+scoped commit. `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 3 marked done; item 4
+(Diplomacy — tribute) is next per that doc's recommended order, not started.
+
+---
+
 ## 2026-09-03 — Partial-Elements Fix Plan item 2: Victory Conditions (Time Limit + Draw), Settings overflow fix
 
 **Scope**: `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 2 ("Victory conditions — Conquest +

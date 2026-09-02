@@ -93,6 +93,16 @@ namespace KingdomsOfBharat.Combat
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Cavalry) + uniqueTechDamageBonus);
             attacker.SetUnitClass(UnitClass.Cavalry);
+            // Item 3 (Area of Effect / Trample, docs/PARTIAL_ELEMENTS_FIX_PLAN.md):
+            // a charging Cavalry hit also lightly damages any other hostile
+            // clumped within 1.25 units of the impact point - below
+            // SelectionManager's 1.5 formationSpacing, unlike Siege's
+            // deliberately spacing-spanning 2.25 (see SiegeFactory), so this
+            // catches only units standing right next to the primary target,
+            // not a full adjacent formation rank. 35% secondary damage keeps
+            // it a minor effect even stacked on Cavalry's existing 1.5x
+            // hard-counter bonus vs. Infantry (see CombatBonus).
+            attacker.SetSplashRadius(1.25f, 0.35f);
             go.AddComponent<StanceController>();
 
             go.AddComponent<FactionMember>().Configure(faction);

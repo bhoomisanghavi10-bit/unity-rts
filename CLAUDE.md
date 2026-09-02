@@ -7,6 +7,26 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 3 (Area of Effect / Trample)
+  closed (2026-09-03)** — picked up right after item 2 per the user's
+  "start item 3". The plan doc flagged a real design decision (reuse
+  Siege's full-damage splash as-is, or reduce trample's secondary damage)
+  — asked the user directly rather than picking silently; confirmed:
+  reduced secondary damage. `MeleeAttacker.SetSplashRadius` gained an
+  optional `damageMultiplier` parameter (default 1f — Siege's existing
+  single-arg call stays byte-for-byte unchanged, verified by its own test
+  suite passing unmodified). `CavalryFactory` wires
+  `SetSplashRadius(1.25f, 0.35f)` — a radius below formation spacing (only
+  catches units clumped tight around the impact point, not a full
+  adjacent rank) at 35% secondary damage (stays minor even stacked on
+  Cavalry's existing 1.5x hard-counter bonus vs. Infantry). No new VFX
+  needed — the existing per-hit particle burst already fires for trample
+  hits, confirmed live. 4 new EditMode tests (159 total, all pass),
+  live-verified via UnityMCP through the real `CavalryFactory`/
+  `SoldierFactory`/`MeleeAttacker.Tick` production path (real 30-HP
+  Soldiers, real armor/CSV stats) — see `docs/SESSION_LOG.md`'s matching
+  entry for the exact numbers. Next per the plan doc's own recommended
+  order: item 4 (Diplomacy — tribute), not started.
 - **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 2 (Victory Conditions) closed
   (2026-09-03)** — picked up right after item 1 per the user's "start item 2".
   That item's own premise was half wrong once checked against the actual
@@ -517,12 +537,14 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 2 (Victory
-  Conditions) closed (2026-09-03)** — see this file's own bullet above for
-  full detail. Next per that plan doc's own recommended order: item 3
-  (Area of Effect / Trample damage), not started, unless the user says
-  otherwise. Before that: **item 1 (Hotkeys) closed (2026-09-03)** — see
-  this file's own bullet above for full detail. Before that:
+- Currently on: **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 3 (Area of
+  Effect / Trample) closed (2026-09-03)** — see this file's own bullet
+  above for full detail. Next per that plan doc's own recommended order:
+  item 4 (Diplomacy — tribute), not started, unless the user says
+  otherwise. Before that: **item 2 (Victory Conditions) closed
+  (2026-09-03)** — see this file's own bullet above for full detail.
+  Before that: **item 1 (Hotkeys) closed (2026-09-03)** — see this file's
+  own bullet above for full detail. Before that:
   **"Everything else" items scoped (2026-09-03)** — Music,
   Tutorial, Profiling, Store/marketing assets, and README drift each given a
   concrete scope in Roadmap Section 1; see this file's own bullet above for
