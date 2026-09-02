@@ -7,9 +7,9 @@ using KingdomsOfBharat.Progression;
 namespace KingdomsOfBharat.Buildings
 {
     // Trains Soldier/Archer units and researches Attack/Armor upgrades for
-    // whichever faction owns this Barracks - the Player's via the train
-    // hotkey (Soldier only) or BuildMenu's buttons, the AI's via
-    // AiController - all funnel through the same entry points.
+    // whichever faction owns this Barracks - the Player's via BuildMenu's
+    // hotkeys/buttons (BuildMenu owns hotkey dispatch, gated on selection),
+    // the AI's via AiController - all funnel through the same entry points.
     //
     // Training (Soldier/Archer) shares one queue slot (_remaining), same as
     // before Archers existed - only one unit trains at a time. Research
@@ -61,7 +61,6 @@ namespace KingdomsOfBharat.Buildings
             UniqueUnit2,
         }
 
-        [SerializeField] private KeyCode trainKey = KeyCode.T;
         [SerializeField] private float soldierFoodCost = 50f;
         [SerializeField] private float soldierGoldCost = 20f;
         [SerializeField] private float archerFoodCost = 40f;
@@ -131,8 +130,6 @@ namespace KingdomsOfBharat.Buildings
         // ConstructionSite/FactionMember below) and needs to be.
         private void Awake()
         {
-            trainKey = GameSettings.GetKey("TrainUnit", trainKey);
-
             _rally = gameObject.AddComponent<RallyPoint>();
             _rally.Configure(rallyOffset);
         }
@@ -210,11 +207,6 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingUniqueTech)
             {
                 TickUniqueTechResearch();
-            }
-
-            if (Faction == FactionId.Player && !IsTraining && Input.GetKeyDown(trainKey))
-            {
-                RequestTrain();
             }
         }
 

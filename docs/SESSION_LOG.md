@@ -5,6 +5,159 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Partial-Elements Fix Plan item 1: Hotkeys (coverage + selection-scoping bug fix)
+
+**Scope**: `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 1 ("Hotkey — audit and
+complete coverage"), picked up per the user's instruction to read that plan
+and start on item 1. A direct audit (not trusting the plan doc's own
+"cheapest, no design decisions" framing at face value) found the real gap
+was bigger than missing keys: only 3 of ~18 `BuildMenu` actions had any
+hotkey at all (Train Worker=G, Train Soldier=T, Train Fishing Boat=B), and
+those 3 had a genuine, previously unflagged bug — `Barracks.cs`/`Dock.cs`/
+`TownCenter.cs` each checked `Input.GetKeyDown(trainKey)` inside their own
+`Update()`, gated only on `Faction == Player`, not on whether that specific
+instance was the *selected* building. Pressing G trained a Worker at every
+idle Player TownCenter simultaneously, not just the selected one (live-
+reproduced this session, see Verification below). `SettingsMenu.Actions`
+(the rebind UI) was also missing 4 already-functional placement bindings
+entirely (Dock/LumberCamp/MiningCamp/Mill) plus the Save/Load/Diplomacy
+toggle keys, which turned out to not even be routed through `GameSettings`
+at all for Save/Load (`SaveManager.saveKey`/`loadKey` were plain fixed
+fields — silently unrebindable despite looking like every other hotkey in
+the project).
+
+**User-confirmed scope** (via AskUserQuestion, Plan Mode): (1) fix the
+selection-scoping bug as part of this pass, not a separate future item; (2)
+add a hotkey for Ungarrison, leave the 6 Market buy/sell buttons click-only
+(no real AoE-like hotkeys specific trade amounts); (3) include the optional
+F1 hotkey-reference overlay panel.
+
+**Implementation**: centralized hotkey dispatch into `BuildMenu.Update()`
+(new `HandleHotkeys` method) instead of each building's own `Update()` —
+`BuildMenu` already resolves `SelectionManager.SelectedBuilding` every frame
+to drive button visibility, so this was the natural fix for the scoping bug
+as a direct consequence of doing coverage properly, not a separate patch.
+Removed the old `trainKey`/`Input.GetKeyDown` blocks from
+`Barracks.cs`/`Dock.cs`/`TownCenter.cs` entirely; `RequestTrain()` etc. stay
+unchanged. Added 15 new hotkeys (Archer/Cavalry/Siege/Spearman/both unique
+units/Attack/Armor/unique-tech research on Barracks; Advance Age/3 economy
+techs on TownCenter; War Galley on Dock; Ungarrison on any garrisoned
+building), each resolved once via `GameSettings.GetKey(id, default)`
+(`BuildMenu.ApplyKeySettings`, same per-field pattern as
+`BuildingPlacer.ApplyKeySettings`) and dispatched by calling the exact same
+private handler method each button's `onClick` already uses — so a hotkey
+press when the action is unavailable is a harmless no-op (`RequestTrain*`/
+`RequestResearch*` already self-guard), identical to the button being
+disabled. Letters were reused freely across TownCenter/Barracks/Dock/
+Garrison contexts (mutually exclusive selections) but never reused from the
+3 truly-global keys (V/R/C on `SelectionManager`). Registered all 15 new
+bindings plus the 4 already-functional-but-unlisted placement keys and
+Save/Load/Diplomacy in `SettingsMenu.Actions`, and brought
+`SaveManager.saveKey`/`loadKey` in line with the established
+`GameSettings.GetKey` override pattern (previously plain hardcoded fields).
+New `Assets/Scripts/UI/HotkeyOverlay.cs`: F1-toggled, read-only, 3-column
+reference panel listing every binding grouped by context, same
+self-bootstrapping runtime-built-Canvas pattern as `SettingsMenu.cs`,
+re-reading `GameSettings` on each open so a rebind shows up immediately.
+**Hit and fixed a real layout bug in this new panel during its own live
+verification** (not guessed at): the label/key column pair for adjacent
+groups overlapped horizontally at the first width/spacing attempt (caught
+via a live screenshot — "Place Wall" visibly bled into the Global column's
+"F10" at the same row height) — fixed by narrowing the per-row label/key
+widths and, for the long Research/Train labels in the Barracks/TownCenter
+column, shortening several labels (e.g. "Research Improved Tools" →
+"Improved Tools") that were wrapping to 2 lines and breaking row alignment.
+Re-verified clean via a second live screenshot after the fix.
+
+**Testing**: all 146 EditMode tests pass unmodified (hotkey dispatch is
+`Update()`-driven and selection-dependent, not practically EditMode-
+testable, same precedent as every other Input-driven fix in this project's
+history). Live-verified via UnityMCP against the real production path
+(`CivilizationSetup.BeginMatch` to start a real match, bypassing the
+mission-select flow, same technique prior sessions established): spawned 2
+real Player `TownCenter`s via `TownCenterFactory.Place`, selected one,
+invoked `BuildMenu.TrainWorkerAtSelected()` (the exact method the new
+selection-scoped G hotkey calls) via reflection — confirmed only the
+selected TownCenter started training and only its Food was deducted (500 →
+450), the other untouched. This is the concrete repro for the bug being
+fixed (previously both would have started training). Also live-verified
+`TrainArcherAtSelected()` against a real `Barracks` (completed instantly via
+`ConstructionSite.CompleteImmediately()`), confirming Gold deduction (500 →
+465, the real Archer cost) and `IsTraining` flipping true through the real
+`CommandBus`/`SimClock` input-delay path (not an instant call — resources
+were unchanged immediately after invocation and only correct ~200ms later,
+matching the existing Phase 5 `InputDelayTicks=4` lockstep-queue behavior).
+F1 overlay verified visually via 2 live screenshots (before/after the
+layout fix), confirmed all 3 columns' grouped bindings render correctly
+with the Settings-menu-matching key values. No literal OS-level keyboard
+injection was available/used in this environment; verification calls the
+exact same handler methods `Input.GetKeyDown` would dispatch to, which is
+the part of this change that was actually new/risky (the `Input.GetKeyDown`
+plumbing itself is the same established pattern already trusted elsewhere
+in the codebase, e.g. `BuildingPlacer`'s placement keys).
+
+**Files**: `Assets/Scripts/UI/BuildMenu.cs`, `Assets/Scripts/UI/
+SettingsMenu.cs`, `Assets/Scripts/UI/HotkeyOverlay.cs` (new),
+`Assets/Scripts/Buildings/Barracks.cs`, `Assets/Scripts/Buildings/Dock.cs`,
+`Assets/Scripts/Buildings/TownCenter.cs`, `Assets/Scripts/Core/
+SaveManager.cs`. One scoped commit. `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item
+1 marked done; item 2 (Victory conditions) is next per that doc's
+recommended order, not started.
+
+## 2026-09-03 — Scope the "everything else" Roadmap items (planning only)
+
+**Scope**: at the user's explicit request ("plan out the items in everything
+else in the roadmap"), expanded Roadmap Section 1's 5 lower-priority stub
+bullets — Music, Tutorial, Profiling, Store/marketing assets, README drift —
+into concrete, repo-grounded scopes. No implementation this session, by
+design; this was a planning-only ask.
+
+**Method**: re-read the actual current state of each relevant area rather
+than trusting prior session-log summaries: `Assets/Scripts/Audio/
+SfxPlayer.cs` (confirmed the existing SFX pass sourced CC0 clips from
+Kenney.nl, with internet access in this environment already proven working
+via the mesh-decimation session's `UnityMeshSimplifier` UPM git fetch —
+meaning Music doesn't need to wait on the user to source anything, unlike
+every other art-asset item logged this project's history), `Assets/Scripts/
+Match/MissionObjective.cs`/`MissionTrigger.cs`/`Assets/Scripts/UI/
+MissionSelectMenu.cs` (confirmed a real, proven mission-objective/mission-
+select system already exists that a Tutorial mission can ride without any
+new system), and `README.md` itself (confirmed it is badly stale, not
+mildly behind — it still describes the original single ~40x40-map/
+3-civ/no-naval prototype as current scope and its milestone list stops at
+26, missing everything since: 5-civ civ-specific building art, naval
+warfare, LAN multiplayer, diplomacy/alliances, formations, the full
+worker-mechanics-audit feature set, team bonuses, general garrisoning,
+repair).
+
+**Findings**: 4 of the 5 items are genuinely doable in a future session with
+zero user blocker (Music, Tutorial, Profiling, README drift) — each has a
+concrete scope written into Roadmap Section 1's "Lower priority" subsection
+now, including a recommended implementation shape for Music (a
+`MusicPlayer.cs` mirroring `SfxPlayer`'s static-class convention, but needing
+a persistent crossfading `AudioSource` rather than one-shot `PlayClipAtPoint`,
+with a suggested v1 → combat-crossfade → per-civ-leitmotif effort ladder) and
+for Tutorial (a real design decision flagged, not guessed at: strict
+no-fail-wizard vs. the existing 3 missions' soft-guided-checklist style,
+recommending the latter to match precedent). **Store/marketing assets is the
+one genuine blocker**, and it isn't sourcing or code — it's an unanswered
+"is public release even a goal" question only the user can resolve; scoping
+further before that answer would be speculative work per this project's own
+established norm against guessing at intent. Recommended sequencing:
+README drift + Music first (cheapest, zero blocker, either order), Tutorial
+next, Profiling after that (zero blocker but no known urgent problem driving
+it), Store assets last, gated on the release-intent conversation.
+
+**Verification**: none needed — docs-only change, no code/test/asset
+changes. Full detail in Roadmap Section 1's "Lower priority" subsection
+(rewritten) and Section 5 item 6 (updated to point there); CLAUDE.md's
+"Current status" and "Currently on" updated to match.
+
+**Files touched**: `docs/ROADMAP.md`, `CLAUDE.md`, this file. No commit yet —
+pending user confirmation this matches what they wanted before committing.
+
+---
+
 ## 2026-09-03 — Re-source Maurya Tower; closes 45/45 civ-specific buildings
 
 **Scope**: the last remaining civ-specific-building gap (Roadmap Section 1/5 item

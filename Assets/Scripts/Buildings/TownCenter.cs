@@ -7,9 +7,10 @@ using KingdomsOfBharat.Progression;
 namespace KingdomsOfBharat.Buildings
 {
     // Identifies this building as a valid drop-off point for gathered
-    // resources, and trains Worker units - the Player's via the train
-    // hotkey or BuildMenu's button, the AI's via AiController, both
-    // funneling through RequestTrain(). Mirrors Barracks' training shape
+    // resources, and trains Worker units - the Player's via BuildMenu's
+    // hotkey/button (BuildMenu owns hotkey dispatch, gated on selection),
+    // the AI's via AiController, both funneling through RequestTrain().
+    // Mirrors Barracks' training shape
     // exactly (lazy FactionMember resolution for the same same-frame-
     // creation reason documented there), plus a Population.HasRoom() check
     // Barracks now shares too - AoE-style, training blocks at the
@@ -21,7 +22,6 @@ namespace KingdomsOfBharat.Buildings
     // at the same time, same as real AoE's parallel queues.
     public class TownCenter : Building
     {
-        [SerializeField] private KeyCode trainKey = KeyCode.G;
         [SerializeField] private float workerFoodCost = 50f;
         [SerializeField] private float trainTime = 6f;
         [SerializeField] private Vector3 rallyOffset = new Vector3(-3f, 0f, 3f);
@@ -52,8 +52,6 @@ namespace KingdomsOfBharat.Buildings
         // ever training anything.
         private void Awake()
         {
-            trainKey = GameSettings.GetKey("TrainWorker", trainKey);
-
             _rally = gameObject.AddComponent<RallyPoint>();
             _rally.Configure(rallyOffset);
         }
@@ -97,11 +95,6 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingEconomyTech)
             {
                 TickEconomyTech();
-            }
-
-            if (Faction == FactionId.Player && !IsTraining && Input.GetKeyDown(trainKey))
-            {
-                RequestTrain();
             }
         }
 

@@ -97,6 +97,36 @@ namespace KingdomsOfBharat.UI
         // letting the player choose one, so BuildMenu picks a flat number.
         private const float MarketTradeAmount = 50f;
 
+        // Item 1 (Hotkeys): dispatch lives here, not on each building's own
+        // Update(), because this is the one place that already knows which
+        // building is actually SELECTED. The old per-building
+        // Input.GetKeyDown(trainKey) checks (Barracks/Dock/TownCenter) only
+        // checked "do I belong to the Player", so pressing e.g. G trained a
+        // Worker at every idle Player TownCenter at once, not just the
+        // selected one - a real bug, not just a coverage gap. Letters are
+        // reused freely across TownCenter/Barracks/Dock/Garrison contexts
+        // below since those selections are mutually exclusive; none of them
+        // reuse the 3 truly-global keys (V/R/C on SelectionManager, which
+        // act on unit selection regardless of what building is selected).
+        private KeyCode _keyTrainWorker;
+        private KeyCode _keyAdvanceAge;
+        private KeyCode _keyResearchImprovedTools;
+        private KeyCode _keyResearchPackMules;
+        private KeyCode _keyResearchTradeDiscounts;
+        private KeyCode _keyTrainSoldier;
+        private KeyCode _keyTrainArcher;
+        private KeyCode _keyTrainCavalry;
+        private KeyCode _keyTrainSiege;
+        private KeyCode _keyTrainSpearman;
+        private KeyCode _keyTrainUniqueUnit;
+        private KeyCode _keyTrainUniqueUnit2;
+        private KeyCode _keyResearchAttack;
+        private KeyCode _keyResearchArmor;
+        private KeyCode _keyResearchUniqueTech;
+        private KeyCode _keyTrainFishingBoat;
+        private KeyCode _keyTrainWarGalley;
+        private KeyCode _keyUngarrison;
+
         private BuildingPlacer _placer;
         private SelectionManager _selectionManager;
 
@@ -105,6 +135,7 @@ namespace KingdomsOfBharat.UI
             _placer = FindFirstObjectByType<BuildingPlacer>();
             _selectionManager = FindFirstObjectByType<SelectionManager>();
 
+            ApplyKeySettings();
             ApplyTheme();
 
             barracksButton.onClick.AddListener(() => _placer.BeginPlacementBarracks());
@@ -142,6 +173,31 @@ namespace KingdomsOfBharat.UI
             improvedToolsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.ImprovedTools));
             packMulesButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.PackMules));
             tradeDiscountsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.TradeDiscounts));
+        }
+
+        // Item 1 (Hotkeys): same per-field GameSettings override pattern
+        // BuildingPlacer.ApplyKeySettings uses for placement keys, just for
+        // the train/research/ungarrison actions instead.
+        private void ApplyKeySettings()
+        {
+            _keyTrainWorker = GameSettings.GetKey("TrainWorker", KeyCode.G);
+            _keyAdvanceAge = GameSettings.GetKey("AdvanceAge", KeyCode.Y);
+            _keyResearchImprovedTools = GameSettings.GetKey("ResearchImprovedTools", KeyCode.I);
+            _keyResearchPackMules = GameSettings.GetKey("ResearchPackMules", KeyCode.P);
+            _keyResearchTradeDiscounts = GameSettings.GetKey("ResearchTradeDiscounts", KeyCode.D);
+            _keyTrainSoldier = GameSettings.GetKey("TrainUnit", KeyCode.T);
+            _keyTrainArcher = GameSettings.GetKey("TrainArcher", KeyCode.A);
+            _keyTrainCavalry = GameSettings.GetKey("TrainCavalry", KeyCode.N);
+            _keyTrainSiege = GameSettings.GetKey("TrainSiege", KeyCode.S);
+            _keyTrainSpearman = GameSettings.GetKey("TrainSpearman", KeyCode.E);
+            _keyTrainUniqueUnit = GameSettings.GetKey("TrainUniqueUnit", KeyCode.Q);
+            _keyTrainUniqueUnit2 = GameSettings.GetKey("TrainUniqueUnit2", KeyCode.Z);
+            _keyResearchAttack = GameSettings.GetKey("ResearchAttack", KeyCode.U);
+            _keyResearchArmor = GameSettings.GetKey("ResearchArmor", KeyCode.K);
+            _keyResearchUniqueTech = GameSettings.GetKey("ResearchUniqueTech", KeyCode.J);
+            _keyTrainFishingBoat = GameSettings.GetKey("TrainDockUnit", KeyCode.B);
+            _keyTrainWarGalley = GameSettings.GetKey("TrainWarGalley", KeyCode.W);
+            _keyUngarrison = GameSettings.GetKey("Ungarrison", KeyCode.U);
         }
 
         // Command-card buttons get their own dedicated 4-state sprite set
@@ -277,6 +333,8 @@ namespace KingdomsOfBharat.UI
             // type, since TownCenter now has one too.
             GarrisonPoint garrisonPoint = ownsSelected ? selected.GetComponent<GarrisonPoint>() : null;
 
+            HandleHotkeys(townCenter, barracks, dock, garrisonPoint);
+
             SetPlacementButtonsActive(showPlacement);
             workerButton.gameObject.SetActive(townCenter != null);
             ageButton.gameObject.SetActive(townCenter != null);
@@ -342,6 +400,50 @@ namespace KingdomsOfBharat.UI
             if (market != null)
             {
                 UpdateMarketButtons(market);
+            }
+        }
+
+        // Item 1 (Hotkeys): each check calls the exact same handler its
+        // matching button's onClick uses, so a hotkey press when the action
+        // is unavailable is a harmless no-op (RequestTrain*/RequestResearch*
+        // already self-guard) - identical behavior to the button being
+        // disabled. Gated per-parameter (not a single "selected something"
+        // check) so a key only ever acts on the currently selected building
+        // of the matching type, fixing the old per-building Update() bug.
+        private void HandleHotkeys(TownCenter townCenter, Barracks barracks, Dock dock, GarrisonPoint garrisonPoint)
+        {
+            if (townCenter != null)
+            {
+                if (Input.GetKeyDown(_keyTrainWorker)) TrainWorkerAtSelected();
+                if (Input.GetKeyDown(_keyAdvanceAge)) RequestAgeUpAtSelected();
+                if (Input.GetKeyDown(_keyResearchImprovedTools)) ResearchEconomyTechAtSelected(EconomyTech.ImprovedTools);
+                if (Input.GetKeyDown(_keyResearchPackMules)) ResearchEconomyTechAtSelected(EconomyTech.PackMules);
+                if (Input.GetKeyDown(_keyResearchTradeDiscounts)) ResearchEconomyTechAtSelected(EconomyTech.TradeDiscounts);
+            }
+
+            if (barracks != null)
+            {
+                if (Input.GetKeyDown(_keyTrainSoldier)) TrainSoldierAtSelected();
+                if (Input.GetKeyDown(_keyTrainArcher)) TrainArcherAtSelected();
+                if (Input.GetKeyDown(_keyTrainCavalry)) TrainCavalryAtSelected();
+                if (Input.GetKeyDown(_keyTrainSiege)) TrainSiegeAtSelected();
+                if (Input.GetKeyDown(_keyTrainSpearman)) TrainSpearmanAtSelected();
+                if (Input.GetKeyDown(_keyTrainUniqueUnit)) TrainUniqueUnitAtSelected();
+                if (barracks.UniqueUnitCount > 1 && Input.GetKeyDown(_keyTrainUniqueUnit2)) TrainUniqueUnit2AtSelected();
+                if (Input.GetKeyDown(_keyResearchAttack)) ResearchAttackAtSelected();
+                if (Input.GetKeyDown(_keyResearchArmor)) ResearchArmorAtSelected();
+                if (Input.GetKeyDown(_keyResearchUniqueTech)) ResearchUniqueTechAtSelected();
+            }
+
+            if (dock != null)
+            {
+                if (Input.GetKeyDown(_keyTrainFishingBoat)) TrainFishingBoatAtSelected();
+                if (Input.GetKeyDown(_keyTrainWarGalley)) TrainWarGalleyAtSelected();
+            }
+
+            if (garrisonPoint != null && garrisonPoint.Count > 0 && Input.GetKeyDown(_keyUngarrison))
+            {
+                UngarrisonAtSelected();
             }
         }
 

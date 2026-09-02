@@ -63,6 +63,18 @@ namespace KingdomsOfBharat.Core
 
         private static string SavePath => Path.Combine(Application.persistentDataPath, SaveFileName);
 
+        // Item 1 (Hotkeys): these were plain fixed fields, never routed
+        // through GameSettings like every other hotkey in the project -
+        // meaning F5/F9 looked rebindable (they're listed as such in the
+        // hotkey reference overlay) but silently weren't. Brought in line
+        // with the established per-field GameSettings.GetKey override
+        // pattern (see BuildingPlacer.ApplyKeySettings).
+        private void Awake()
+        {
+            saveKey = GameSettings.GetKey("SaveGame", saveKey);
+            loadKey = GameSettings.GetKey("LoadGame", loadKey);
+        }
+
         private void Update()
         {
             if (!CivilizationSetup.HasMatchStarted)

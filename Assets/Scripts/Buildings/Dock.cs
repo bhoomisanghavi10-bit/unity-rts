@@ -21,7 +21,6 @@ namespace KingdomsOfBharat.Buildings
             WarGalley,
         }
 
-        [SerializeField] private KeyCode trainKey = KeyCode.B;
         [SerializeField] private float fishingBoatFoodCost = 40f;
         [SerializeField] private float fishingBoatWoodCost = 30f;
         [SerializeField] private float warGalleyFoodCost = 60f;
@@ -72,8 +71,6 @@ namespace KingdomsOfBharat.Buildings
 
         private void Awake()
         {
-            trainKey = GameSettings.GetKey("TrainDockUnit", trainKey);
-
             _rallyOffset = WaterProximity.DirectionToNearestWater(transform.position) * rallyDistance;
 
             _rally = gameObject.AddComponent<RallyPoint>();
@@ -88,11 +85,6 @@ namespace KingdomsOfBharat.Buildings
             if (IsTraining)
             {
                 TickTraining();
-            }
-
-            if (Faction == FactionId.Player && !IsTraining && Input.GetKeyDown(trainKey))
-            {
-                RequestTrainFishingBoat();
             }
         }
 

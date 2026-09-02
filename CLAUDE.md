@@ -7,6 +7,60 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 1 (Hotkeys) closed (2026-09-03)**
+  — picked up per the user's instruction to read that plan and start item 1.
+  The real gap was bigger than "missing keys": only 3 of ~18 `BuildMenu`
+  actions had a hotkey at all, and those 3 (`Barracks`/`Dock`/`TownCenter`'s
+  own `Update()`-based `trainKey` checks) had a genuine, previously
+  unflagged bug — gated only on faction ownership, not on whether that
+  specific instance was the *selected* building, so pressing e.g. G trained
+  a Worker at every idle Player TownCenter at once. Fixed by centralizing
+  hotkey dispatch into `BuildMenu.Update()` (which already tracks
+  `SelectionManager.SelectedBuilding`), added 15 new hotkeys covering the
+  rest of Barracks/TownCenter/Dock training and research plus Ungarrison,
+  registered every binding (including 4 already-functional-but-unlisted
+  placement keys and Save/Load/Diplomacy, the latter of which turned out to
+  not even be routed through `GameSettings` at all) in `SettingsMenu.Actions`,
+  and built the optional F1 hotkey-reference overlay panel (new
+  `Assets/Scripts/UI/HotkeyOverlay.cs`) — its own live-verification pass
+  caught and fixed a real column-overlap layout bug before calling it done.
+  User-confirmed scope via AskUserQuestion/Plan Mode: fix the bug now (not
+  deferred), Ungarrison gets a hotkey but the 6 Market buy/sell buttons stay
+  click-only (no real AoE-like hotkeys specific trade amounts), include the
+  F1 overlay. All 146 EditMode tests pass unmodified; live-verified via
+  UnityMCP against the real production path (`CivilizationSetup.BeginMatch`,
+  same technique prior sessions established) — the concrete regression repro
+  for the bug (2 real Player TownCenters, select one, invoke the hotkey's
+  exact handler method, confirm only the selected one trains) is in
+  `docs/SESSION_LOG.md`'s matching entry, along with the full per-context
+  hotkey table. Next per the plan doc's own recommended order: item 2
+  (Victory conditions — Conquest + Time Limit), not started.
+- **"Everything else" items scoped (2026-09-03), not implemented** — at the
+  user's explicit request ("plan out the items in everything else"), the
+  5 lower-priority Roadmap Section 1 stub bullets (Music, Tutorial,
+  Profiling, Store/marketing assets, README drift) were each expanded into a
+  concrete scope grounded in a fresh read of the actual repo (`SfxPlayer.cs`,
+  `MissionObjective.cs`/`MissionTrigger.cs`/`MissionSelectMenu.cs`,
+  `README.md` itself), not assumed from prior session-log claims. Key
+  findings: 4 of the 5 are genuinely doable now with **no user blocker** —
+  Music can self-serve CC0 tracks from Kenney.nl the same way the existing
+  SFX pass did (internet access already confirmed working); Tutorial rides
+  the already-proven mission-objective system, pure content authoring, no
+  new system needed; Profiling has a ready tool
+  (`mcp__UnityMCP__manage_profiler`) and just needs someone to actually run
+  it against a realistic large-match scenario; README drift is pure
+  doc-writing (confirmed the README is badly stale — still describes the
+  original single-map/3-civ/no-naval prototype scope and stops its milestone
+  list at 26, missing everything since including 5-civ art, naval, LAN
+  multiplayer, diplomacy, and the full worker-mechanics-audit feature set).
+  **Only Store/marketing assets is a genuine blocker**, and not on
+  sourcing/code — it needs an explicit user decision on whether public
+  release is even a goal before any scoping can proceed further.
+  Recommended order: README drift + Music first (cheapest, zero blocker),
+  Tutorial next, Profiling after that, Store assets last pending the
+  release-intent conversation. Full per-item detail in Roadmap Section 1's
+  "Lower priority" subsection and Section 5 item 6. Docs-only session, no
+  code/asset changes, no tests affected.
 - **Maurya Tower re-sourced and wired (2026-09-03, Section 1/5 item 7)** —
   closes the last civ-specific-building gap: **45/45 civ-specific buildings now
   complete** across all 5 civs. User supplied a fresh delivery at
@@ -442,7 +496,17 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: **Maurya Tower re-sourced and wired (2026-09-03) — closes the
+- Currently on: **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 1 (Hotkeys) closed
+  (2026-09-03)** — see this file's own bullet above for full detail. Next per
+  that plan doc's own recommended order: item 2 (Victory conditions —
+  Conquest + Time Limit), not started, unless the user says otherwise.
+  Before that: **"Everything else" items scoped (2026-09-03)** — Music,
+  Tutorial, Profiling, Store/marketing assets, and README drift each given a
+  concrete scope in Roadmap Section 1; see this file's own bullet above for
+  full detail. Nothing implemented yet there — a future session should pick
+  README drift or Music (both zero-blocker, cheapest) unless the user says
+  otherwise. Before that: **Maurya Tower re-sourced and wired (2026-09-03) —
+  closes the
   last civ-specific-building gap, 45/45 complete**, see this file's own bullet
   above for full detail. Before that: Rajput TownCenter/Barracks re-sourced and
   Rajput Tower's rotation bug fixed (2026-09-02/03) — both findings flagged by
