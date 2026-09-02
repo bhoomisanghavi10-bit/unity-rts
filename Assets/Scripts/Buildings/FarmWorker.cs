@@ -13,10 +13,17 @@ namespace KingdomsOfBharat.Buildings
 
         private UnitMover _mover;
         private Farm _farm;
-        private bool _working;
+        private bool _harvesting;
+        private bool _reseeding;
 
-        // For SelectedUnitPanel (UI) to show a status line.
-        public bool IsFarming => _working;
+        // For SelectedUnitPanel (UI) to show a status line. IsFarming keeps
+        // its pre-existing meaning (actively harvesting) for UnitStatus/
+        // AnimationDriver compatibility.
+        public bool IsFarming => _harvesting;
+
+        // Item 5 (Renewable Resource): true while actively restoring a
+        // depleted Farm's Food. See Update()'s autonomous switching.
+        public bool IsReseeding => _reseeding;
 
         private void Awake()
         {
@@ -32,14 +39,25 @@ namespace KingdomsOfBharat.Buildings
 
         public void CancelWork()
         {
-            if (_working && _farm != null)
+            if (_harvesting && _farm != null)
             {
                 _farm.StopWorking();
             }
-            _working = false;
+            if (_reseeding && _farm != null)
+            {
+                _farm.StopReseed();
+            }
+            _harvesting = false;
+            _reseeding = false;
             _farm = null;
         }
 
+        // Item 5 (Renewable Resource): re-evaluates the farm's live
+        // IsDepleted state every tick and switches between harvesting and
+        // reseeding on its own - so the existing StaffAt() order (right-
+        // click a Farm) naturally reseeds a depleted one and resumes
+        // harvesting the moment it's full again, with no separate order
+        // and no SelectionManager change needed.
         private void Update()
         {
             if (_farm == null)
@@ -53,16 +71,29 @@ namespace KingdomsOfBharat.Buildings
             }
 
             bool inRange = Vector3.Distance(transform.position, _farm.transform.position) <= interactionRange;
+            bool wantHarvest = inRange && !_farm.IsDepleted;
+            bool wantReseed = inRange && _farm.IsDepleted;
 
-            if (inRange && !_working)
+            if (wantHarvest && !_harvesting)
             {
                 _farm.BeginWorking();
-                _working = true;
+                _harvesting = true;
             }
-            else if (!inRange && _working)
+            else if (!wantHarvest && _harvesting)
             {
                 _farm.StopWorking();
-                _working = false;
+                _harvesting = false;
+            }
+
+            if (wantReseed && !_reseeding)
+            {
+                _farm.BeginReseed();
+                _reseeding = true;
+            }
+            else if (!wantReseed && _reseeding)
+            {
+                _farm.StopReseed();
+                _reseeding = false;
             }
         }
 

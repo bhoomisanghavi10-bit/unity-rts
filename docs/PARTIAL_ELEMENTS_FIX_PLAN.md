@@ -16,7 +16,7 @@ one item per session, Plan Mode before nontrivial changes, test before done, log
 | 2 | Victory conditions | **Done (2026-09-03)** — Conquest already existed; Time Limit + Draw added |
 | 3 | Area of Effect / Trample damage | **Done (2026-09-03)** — Cavalry trample via a generalized splash-damage multiplier |
 | 4 | Diplomacy (tribute) | **Done (2026-09-03)** — stance UI already existed; added Tribute + buttons |
-| 5 | Renewable resource (Farm reseed) | Needs a verification pass first before any code is written |
+| 5 | Renewable resource (Farm reseed) | **Farm half done (2026-09-03)**; Fish Trap still deferred/asset-blocked |
 | 6 | Scenario Editor | Largest scope question — recommend the lightweight path, flag the heavy path |
 
 Fish Trap (part of item 5) and a full in-game visual level editor (part of item 6) are called
@@ -227,7 +227,30 @@ UnityMCP.
 
 ---
 
-## 5. Renewable resource (Farms) — verify first, then fix; Fish Trap deferred
+## 5. Renewable resource (Farms) — Farm half **Done (2026-09-03)**; Fish Trap still deferred
+
+**Result**: Step 1 (verify, don't assume) found a third case neither of the plan's own
+Step 2a/2b anticipated — a staffed Farm produced Food **forever, with no cap at all**,
+not "auto-replenishes" (implies exhaustion+regen) and not "depletes with no recourse"
+(implies exhaustion+no-regen). Put this finding to the user directly rather than
+picking a fix silently; **confirmed: retrofit real AoE-style depletion + reseed** (the
+larger option, bigger than this item's own "Small" estimate). `Farm.cs` now has a real
+175-Food capacity (matching AoE II's own Dark-Age value) that depletes as it's worked
+and a reseed mechanic (`BeginReseed`/`StopReseed`, Wood-costed at the Farm's own build
+cost of 60 Wood for a full reseed, using `ConstructionSite.SpeedMultiplier` for the
+same multi-worker diminishing-returns curve `Repairable` already uses). No new player
+order or `SelectionManager` change was needed: `FarmWorker` autonomously switches
+between harvesting and reseeding based on the Farm's own live depleted state, so the
+existing right-click order just does the right thing. 8 new EditMode tests
+(`FarmTests.cs`), live-verified via UnityMCP through the real production `Tick`/
+`Update` path — see `docs/SESSION_LOG.md` for the exact numbers, including an
+unplanned but convincing proof: the real system was observed cycling through a full
+harvest→deplete→reseed→harvest loop entirely on its own between verification calls,
+with no forcing. **Fish Trap stays deferred/asset-blocked**, untouched this session,
+per this item's own original scoping below.
+
+<details>
+<summary>Original plan (for reference)</summary>
 
 **Gap:** `Farm`/`FarmWorker` exists but it's unconfirmed whether farms auto-replenish or
 require a manual reseed action; no Fish Trap building exists at all.
@@ -259,6 +282,8 @@ Play-mode verification via UnityMCP either way.
 
 **Estimated size:** Small for the verification + possible reseed fix; Fish Trap is a separate,
 larger, asset-blocked item — don't bundle it into the same session.
+
+</details>
 
 ---
 

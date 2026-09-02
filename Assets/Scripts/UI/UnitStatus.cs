@@ -29,9 +29,19 @@ namespace KingdomsOfBharat.UI
                 return "Repairing";
             }
 
-            if (unit.TryGetComponent(out FarmWorker farmWorker) && farmWorker.IsFarming)
+            if (unit.TryGetComponent(out FarmWorker farmWorker))
             {
-                return "Farming";
+                // Item 5 (Renewable Resource): mutually exclusive per-tick
+                // in FarmWorker, so ordering here only matters for clarity.
+                if (farmWorker.IsReseeding)
+                {
+                    return "Reseeding Farm";
+                }
+
+                if (farmWorker.IsFarming)
+                {
+                    return "Farming";
+                }
             }
 
             if (unit.TryGetComponent(out LivestockWorker livestockWorker) && livestockWorker.IsMilking)

@@ -7,6 +7,31 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 5 (Renewable Resource — Farm
+  depletion) Farm half closed (2026-09-03)** — picked up right after item
+  4 per the user's "start item 5". Step 1 (verify, don't assume) found a
+  third case the plan doc's own Step 2a/2b binary didn't anticipate: a
+  staffed Farm produced Food forever, no cap, no depletion at all —
+  categorically different from AoE's real finite/depleting/reseedable
+  Farm. Put this finding to the user directly (AskUserQuestion) rather
+  than picking a fix silently; confirmed: retrofit real depletion + reseed
+  (the larger option, bigger than the item's own "Small" estimate).
+  `Farm.cs` now has a real 175-Food capacity (AoE II's own Dark-Age
+  value) that depletes as it's worked, plus a Wood-costed reseed (60 Wood
+  full cost, matching the Farm's own build cost) using the same
+  `ConstructionSite.SpeedMultiplier` diminishing-returns curve
+  `Repairable` already reuses. **No `SelectionManager` change needed**:
+  `FarmWorker` autonomously switches between harvesting and reseeding
+  based on the Farm's own live depleted state, so the existing right-click
+  order just does the right thing on its own. 8 new EditMode tests (172
+  total, all pass), live-verified via UnityMCP through the real production
+  `Tick`/`Update` path — including an unplanned but convincing proof that
+  the real system cycled through a full harvest→deplete→reseed→harvest
+  loop entirely on its own between verification calls, with nothing
+  forcing it. See `docs/SESSION_LOG.md`'s matching entry for the exact
+  numbers. Fish Trap stays deferred/asset-blocked, untouched this session.
+  Next per the plan doc's own recommended order: item 6 (Scenario Editor —
+  recommend the lightweight CSV-authoring path), not started.
 - **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 4 (Diplomacy — Tribute) closed
   (2026-09-03)** — picked up right after item 3 per the user's "start item
   4". That item's own first instruction (check the live UI before writing
@@ -554,15 +579,17 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 4 (Diplomacy —
-  Tribute) closed (2026-09-03)** — see this file's own bullet above for
-  full detail. Next per that plan doc's own recommended order: item 5
-  (Renewable resource / Farms), not started, unless the user says
-  otherwise. Before that: **item 3 (Area of Effect / Trample) closed
+- Currently on: **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 5 (Renewable
+  Resource — Farm depletion) Farm half closed (2026-09-03)** — see this
+  file's own bullet above for full detail. Next per that plan doc's own
+  recommended order: item 6 (Scenario Editor), not started, unless the
+  user says otherwise. Before that: **item 4 (Diplomacy — Tribute) closed
   (2026-09-03)** — see this file's own bullet above for full detail.
-  Before that: **item 2 (Victory Conditions) closed (2026-09-03)** — see
-  this file's own bullet above for full detail. Before that: **item 1
-  (Hotkeys) closed (2026-09-03)** — see this file's own bullet above for
+  Before that: **item 3 (Area of Effect / Trample) closed (2026-09-03)** —
+  see this file's own bullet above for full detail. Before that: **item 2
+  (Victory Conditions) closed (2026-09-03)** — see this file's own bullet
+  above for full detail. Before that: **item 1 (Hotkeys) closed
+  (2026-09-03)** — see this file's own bullet above for
   full detail. Before that:
   **"Everything else" items scoped (2026-09-03)** — Music,
   Tutorial, Profiling, Store/marketing assets, and README drift each given a

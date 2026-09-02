@@ -5,6 +5,85 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Partial-Elements Fix Plan item 5: Renewable resource (real Farm depletion + reseed)
+
+**Scope**: `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 5 ("Renewable resource (Farms) —
+verify first, then fix"), picked up right after item 4 per the user's "start item
+5". Step 1 is explicit about verifying rather than assuming, so `Farm.cs`/
+`FarmWorker.cs` were read directly (plus a codebase-wide grep for any depletion
+field — none found) before touching anything. **Finding: the real behavior was a
+third case neither of the plan's own Step 2a/2b anticipated** — a staffed Farm
+produced Food forever, with no cap, no depletion, no exhaustion at all. Not
+"auto-replenishes" (which implies exhaustion + regen) and not "depletes with no
+recourse" (exhaustion + no regen) — just unconditionally infinite, categorically
+different from AoE's actual Farm (a finite ~175 Food supply that depletes and needs
+a Wood-cost reseed). Put this exact finding to the user directly (via
+AskUserQuestion) rather than picking a fix silently: **retrofit real AoE-style
+depletion + reseed**, confirmed — explicitly the larger of the two options, bigger
+than this item's own "Small" size estimate.
+
+**Implementation** (Plan Mode, approved before coding): `Farm.cs` gained a real
+175-Food capacity (`maxFood`, matching AoE II's own Dark-Age Farm value),
+`reseedRatePerSecond` (15), and a `FullReseedWoodCost` (60, matching this project's
+own Farm build cost `BuildingPlacer.farmWoodCost` — a full reseed from empty costs
+exactly what building a fresh Farm costs, the same "reseed = rebuild" logic AoE
+itself uses). `Update()` became a thin wrapper around a new `internal Tick(float
+deltaTime)` (the testable seam, same convention as `Repairable`/`ConstructionSite`),
+which now does two things: harvesting is capped so it can never take more Food than
+remains, and a new reseed path restores Food at `reseedRatePerSecond *
+ConstructionSite.SpeedMultiplier(activeReseeders)` — reusing the *exact* multi-
+worker diminishing-returns formula `Repairable` already reuses for repair, not a
+second invented curve — charging Wood at the derived `WoodCostPerFood` rate, and
+stalling silently on insufficient Wood (identical to `Repairable.Tick`'s own
+affordability stall). **The one design choice that closes the loop cleanly**:
+rather than adding a second explicit "reseed order" (which would have meant
+touching `SelectionManager`'s right-click dispatch chain), `FarmWorker.Update()`
+re-evaluates the Farm's live `IsDepleted` state every tick and switches between
+`BeginWorking()`/`BeginReseed()` on its own — so the existing, completely unchanged
+`StaffAt()` right-click order naturally reseeds a depleted Farm and resumes
+harvesting the instant it's full again, with **zero `SelectionManager.cs` changes**.
+`UnitStatus.cs` gained a "Reseeding Farm" status line (no `AnimationDriver` clip
+change, mirroring the existing precedent that Repairing has no dedicated animation
+either).
+
+**Testing**: 8 new EditMode tests (`FarmTests.cs`, mirroring `RepairableTests.cs`'s
+exact stockpile/spawn conventions — 172 total, all pass): starts at
+`RemainingFood == MaxFood`; harvesting consumes it 1:1 with Food credited;
+production stops exactly at 0, never negative, even while still staffed; reseeding
+restores Food and charges Wood at the real rate; reseeding stalls silently with
+insufficient Wood; reseeding never overshoots `MaxFood`; 2 reseeders restore at
+`ConstructionSite.SpeedMultiplier(2)` (1.6x), not a naive 2x; and one integration
+test proving the autonomous harvest→reseed→harvest switch (hit and fixed a real
+EditMode-only gotcha along the way — `FarmWorker.Awake()` doesn't reliably fire
+synchronously right after `AddComponent` in EditMode, the same well-documented
+"AddComponent ordering hazard" this project's own tests already flag elsewhere, so
+the worker's cached `UnitMover` reference was null until `Awake` was invoked
+explicitly; also needed an explicit `LogAssert.Expect` for the `NavMeshAgent.
+SetDestination` error `StaffAt`'s `MoveTo` call triggers with no baked NavMesh in an
+EditMode scene). Live-verified via UnityMCP through the real production path, not
+forced calls in isolation: spawned a real `FarmFactory` Farm and a real
+`WorkerFactory` Worker, `StaffAt` it, and watched `RemainingFood` genuinely drop via
+the real `Update()` loop (175 → 170.13 after real elapsed time). Force-drained via
+the real `Tick` seam to avoid waiting out the ~5 real minutes natural depletion
+would take, confirmed the worker autonomously flipped to `IsReseeding=true` with no
+new order issued. **An unplanned but especially convincing piece of evidence**: across
+several separate verification calls, the real system was observed to have cycled
+through a full harvest→deplete→reseed→harvest loop entirely on its own in the real
+time elapsed between calls, with nothing forcing it — proof the autonomous switching
+works through the actual `Update()` loop, not just via directly-invoked `Tick`
+calls. A final isolated check (forced state via reflection: 0 Food, 1 active
+reseeder, exactly 1 second) confirmed the reseed math exactly: `RemainingFood`
+15/175, Wood spent 5.1429 (`15 * 60/175`), both matching the formula precisely.
+
+**Files**: `Assets/Scripts/Buildings/Farm.cs`, `Assets/Scripts/Buildings/
+FarmWorker.cs`, `Assets/Scripts/UI/UnitStatus.cs`, `Assets/Tests/EditMode/
+FarmTests.cs` (new). One scoped commit. `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 5's
+Farm half marked done; Fish Trap stays deferred/asset-blocked, untouched this
+session per the plan's own original scoping. Item 6 (Scenario Editor) is next per
+that doc's recommended order, not started.
+
+---
+
 ## 2026-09-03 — Partial-Elements Fix Plan item 4: Diplomacy (Tribute)
 
 **Scope**: `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 4 ("Diplomacy — tribute and a
