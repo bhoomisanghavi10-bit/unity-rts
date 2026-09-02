@@ -67,20 +67,57 @@ namespace KingdomsOfBharat.Multiplayer
                 _wasMatchStarted = true;
                 CurrentTick = 0;
                 _accumulator = 0f;
-                DeterministicRandom.ReseedMatch(MapRegistry.Current.ResourceSeed == -1
+                // Phase 5 LAN transport MVP: a real 2-peer match needs both
+                // sides to reseed DeterministicRandom.Match with the exact
+                // same value - NetworkMatch.PendingSeed carries whatever
+                // the host generated and both sides agreed on during the
+                // LanMatchMenu handshake (see NetworkMatch.cs), taking
+                // priority over the single-player MapRegistry/TickCount
+                // fallback below (which stays exactly as before for every
+                // non-networked match).
+                DeterministicRandom.ReseedMatch(NetworkMatch.PendingSeed ?? (MapRegistry.Current.ResourceSeed == -1
                     ? System.Environment.TickCount
-                    : MapRegistry.Current.ResourceSeed);
+                    : MapRegistry.Current.ResourceSeed));
                 // AoE-Parity Phase 5 (resync-on-desync): StateHash reacts to
                 // OnTick same as CommandBus does - see StateHash.Subscribe.
                 StateHash.Subscribe();
+                // Phase 5 LAN transport MVP: must subscribe after StateHash
+                // above, not before - multicast delegates invoke in
+                // registration order, and NetworkDesyncMonitor.OnTick reads
+                // StateHash.LatestHash/LatestHashTick, which only StateHash's
+                // own (already-registered) handler updates for this same
+                // tick. No-op in single-player - its own OnTick immediately
+                // returns when NetworkMatch.IsActive is false.
+                NetworkDesyncMonitor.Subscribe();
             }
 
             _accumulator += Time.deltaTime;
             while (_accumulator >= TickDuration)
             {
+                // Phase 5 LAN transport MVP: the actual lockstep gate - a
+                // real peer must not simulate a tick further ahead than
+                // what it's heard from the remote side (see
+                // NetworkMatch.RemoteMaxAckedTick's own comment for why
+                // this can never deadlock). Breaks out of the loop rather
+                // than consuming the buffered time, so a network stall
+                // pauses simulation (the buffered real time stays queued in
+                // _accumulator) instead of silently dropping ticks - once
+                // the remote catches up, several ticks fire in one frame to
+                // catch back up, same as a slow frame already does today in
+                // single-player.
+                if (NetworkMatch.IsActive && NetworkMatch.RemoteMaxAckedTick < CurrentTick + 1)
+                {
+                    break;
+                }
+
                 _accumulator -= TickDuration;
                 CurrentTick++;
                 OnTick?.Invoke(CurrentTick);
+
+                if (NetworkMatch.IsActive)
+                {
+                    NetworkMatch.Transport.SendHeartbeat(CurrentTick + CommandBus.InputDelayTicks);
+                }
             }
         }
     }

@@ -45,11 +45,25 @@ namespace KingdomsOfBharat.Core
         {
             HasMatchStarted = false;
             ScenarioManager.EndScenario();
+            Multiplayer.NetworkMatch.End();
         }
 
         public void BeginMatch(CivilizationId playerCivilization)
         {
             BeginMatchCore(playerCivilization, aiCivilization, map);
+        }
+
+        // Phase 5 LAN transport MVP: a 2-human match needs the "Enemy" slot
+        // to be the other real player's chosen civilization, not this
+        // component's Inspector-configured aiCivilization default (which
+        // means "the AI's civ" in every other flow) - same
+        // sourced-elsewhere-than-the-Inspector pattern BeginScenarioMatch
+        // already established for scripted missions. LanMatchMenu calls
+        // this once both sides' civ picks and the host's chosen seed have
+        // been exchanged over the wire, instead of calling BeginMatch.
+        public void BeginNetworkMatch(CivilizationId hostCivilization, CivilizationId remoteCivilization, MapId networkMap)
+        {
+            BeginMatchCore(hostCivilization, remoteCivilization, networkMap);
         }
 
         // Item 50: same match-start pipeline as BeginMatch, but sourcing
@@ -65,6 +79,15 @@ namespace KingdomsOfBharat.Core
 
         private void BeginMatchCore(CivilizationId playerCivilization, CivilizationId aiCiv, MapId mapId)
         {
+            // Phase 5 LAN transport MVP: must run before any gated spawner
+            // below activates - a match's initial units/buildings spawn
+            // synchronously during that activation, before SimClock even
+            // exists as a running tick stream, so NetworkId has to start
+            // counting from zero here, not from SimClock's own match-start
+            // point (which fires a frame later - see NetworkId.Reset's own
+            // comment).
+            Multiplayer.NetworkId.Reset();
+
             MapRegistry.Select(mapId);
 
             // Phase 5 gap-close: ProceduralGround/NavMeshBaker are always-

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using KingdomsOfBharat.Multiplayer;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -12,6 +13,9 @@ namespace KingdomsOfBharat.Buildings
         private void OnEnable()
         {
             All.Add(this);
+            // Phase 5 LAN transport MVP: see NetworkId.cs - piggybacks on
+            // this same registration point rather than every factory.
+            NetworkId.Assign(this);
         }
 
         private void OnDisable()
