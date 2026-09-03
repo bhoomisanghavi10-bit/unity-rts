@@ -17,7 +17,7 @@ one item per session, Plan Mode before nontrivial changes, test before done, log
 | 3 | Area of Effect / Trample damage | **Done (2026-09-03)** — Cavalry trample via a generalized splash-damage multiplier |
 | 4 | Diplomacy (tribute) | **Done (2026-09-03)** — stance UI already existed; added Tribute + buttons |
 | 5 | Renewable resource (Farm reseed) | **Farm half done (2026-09-03)**; Fish Trap still deferred/asset-blocked |
-| 6 | Scenario Editor | **Light path done; heavy path sessions 1 (Placements), 2 (Objective/Trigger authoring), 3 (saved-scenario browse list), 4 (palette icons), and 5 (multiplayer LAN play) done (2026-09-03)** |
+| 6 | Scenario Editor | **Light path done; heavy path sessions 1-6 done (2026-09-03) — the full epic is closed.** A real, separate rendering bug (RectMask2D over-culling the Objectives tab past ~7 rows) was found during session 6 and flagged for a dedicated follow-up session, not fixed inline. |
 
 Fish Trap (part of item 5) and a full in-game visual level editor (part of item 6) are called
 out as **blocked on asset sourcing / a scope decision**, not part of this implementation pass,
@@ -287,9 +287,67 @@ larger, asset-blocked item — don't bundle it into the same session.
 
 ---
 
-## 6. Scenario Editor — light path (CSV-authoring) **Done**; heavy path sessions 1
-(Placements), 2 (Objective/Trigger authoring), 3 (saved-scenario browse list),
-4 (palette icons), and 5 (multiplayer LAN play) — **Done (2026-09-03)**
+## 6. Scenario Editor — light path (CSV-authoring) **Done**; heavy path sessions 1-6
+— **Done (2026-09-03). This closes the entire epic** (Placements, Objective/
+Trigger authoring, saved-scenario browse list, palette icons, multiplayer LAN
+play, and per-kind bespoke input widgets).
+
+**Heavy path, session 6 result**: picked up per the user's explicit request
+("start item on per-kind bespoke input widgets"), the last named item from the
+epic's original deferred list. Session 2's Objectives tab authored every
+objective/trigger param as a generic `TMP_InputField` labeled "Param1"/"Param2",
+requiring an author to hand-type exact enum spelling (`"Player"`, `"Wood"`,
+`"Barracks"`) with no protection against a typo silently falling through to
+`MissionCsvLoader`'s own `ParseEnum` fallback default. A new per-Kind
+`ParamFieldSpec[]` table (`ObjectiveFieldSpecs`/`TriggerFieldSpecs` in
+`ScenarioEditorMenu.cs`) now drives which widget renders for each param slot:
+plain text fields stay for genuinely free values (seconds, counts, amounts, the
+`"x,y,z"` position string, Description), while `FactionId`/`ResourceType`/
+building-type slots render as a new `BindEnumCycleField` cycle-on-click button
+(mirroring the existing Kind-cycle button's own idiom) instead. Two building-type
+widgets deliberately use *different* option lists rather than one shared list:
+`BuildingCountThreshold` offers `EntitySpawner.BuildingTypes` (8 options), while
+`DestroyScriptedTarget`'s target-building widget is narrower still -
+`{"Barracks","TownCenter"}, exactly matching `MissionCsvLoader.SpawnScriptedTarget`'s
+real supported switch, so the widget can never offer a value that would silently
+no-op with only a console warning at play time. Optional `Faction` slots include
+a blank `""` option shown as "(default: Player)", matching the interpreter's own
+existing fallback. **No changes needed to `ObjectiveRow`/`TriggerRow`,
+`MissionCsvLoader.cs`, or the save/load JSON format** - widgets write the exact
+same canonical strings a correctly-hand-typed value already would have. 204
+EditMode tests pass unchanged (pure UI-generation change, no new interpreter
+logic to test).
+
+**A real, separate bug found live during verification, not fixed this session**:
+once the Objectives tab's content grows past roughly 7 rows (~40+ UI elements),
+the scroll viewport's `RectMask2D` starts reporting every child as culled -
+including ones clearly within the visible viewport - so the whole tab renders
+blank. Confirmed via UnityMCP: the content itself builds correctly every time
+(verified via reflection at every row count), and disabling the `RectMask2D`
+entirely restores visibility, proving the content is correct and the clipping
+computation is not. This is a pre-existing latent bug from session 2's original
+Objectives tab (not introduced by this session's widget change - any 5+ row list
+would have hit it), only now discovered because this session's own more thorough
+per-kind verification finally exercised that many rows at once. Several
+candidate fixes were tried and ruled out (deferred-`Destroy()` staleness, forced
+canvas updates, toggling the mask, this project's own documented stuck-frame
+fix) - root cause not isolated within this session's scope. Flagged via a
+spawn_task follow-up for a dedicated session rather than left silently
+unnoticed or blocking this session's own actual deliverable. Live-verified the
+actual widgets at the row counts proven to render correctly (1 row, and
+separately confirmed via direct `CanvasRenderer.cull` inspection at higher row
+counts that the *content* itself remains correct even though the *rendering* is
+currently broken there): all 5 objective kinds + both trigger kinds generate the
+correct field specs; a real button click (in its own frame, matching genuine
+user interaction) cycled a Faction field from blank through Player to Enemy
+correctly; Save → Close → re-Open → Load round-tripped the Enemy selection
+intact; Play correctly resolved a `PopulationThreshold` objective against the
+real live `Population.Current(FactionId.Enemy)` (not silently defaulting to
+Player), proving the widget-selected value flows correctly through the entire
+real production path. See `docs/SESSION_LOG.md` for full detail.
+
+<details>
+<summary>Heavy path, session 5 result (for reference)</summary>
 
 **Heavy path, session 5 result**: picked up per the user's explicit request ("start
 item on multiplayer play of a custom scenario"), the last item deferred across
@@ -365,6 +423,8 @@ connecting (matches this file's own already-disclosed "minimal Host/Join panel,
 visual-only compromise" scope); civ/map picker for custom scenarios generally is a
 pre-existing session-1 gap, unrelated to this session. See `docs/SESSION_LOG.md` for
 full detail.
+
+</details>
 
 <details>
 <summary>Heavy path, session 4 result (for reference)</summary>

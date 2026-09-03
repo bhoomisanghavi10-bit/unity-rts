@@ -7,6 +7,41 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Scenario Editor heavy path, session 6 (per-kind bespoke input
+  widgets) closed (2026-09-03) — this closes the entire Scenario Editor
+  heavy-path epic.** Picked up at the user's explicit request ("start
+  item on per-kind bespoke input widgets"), the last named item from the
+  epic's original deferred list. Replaced session 2's generic "Param1"/
+  "Param2" text fields with a per-Kind `ParamFieldSpec[]` table
+  (`ObjectiveFieldSpecs`/`TriggerFieldSpecs`) driving a real widget per
+  param: `FactionId`/`ResourceType`/building-type slots render as a new
+  `BindEnumCycleField` cycle-on-click button (mirroring the Kind-cycle
+  button's own idiom); genuinely free values (seconds, counts, position)
+  stay plain text fields. `DestroyScriptedTarget`'s target-building
+  widget is deliberately narrower than `BuildingCountThreshold`'s
+  (`{"Barracks","TownCenter"}` only) — matches
+  `MissionCsvLoader.SpawnScriptedTarget`'s real supported switch, so the
+  widget can never offer a value that silently no-ops at play time. No
+  changes needed to `ObjectiveRow`/`TriggerRow`/`MissionCsvLoader.cs`/the
+  save format — widgets write the same canonical strings a correctly
+  hand-typed value already would. 204 tests pass unchanged (pure UI
+  change). **Found, but explicitly not fixed this session**: a real
+  `RectMask2D` over-culling bug — the Objectives tab renders blank once
+  it has ~7+ rows, a pre-existing latent bug from session 2 (not caused
+  by this session's own widget change), root cause not isolated despite
+  several ruled-out attempts (deferred-Destroy staleness, forced canvas
+  updates, mask toggling, this project's own documented stuck-frame fix).
+  Flagged via `spawn_task` (`task_545a0590`) for a dedicated follow-up
+  session rather than left silently unnoticed. Live-verified the actual
+  widget deliverable at row counts proven to render correctly: a real
+  button click cycled a Faction field Player→Enemy, Save→Load
+  round-tripped it intact, and Play correctly resolved a
+  `PopulationThreshold` objective against real
+  `Population.Current(FactionId.Enemy)` — not silently defaulting to
+  Player — proving the widget-selected value flows through the real
+  production path end to end. See `docs/SESSION_LOG.md`'s matching entry
+  for full detail. Next: another Roadmap Section 5 item, or the newly-
+  flagged RectMask2D follow-up.
 - **Scenario Editor heavy path, session 5 (multiplayer LAN play of a
   custom scenario) closed (2026-09-03)** — picked up at the user's
   explicit request ("start item on multiplayer play of a custom
@@ -769,16 +804,19 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: **Scenario Editor heavy path, session 5 (multiplayer LAN
-  play of a custom scenario) closed (2026-09-03)** — see this file's own
-  bullet above for full detail. Picked up directly at the user's request,
-  the last item deferred across sessions 1-4 — **this closes the Scenario
-  Editor heavy-path epic**; the only remaining named-but-unimplemented
-  sub-item is per-kind bespoke input widgets (session 2's own generic
-  Param-field UI, a polish item, not a functional gap). Also fixed a real
+- Currently on: **Scenario Editor heavy path, session 6 (per-kind bespoke
+  input widgets) closed (2026-09-03)** — see this file's own bullet above
+  for full detail. **This closes the entire Scenario Editor heavy-path
+  epic** — every item from session 1's original deferred list is now
+  done. A real, separate `RectMask2D` rendering bug was found (not fixed)
+  during this session's own verification and flagged via `spawn_task` for
+  a dedicated follow-up (`task_545a0590`) — see this file's own bullet
+  above. Before that: **Scenario Editor heavy path, session 5
+  (multiplayer LAN play of a custom scenario) closed (2026-09-03)** — see
+  this file's own bullet above for full detail; also fixed a real
   adjacent pre-existing bug found live (Enemy `AiController` running
-  during real 2-human LAN matches) — see this file's own bullet above.
-  Before that: **Scenario Editor heavy path, session 4 (richer palette
+  during real 2-human LAN matches). Before that: **Scenario Editor heavy
+  path, session 4 (richer palette
   icons) closed (2026-09-03)** — see this file's own bullet above for
   full detail. Before that: **Scenario Editor heavy path, session 3
   (saved-scenario browse list) closed (2026-09-03)** — see this

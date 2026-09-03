@@ -98,24 +98,71 @@ namespace KingdomsOfBharat.UI
         private readonly List<ObjectiveRow> _objectiveRows = new List<ObjectiveRow>();
         private readonly List<TriggerRow> _triggerRows = new List<TriggerRow>();
 
-        // Short param hints so the generic Param1-3/Param1-4 text slots are
-        // self-documenting in the UI - same small fixed vocabulary
-        // MissionCsvLoader.cs's own class comment already discloses ("not a
-        // general expression language"), just surfaced live instead of
-        // left to a CSV author's own memory of the column meanings.
-        private static readonly Dictionary<ObjectiveKind, string> ObjectiveHints = new Dictionary<ObjectiveKind, string>
+        // Heavy path session 6 ("per-kind bespoke input widgets"): every
+        // objective/trigger param is actually drawn from a small, fixed,
+        // already-known vocabulary, not free text - a per-Kind field-spec
+        // table drives which widget renders for each param slot (index 0 =
+        // param1, index 1 = param2, ...), replacing the old generic
+        // "Param1"/"Param2" text-field + hint-label pair session 2 shipped.
+        // Numeric/free-text slots (seconds, counts, amounts, the "x,y,z"
+        // position string, Description) still use a plain TMP_InputField -
+        // they aren't a fixed-vocabulary problem the enum-valued slots are.
+        private enum ParamFieldKind { Text, Faction, Resource, BuildingType, DestroyTargetBuildingType }
+
+        private readonly struct ParamFieldSpec
         {
-            { ObjectiveKind.SurviveSeconds, "Param1 = seconds to survive" },
-            { ObjectiveKind.BuildingCountThreshold, "Param1 = building type (e.g. Barracks), Param2 = count, Param3 = faction (optional, default Player)" },
-            { ObjectiveKind.ResourceThreshold, "Param1 = resource (Food/Wood/Gold/Stone), Param2 = amount, Param3 = faction (optional)" },
-            { ObjectiveKind.PopulationThreshold, "Param1 = population amount, Param2 = faction (optional, default Player)" },
-            { ObjectiveKind.DestroyScriptedTarget, "Param1 = building type (Barracks/TownCenter), Param2 = target faction, Param3 = position as \"x,y,z\"" },
+            public readonly string Label;
+            public readonly ParamFieldKind Kind;
+            public ParamFieldSpec(string label, ParamFieldKind kind) { Label = label; Kind = kind; }
+        }
+
+        // "" is always the first Faction option - every optional-Faction
+        // param falls back to Player when blank (BuildObjectivesFromRows/
+        // BuildTriggersFromRows's own string.IsNullOrEmpty(...) ? "Player"
+        // : ... convention), so blank reads as "(default: Player)" rather
+        // than requiring every row to explicitly spell out "Player".
+        private static readonly string[] FactionOptions = { "", "Player", "Enemy", "Enemy2" };
+        private static readonly string[] ResourceOptions = { "Food", "Wood", "Gold", "Stone" };
+        // Deliberately narrower than EntitySpawner.BuildingTypes - matches
+        // MissionCsvLoader.SpawnScriptedTarget's own real supported switch
+        // exactly, so this widget can never offer a value that would
+        // silently no-op (with only a console warning) at play time.
+        private static readonly string[] DestroyTargetBuildingOptions = { "Barracks", "TownCenter" };
+
+        private static readonly Dictionary<ObjectiveKind, ParamFieldSpec[]> ObjectiveFieldSpecs = new Dictionary<ObjectiveKind, ParamFieldSpec[]>
+        {
+            { ObjectiveKind.SurviveSeconds, new[] {
+                new ParamFieldSpec("Seconds", ParamFieldKind.Text) } },
+            { ObjectiveKind.BuildingCountThreshold, new[] {
+                new ParamFieldSpec("Building Type", ParamFieldKind.BuildingType),
+                new ParamFieldSpec("Count", ParamFieldKind.Text),
+                new ParamFieldSpec("Faction (optional)", ParamFieldKind.Faction) } },
+            { ObjectiveKind.ResourceThreshold, new[] {
+                new ParamFieldSpec("Resource", ParamFieldKind.Resource),
+                new ParamFieldSpec("Amount", ParamFieldKind.Text),
+                new ParamFieldSpec("Faction (optional)", ParamFieldKind.Faction) } },
+            { ObjectiveKind.PopulationThreshold, new[] {
+                new ParamFieldSpec("Population", ParamFieldKind.Text),
+                new ParamFieldSpec("Faction (optional)", ParamFieldKind.Faction) } },
+            { ObjectiveKind.DestroyScriptedTarget, new[] {
+                new ParamFieldSpec("Target Building", ParamFieldKind.DestroyTargetBuildingType),
+                new ParamFieldSpec("Target Faction", ParamFieldKind.Faction),
+                new ParamFieldSpec("Position (x,y,z)", ParamFieldKind.Text) } },
         };
 
-        private static readonly Dictionary<TriggerKind, string> TriggerHints = new Dictionary<TriggerKind, string>
+        private static readonly Dictionary<TriggerKind, ParamFieldSpec[]> TriggerFieldSpecs = new Dictionary<TriggerKind, ParamFieldSpec[]>
         {
-            { TriggerKind.GrantResourceAtTime, "Param1 = resource, Param2 = amount, Param3 = seconds, Param4 = faction (optional)" },
-            { TriggerKind.RepeatingGrantResource, "Param1 = resource, Param2 = amount, Param3 = interval seconds, Param4 = repeat count, Param5 = faction (optional)" },
+            { TriggerKind.GrantResourceAtTime, new[] {
+                new ParamFieldSpec("Resource", ParamFieldKind.Resource),
+                new ParamFieldSpec("Amount", ParamFieldKind.Text),
+                new ParamFieldSpec("At Seconds", ParamFieldKind.Text),
+                new ParamFieldSpec("Faction (optional)", ParamFieldKind.Faction) } },
+            { TriggerKind.RepeatingGrantResource, new[] {
+                new ParamFieldSpec("Resource", ParamFieldKind.Resource),
+                new ParamFieldSpec("Amount", ParamFieldKind.Text),
+                new ParamFieldSpec("Interval Seconds", ParamFieldKind.Text),
+                new ParamFieldSpec("Repeat Count", ParamFieldKind.Text),
+                new ParamFieldSpec("Faction (optional)", ParamFieldKind.Faction) } },
         };
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -622,6 +669,29 @@ namespace KingdomsOfBharat.UI
                 return;
             }
 
+            // KNOWN BUG, found live this session (heavy path session 6),
+            // not fixed here - flagged as a follow-up item rather than
+            // silently left unnoticed: once this Objectives tab's content
+            // grows past roughly 7 rows (~40+ UI GameObjects under
+            // _objectivesScrollContent), the scroll viewport's RectMask2D
+            // starts reporting CanvasRenderer.cull=true for every child -
+            // including ones well within the visible viewport bounds - so
+            // the whole tab renders blank despite the content itself being
+            // built correctly (confirmed via reflection: correct child
+            // count/labels/values every time; confirmed via disabling the
+            // RectMask2D entirely, which restores visibility). Root cause
+            // not fully isolated - tried DestroyImmediate instead of
+            // Destroy here (ruled out: cull flips back to true on a later
+            // frame regardless), Canvas.ForceUpdateCanvases, toggling the
+            // mask's enabled state, and this project's own documented
+            // EditorApplication.QueuePlayerLoopUpdate fix for stuck-frame
+            // issues - none resolved it. This is a pre-existing latent bug
+            // (any 5+ objective/trigger list would have hit it since
+            // session 2, this session's own widget change didn't introduce
+            // it - a fresh per-kind field count is roughly the same order
+            // of magnitude as the old generic Param1-N fields), not
+            // something this session's own scope (per-kind input widgets)
+            // is responsible for fixing outright.
             for (int i = _objectivesScrollContent.childCount - 1; i >= 0; i--)
             {
                 Destroy(_objectivesScrollContent.GetChild(i).gameObject);
@@ -684,13 +754,14 @@ namespace KingdomsOfBharat.UI
             });
             y -= 26f;
 
-            string hint = ObjectiveHints.TryGetValue(row.kind, out string h) ? h : string.Empty;
-            CreateLabel(parent, hint, new Vector2(150f, y), 10, TextAlignmentOptions.Center, wrapWidth: 250f);
-            y -= 32f;
+            ParamFieldSpec[] specs = ObjectiveFieldSpecs[row.kind];
+            string[] values = { row.param1, row.param2, row.param3 };
+            Action<string>[] setters = { v => row.param1 = v, v => row.param2 = v, v => row.param3 = v };
+            for (int i = 0; i < specs.Length; i++)
+            {
+                BindParamField(parent, ref y, specs[i], values[i], setters[i]);
+            }
 
-            BindTextField(parent, ref y, "Param1", row.param1, v => row.param1 = v);
-            BindTextField(parent, ref y, "Param2", row.param2, v => row.param2 = v);
-            BindTextField(parent, ref y, "Param3", row.param3, v => row.param3 = v);
             BindTextField(parent, ref y, "Description", row.description, v => row.description = v);
 
             CreateButton(parent, "Remove Objective", new Vector2(150f, y), new Vector2(240f, 22f), () =>
@@ -710,15 +781,13 @@ namespace KingdomsOfBharat.UI
             });
             y -= 26f;
 
-            string hint = TriggerHints.TryGetValue(row.kind, out string h) ? h : string.Empty;
-            CreateLabel(parent, hint, new Vector2(150f, y), 10, TextAlignmentOptions.Center, wrapWidth: 250f);
-            y -= 32f;
-
-            BindTextField(parent, ref y, "Param1", row.param1, v => row.param1 = v);
-            BindTextField(parent, ref y, "Param2", row.param2, v => row.param2 = v);
-            BindTextField(parent, ref y, "Param3", row.param3, v => row.param3 = v);
-            BindTextField(parent, ref y, "Param4", row.param4, v => row.param4 = v);
-            BindTextField(parent, ref y, "Param5 (RepeatingGrantResource only)", row.param5, v => row.param5 = v);
+            ParamFieldSpec[] specs = TriggerFieldSpecs[row.kind];
+            string[] values = { row.param1, row.param2, row.param3, row.param4, row.param5 };
+            Action<string>[] setters = { v => row.param1 = v, v => row.param2 = v, v => row.param3 = v, v => row.param4 = v, v => row.param5 = v };
+            for (int i = 0; i < specs.Length; i++)
+            {
+                BindParamField(parent, ref y, specs[i], values[i], setters[i]);
+            }
 
             CreateButton(parent, "Remove Trigger", new Vector2(150f, y), new Vector2(240f, 22f), () =>
             {
@@ -728,11 +797,66 @@ namespace KingdomsOfBharat.UI
             y -= 32f;
         }
 
+        private void BindParamField(Transform parent, ref float y, ParamFieldSpec spec, string initialValue, Action<string> onChanged)
+        {
+            switch (spec.Kind)
+            {
+                case ParamFieldKind.Faction:
+                    BindEnumCycleField(parent, ref y, spec.Label, FactionOptions, initialValue, onChanged);
+                    break;
+                case ParamFieldKind.Resource:
+                    BindEnumCycleField(parent, ref y, spec.Label, ResourceOptions, initialValue, onChanged);
+                    break;
+                case ParamFieldKind.BuildingType:
+                    BindEnumCycleField(parent, ref y, spec.Label, EntitySpawner.BuildingTypes, initialValue, onChanged);
+                    break;
+                case ParamFieldKind.DestroyTargetBuildingType:
+                    BindEnumCycleField(parent, ref y, spec.Label, DestroyTargetBuildingOptions, initialValue, onChanged);
+                    break;
+                default:
+                    BindTextField(parent, ref y, spec.Label, initialValue, onChanged);
+                    break;
+            }
+        }
+
         private void BindTextField(Transform parent, ref float y, string placeholder, string initialValue, Action<string> onChanged)
         {
             TMP_InputField field = CreateInputField(parent, new Vector2(150f, y), placeholder, height: 26f);
             field.text = initialValue ?? string.Empty;
             field.onValueChanged.AddListener(v => onChanged(v));
+            y -= 30f;
+        }
+
+        // Cycle-on-click button for a param drawn from a small fixed
+        // vocabulary (Faction/Resource/BuildingType/...) - same "click
+        // cycles to the next value, full RefreshObjectivesSection() rebuild"
+        // convention the Kind button itself already uses, rather than
+        // mutating the button's own label text in place. A value that
+        // doesn't match any option (a legacy hand-typed string from before
+        // this session, or an unrecognized value) normalizes to options[0]
+        // (blank for Faction, a real value for the others) rather than
+        // erroring - the row is also written back immediately so a stale/
+        // invalid stored value doesn't linger unseen.
+        private void BindEnumCycleField(Transform parent, ref float y, string label, string[] options, string initialValue, Action<string> onChanged)
+        {
+            int index = Array.IndexOf(options, initialValue ?? string.Empty);
+            if (index < 0)
+            {
+                index = 0;
+            }
+            string current = options[index];
+            if (current != initialValue)
+            {
+                onChanged(current);
+            }
+
+            string displayValue = string.IsNullOrEmpty(current) ? "(default: Player)" : current;
+            CreateButton(parent, label + ": " + displayValue, new Vector2(150f, y), new Vector2(260f, 24f), () =>
+            {
+                string next = options[(index + 1) % options.Length];
+                onChanged(next);
+                RefreshObjectivesSection();
+            });
             y -= 30f;
         }
 

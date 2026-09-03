@@ -5,6 +5,131 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Scenario Editor heavy path, session 6: per-kind bespoke input widgets
+
+**Scope**: at the user's explicit request ("start item on per-kind bespoke input
+widgets"), the last named item from the Scenario Editor epic's original deferred
+list (session 1's own doc comment, session 2's own "not this session" note). This
+closes the entire epic.
+
+**Context**: session 2's Objectives tab authors every objective/trigger param as a
+generic `TMP_InputField` labeled "Param1"/"Param2"/etc., with a one-line hint
+describing what each slot means for the currently-selected Kind. An author had to
+type `"Player"`, `"Wood"`, or `"Barracks"` correctly by hand, matching exact
+enum-name spelling, with no protection against a typo silently falling through to
+`MissionCsvLoader`'s own `ParseEnum` fallback default (a mistyped resource name
+silently becomes `Food`, no error surfaced anywhere). Every one of these params is
+actually drawn from a small, fixed, already-known vocabulary, not free text -
+`FactionId` (optional in most slots, blank meaning "default to Player", the same
+fallback the interpreter already implements), `ResourceType`, and a building-type
+name whose *valid* set differs by Kind (`BuildingCountThreshold` reasonably needs
+the palette's own known types; `DestroyScriptedTarget` is narrower still -
+`MissionCsvLoader.SpawnScriptedTarget`'s own switch only actually spawns
+`Barracks`/`TownCenter`, anything else logs a warning and returns null).
+
+**Design**: `ScenarioEditorMenu.cs` gained a small per-Kind field-spec table -
+`ParamFieldKind` enum (`Text`/`Faction`/`Resource`/`BuildingType`/
+`DestroyTargetBuildingType`), a `ParamFieldSpec` struct (label + kind), and
+`ObjectiveFieldSpecs`/`TriggerFieldSpecs` dictionaries mapping each
+`ObjectiveKind`/`TriggerKind` to an ordered array of specs (index 0 → `param1`,
+index 1 → `param2`, etc.). `BuildObjectiveRowUi`/`BuildTriggerRowUi` now iterate
+the spec array for the row's current Kind instead of a fixed sequence of
+`BindTextField` calls, dispatching each slot through a new `BindParamField` to
+either the existing `BindTextField` (for `Text`) or a new `BindEnumCycleField`
+(for the other four) - a button showing `"<Label>: <value or '(default: Player)'
+if blank>"` that cycles through a fixed `string[]` of options on click, mirroring
+the existing Kind-cycle button's own "click → mutate row → full
+`RefreshObjectivesSection()` rebuild" idiom rather than mutating a label in
+place. Option lists: `FactionOptions = {"", "Player", "Enemy", "Enemy2"}` (blank
+first, matching the optional-Faction fallback), `ResourceOptions = {"Food",
+"Wood", "Gold", "Stone"}`, `EntitySpawner.BuildingTypes` (8 options) for
+`BuildingCountThreshold`, and a deliberately narrower `DestroyTargetBuildingOptions
+= {"Barracks", "TownCenter"}` for `DestroyScriptedTarget` - exactly
+`SpawnScriptedTarget`'s real supported set, so the widget can never offer a value
+that would silently no-op at play time. A value that doesn't match any option
+(e.g. a legacy hand-typed string from before this session) normalizes to
+`options[0]` and writes back immediately, rather than erroring. The now-redundant
+`ObjectiveHints`/`TriggerHints` dictionaries were removed entirely - every field
+now carries its own explicit label, making the old hint captions fully redundant.
+**No changes needed to `ObjectiveRow`/`TriggerRow`, `MissionCsvLoader.cs`,
+`CustomScenarioData.cs`, or the save/load JSON format** - the widgets write the
+exact same canonical strings a correctly hand-typed value already would have.
+
+**Testing**: pure UI-generation change, no new interpreter logic - ran the full
+EditMode suite to confirm 204/204 unchanged (no new tests needed, matching this
+session's own reasoning that `BuildObjectivesFromRows`/`BuildTriggersFromRows`
+and their existing test coverage are untouched).
+
+**A real bug found live during verification, not fixed this session**: while
+live-testing all 5 objective kinds + both trigger kinds together (7 rows, ~40+ UI
+GameObjects), the Objectives tab's scroll view rendered completely blank via
+UnityMCP screenshot, despite the content being built correctly (confirmed via
+reflection: correct child count, correct per-kind labels/values every time).
+Root-caused as far as reasonably possible without a fix: the scroll viewport's
+`RectMask2D` was reporting `CanvasRenderer.cull = true` for every child,
+including ones clearly within the visible viewport bounds (confirmed via direct
+world-corner comparison - content and viewport genuinely overlap). Disabling the
+`RectMask2D` entirely restored visibility (unclipped/overflowing, as expected).
+Several candidate fixes were tried and ruled out, in order: (1) `DestroyImmediate`
+instead of `Destroy` in `RefreshObjectivesSection`'s child-cleanup loop, on the
+theory that a deferred `Destroy()` leaves old children alive (and registered with
+the mask) for the rest of the frame while replacements are created - this DID
+initially read `cull=false` right after the fix, but flipped back to `cull=true`
+on a subsequent frame regardless, ruling it out as the actual root cause (though
+it separately surfaced a real same-frame staleness effect on rapid double-clicks
+of the same cycle button in testing - not a real gameplay concern, since genuine
+user clicks are naturally separated by real frames); (2) `Canvas.
+ForceUpdateCanvases()`; (3) toggling `RectMask2D.enabled` off/on, both
+synchronously and across a real frame boundary; (4) this project's own documented
+fix for stuck-frame issues (`Application.runInBackground = true` +
+`EditorApplication.QueuePlayerLoopUpdate()` + `SceneView.RepaintAll()`, from
+CLAUDE.md's gotchas section) - none resolved it. Confirmed only one `RectMask2D`
+exists in the whole hierarchy (ruled out multi-mask stencil-depth stacking). The
+speculative `DestroyImmediate` change was reverted back to `Destroy` (it didn't
+fix the underlying bug and adds unproven risk for no benefit) with a detailed
+comment documenting the investigation in place of the fix, and the bug was
+flagged via `spawn_task` (`task_545a0590`) for a dedicated future session rather
+than left silently unnoticed or allowed to block this session's own actual
+deliverable. This is a pre-existing latent bug from session 2's original
+Objectives tab (not introduced by this session's widget change - the row-height/
+element-count order of magnitude is similar to the old generic Param1-N fields),
+only now discovered because this session's own more thorough per-kind
+verification finally exercised that many rows at once.
+
+Live-verified the actual widget deliverable at the row counts confirmed to render
+correctly (and, separately, confirmed via direct `CanvasRenderer.cull`/reflection
+inspection - not screenshots - that the underlying data model stays correct even
+at row counts where the *rendering* is currently broken): built one objective of
+each of the 5 `ObjectiveKind`s and one trigger of each of the 2 `TriggerKind`s via
+the real `_objectiveRows`/`_triggerRows`/`RefreshObjectivesSection` production
+path, confirming every row generated exactly the field specs this session's own
+design table specifies (e.g. `Button_Building Type: TownCenter`, `Button_Faction
+(optional): (default: Player)`, `Button_Target Building: Barracks`); found the
+real "Faction (optional)" `Button` component for a `PopulationThreshold` objective
+and invoked its real `onClick` (in its own separate call, matching genuine
+user-click timing, since a same-frame double-invoke hit the staleness effect
+noted above) - confirmed it cycled the row's `param2` from `""` through
+`"Player"` to `"Enemy"` correctly; Save → Close → re-Open → Load round-tripped the
+`"Enemy"` selection through the real file-based UI methods intact; Play correctly
+resolved the objective against real live `Population.Current(FactionId.Enemy)`
+(0, correctly not yet complete against a threshold of 1) - not silently
+defaulting to `Player` - proving the widget-selected value flows through the
+entire real production path (`ScenarioManager.ActiveScenario`/`CurrentObjectives`)
+end to end, not just into the saved JSON. Test-residue scenario file
+(`widget_test_scenario.json`) deleted after verification.
+
+**This closes the Scenario Editor heavy-path epic** - all items from session 1's
+own original deferred list (objective/trigger authoring, a saved-scenario browse
+list, richer palette icons, multiplayer/LAN play, per-kind bespoke input widgets)
+are now done. The one open item going forward is the newly-flagged `RectMask2D`
+bug (`task_545a0590`), a rendering-only issue unrelated to any of the underlying
+data/logic this epic built.
+
+**Files**: `Assets/Scripts/UI/ScenarioEditorMenu.cs`,
+`docs/PARTIAL_ELEMENTS_FIX_PLAN.md`, `CLAUDE.md`.
+
+---
+
 ## 2026-09-03 — Scenario Editor heavy path, session 5: multiplayer LAN play of a custom scenario
 
 **Scope**: at the user's explicit request ("start item on multiplayer play of a
