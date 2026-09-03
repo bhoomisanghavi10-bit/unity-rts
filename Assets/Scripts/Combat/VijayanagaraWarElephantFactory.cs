@@ -70,6 +70,11 @@ namespace KingdomsOfBharat.Combat
             attacker.SetRange(def != null ? def.attackRange : 2.5f);
             attacker.SetUnitClass(UnitClass.Siege);
             attacker.EnableUpgradeDamageScaling();
+            // Wave 0 item 4 (docs/IMPLEMENTATION_ROADMAP.md): see
+            // MauryaWarElephantFactory's matching comment for the full
+            // rationale - same trample tuning for both war elephants.
+            attacker.SetDamageType(DamageType.Trample);
+            attacker.SetSplashRadius(1.4f, 0.4f);
             go.AddComponent<StanceController>();
 
             go.AddComponent<FactionMember>().Configure(faction);

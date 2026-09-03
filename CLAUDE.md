@@ -11,6 +11,35 @@ asset requirements, 5. Priority order).
   see that file's own ground rules. `docs/ROADMAP.md` Section 5's priority
   order is the prior plan; items already closed under it stay closed, but new
   work picks up from `IMPLEMENTATION_ROADMAP.md` instead.**
+- **Wave 0 item 4 (wire `DamageType.Trample`/`Fire`) closed (2026-09-04) — this
+  closes Wave 0 (items 1-4 all done).** Trample wired, Fire correctly deferred
+  to its real Wave 4 consumer (the Fire Ship). First resolved the enum
+  duplication item 1 flagged as this item's own prerequisite:
+  `Combat/Attackable.cs`'s `DamageType` (previously Melee/Pierce only) is now
+  the single shared enum (Melee/Pierce/Siege/Fire/Trample) — the second,
+  incompatible global `DamageType` on `UnitDefinition.cs` (unread CSV
+  metadata) is deleted, `UnitDefinition.attackType` now references the shared
+  type directly. `Attackable.TakeDamage` gained an explicit
+  `UsesPierceArmor(DamageType)` helper (Pierce/Fire → pierceArmor;
+  Melee/Trample/Siege → meleeArmor) so the armor lookup and the
+  upgrade-scaling-applies check can't drift apart. `MauryaWarElephantFactory.cs`/
+  `VijayanagaraWarElephantFactory.cs` now call `SetDamageType(DamageType.Trample)`
+  + `SetSplashRadius(1.4f, 0.4f)`, reusing `CavalryFactory`'s own already-proven
+  trample-splash mechanism (a shade larger/heavier than Cavalry's 1.25/0.35,
+  still below `GroupFormation`'s 1.5 default spacing). `unit_roster_template.csv`'s
+  `AttackType` column updated Melee→Trample for both war elephants, regenerated
+  via `BharatRTS/Generate Data Assets From CSV`. 2 new EditMode tests
+  (`TrampleDamageTests.cs`, 215 total, up from 213, all pass): Trample resolves
+  against meleeArmor not pierceArmor; a Trample-tagged splash attacker damages a
+  nearby hostile but not a far one. Live-verified via UnityMCP through the real
+  production path: a real match (`CivilizationSetup.BeginMatch(Maurya)`), real
+  `MauryaWarElephantFactory`/`VijayanagaraWarElephantFactory`-spawned units both
+  confirmed (via reflection) to carry `damageType=Trample`/`splashRadius=1.4` at
+  spawn, and a real Maurya War Elephant attacking 3 real `SoldierFactory`-spawned
+  Soldiers dealt full damage to the primary target (30→20 HP), reduced splash
+  damage to one placed inside the trample radius (30→26.6 HP), and zero damage
+  to one placed outside it (30→30 HP). See `docs/SESSION_LOG.md`'s matching
+  entry for full detail. Wave 0 is fully closed — next is Wave 1, user's call.
 - **Wave 0 item 3 (confirm the minimum-damage clamp) closed (2026-09-04)** —
   verify-only, no bug found: `Attackable.TakeDamage` (`Combat/Attackable.cs:160`,
   `Mathf.Max(1f, amount - armor)`) already applies its 1-damage floor as the

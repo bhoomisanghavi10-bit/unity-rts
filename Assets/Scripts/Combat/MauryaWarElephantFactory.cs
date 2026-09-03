@@ -89,6 +89,19 @@ namespace KingdomsOfBharat.Combat
             attacker.SetRange(def != null ? def.attackRange : 2.5f);
             attacker.SetUnitClass(UnitClass.Siege);
             attacker.EnableUpgradeDamageScaling();
+            // Wave 0 item 4 (docs/IMPLEMENTATION_ROADMAP.md): a trampling
+            // war elephant, not just a heavy melee hit - DamageType.Trample
+            // was declared and unused until this item. Reuses the splash-
+            // radius mechanic CavalryFactory's own trample already
+            // established (item 3, PARTIAL_ELEMENTS_FIX_PLAN.md) rather
+            // than inventing a second one: a radius below GroupFormation's
+            // 1.5 default unit spacing (still "clumped tight around the
+            // impact point", not a full adjacent rank) at a reduced
+            // secondary-damage multiplier, kept a shade larger/heavier than
+            // Cavalry's own 1.25/0.35 to read as a bulkier animal's
+            // footprint without turning this into Siege-tier splash.
+            attacker.SetDamageType(DamageType.Trample);
+            attacker.SetSplashRadius(1.4f, 0.4f);
             root.AddComponent<StanceController>();
 
             root.AddComponent<FactionMember>().Configure(faction);

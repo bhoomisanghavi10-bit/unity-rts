@@ -11,10 +11,26 @@ namespace KingdomsOfBharat.Combat
     // attackers (Archers) deal Pierce damage - two separate armor stats let
     // a unit/building resist one better than the other instead of a single
     // flat damage reduction.
+    //
+    // Wave 0 item 4 (docs/IMPLEMENTATION_ROADMAP.md): this used to be a
+    // 2-value (Melee/Pierce) enum, with a second, incompatible 5-value
+    // (Melee/Pierce/Siege/Fire/Trample) DamageType declared globally on
+    // UnitDefinition.cs purely as unread CSV metadata - the "two DamageType
+    // enums" ambiguous-reference gotcha this project's own history has hit
+    // more than once (WildBoar.cs, Wave 0 items 2/3). Merged into one: this
+    // is now the single DamageType used everywhere, including
+    // UnitDefinition.attackType. Siege/Fire are declared but not yet
+    // resolved to any armor stat below since nothing sets them as a live
+    // attacker's damage type yet (Siege units still attack as Melee; Fire
+    // is Wave 4's Fire Ship). Trample IS live as of this item - see
+    // MauryaWarElephantFactory/VijayanagaraWarElephantFactory.
     public enum DamageType
     {
         Melee,
         Pierce,
+        Siege,
+        Fire,
+        Trample,
     }
 
     // Anything that can take damage and die: soldiers, archers, buildings,
@@ -142,6 +158,20 @@ namespace KingdomsOfBharat.Combat
             Health = maxHealth;
         }
 
+        // Which armor stat a damage type resists against. Pierce/Fire read
+        // pierceArmor (both are "hits from range" in AoE's own convention -
+        // Fire Ships fire at range, same as Archers); Melee/Trample/Siege
+        // read meleeArmor (all three are close-range physical hits, even
+        // though Trample/Siege aren't live on any attacker's damage type
+        // yet - Siege units still attack as Melee, Trample only as of this
+        // item). Centralized here so TakeDamage's armor lookup and its
+        // upgrade-scaling-applies check can't drift out of sync with each
+        // other.
+        private static bool UsesPierceArmor(DamageType damageType)
+        {
+            return damageType == DamageType.Pierce || damageType == DamageType.Fire;
+        }
+
         // AoE's own floor: armor can blunt a hit a long way but never to
         // zero - every attack that lands does at least 1 damage.
         public void TakeDamage(float amount, DamageType damageType = DamageType.Melee, Attackable attacker = null)
@@ -151,8 +181,9 @@ namespace KingdomsOfBharat.Combat
                 return;
             }
 
-            float armor = damageType == DamageType.Melee ? meleeArmor : pierceArmor;
-            bool appliesToThisType = damageType == DamageType.Melee ? _upgradeArmorAppliesMelee : _upgradeArmorAppliesPierce;
+            bool usesPierceArmor = UsesPierceArmor(damageType);
+            float armor = usesPierceArmor ? pierceArmor : meleeArmor;
+            bool appliesToThisType = usesPierceArmor ? _upgradeArmorAppliesPierce : _upgradeArmorAppliesMelee;
             if (appliesToThisType && Faction != null)
             {
                 armor += UpgradeProgress.ArmorBonus(Faction.Faction) + UpgradeProgress.ClassArmorBonus(Faction.Faction, unitClass);

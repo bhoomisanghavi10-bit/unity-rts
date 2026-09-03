@@ -5,6 +5,86 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-04 — AoE-Parity Wave 0, item 4: wire DamageType.Trample (Fire deferred) — closes Wave 0
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 0 item 4, picked up right after item 3.
+Wire `DamageType.Trample` onto `MauryaWarElephantFactory.cs`/
+`VijayanagaraWarElephantFactory.cs`; leave `DamageType.Fire` declared-but-unused since its
+real consumer (the Fire Ship) doesn't exist until Wave 4, per the item's own text. Item 1's
+own note flagged this item as also needing to resolve the separate `DamageType` enum
+duplication first.
+
+**Prerequisite (enum merge)**: `Combat/Attackable.cs`'s `DamageType` was a 2-value
+(Melee/Pierce) enum; `Data/Scripts/UnitDefinition.cs` separately declared a global 5-value
+(Melee/Pierce/Siege/Fire/Trample) `DamageType`, used only as unread CSV metadata
+(`UnitDefinition.attackType`, populated by `CsvToScriptableObject.cs`, never read at
+runtime by anything) - the exact "two `DamageType` enums" ambiguous-reference gotcha this
+project's own history has hit repeatedly. Merged into one: `Combat.DamageType` now carries
+all 5 values, and the global duplicate on `UnitDefinition.cs` is deleted -
+`UnitDefinition.attackType` now references the shared `Combat.DamageType` directly (via the
+file's existing `using KingdomsOfBharat.Combat;`). Since Unity serializes a plain enum field
+by its underlying int, and both enums used the identical Melee=0/Pierce=1/Siege=2/Fire=3/
+Trample=4 ordering, no data migration was needed for already-generated `.asset` files.
+
+**Fix (Attackable's armor resolution)**: `TakeDamage`'s old `damageType == DamageType.Melee
+? meleeArmor : pierceArmor` ternary would have silently routed Siege/Fire/Trample hits
+through `pierceArmor` (the `else` branch) once the enum grew past 2 values - wrong for a
+melee-type hit like Trample. Replaced with an explicit `UsesPierceArmor(DamageType)` helper
+(Pierce/Fire → pierceArmor; Melee/Trample/Siege → meleeArmor) used by both the armor lookup
+and the `UpgradeProgress` scaling-applies check, so the two can't drift out of sync with
+each other the way two separate inline ternaries could.
+
+**Fix (the actual wiring)**: `MauryaWarElephantFactory.cs`/`VijayanagaraWarElephantFactory.cs`
+now call `attacker.SetDamageType(DamageType.Trample)` and
+`attacker.SetSplashRadius(1.4f, 0.4f)` - reusing the exact splash-radius mechanism
+`CavalryFactory`'s own trample already established (`docs/PARTIAL_ELEMENTS_FIX_PLAN.md`
+item 3, closed 2026-09-03) rather than inventing a second one. Tuned a shade
+larger/heavier than Cavalry's own 1.25 radius/0.35 multiplier (elephants read as a bulkier
+animal's footprint) while staying below `GroupFormation`'s 1.5 default unit spacing, same
+"clumped tight around the impact point, not a full adjacent rank" design intent Cavalry's
+own comment documents. `unit_roster_template.csv`'s `AttackType` column for both war
+elephants updated Melee→Trample to match (data was previously wrong/stale relative to the
+actual factories even before this item, since `attackType` was never read at runtime);
+regenerated via `BharatRTS/Generate Data Assets From CSV`, zero parse warnings, confirmed
+both generated `.asset` files now read `attackType: 4` (Trample's ordinal).
+
+**Tests**: new `Assets/Tests/EditMode/TrampleDamageTests.cs`, 2 tests (215 total, up from
+213, all pass): a Trample hit is blunted by `meleeArmor` and NOT by `pierceArmor` (the
+specific bug the old ternary would have reintroduced); a Trample-tagged splash attacker
+(built the same way the two factories now wire theirs, not by driving the factories
+directly) damages a primary target for full damage, a nearby hostile for reduced (0.4x)
+splash damage, and leaves a far hostile untouched - same shape as `SiegeSplashTests`'
+existing coverage for Siege's own splash. Full 215-test suite re-run clean, no regression
+from the enum merge across any of the other `DamageType` call sites (`ArcherFactory`/
+`CholaNavalRaiderFactory`/`BoatAttacker`/`BuildingAttacker`/`WildBoar.cs`).
+
+**Deliberately not tested in EditMode**: `MauryaWarElephantFactory.Spawn`/
+`VijayanagaraWarElephantFactory.Spawn` directly - like other combat-unit factories, both
+depend on `Resources`-loaded prefabs and `DataRegistry`, which this project's own history
+already documents as EditMode-hostile for factories of this shape (see Scenario Editor
+session 1's own disclosed limitation). Covered by live verification instead.
+
+**Live verification**: Play mode via UnityMCP, through the real production path - a real
+match (`CivilizationSetup.BeginMatch(Maurya)`). Spawned a real
+`MauryaWarElephantFactory`-built unit and a real `VijayanagaraWarElephantFactory`-built
+unit; reflection on each one's real `MeleeAttacker`'s private `damageType`/`splashRadius`
+fields confirmed `Trample`/`1.4` on both - the actual wiring this item asked for, not a
+reimplementation of it in a test double. Then, with a real Maurya War Elephant (Player)
+against three real `SoldierFactory`-spawned Soldiers (Enemy) - one as the primary target,
+one placed 0.8 units away (inside the 1.4 trample radius), one placed 9 units away
+(outside it) - drove the real `AttackMove`/`Tick`/`ResolveHit` path via reflection: the
+primary target took the full hit (30 → 20 HP), the nearby Soldier took reduced splash
+damage (30 → 26.6 HP), and the far Soldier was completely untouched (30 → 30 HP) - proving
+the trample mechanic fires end-to-end through the real combat resolution path, not just in
+the isolated unit tests.
+
+**Roadmap**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 0 item 4 marked closed (Trample half;
+Fire correctly deferred to Wave 4); `CLAUDE.md` "Current status" updated. **This closes
+Wave 0** - all 4 items done (item 1: unit taxonomy, item 2: retroactive upgrades, item 3:
+damage-floor confirmation, item 4: Trample wired/Fire deferred). Next: Wave 1, user's call.
+
+---
+
 ## 2026-09-04 — AoE-Parity Wave 0, item 3: confirm the minimum-damage clamp
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 0 item 3, picked up right after item 2.

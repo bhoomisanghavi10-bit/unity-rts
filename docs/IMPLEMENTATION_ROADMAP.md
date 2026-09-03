@@ -89,15 +89,43 @@ budget.
    (Cavalry→Archer is CombatBonus's real 0.4x hard-countered matchup) — the real
    `MeleeAttacker.ResolveHit`/`Attackable.TakeDamage` path dealt exactly 1 damage, not
    0. *Depends on: nothing. Blocks: safe tuning of any new counter unit.*
-4. **[S] Wire `DamageType.Trample` and `DamageType.Fire`.** Both are declared on
-   `UnitDefinition.cs` and unused. Trample onto `MauryaWarElephantFactory.cs` /
-   `VijayanagaraWarElephantFactory.cs` (thematically obvious — a trampling war elephant).
-   Fire is the natural first consumer for the Fire Ship in Wave 4. *Depends on: nothing.
-   Cheapest real mechanic in the whole workbook — do it opportunistically alongside item 1 or 2.*
+4. ~~**[S] Wire `DamageType.Trample` and `DamageType.Fire`.**~~ **Trample half closed
+   (2026-09-04)**; Fire deliberately deferred to Wave 4 (Fire Ship), per this item's own
+   note. First resolved the enum duplication item 1 flagged as this item's prerequisite:
+   `Combat/Attackable.cs`'s `DamageType` (previously Melee/Pierce only) is now the single
+   shared enum (Melee/Pierce/Siege/Fire/Trample), and the second, incompatible global
+   `DamageType` declared on `UnitDefinition.cs` purely as unread CSV metadata is deleted —
+   `UnitDefinition.attackType` now references the same shared type. `Attackable.TakeDamage`
+   gained an explicit `UsesPierceArmor(DamageType)` helper (Pierce/Fire → pierceArmor;
+   Melee/Trample/Siege → meleeArmor) so the armor lookup and the upgrade-scaling-applies
+   check can't drift out of sync. Wired `MauryaWarElephantFactory.cs`/
+   `VijayanagaraWarElephantFactory.cs`: both now call `SetDamageType(DamageType.Trample)`
+   plus `SetSplashRadius(1.4f, 0.4f)`, reusing the exact splash mechanism
+   `CavalryFactory`'s own trample already established (PARTIAL_ELEMENTS_FIX_PLAN item 3)
+   rather than inventing a second one — a radius below `GroupFormation`'s 1.5 default unit
+   spacing, at a reduced secondary-damage multiplier, tuned a shade larger/heavier than
+   Cavalry's own 1.25/0.35. `unit_roster_template.csv`'s `AttackType` column updated
+   Melee→Trample for both war elephants to match (regenerated via `BharatRTS/Generate
+   Data Assets From CSV`, zero parse warnings). 6 new EditMode tests (`TrampleDamageTests.cs`,
+   215 total, up from 213): Trample resolves against meleeArmor not pierceArmor, and a
+   Trample-tagged splash attacker damages a nearby hostile but not a far one. Live-verified
+   via UnityMCP through the real production path: a real match
+   (`CivilizationSetup.BeginMatch(Maurya)`), real `MauryaWarElephantFactory`/
+   `VijayanagaraWarElephantFactory`-spawned units both confirmed (via reflection) to carry
+   `damageType=Trample`/`splashRadius=1.4` at spawn, and a real Maurya War Elephant
+   attacking a real `SoldierFactory`-spawned Soldier dealt full damage to the primary
+   target, reduced splash damage to a second Soldier placed within the trample radius, and
+   zero damage to a third placed outside it. Fire (`UnitDefinition.attackType`/
+   `Combat.DamageType.Fire` both now exist on the shared enum) stays genuinely unset on
+   every attacker — no factory calls `SetDamageType(DamageType.Fire)` yet, exactly as
+   before this item, since the Fire Ship doesn't exist until Wave 4. *Depends on: nothing.
+   Blocked (Fire half only): Wave 4's Fire Ship.*
 
 **Wave 0 exit criteria:** one shared unit taxonomy, a verified retroactive upgrade rule, a
-verified damage floor, two previously-dead enum values now live. Nothing shipped is visible
-to a player yet — that's expected and correct for this wave.
+verified damage floor, one previously-dead enum value (`Trample`) now live and the other
+(`Fire`) correctly deferred to its real Wave 4 consumer rather than wired without one.
+Nothing shipped is visible to a player yet — that's expected and correct for this wave.
+**Wave 0 is now fully closed (2026-09-04).**
 
 ---
 

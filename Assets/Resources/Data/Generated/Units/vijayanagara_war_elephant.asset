@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
   unitId: vijayanagara_war_elephant
   displayName: Vijayanagara War Elephant
-  category: 4
+  category: 3
   ageRequirement: 2
   cost:
     food: 120
@@ -24,7 +24,7 @@ MonoBehaviour:
   trainTimeSeconds: 6
   maxHP: 90
   attackDamage: 10
-  attackType: 0
+  attackType: 4
   meleeArmor: 2
   pierceArmor: 2
   attackRange: 2.5

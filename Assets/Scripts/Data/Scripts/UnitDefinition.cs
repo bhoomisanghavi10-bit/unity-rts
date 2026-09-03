@@ -1,4 +1,5 @@
 using UnityEngine;
+using KingdomsOfBharat.Combat;
 
 // One asset per unit type. Combat stats here feed directly into CounterMatrix
 // lookups at damage-resolution time (see CounterMatrix.cs).
@@ -7,7 +8,7 @@ public class UnitDefinition : ScriptableObject
 {
     public string unitId;
     public string displayName;
-    public UnitCategory category;
+    public UnitClass category;
     public int ageRequirement = 1;
     public ResourceCost cost;
     public float trainTimeSeconds;
@@ -34,6 +35,3 @@ public class UnitDefinition : ScriptableObject
 
     public GameObject prefab;
 }
-
-public enum UnitCategory { Infantry, Spearman, Cavalry, Archer, Siege, Naval, Support, Hero, Building }
-public enum DamageType { Melee, Pierce, Siege, Fire, Trample }
