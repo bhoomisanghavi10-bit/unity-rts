@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using KingdomsOfBharat.Core;
@@ -27,7 +28,7 @@ namespace KingdomsOfBharat.Multiplayer
         private enum State { Closed, Idle, Hosting, Joining }
 
         private const float PanelWidth = 420f;
-        private const float PanelHeight = 320f;
+        private const float PanelHeight = 360f;
 
         private State _state = State.Closed;
         private LanTransport _pendingTransport;
@@ -36,6 +37,19 @@ namespace KingdomsOfBharat.Multiplayer
         private string _joinAddress = "127.0.0.1";
         private string _statusText = "";
         private bool _sentLocalHello;
+
+        // Item 6 (Scenario Editor, heavy path session 5): lets the host
+        // play a saved custom scenario instead of a plain skirmish -
+        // _scenarioIndex 0 is always "(None - Skirmish)", same "None is
+        // index 0" convention this file doesn't otherwise need since civ
+        // picking has no equivalent "off" state. _pendingScenario is only
+        // ever set on the HOST's own side (loaded once, right before
+        // hosting starts) - the joiner never picks a scenario, it just
+        // receives whichever one (if any) the host chose over the wire.
+        private List<string> _scenarioNames;
+        private int _scenarioIndex;
+        private CustomScenarioData _pendingScenario;
+        private Text _scenarioLabel;
 
         private GameObject _root;
         private Text _status;
@@ -107,8 +121,11 @@ namespace KingdomsOfBharat.Multiplayer
                         hostCivilization = (int)_localCivPick,
                         mapId = (int)_chosenMap,
                         seed = seed,
+                        scenarioJson = _pendingScenario != null ? JsonUtility.ToJson(_pendingScenario) : null,
                     });
-                    _statusText = $"Connected. Waiting for {NameOf(FactionId.Enemy)}'s civilization pick...";
+                    _statusText = _pendingScenario != null
+                        ? $"Connected. Waiting for {NameOf(FactionId.Enemy)} to join scenario \"{_pendingScenario.title}\"..."
+                        : $"Connected. Waiting for {NameOf(FactionId.Enemy)}'s civilization pick...";
                 }
                 else
                 {
@@ -127,23 +144,33 @@ namespace KingdomsOfBharat.Multiplayer
             {
                 if (_state == State.Hosting && envelope.kind == NetMessageKind.JoinHello)
                 {
+                    // Host uses its own already-loaded _pendingScenario
+                    // directly, not a round-tripped copy - same reasoning
+                    // this method's own seed handling below already
+                    // documents (the host is the authoritative source
+                    // either way).
                     CompleteHandshake(isHost: true,
                         localFaction: FactionId.Player,
                         hostCiv: _localCivPick,
                         remoteCiv: (CivilizationId)envelope.remoteCivilization,
                         map: _chosenMap,
-                        seed: System.Environment.TickCount);
+                        seed: System.Environment.TickCount,
+                        scenario: _pendingScenario);
                     return;
                 }
 
                 if (_state == State.Joining && envelope.kind == NetMessageKind.HostHello)
                 {
+                    CustomScenarioData scenario = !string.IsNullOrEmpty(envelope.scenarioJson)
+                        ? JsonUtility.FromJson<CustomScenarioData>(envelope.scenarioJson)
+                        : null;
                     CompleteHandshake(isHost: false,
                         localFaction: FactionId.Enemy,
                         hostCiv: (CivilizationId)envelope.hostCivilization,
                         remoteCiv: _localCivPick,
                         map: (MapId)envelope.mapId,
-                        seed: envelope.seed);
+                        seed: envelope.seed,
+                        scenario: scenario);
                     return;
                 }
             }
@@ -159,7 +186,7 @@ namespace KingdomsOfBharat.Multiplayer
         // threading one value through both call sites purely for this
         // method's own simplicity; both reads happen within the same
         // frame in practice.
-        private void CompleteHandshake(bool isHost, FactionId localFaction, CivilizationId hostCiv, CivilizationId remoteCiv, MapId map, int seed)
+        private void CompleteHandshake(bool isHost, FactionId localFaction, CivilizationId hostCiv, CivilizationId remoteCiv, MapId map, int seed, CustomScenarioData scenario = null)
         {
             NetworkMatch.Begin(localFaction, isHost, seed, _pendingTransport);
 
@@ -172,7 +199,21 @@ namespace KingdomsOfBharat.Multiplayer
                 return;
             }
 
-            setup.BeginNetworkMatch(hostCiv, remoteCiv, map);
+            // Item 6 (Scenario Editor, heavy path session 5): BeginCustomScenarioMatch
+            // is already network-safe as-is (it funnels through the same
+            // BeginMatchCore every entry point does, and every faction-
+            // specific reference elsewhere already resolves through
+            // NetworkMatch.LocalFaction) - no new match-start path needed,
+            // just routing to it instead of BeginNetworkMatch when a
+            // scenario was exchanged.
+            if (scenario != null)
+            {
+                setup.BeginCustomScenarioMatch(scenario);
+            }
+            else
+            {
+                setup.BeginNetworkMatch(hostCiv, remoteCiv, map);
+            }
 
             _state = State.Closed;
             _root.SetActive(false);
@@ -211,6 +252,19 @@ namespace KingdomsOfBharat.Multiplayer
             RefreshCivLabel();
             AddButton(civRow.transform, "<", CycleCivBack, 28f);
             AddButton(civRow.transform, ">", CycleCivForward, 28f);
+
+            // Item 6 (Scenario Editor, heavy path session 5): lets the
+            // host pick one of its own saved custom scenarios instead of
+            // a plain skirmish - same "<"/">" cycle-button convention the
+            // civ row above already uses. "(None - Skirmish)" is always
+            // index 0, so a host who never touches this row gets today's
+            // exact behavior unchanged.
+            _scenarioNames = new List<string> { "(None - Skirmish)" };
+            _scenarioNames.AddRange(SavedScenarioLibrary.ListSavedScenarioNames());
+            _scenarioLabel = AddText(_root.transform, "", 14, out GameObject scenarioRow);
+            RefreshScenarioLabel();
+            AddButton(scenarioRow.transform, "<", CycleScenarioBack, 28f);
+            AddButton(scenarioRow.transform, ">", CycleScenarioForward, 28f);
 
             AddButton(_root.transform, "Host on LAN", OnHostClicked);
 
@@ -265,6 +319,27 @@ namespace KingdomsOfBharat.Multiplayer
             CycleCiv(1);
         }
 
+        private void RefreshScenarioLabel()
+        {
+            _scenarioLabel.text = $"Scenario: {_scenarioNames[_scenarioIndex]}";
+        }
+
+        private void CycleScenarioBack()
+        {
+            CycleScenario(-1);
+        }
+
+        private void CycleScenarioForward()
+        {
+            CycleScenario(1);
+        }
+
+        private void CycleScenario(int direction)
+        {
+            _scenarioIndex = (_scenarioIndex + direction + _scenarioNames.Count) % _scenarioNames.Count;
+            RefreshScenarioLabel();
+        }
+
         private void CycleCiv(int direction)
         {
             var values = (CivilizationId[])System.Enum.GetValues(typeof(CivilizationId));
@@ -280,6 +355,14 @@ namespace KingdomsOfBharat.Multiplayer
             {
                 return;
             }
+
+            // Item 6 (Scenario Editor, heavy path session 5): index 0 is
+            // always "(None - Skirmish)" - resolved here, once, right
+            // before hosting starts, rather than a separate "Host
+            // Scenario" button, so this one button already does the right
+            // thing based on whatever the scenario row is currently
+            // showing.
+            _pendingScenario = _scenarioIndex > 0 ? SavedScenarioLibrary.Load(_scenarioNames[_scenarioIndex]) : null;
 
             _pendingTransport = LanTransport.StartHost();
             _sentLocalHello = false;

@@ -5,6 +5,153 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Scenario Editor heavy path, session 5: multiplayer LAN play of a custom scenario
+
+**Scope**: at the user's explicit request ("start item on multiplayer play of a
+custom scenario"), the last item deferred across sessions 1-4 — let two humans
+play a scenario built in `ScenarioEditorMenu` together over the existing LAN
+transport (`Assets/Scripts/Multiplayer/`, Phase 5 MVP), instead of only locally.
+
+**Investigation before design** (dispatched to an Explore agent given the scope
+spanned wire protocol, AI/faction control semantics, and determinism - not
+assumed from memory):
+
+1. **`CivilizationSetup.BeginCustomScenarioMatch` is already network-safe as-is.**
+   Every match-start entry point (`BeginMatch`/`BeginNetworkMatch`/
+   `BeginScenarioMatch`/`BeginCustomScenarioMatch`) funnels through the same
+   `BeginMatchCore`, and the original Phase 5 session already rewired every
+   hardcoded `FactionId.Player` reference project-wide to read
+   `NetworkMatch.LocalFaction` instead. `EntitySpawner`'s placement spawn order
+   is inherently deterministic across peers too, since both sides deserialize
+   the identical JSON `List<T>` (order-preserving) and spawn in that same order.
+   **No changes needed to `CivilizationSetup.cs`, `EntitySpawner.cs`, or
+   `ScenarioManager.cs`.**
+2. **A real, pre-existing bug, found live, not hypothetical**: `AiController.cs`
+   had zero reference to `NetworkMatch` anywhere - confirmed via grep across the
+   whole class and `Assets/Scripts/Multiplayer/`. In a real 2-human LAN match
+   today, the Enemy faction's `AiController` GameObject (confirmed present in
+   `CivilizationSetup`'s `gatedMatchContent` array in `Main.unity`) would run its
+   full AI logic (train/build/attack) at the same time the joining human's own
+   commands targeted that same faction - a genuine collision, not scoped to this
+   feature specifically but directly blocking any real verification of 2-human
+   LAN play (this session's own live verification would have been meaningless
+   without fixing it first). Fixed as a necessary prerequisite rather than
+   separately flagged scope creep - matches this project's own precedent
+   (session 1's `UnitSpawner` fix: found live, fixed, disclosed, no separate ask
+   needed since the fix was unambiguously correct).
+3. **A real, disclosed determinism caveat, not a blocker**: `ScenarioManager`'s
+   objective/trigger closures (`MissionCsvLoader.BuildObjectivesFromRows`/
+   `BuildTriggersFromRows`) use wall-clock `Time.time`, not a `SimClock` tick
+   count, and `ScenarioManager.Update()` polls outside the lockstep gate
+   entirely - a trigger could fire on a slightly different simulated tick on
+   host vs. joiner. This project already has a live, verified safety net for
+   exactly this class of divergence: `NetworkDesyncMonitor`/`DesyncRecovery`
+   (real cross-peer `StateHash` comparison + snapshot resync, closed
+   2026-09-02). Disclosed as a limitation (occasional resync under
+   trigger-heavy scenarios), not treated as a silent-corruption risk requiring
+   a fix this session. A full tick-based `ScenarioManager` rework is separate,
+   larger, out of scope here.
+4. **Reusable wire precedent**: `NetMessageEnvelope` already carries an
+   arbitrary JSON blob as a plain string field for exactly this purpose -
+   `snapshotJson`, used by `NetworkDesyncMonitor`/`DesyncRecovery` to send a
+   full `MatchSaveData` snapshot. `LanTransport.Send`'s length-prefixed framing
+   has no practical size ceiling for a scenario-sized JSON blob.
+
+**Design**:
+
+1. **`AiController.cs`** - at the top of `Start()`, before any spawn/adopt
+   logic: `if (myFaction == FactionId.Enemy && Multiplayer.NetworkMatch.IsActive)
+   { enabled = false; return; }`. Scoped to `FactionId.Enemy` only (the LAN
+   handshake only ever assigns Player/Enemy to the two humans) - `Enemy2`'s
+   optional `AiController` is untouched, staying AI-controlled even during a
+   network match, matching this project's still-2-human-only LAN scope. Zero
+   effect on any local/offline match - `NetworkMatch.IsActive` stays false
+   there, the same invariant every other Phase 5 rewiring already relies on.
+2. **`Wire/NetMessage.cs`** - new `public string scenarioJson;` field on
+   `NetMessageEnvelope`, mirroring `snapshotJson`'s own convention exactly. No
+   new `NetMessageKind` - reused on the existing `HostHello` kind, empty/null
+   meaning "normal skirmish."
+3. **`LanMatchMenu.cs`** - new scenario cycle row (same `<`/`>` button
+   convention already used for civ-picking), sourced from
+   `SavedScenarioLibrary.ListSavedScenarioNames()` with "(None - Skirmish)"
+   always index 0. `OnHostClicked` resolves `_pendingScenario` from the current
+   selection - **a deliberate simplification from the original plan**: rather
+   than a separate "Host Scenario" button, the existing "Host on LAN" button
+   now does the right thing based on whatever the scenario row currently shows,
+   same capability with one fewer UI element. `PollHandshake`'s `HostHello`
+   send populates `scenarioJson` when `_pendingScenario != null`.
+   `CompleteHandshake` gained an optional `CustomScenarioData scenario`
+   parameter; when non-null, it calls `setup.BeginCustomScenarioMatch(data)`
+   instead of `setup.BeginNetworkMatch(...)` - host passes its own
+   already-loaded `_pendingScenario` directly (not round-tripped), joiner
+   passes a `JsonUtility.FromJson<CustomScenarioData>` of the received
+   envelope's `scenarioJson`, mirroring this file's own existing "host's own
+   local seed variable, not a round-tripped one" precedent for `seed`.
+
+**Testing**: 4 new EditMode tests. `NetMessageEnvelopeTests.cs` (2 tests) proves
+`scenarioJson` round-trips a real `CustomScenarioData` (placements + an
+objective) through `JsonUtility` intact, and defaults to empty/null.
+`AiControllerNetworkGatingTests.cs` (2 tests) reuses `LanTransportTests.cs`'s own
+real two-socket loopback technique to legitimately drive `NetworkMatch.Begin`
+(the only way `NetworkMatch.IsActive` can become true) - confirms a real
+Enemy-faction `AiController`'s `Start()` (invoked directly via reflection, since
+Unity doesn't reliably call `Start()` synchronously right after `AddComponent`
+in EditMode) disables the component without throwing, and confirms
+`NetworkMatch.IsActive` defaults to false. Deliberately does **not** attempt to
+test "normal Start() behavior is unchanged when NetworkMatch is inactive" in
+EditMode - that path spawns a real TownCenter via `TownCenterFactory.Place`,
+which NREs outside Play mode via `SelectionIndicator.Configure()`, the same
+already-documented EditMode-only limitation `EntitySpawnerTests.cs`'s own class
+comment discloses for the identical reason; covered by live verification
+instead. 204 EditMode tests total (up from 200), all pass.
+
+Live-verified via UnityMCP through the real production path - no true
+2-machine test is available in this environment (the same disclosed limitation
+the original Phase 5 session already flagged), so this reused that session's own
+real-two-socket-within-one-process technique. Hit and worked through a genuine
+test-technique pitfall along the way (not a bug in the shipped code): the first
+two attempts failed because (a) a leaked joiner `LanTransport` from an earlier
+failed attempt was never closed, so a later `PollHandshake()` call drained its
+stale queued `JoinHello` instead of the new one, and (b) `execute_code` runs
+synchronously on Unity's own main thread, so a busy-wait `Thread.Sleep` loop
+inside the verification script blocks `LanMatchMenu.Update()` from ever running
+- worked around by driving `PollHandshake()` directly via reflection instead of
+waiting on Unity's own frame scheduler. Once corrected: (1) a real `HostHello`
+carrying an in-memory `CustomScenarioData` (1 `TownCenter` building, 1
+`PopulationThreshold` objective) transmitted over an actual TCP socket and
+deserialized correctly on the "remote" side (396 bytes, contained the real
+scenario's title); (2) the real handshake completion (`LanMatchMenu`'s own
+`_state` reaching `Closed`) correctly invoked the real
+`CivilizationSetup.BeginCustomScenarioMatch`, confirmed via
+`ScenarioManager.ActiveScenario.Title` matching exactly and
+`NetworkMatch.IsActive`/`LocalFaction`/`IsHost` all correct; (3) the
+`AiController` fix confirmed live on the real scene objects - the real
+Enemy-faction `AiController` (and the pre-existing `TestAi_MultiFront`
+scaffolding object, also faction Enemy) both showed `enabled=false`, while the
+unrelated `AiController_Enemy2` (faction Enemy2) stayed untouched
+(`enabled=true`), exactly as designed.
+
+**Deferred, not silently dropped**: trigger-timing precision relies on the
+existing resync safety net, not perfect lockstep determinism (finding 3 above);
+only 2-human LAN matches (matches the existing Phase 5 MVP scope) - `Enemy2`
+stays out of network play entirely; no joiner-side scenario preview before
+connecting (matches this file's own already-disclosed "minimal Host/Join panel,
+visual-only compromise" scope); civ/map picker for custom scenarios generally is
+a pre-existing session-1 gap, unrelated to this session.
+
+This closes the Scenario Editor heavy-path epic's last deferred item from
+session 1's own original list. The only remaining named-but-unimplemented
+sub-item is per-kind bespoke input widgets (session 2's generic Param-field UI)
+- a polish item, not a functional gap.
+
+**Files**: `Assets/Scripts/AI/AiController.cs`, `Assets/Scripts/Multiplayer/
+Wire/NetMessage.cs`, `Assets/Scripts/Multiplayer/LanMatchMenu.cs`,
+`Assets/Tests/EditMode/NetMessageEnvelopeTests.cs` (new), `Assets/Tests/EditMode/
+AiControllerNetworkGatingTests.cs` (new), `docs/PARTIAL_ELEMENTS_FIX_PLAN.md`,
+`docs/Roadmap.md` (Section 5 item 16's own Phase 5 entry), `CLAUDE.md`.
+
+---
+
 ## 2026-09-03 — Scenario Editor heavy path, session 4: richer palette icons
 
 **Scope**: at the user's explicit request ("start item on richer palette art for

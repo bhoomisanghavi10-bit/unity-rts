@@ -1691,6 +1691,11 @@ buying, or making an asset yourself:
     separate physical machines, which only the user can actually run. See
     `docs/SESSION_LOG.md`'s 2026-09-02 entry and
     `docs/AOE_PARITY_EXECUTION_PLAN.md` for full detail.
+    A real, pre-existing bug (the Enemy faction's `AiController` still ran its
+    full AI logic during a real 2-human LAN match) was found and fixed
+    2026-09-03 while scoping item 6's Scenario Editor session 5 (multiplayer
+    custom scenario play, not this item's own session) - see Section 5 item 6
+    and `docs/SESSION_LOG.md` for full detail.
 17. **Building mesh decimation pass** — closed 2026-09-02 (see Section 1's
     matching item for full detail). `UnityMeshSimplifier` package +
     `Assets/Editor/BuildingMeshDecimator.cs`; 43/45 civ-specific buildings

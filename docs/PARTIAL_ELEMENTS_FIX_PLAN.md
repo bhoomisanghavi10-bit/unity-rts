@@ -17,7 +17,7 @@ one item per session, Plan Mode before nontrivial changes, test before done, log
 | 3 | Area of Effect / Trample damage | **Done (2026-09-03)** — Cavalry trample via a generalized splash-damage multiplier |
 | 4 | Diplomacy (tribute) | **Done (2026-09-03)** — stance UI already existed; added Tribute + buttons |
 | 5 | Renewable resource (Farm reseed) | **Farm half done (2026-09-03)**; Fish Trap still deferred/asset-blocked |
-| 6 | Scenario Editor | **Light path done; heavy path sessions 1 (Placements), 2 (Objective/Trigger authoring), 3 (saved-scenario browse list), and 4 (palette icons) done (2026-09-03)** |
+| 6 | Scenario Editor | **Light path done; heavy path sessions 1 (Placements), 2 (Objective/Trigger authoring), 3 (saved-scenario browse list), 4 (palette icons), and 5 (multiplayer LAN play) done (2026-09-03)** |
 
 Fish Trap (part of item 5) and a full in-game visual level editor (part of item 6) are called
 out as **blocked on asset sourcing / a scope decision**, not part of this implementation pass,
@@ -288,8 +288,86 @@ larger, asset-blocked item — don't bundle it into the same session.
 ---
 
 ## 6. Scenario Editor — light path (CSV-authoring) **Done**; heavy path sessions 1
-(Placements), 2 (Objective/Trigger authoring), 3 (saved-scenario browse list), and
-4 (palette icons) — **Done (2026-09-03)**
+(Placements), 2 (Objective/Trigger authoring), 3 (saved-scenario browse list),
+4 (palette icons), and 5 (multiplayer LAN play) — **Done (2026-09-03)**
+
+**Heavy path, session 5 result**: picked up per the user's explicit request ("start
+item on multiplayer play of a custom scenario"), the last item deferred across
+sessions 1-4. Investigated before designing (not assumed): `CivilizationSetup.
+BeginCustomScenarioMatch` is already network-safe as-is - every match-start entry
+point funnels through the same `BeginMatchCore`, and the Phase 5 LAN session
+already rewired every hardcoded `FactionId.Player` reference project-wide to read
+`NetworkMatch.LocalFaction` instead, so **no changes were needed to
+`CivilizationSetup.cs`, `EntitySpawner.cs`, or `ScenarioManager.cs`**. Two real
+findings surfaced during that investigation, not assumed:
+
+1. **A real, pre-existing bug**: `AiController.cs` had zero reference to
+   `NetworkMatch` anywhere - in a real 2-human LAN match, the Enemy faction's
+   `AiController` kept running its full AI logic (train/build/attack) at the same
+   time the joining human's own commands targeted that same faction, a genuine
+   collision. Fixed as a necessary prerequisite (my own live verification would
+   have been meaningless without it): `AiController.Start()` now disables itself
+   entirely when `myFaction == FactionId.Enemy && NetworkMatch.IsActive`. Scoped to
+   `FactionId.Enemy` only - `Enemy2`'s AiController is untouched, matching this
+   project's still-2-human-only LAN scope. Zero effect on any local/offline match.
+2. **A disclosed determinism caveat, not a blocker**: `ScenarioManager`'s
+   objective/trigger closures use wall-clock `Time.time`, not a `SimClock` tick
+   count, so a trigger could fire on a slightly different simulated tick on host
+   vs. joiner. This project's existing, live-verified `NetworkDesyncMonitor`/
+   `DesyncRecovery` (real cross-peer `StateHash` comparison + snapshot resync,
+   closed 2026-09-02) already provides a safety net for exactly this class of
+   divergence - a disclosed limitation (occasional resync under trigger-heavy
+   scenarios), not a silent-corruption risk. A full tick-based `ScenarioManager`
+   rework is separate, larger, out of scope here.
+
+New `NetMessageEnvelope.scenarioJson` (`Wire/NetMessage.cs`) mirrors the existing
+`snapshotJson` field's own "embed an arbitrary JSON blob as a string" convention
+(already used by `NetworkDesyncMonitor`/`DesyncRecovery` to send a full
+`MatchSaveData` snapshot) - reused on the existing `HostHello` message, no new
+`NetMessageKind`. `LanMatchMenu.cs` gained a scenario cycle row (same `<`/`>`
+convention already used for civ-picking, sourced from `SavedScenarioLibrary.
+ListSavedScenarioNames()`, "(None - Skirmish)" always index 0) - `OnHostClicked`
+resolves `_pendingScenario` from the current selection, one button doing the right
+thing rather than a separate "Host Scenario" button (a deliberate simplification
+from the original plan - same capability, one fewer UI element).
+`CompleteHandshake` routes to `setup.BeginCustomScenarioMatch(data)` instead of
+`setup.BeginNetworkMatch(...)` when a scenario was exchanged - host uses its own
+already-loaded `_pendingScenario` directly (not round-tripped), joiner deserializes
+the received `scenarioJson`, matching this file's own existing "host's own local
+seed variable, not a round-tripped one" precedent.
+
+4 new EditMode tests (`NetMessageEnvelopeTests.cs` x2, `AiControllerNetworkGatingTests.cs`
+x2 - the latter reusing `LanTransportTests.cs`'s own real two-socket loopback
+technique to legitimately drive `NetworkMatch.Begin`, since that's the only way
+`NetworkMatch.IsActive` can become true), 204 total, all pass. Live-verified via
+UnityMCP through the real production path (no true 2-machine test is available in
+this environment, the same disclosed limitation the original Phase 5 session
+already flagged) - drove `LanMatchMenu`'s own real private methods
+(`OnHostClicked`/`PollHandshake`) via reflection against a real hosted `LanTransport`
+and a real second raw socket standing in for the remote peer: confirmed a real
+`HostHello` carrying an in-memory `CustomScenarioData` (1 building, 1 objective)
+transmitted over the actual TCP wire and deserialized correctly on the "remote"
+side (396 bytes, contained the real scenario's title); confirmed the real handshake
+completion (`LanMatchMenu`'s own `_state` reaching `Closed`) correctly invoked
+`CivilizationSetup.BeginCustomScenarioMatch`, with `ScenarioManager.ActiveScenario.
+Title` matching the scenario exactly and `NetworkMatch.IsActive`/`LocalFaction`/
+`IsHost` all correct; and confirmed the `AiController` fix live on the real scene
+objects - the real Enemy-faction `AiController` (and the pre-existing
+`TestAi_MultiFront` scaffolding object, also faction Enemy) both showed
+`enabled=false`, while the unrelated `AiController_Enemy2` (faction Enemy2) stayed
+untouched (`enabled=true`), exactly as designed.
+
+**Explicitly deferred / disclosed limitations**: trigger-timing precision relies on
+the existing resync safety net, not perfect lockstep determinism (see finding 2
+above); only 2-human LAN matches (matches the existing Phase 5 MVP scope) -
+`Enemy2` stays out of network play entirely; no joiner-side scenario preview before
+connecting (matches this file's own already-disclosed "minimal Host/Join panel,
+visual-only compromise" scope); civ/map picker for custom scenarios generally is a
+pre-existing session-1 gap, unrelated to this session. See `docs/SESSION_LOG.md` for
+full detail.
+
+<details>
+<summary>Heavy path, session 4 result (for reference)</summary>
 
 **Heavy path, session 4 result**: picked up per the user's explicit request ("start
 item on richer palette art for scenario editor"), the last cosmetic item session 1
@@ -317,6 +395,8 @@ UnityMCP: opened the real editor and screenshotted the Buildings/Units palette -
 all 12 icons render correctly next to their labels with no text overlap/clipping,
 and TownCenter's row renders cleanly text-only with no broken/missing-icon
 placeholder. See `docs/SESSION_LOG.md` for full detail.
+
+</details>
 
 <details>
 <summary>Heavy path, session 3 result (for reference)</summary>

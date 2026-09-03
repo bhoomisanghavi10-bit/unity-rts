@@ -7,6 +7,45 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Scenario Editor heavy path, session 5 (multiplayer LAN play of a
+  custom scenario) closed (2026-09-03)** — picked up at the user's
+  explicit request ("start item on multiplayer play of a custom
+  scenario"), the last item deferred across sessions 1-4. Investigated
+  first: `CivilizationSetup.BeginCustomScenarioMatch` was already
+  network-safe as-is (every match-start entry point funnels through the
+  same `BeginMatchCore`, already rewired project-wide to
+  `NetworkMatch.LocalFaction`), so no changes were needed to
+  `CivilizationSetup.cs`/`EntitySpawner.cs`/`ScenarioManager.cs`. Two
+  real findings surfaced: **(1)** a genuine pre-existing bug —
+  `AiController.cs` had zero `NetworkMatch` awareness, so the Enemy
+  faction's AI kept fighting for control of units a real 2nd human LAN
+  player already commanded. Fixed as a necessary prerequisite:
+  `AiController.Start()` now disables itself when
+  `myFaction == FactionId.Enemy && NetworkMatch.IsActive` (scoped to
+  Enemy only — `Enemy2` untouched, matches the 2-human-only LAN scope;
+  zero effect on local/offline matches). **(2)** a disclosed, not
+  blocking, determinism caveat — `ScenarioManager`'s trigger closures use
+  wall-clock `Time.time`, not `SimClock` ticks, so triggers could fire on
+  a different tick per peer; this project's existing live-verified
+  `NetworkDesyncMonitor`/`DesyncRecovery` resync safety net already
+  covers this class of divergence. New `NetMessageEnvelope.scenarioJson`
+  mirrors the existing `snapshotJson` convention, carried on `HostHello`;
+  `LanMatchMenu` gained a scenario cycle row (`<`/`>`, "(None -
+  Skirmish)" default) and routes to `BeginCustomScenarioMatch` instead of
+  `BeginNetworkMatch` when a scenario was exchanged. 4 new EditMode tests
+  (204 total, all pass). Live-verified via UnityMCP through the real
+  production path (two real sockets within one process, the same
+  disclosed single-machine limitation the original Phase 5 session
+  flagged): a real `HostHello` carrying an in-memory scenario transmitted
+  correctly over the wire, `CompleteHandshake` correctly invoked
+  `BeginCustomScenarioMatch` with `ScenarioManager.ActiveScenario`
+  matching exactly, and the real Enemy `AiController` GameObject showed
+  `enabled=false` while `Enemy2`'s stayed untouched. Explicitly deferred:
+  trigger-timing precision beyond the resync safety net, >2-human LAN,
+  joiner-side scenario preview, per-scenario civ/map picker (session-1
+  gap). See `docs/SESSION_LOG.md`'s matching entry for full detail. This
+  closes the Scenario Editor heavy-path epic's last deferred item — next
+  is the user's call on another Roadmap Section 5 item.
 - **Scenario Editor heavy path, session 4 (richer palette icons) closed
   (2026-09-03)** — picked up at the user's explicit request ("start item
   on richer palette art for scenario editor"), the last cosmetic item
@@ -730,14 +769,19 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: **Scenario Editor heavy path, session 4 (richer palette
-  icons) closed (2026-09-03)** — see this file's own bullet above for full
-  detail. Picked up directly at the user's request, the last cosmetic item
-  session 1 flagged. This is a multi-session epic; the remaining
-  explicitly-deferred items are per-kind bespoke input widgets and
-  multiplayer/LAN play of a custom scenario — pick up per user direction,
-  no fixed order assumed. Before that: **Scenario Editor heavy path,
-  session 3 (saved-scenario browse list) closed (2026-09-03)** — see this
+- Currently on: **Scenario Editor heavy path, session 5 (multiplayer LAN
+  play of a custom scenario) closed (2026-09-03)** — see this file's own
+  bullet above for full detail. Picked up directly at the user's request,
+  the last item deferred across sessions 1-4 — **this closes the Scenario
+  Editor heavy-path epic**; the only remaining named-but-unimplemented
+  sub-item is per-kind bespoke input widgets (session 2's own generic
+  Param-field UI, a polish item, not a functional gap). Also fixed a real
+  adjacent pre-existing bug found live (Enemy `AiController` running
+  during real 2-human LAN matches) — see this file's own bullet above.
+  Before that: **Scenario Editor heavy path, session 4 (richer palette
+  icons) closed (2026-09-03)** — see this file's own bullet above for
+  full detail. Before that: **Scenario Editor heavy path, session 3
+  (saved-scenario browse list) closed (2026-09-03)** — see this
   file's own bullet above for full detail. Before that: **Scenario Editor
   heavy path, session 2 (Objective/Trigger authoring) closed
   (2026-09-03)** — see this file's own bullet above for full detail.

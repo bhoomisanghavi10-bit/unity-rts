@@ -148,6 +148,31 @@ namespace KingdomsOfBharat.AI
 
         private void Start()
         {
+            // Item 6 (Scenario Editor, heavy path session 5): found live
+            // while scoping multiplayer scenario play - a real, pre-
+            // existing bug unrelated to scenarios specifically. This
+            // class had zero reference to NetworkMatch anywhere, so in a
+            // real 2-human LAN match (Assets/Scripts/Multiplayer/), the
+            // Enemy faction's AiController kept running its full AI logic
+            // (train/build/attack) at the same time the joining human's
+            // own commands targeted that same faction - a genuine
+            // collision, not a hypothetical one. The LAN handshake
+            // (LanMatchMenu.cs) only ever assigns Player/Enemy to the two
+            // humans, so this is scoped to FactionId.Enemy only -
+            // Enemy2's AiController (enableThirdFaction) is untouched and
+            // stays AI-controlled even during a network match, matching
+            // this project's still-2-human-only LAN scope. Disabling the
+            // whole component (not just skipping spawn) also stops
+            // Update() from making any further decisions. Zero effect on
+            // any local/offline match - NetworkMatch.IsActive stays false
+            // there, the same invariant every other Phase 5 rewiring
+            // already relies on.
+            if (myFaction == FactionId.Enemy && Multiplayer.NetworkMatch.IsActive)
+            {
+                enabled = false;
+                return;
+            }
+
             ApplyDifficulty();
 
             // Item 6 (Scenario Editor, heavy path session 1): a custom

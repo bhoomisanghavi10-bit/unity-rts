@@ -111,5 +111,16 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         public int remoteCivilization;
         public int mapId;
         public int seed;
+
+        // HostHello, optional - item 6 (Scenario Editor, heavy path
+        // session 5): non-empty means the host chose to play a saved
+        // custom scenario instead of a plain skirmish. Same "embed as its
+        // own JSON string" convention snapshotJson already establishes
+        // above, for the same reason (CustomScenarioData is assembled
+        // from Core, which Multiplayer.Wire otherwise has no reason to
+        // depend on). Empty/null (the default) means "normal skirmish" -
+        // this codebase's established convention for optional fields
+        // elsewhere (e.g. ScenarioDefinition.VictoryText).
+        public string scenarioJson;
     }
 }
