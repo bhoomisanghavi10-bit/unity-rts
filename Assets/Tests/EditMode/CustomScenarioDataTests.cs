@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using UnityEngine;
 using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Match;
 
 namespace KingdomsOfBharat.Tests
 {
@@ -70,6 +71,56 @@ namespace KingdomsOfBharat.Tests
             Assert.IsNotNull(restored.buildings);
             Assert.AreEqual(0, restored.units.Count);
             Assert.AreEqual(0, restored.buildings.Count);
+        }
+
+        // Heavy path session 2: objectives/triggers/victory-defeat text are
+        // authored in ScenarioEditorMenu's Objectives tab and must survive
+        // the same JsonUtility save/load round-trip placements already do -
+        // same pattern as the two tests above, extended to the new fields.
+        [Test]
+        public void RoundTrips_WithObjectivesAndTriggers_DataIntact()
+        {
+            var data = new CustomScenarioData
+            {
+                id = "test_scenario",
+                title = "Test Scenario",
+                victoryText = "You win!",
+                defeatText = "You lose!",
+            };
+            data.objectives.Add(new ObjectiveRow
+            {
+                kind = ObjectiveKind.PopulationThreshold,
+                param1 = "2",
+                param2 = "Player",
+                description = "Reach 2 population",
+            });
+            data.triggers.Add(new TriggerRow
+            {
+                triggerId = "trigger_0",
+                kind = TriggerKind.GrantResourceAtTime,
+                param1 = "Gold",
+                param2 = "50",
+                param3 = "10",
+            });
+
+            string json = JsonUtility.ToJson(data);
+            CustomScenarioData restored = JsonUtility.FromJson<CustomScenarioData>(json);
+
+            Assert.AreEqual("You win!", restored.victoryText);
+            Assert.AreEqual("You lose!", restored.defeatText);
+
+            Assert.AreEqual(1, restored.objectives.Count);
+            Assert.AreEqual(ObjectiveKind.PopulationThreshold, restored.objectives[0].kind);
+            Assert.AreEqual("2", restored.objectives[0].param1);
+            Assert.AreEqual("Player", restored.objectives[0].param2);
+            Assert.AreEqual("Reach 2 population", restored.objectives[0].description);
+
+            Assert.AreEqual(1, restored.triggers.Count);
+            Assert.AreEqual("trigger_0", restored.triggers[0].triggerId);
+            Assert.AreEqual(TriggerKind.GrantResourceAtTime, restored.triggers[0].kind);
+            Assert.AreEqual("Gold", restored.triggers[0].param1);
+            Assert.AreEqual("50", restored.triggers[0].param2);
+            Assert.AreEqual("10", restored.triggers[0].param3);
         }
     }
 }

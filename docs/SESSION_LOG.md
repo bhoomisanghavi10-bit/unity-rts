@@ -5,6 +5,128 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Scenario Editor heavy path, session 2: Objective/Trigger authoring
+
+**Scope**: at the user's explicit request ("start item on objective/trigger
+authoring for custom scenarios"), picked up directly from session 1's own offered
+next steps. `CustomScenarioData.cs`'s own comment had disclosed the gap: v1 carried
+no objectives/triggers, so a custom scenario always fell through to `MatchManager`'s
+elimination-based Conquest evaluation. This session gives an authored scenario the
+same real win/loss conditions a hand-coded (`ScenarioRegistry.cs`) or CSV-authored
+(`MissionCsvLoader.cs`) mission gets, authored entirely in-game.
+
+**Design (Plan Mode, approved before implementation)**: rather than duplicating
+`MissionCsvLoader`'s objective/trigger interpreter, extracted it into a shared,
+typed layer. Two new `[Serializable]` classes in `MissionCsvLoader.cs`:
+`ObjectiveRow` (kind, param1-3, description, completeText) and `TriggerRow` (
+triggerId, kind, param1-5 - 5 params, not 4, because `RepeatingGrantResource`
+genuinely needs a 5th slot for an optional faction override, matching
+`mission_triggers.csv`'s own pre-existing Param5 column). `BuildObjectives`/
+`BuildTriggers` were split: the CSV path now just maps `Dictionary<string,string>`
+rows into these typed rows, then calls new `internal static
+BuildObjectivesFromRows`/`BuildTriggersFromRows` - the actual switch/closure
+interpreter, now shared by both the CSV path and the in-game editor. Verified
+behavior-preserving: the full pre-existing EditMode suite (`MissionCsvLoaderTests.cs`
+included) passed unmodified with zero test changes.
+
+`CustomScenarioData.cs` gained `objectives`/`triggers` (`List<ObjectiveRow>`/
+`List<TriggerRow>`) plus `victoryText`/`defeatText` (mirroring
+`ScenarioDefinition.VictoryText`/`DefeatText`, shown via the existing
+`MissionToast`). `CivilizationSetup.BeginCustomScenarioMatch` now builds a real
+`ScenarioDefinition` from the authored rows and calls `ScenarioManager.Begin` -
+**but only when `data.objectives.Count > 0`**. This gate was the one real design
+subtlety flagged during planning and confirmed correct during live verification:
+`ScenarioManager.EvaluateOutcome()` treats an empty objective list as "every
+objective complete" (an empty `foreach` never reaches its `Ongoing` branch), so
+calling `Begin` unconditionally would have made every session-1 placements-only
+scenario resolve to an instant Victory on the very first `MatchManager.Evaluate()`
+tick - a real regression from session 1's correct elimination-based behavior. The
+gate keeps that path exactly as it was.
+
+`ScenarioEditorMenu.cs` gained a second **Objectives** tab, toggled by 2 new buttons
+at the top of the panel alongside session 1's existing **Placements** tab (only one
+section visible at a time via `SetActiveTab`/`GameObject.SetActive`, not 2 separate
+panels - Save/Play/Back/name field/file list stay common to both). The Objectives
+tab is a `ScrollRect`-based row list, reusing `SettingsMenu.cs`'s own Key Bindings
+scroll pattern (`ScrollRect`/`Viewport`(`RectMask2D`)/`Content`, top-pivoted,
+resized to fit the current row count) rather than a fixed-height list, since row
+count is unbounded. Each objective/trigger row: a Kind button that cycles through
+that enum's values on click (`NextEnum<T>` generic helper), a live one-line hint
+label describing the currently-selected kind's param meaning (new
+`ObjectiveHints`/`TriggerHints` dictionaries - keeps the generic Param1-5 text
+slots self-documenting without building bespoke per-kind widgets, matching the CSV
+path's own disclosed "small fixed vocabulary, not a general expression language"
+framing), generic Param text fields (`CreateInputField` generalized with a
+`placeholder`/`width`/`height` parameter, defaulted to its original name-field
+values so the one pre-existing call site is unaffected), and a Remove button.
+Objective/Trigger rows write their edits straight into the row object via
+`TMP_InputField.onValueChanged` (no section rebuild per keystroke, so typing
+doesn't lose focus) - only Add/Remove/Kind-change trigger a full
+`RefreshObjectivesSection()` rebuild. Victory/Defeat text fields sit at the bottom
+of the same scroll content; their values are tracked in persistent `_victoryText`/
+`_defeatText` string fields (not read from the `TMP_InputField.text` directly),
+since `RefreshObjectivesSection()` destroys and recreates those fields on every
+Add/Remove/Kind-change and reading a stale/destroyed reference would lose whatever
+was typed - `RefreshObjectivesSection()` re-seeds freshly-created fields from these
+strings, not the other way around. Trigger Ids are auto-assigned
+(`"trigger_" + index`) at Save/Play time, not authored, matching
+`MissionCsvLoader.BuildTriggersFromRows`'s own auto-suffixing convention for
+`RepeatingGrantResource`'s expansion - one field fewer for the author to fill in.
+
+**Testing**: 7 new EditMode tests - `MissionRowsTests.cs` (6 tests, driving
+`BuildObjectivesFromRows`/`BuildTriggersFromRows` directly with hand-built rows,
+mirroring `MissionCsvLoaderTests.cs`'s own per-kind assertions to prove the shared
+interpreter behaves identically reached either way, plus one confirming an empty
+row list produces an empty objective list - the exact premise the
+`BeginCustomScenarioMatch` gate depends on) and one more test added to
+`CustomScenarioDataTests.cs` (objectives/triggers/victory/defeat text round-trip
+through `JsonUtility` correctly). 197 EditMode tests total (up from 190), all pass.
+
+Live-verified via UnityMCP through the real production path, not just the tests -
+four separate checks, each via real button/method invocation through reflection
+against the actual running `ScenarioEditorMenu`/`CivilizationSetup`/
+`ScenarioManager`/`MatchManager` instances, not synthetic bypass calls:
+1. Authored a `PopulationThreshold` objective (2, Player) + a `GrantResourceAtTime`
+   trigger through the real editor's `_objectiveRows`/`_triggerRows` state, called
+   the real `Play()`, and confirmed `ScenarioManager.ActiveScenario` was non-null
+   with the correct title, `CurrentObjectives` had exactly 1 entry reading the real
+   live `Population.Current` (4, since the default `UnitSpawner` workers spawned -
+   this scenario placed no Player units of its own), and `MatchManager.Outcome`
+   resolved to `Victory` via the scripted-mission branch.
+2. Restarted Play mode fresh and confirmed the regression case: a placements-only
+   scenario with zero authored objectives left `ScenarioManager.ActiveScenario`
+   null and `MatchManager.Outcome` at `Ongoing` immediately after `Play()` - exactly
+   matching session 1's original, correct behavior.
+3. A real Save() → Close() → re-Open() → LoadFile() cycle through the file-based UI
+   methods (not the in-memory `BuildScenarioData`/JsonUtility unit test) proved a
+   `ResourceThreshold` objective, a `RepeatingGrantResource` trigger, and victory
+   text all round-trip correctly through the real
+   `persistentDataPath/Scenarios/*.json` file.
+4. A screenshot of the real Objectives tab (after destroying the leftover
+   `MissionSelectMenu`/`CivPicker` instances my reflection-driven `Open()` call had
+   left stacked underneath, since normally only `MissionSelectMenu.
+   ChooseCreateScenario` opens this menu and it destroys itself first) confirmed
+   the tab toggle, Kind button, hint text, Param fields, and status label all
+   render correctly with no layout overlap.
+
+Test-residue scenario files (`roundtrip_test.json`) were deleted from
+`persistentDataPath/Scenarios/` after verification.
+
+**Deferred, not silently dropped** (same list session 1 already named, minus this
+session's own item): per-kind bespoke input widgets (dropdowns for
+`FactionId`/`ResourceType`/building-kind instead of generic Param text), a
+saved-scenario browse list back on `MissionSelectMenu`, richer palette art,
+multiplayer/LAN play of a custom scenario.
+
+**Files**: `Assets/Scripts/Match/MissionCsvLoader.cs` (ObjectiveRow/TriggerRow +
+BuildObjectivesFromRows/BuildTriggersFromRows), `Assets/Scripts/Core/
+CustomScenarioData.cs`, `Assets/Scripts/Core/CivilizationSetup.cs`,
+`Assets/Scripts/UI/ScenarioEditorMenu.cs`, `Assets/Tests/EditMode/
+MissionRowsTests.cs` (new), `Assets/Tests/EditMode/CustomScenarioDataTests.cs`,
+`docs/PARTIAL_ELEMENTS_FIX_PLAN.md`, `CLAUDE.md`.
+
+---
+
 ## 2026-09-03 — Scenario Editor heavy path, session 1: in-game Placements
 
 **Scope**: at the user's explicit request ("start the heavy scenario path"), picked

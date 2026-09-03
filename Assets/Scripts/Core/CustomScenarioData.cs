@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using KingdomsOfBharat.Match;
 
 namespace KingdomsOfBharat.Core
 {
@@ -13,11 +14,16 @@ namespace KingdomsOfBharat.Core
     // so ScenarioEditorMenu/EntitySpawner and SaveManager's own restore path
     // share the exact same data shape.
     //
-    // v1 deliberately carries no objectives/triggers - a custom scenario
-    // with no ScenarioManager.ActiveScenario just falls through to
-    // MatchManager's existing elimination-based Conquest evaluation, same
-    // as a normal skirmish. Authoring custom objectives/triggers is an
-    // explicit follow-on session, not silently dropped.
+    // Heavy path session 2: objectives/triggers, authored in-game via
+    // ScenarioEditorMenu's Objectives tab, reusing MissionCsvLoader's own
+    // ObjectiveRow/TriggerRow types and BuildObjectivesFromRows/
+    // BuildTriggersFromRows interpreter - the exact same small fixed
+    // vocabulary (ObjectiveKind/TriggerKind) the light (CSV) path uses, just
+    // authored through the UI instead of a text file. Empty (the default)
+    // means this scenario has no scripted objectives at all - see
+    // CivilizationSetup.BeginCustomScenarioMatch, which only calls
+    // ScenarioManager.Begin when objectives.Count > 0 (an empty objective
+    // list would otherwise read as "already won").
     [Serializable]
     public class CustomScenarioData
     {
@@ -28,5 +34,9 @@ namespace KingdomsOfBharat.Core
         public int aiCivilization;
         public List<UnitSaveData> units = new List<UnitSaveData>();
         public List<BuildingSaveData> buildings = new List<BuildingSaveData>();
+        public List<ObjectiveRow> objectives = new List<ObjectiveRow>();
+        public List<TriggerRow> triggers = new List<TriggerRow>();
+        public string victoryText;
+        public string defeatText;
     }
 }

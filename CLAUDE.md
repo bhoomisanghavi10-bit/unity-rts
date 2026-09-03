@@ -7,6 +7,43 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Scenario Editor heavy path, session 2 (Objective/Trigger authoring)
+  closed (2026-09-03)** — picked up directly from the offer at the end of
+  session 1 ("objective/trigger authoring for custom scenarios," the
+  user's explicit next request). `MissionCsvLoader`'s existing CSV
+  interpreter (`BuildObjectives`/`BuildTriggers`) was split into a typed,
+  JsonUtility-serializable row layer (new `ObjectiveRow`/`TriggerRow` +
+  `internal BuildObjectivesFromRows`/`BuildTriggersFromRows`), so the CSV
+  (light) path and the in-game editor now share one interpreter for the
+  same 5-objective/2-trigger-kind vocabulary — zero behavior change for
+  existing CSV missions (full pre-existing suite passed unmodified).
+  `CustomScenarioData` gained `objectives`/`triggers`/`victoryText`/
+  `defeatText`; `ScenarioEditorMenu` gained a second **Objectives** tab
+  (a `ScrollRect`-based row list, reusing `SettingsMenu`'s own Key Bindings
+  scroll pattern) where an author cycles each row's Kind and fills generic
+  Param1-5/Description fields, each with a live hint describing that
+  kind's param meaning. `CivilizationSetup.BeginCustomScenarioMatch` now
+  calls `ScenarioManager.Begin` with a real `ScenarioDefinition` built
+  from the authored rows, but **only when `data.objectives.Count > 0`** —
+  calling it unconditionally would have made every session-1 placements-
+  only scenario resolve to an instant Victory, since
+  `ScenarioManager.EvaluateOutcome()` treats an empty objective list as
+  "already complete." 7 new EditMode tests (197 total, all pass). Live-
+  verified via UnityMCP through the real production path: authored a
+  `PopulationThreshold` objective + `GrantResourceAtTime` trigger through
+  the actual editor UI state, Played it, confirmed
+  `ScenarioManager.ActiveScenario` correctly wired and `MatchManager.
+  Outcome` resolved to Victory via the scripted-mission branch (not
+  elimination); separately confirmed the regression case the new gate is
+  designed to prevent (a zero-objective scenario stays `Ongoing`,
+  `ActiveScenario` stays null, exactly matching session 1's original
+  behavior); separately proved Save→Close→re-Open→Load round-trips
+  objective/trigger rows and victory text through the real file-based UI
+  methods. Explicitly still deferred: per-kind bespoke input widgets, a
+  saved-scenario browse list on `MissionSelectMenu`, richer palette art,
+  multiplayer/LAN play of a custom scenario. See `docs/SESSION_LOG.md`'s
+  matching entry for full detail. Next: the user's call among the
+  remaining deferred items, or another Roadmap Section 5 item.
 - **Scenario Editor heavy path, session 1 (Placements) closed (2026-09-03)**
   — picked up at the user's explicit request ("start the heavy scenario
   path") right after the light-path session closed. Confirmed 2 real
@@ -641,14 +678,16 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: **Scenario Editor heavy path, session 1 (Placements)
+- Currently on: **Scenario Editor heavy path, session 2 (Objective/Trigger
+  authoring) closed (2026-09-03)** — see this file's own bullet above for
+  full detail. Picked up directly from session 1's own offered next steps.
+  This is a multi-session epic; the remaining explicitly-deferred items
+  are per-kind bespoke input widgets, a saved-scenario browse list on
+  `MissionSelectMenu`, richer palette art, and multiplayer/LAN play of a
+  custom scenario — pick up per user direction, no fixed order assumed.
+  Before that: **Scenario Editor heavy path, session 1 (Placements)
   closed (2026-09-03)** — see this file's own bullet above for full
-  detail. Started at the user's explicit request right after the light
-  path closed; this is a multi-session epic, and the natural next slice
-  is objective/trigger authoring for custom scenarios (currently v1
-  defaults to standard Conquest) or one of the other explicitly-deferred
-  items listed in that same bullet — pick up per user direction, no
-  fixed order assumed. Before that: **item 6 (Scenario Editor) light path
+  detail. Before that: **item 6 (Scenario Editor) light path
   closed (2026-09-03)** — see this file's own bullet above for full
   detail. That closed the plan doc's entire recommended order (items 1-6
   all done); remaining deferred sub-items (Fish Trap) are tracked in

@@ -17,7 +17,7 @@ one item per session, Plan Mode before nontrivial changes, test before done, log
 | 3 | Area of Effect / Trample damage | **Done (2026-09-03)** — Cavalry trample via a generalized splash-damage multiplier |
 | 4 | Diplomacy (tribute) | **Done (2026-09-03)** — stance UI already existed; added Tribute + buttons |
 | 5 | Renewable resource (Farm reseed) | **Farm half done (2026-09-03)**; Fish Trap still deferred/asset-blocked |
-| 6 | Scenario Editor | **Light path done; heavy path session 1 (Placements) done (2026-09-03)** |
+| 6 | Scenario Editor | **Light path done; heavy path sessions 1 (Placements) and 2 (Objective/Trigger authoring) done (2026-09-03)** |
 
 Fish Trap (part of item 5) and a full in-game visual level editor (part of item 6) are called
 out as **blocked on asset sourcing / a scope decision**, not part of this implementation pass,
@@ -287,8 +287,54 @@ larger, asset-blocked item — don't bundle it into the same session.
 
 ---
 
-## 6. Scenario Editor — light path (CSV-authoring) **Done**; heavy path session 1
-(Placements) — **Done (2026-09-03)**
+## 6. Scenario Editor — light path (CSV-authoring) **Done**; heavy path sessions 1
+(Placements) and 2 (Objective/Trigger authoring) — **Done (2026-09-03)**
+
+**Heavy path, session 2 result**: picked up per the user's explicit request ("start
+item on objective/trigger authoring for custom scenarios"), one of the deferred
+follow-ons session 1 itself flagged. `MissionCsvLoader.BuildObjectives`/
+`BuildTriggers` (the light path's own interpreter) were split into a typed,
+JsonUtility-serializable row layer — new `ObjectiveRow`/`TriggerRow` classes plus
+`internal static BuildObjectivesFromRows`/`BuildTriggersFromRows` — so the CSV path
+(which now just maps `Dictionary` rows into these types first) and the in-game editor
+share one interpreter for the same small fixed vocabulary (5 objective kinds, 2
+trigger kinds), with zero behavior change for existing CSV missions (the full
+pre-existing test suite passes unmodified). `CustomScenarioData` now carries
+`objectives`/`triggers`/`victoryText`/`defeatText`. `ScenarioEditorMenu` gained a
+second **Objectives** tab (alongside session 1's **Placements** tab, toggled by 2
+buttons at the panel top) — a `ScrollRect`-based row list (same pattern
+`SettingsMenu`'s own Key Bindings scroll fix already establishes) where an author adds
+objective/trigger rows, cycles each row's Kind, and fills generic Param1-5/
+Description text fields, each with a live one-line hint describing that kind's
+param meaning (the same "small fixed vocabulary, not a general expression language"
+disclosure the light path already makes, just surfaced in the UI instead of left to a
+CSV author's memory). `CivilizationSetup.BeginCustomScenarioMatch` now calls
+`ScenarioManager.Begin` with a real `ScenarioDefinition` built from the authored rows
+— **but only when `data.objectives.Count > 0`**: `ScenarioManager.EvaluateOutcome()`
+treats an empty objective list as "already complete" (an empty `foreach` never hits
+its `Ongoing` branch), so calling `Begin` unconditionally would have made every
+session-1 placements-only scenario resolve to an instant Victory — this gate is what
+keeps that existing behavior intact. 7 new EditMode tests (`MissionRowsTests.cs` x6,
+`CustomScenarioDataTests.cs` x1 more), 197 total, all pass. Live-verified via
+UnityMCP through the real production path, not just the tests: authored a
+`PopulationThreshold` objective + a `GrantResourceAtTime` trigger through the actual
+`ScenarioEditorMenu` UI state (Kind/Param fields), Played it, and confirmed
+`ScenarioManager.ActiveScenario` was correctly wired (non-null, right title/
+objective/description, `IsComplete()` reading real live `Population.Current`) and
+`MatchManager.Outcome` resolved to `Victory` via the scripted-mission branch, not
+elimination; separately confirmed the regression case this session's own gate is
+designed to prevent — a placements-only scenario with zero objectives still leaves
+`ScenarioManager.ActiveScenario` null and `MatchManager.Outcome` at `Ongoing`
+immediately after Play, exactly matching session 1's pre-existing behavior; and
+separately proved Save→Close→re-Open→Load round-trips objective/trigger rows and
+victory text correctly through the real file-based UI methods (not just the
+JsonUtility unit test). Explicitly still deferred, not silently dropped: per-kind
+bespoke input widgets (dropdowns instead of generic Param text fields), a
+saved-scenario browse list on `MissionSelectMenu` itself, richer palette art,
+multiplayer/LAN play of a custom scenario. See `docs/SESSION_LOG.md` for full detail.
+
+<details>
+<summary>Heavy path, session 1 result (for reference)</summary>
 
 **Heavy path, session 1 result**: at the user's explicit request ("start the heavy
 scenario path"), confirmed via AskUserQuestion this means a real in-game runtime
@@ -316,6 +362,8 @@ Explicitly deferred, not silently dropped: objective/trigger authoring for custo
 scenarios, a saved-scenario browse list on `MissionSelectMenu` itself, richer palette
 art, multiplayer/LAN play of a custom scenario. See `docs/SESSION_LOG.md` for full
 detail.
+
+</details>
 
 <details>
 <summary>Light-path result (for reference)</summary>

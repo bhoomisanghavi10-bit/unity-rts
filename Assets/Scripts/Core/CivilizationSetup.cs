@@ -81,19 +81,47 @@ namespace KingdomsOfBharat.Core
         }
 
         // Item 6 (Scenario Editor, heavy path session 1): a player-authored
-        // custom scenario. Deliberately does NOT call ScenarioManager.Begin
-        // - v1 has no custom objectives/triggers, so ScenarioManager.
-        // ActiveScenario stays null and MatchManager's existing elimination-
-        // based Conquest evaluation just runs, same as a normal skirmish.
-        // CustomScenarioContext.Begin() runs BEFORE BeginMatchCore so
-        // TownCenterSpawner/AiController (gated content BeginMatchCore
-        // activates) can see it in their own Awake()/Start() and skip their
-        // own hardcoded default spawn when this scenario already supplies
-        // their faction's placements. The actual placements are spawned
-        // AFTER BeginMatchCore returns (ground/NavMesh already rebuilt by
-        // then, civ/age registries already populated).
+        // custom scenario. CustomScenarioContext.Begin() runs BEFORE
+        // BeginMatchCore so TownCenterSpawner/AiController (gated content
+        // BeginMatchCore activates) can see it in their own Awake()/Start()
+        // and skip their own hardcoded default spawn when this scenario
+        // already supplies their faction's placements. The actual
+        // placements are spawned AFTER BeginMatchCore returns (ground/
+        // NavMesh already rebuilt by then, civ/age registries already
+        // populated).
+        //
+        // Heavy path session 2: if the scenario carries authored
+        // objectives (data.objectives.Count > 0), also call
+        // ScenarioManager.Begin, same ordering BeginScenarioMatch already
+        // uses (before BeginMatchCore, so a DestroyScriptedTarget
+        // objective's spawned target exists before gated content
+        // activates). Deliberately gated on a non-empty objective list, not
+        // called unconditionally: ScenarioManager.EvaluateOutcome() treats
+        // zero objectives as "every objective complete" (an empty foreach
+        // never reaches its Ongoing branch), so calling Begin with an empty
+        // list would make every placements-only scenario (session 1's
+        // entire feature set) resolve to an instant Victory on the very
+        // first MatchManager.Evaluate() tick instead of falling through to
+        // its existing elimination-based Conquest evaluation.
         public void BeginCustomScenarioMatch(CustomScenarioData data)
         {
+            if (data.objectives.Count > 0)
+            {
+                var scenario = new ScenarioDefinition
+                {
+                    Id = data.id,
+                    Title = data.title,
+                    PlayerCivilization = (CivilizationId)data.playerCivilization,
+                    AiCivilization = (CivilizationId)data.aiCivilization,
+                    Map = (MapId)data.mapId,
+                    VictoryText = string.IsNullOrEmpty(data.victoryText) ? null : data.victoryText,
+                    DefeatText = string.IsNullOrEmpty(data.defeatText) ? null : data.defeatText,
+                    BuildObjectives = () => MissionCsvLoader.BuildObjectivesFromRows(data.objectives),
+                    BuildTriggers = () => MissionCsvLoader.BuildTriggersFromRows(data.triggers),
+                };
+                ScenarioManager.Begin(scenario);
+            }
+
             CustomScenarioContext.Begin(data);
             BeginMatchCore((CivilizationId)data.playerCivilization, (CivilizationId)data.aiCivilization, (MapId)data.mapId);
             SpawnPlacements(data);

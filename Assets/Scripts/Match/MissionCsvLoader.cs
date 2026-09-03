@@ -44,6 +44,44 @@ namespace KingdomsOfBharat.Match
         RepeatingGrantResource,
     }
 
+    // Item 6 (Scenario Editor, heavy path session 2): a typed, JsonUtility-
+    // serializable stand-in for one CSV objective/trigger row - lets the
+    // in-game ScenarioEditorMenu author objectives/triggers directly (no
+    // CSV file involved) while sharing the exact same interpreter
+    // (BuildObjectivesFromRows/BuildTriggersFromRows below) the CSV path
+    // itself uses, via CustomScenarioData.objectives/triggers. A plain
+    // class with public fields (not the CSV loader's own
+    // Dictionary<string,string> row shape) because JsonUtility can't
+    // serialize a Dictionary - same reason CustomScenarioData already
+    // reuses UnitSaveData/BuildingSaveData instead of one.
+    [System.Serializable]
+    public class ObjectiveRow
+    {
+        public ObjectiveKind kind;
+        public string param1;
+        public string param2;
+        public string param3;
+        public string description;
+        public string completeText;
+    }
+
+    // 5 generic params (not 4, matching every other row type) because
+    // TriggerKind.RepeatingGrantResource is the one kind in this whole
+    // vocabulary that genuinely needs a 5th slot (resource/amount/interval/
+    // repeatCount/faction) - mission_triggers.csv's own header already
+    // has a Param5 column for exactly this reason.
+    [System.Serializable]
+    public class TriggerRow
+    {
+        public string triggerId;
+        public TriggerKind kind;
+        public string param1;
+        public string param2;
+        public string param3;
+        public string param4;
+        public string param5;
+    }
+
     public static class MissionCsvLoader
     {
         private const string DefinitionsPath = "Data/Missions/mission_definitions";
@@ -100,60 +138,84 @@ namespace KingdomsOfBharat.Match
 
         private static List<MissionObjective> BuildObjectives(List<Dictionary<string, string>> rows)
         {
+            var typedRows = new List<ObjectiveRow>();
+            foreach (Dictionary<string, string> row in rows)
+            {
+                typedRows.Add(new ObjectiveRow
+                {
+                    kind = ParseEnum(row["Kind"], ObjectiveKind.SurviveSeconds),
+                    param1 = row.GetValueOrDefault("Param1", string.Empty),
+                    param2 = row.GetValueOrDefault("Param2", string.Empty),
+                    param3 = row.GetValueOrDefault("Param3", string.Empty),
+                    description = row["Description"],
+                    completeText = row.TryGetValue("CompleteText", out string ct) && ct.Length > 0 ? ct : null,
+                });
+            }
+
+            return BuildObjectivesFromRows(typedRows);
+        }
+
+        // Item 6 (Scenario Editor, heavy path session 2): the actual
+        // interpreter, shared between the CSV path above (which just maps
+        // Dictionary rows into ObjectiveRow first) and
+        // CivilizationSetup.BeginCustomScenarioMatch, which builds
+        // ObjectiveRow directly from ScenarioEditorMenu's authored data -
+        // no CSV/Dictionary involved on that path at all. internal (not
+        // private) so both call sites and EditMode tests can reach it
+        // directly, via the same InternalsVisibleTo grant every other
+        // internal Tick/BuildFromCsv seam already uses.
+        internal static List<MissionObjective> BuildObjectivesFromRows(List<ObjectiveRow> rows)
+        {
             float missionStart = Time.time;
             var objectives = new List<MissionObjective>();
 
-            foreach (Dictionary<string, string> row in rows)
+            foreach (ObjectiveRow row in rows)
             {
-                ObjectiveKind kind = ParseEnum(row["Kind"], ObjectiveKind.SurviveSeconds);
-                string description = row["Description"];
-                string completeText = row.TryGetValue("CompleteText", out string ct) && ct.Length > 0 ? ct : null;
-
                 Func<bool> isComplete;
-                switch (kind)
+                switch (row.kind)
                 {
                     case ObjectiveKind.SurviveSeconds:
                     {
-                        float seconds = ParseFloat(row["Param1"]);
+                        float seconds = ParseFloat(row.param1);
                         isComplete = () => Time.time - missionStart >= seconds;
                         break;
                     }
                     case ObjectiveKind.BuildingCountThreshold:
                     {
-                        string buildingKind = row["Param1"];
-                        int count = ParseInt(row["Param2"]);
-                        FactionId faction = ParseEnum(row.GetValueOrDefault("Param3", "Player"), FactionId.Player);
+                        string buildingKind = row.param1;
+                        int count = ParseInt(row.param2);
+                        FactionId faction = ParseEnum(string.IsNullOrEmpty(row.param3) ? "Player" : row.param3, FactionId.Player);
                         isComplete = () => CountCompleteBuildingsOfKind(buildingKind, faction) >= count;
                         break;
                     }
                     case ObjectiveKind.ResourceThreshold:
                     {
-                        ResourceType resourceType = ParseEnum(row["Param1"], ResourceType.Food);
-                        float amount = ParseFloat(row["Param2"]);
-                        FactionId faction = ParseEnum(row.GetValueOrDefault("Param3", "Player"), FactionId.Player);
+                        ResourceType resourceType = ParseEnum(row.param1, ResourceType.Food);
+                        float amount = ParseFloat(row.param2);
+                        FactionId faction = ParseEnum(string.IsNullOrEmpty(row.param3) ? "Player" : row.param3, FactionId.Player);
                         isComplete = () => ResourceStockpile.For(faction) != null
                             && ResourceStockpile.For(faction).GetTotal(resourceType) >= amount;
                         break;
                     }
                     case ObjectiveKind.PopulationThreshold:
                     {
-                        int amount = ParseInt(row["Param1"]);
-                        FactionId faction = ParseEnum(row.GetValueOrDefault("Param2", "Player"), FactionId.Player);
+                        int amount = ParseInt(row.param1);
+                        FactionId faction = ParseEnum(string.IsNullOrEmpty(row.param2) ? "Player" : row.param2, FactionId.Player);
                         isComplete = () => Population.Current(faction) >= amount;
                         break;
                     }
                     case ObjectiveKind.DestroyScriptedTarget:
                     {
-                        // Spawned here (BuildObjectives itself), not inside
-                        // the closure - same reasoning ScenarioRegistry's own
-                        // Chola Expansion documents: the closure needs to
-                        // capture a specific Attackable reference, not
-                        // re-derive "does this faction have zero of this
-                        // building" (trivially true before the target even
-                        // exists).
-                        string buildingKind = row["Param1"];
-                        FactionId targetFaction = ParseEnum(row["Param2"], FactionId.Enemy);
-                        Vector3 position = ParseVector3(row["Param3"]);
+                        // Spawned here (BuildObjectivesFromRows itself), not
+                        // inside the closure - same reasoning
+                        // ScenarioRegistry's own Chola Expansion documents:
+                        // the closure needs to capture a specific Attackable
+                        // reference, not re-derive "does this faction have
+                        // zero of this building" (trivially true before the
+                        // target even exists).
+                        string buildingKind = row.param1;
+                        FactionId targetFaction = ParseEnum(row.param2, FactionId.Enemy);
+                        Vector3 position = ParseVector3(row.param3);
                         GameObject targetGo = SpawnScriptedTarget(buildingKind, targetFaction, position);
                         Attackable targetAttackable = targetGo != null ? targetGo.GetComponent<Attackable>() : null;
                         isComplete = () => targetAttackable == null || targetAttackable.IsDead;
@@ -164,7 +226,7 @@ namespace KingdomsOfBharat.Match
                         break;
                 }
 
-                objectives.Add(new MissionObjective(description, isComplete, completeText: completeText));
+                objectives.Add(new MissionObjective(row.description, isComplete, completeText: row.completeText));
             }
 
             return objectives;
@@ -229,35 +291,55 @@ namespace KingdomsOfBharat.Match
 
         private static List<MissionTrigger> BuildTriggers(List<Dictionary<string, string>> rows)
         {
+            var typedRows = new List<TriggerRow>();
+            foreach (Dictionary<string, string> row in rows)
+            {
+                typedRows.Add(new TriggerRow
+                {
+                    triggerId = row["TriggerId"],
+                    kind = ParseEnum(row["Kind"], TriggerKind.GrantResourceAtTime),
+                    param1 = row.GetValueOrDefault("Param1", string.Empty),
+                    param2 = row.GetValueOrDefault("Param2", string.Empty),
+                    param3 = row.GetValueOrDefault("Param3", string.Empty),
+                    param4 = row.GetValueOrDefault("Param4", string.Empty),
+                    param5 = row.GetValueOrDefault("Param5", string.Empty),
+                });
+            }
+
+            return BuildTriggersFromRows(typedRows);
+        }
+
+        // See BuildObjectivesFromRows's own comment - same shared-
+        // interpreter reasoning, reused by CivilizationSetup.
+        // BeginCustomScenarioMatch for in-game-authored triggers.
+        internal static List<MissionTrigger> BuildTriggersFromRows(List<TriggerRow> rows)
+        {
             float missionStart = Time.time;
             var triggers = new List<MissionTrigger>();
 
-            foreach (Dictionary<string, string> row in rows)
+            foreach (TriggerRow row in rows)
             {
-                TriggerKind kind = ParseEnum(row["Kind"], TriggerKind.GrantResourceAtTime);
-                string triggerId = row["TriggerId"];
-
-                switch (kind)
+                switch (row.kind)
                 {
                     case TriggerKind.GrantResourceAtTime:
                     {
-                        ResourceType resourceType = ParseEnum(row["Param1"], ResourceType.Gold);
-                        float amount = ParseFloat(row["Param2"]);
-                        float atSeconds = ParseFloat(row["Param3"]);
-                        FactionId faction = ParseEnum(row.GetValueOrDefault("Param4", "Player"), FactionId.Player);
+                        ResourceType resourceType = ParseEnum(row.param1, ResourceType.Gold);
+                        float amount = ParseFloat(row.param2);
+                        float atSeconds = ParseFloat(row.param3);
+                        FactionId faction = ParseEnum(string.IsNullOrEmpty(row.param4) ? "Player" : row.param4, FactionId.Player);
                         triggers.Add(new MissionTrigger(
-                            triggerId,
+                            row.triggerId,
                             () => Time.time - missionStart >= atSeconds,
                             () => ResourceStockpile.For(faction).Add(resourceType, amount)));
                         break;
                     }
                     case TriggerKind.RepeatingGrantResource:
                     {
-                        ResourceType resourceType = ParseEnum(row["Param1"], ResourceType.Gold);
-                        float amount = ParseFloat(row["Param2"]);
-                        float intervalSeconds = ParseFloat(row["Param3"]);
-                        int repeatCount = ParseInt(row["Param4"]);
-                        FactionId faction = ParseEnum(row.GetValueOrDefault("Param5", "Player"), FactionId.Player);
+                        ResourceType resourceType = ParseEnum(row.param1, ResourceType.Gold);
+                        float amount = ParseFloat(row.param2);
+                        float intervalSeconds = ParseFloat(row.param3);
+                        int repeatCount = ParseInt(row.param4);
+                        FactionId faction = ParseEnum(string.IsNullOrEmpty(row.param5) ? "Player" : row.param5, FactionId.Player);
                         // Expands to `repeatCount` discrete one-shot triggers,
                         // same convention Defend Hampi's own hand-written
                         // for-loop already establishes (MissionTrigger only
@@ -266,7 +348,7 @@ namespace KingdomsOfBharat.Match
                         {
                             float fireAt = i * intervalSeconds;
                             triggers.Add(new MissionTrigger(
-                                triggerId + "_" + i,
+                                row.triggerId + "_" + i,
                                 () => Time.time - missionStart >= fireAt,
                                 () => ResourceStockpile.For(faction).Add(resourceType, amount)));
                         }
