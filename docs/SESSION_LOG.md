@@ -5,6 +5,73 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-04 — AoE-Parity Wave 0, item 3: confirm the minimum-damage clamp
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 0 item 3, picked up right after item 2.
+Verify `Combat/Attackable.cs` clamps damage to a 1-hit-point floor even when flat
+`meleeArmor`/`pierceArmor` stacks with a sub-1.0 `CombatBonus`/`CounterMatrix` counter
+multiplier — the combination the item flagged as able to silently floor a hit at 0,
+making a unit mathematically unkillable.
+
+**Finding**: it already clamps correctly — this was a verify-only item, no bug. Read
+`Attackable.TakeDamage` directly (`Combat/Attackable.cs:147-160`): armor (plus any live
+`UpgradeProgress` bonus from Wave 0 item 2) is subtracted from `amount` first, and
+`Mathf.Max(1f, amount - armor)` is the *last* step before `Health -=`. Then read every
+real call site that computes a counter-multiplied hit before it reaches `TakeDamage`
+(`MeleeAttacker.ResolveHit`, `BoatAttacker.Tick`, `BuildingAttacker.Tick`) — all three
+pass `baseDamage * CombatBonus.Multiplier(...)`, already including any sub-1.0
+multiplier, straight into `TakeDamage` as the final `amount`. Since the floor is applied
+to `(amount - armor)` as the very last step, a stacked armor value can't push a
+post-multiplier hit below 1 regardless of how large armor is or how low the counter
+multiplier is — the floor is structurally in the right place, not just numerically
+adequate for today's stat ranges.
+
+**No code change** — confirmed the existing implementation is correct.
+
+**Tests**: new `Assets/Tests/EditMode/DamageClampTests.cs`, 4 tests (213 total, up from
+209, all pass): armor exceeding a post-multiplier hit still deals exactly 1; armor an
+order of magnitude over the hit still deals exactly 1 per hit (not 0, not negative); a
+hit that legitimately beats armor is unaffected by the floor (regression guard against
+the clamp over-firing); and repeated clamped hits keep accumulating toward 0 rather than
+stalling — the actual AoE guarantee this item protects (no unit is ever mathematically
+unkillable). Hit this project's own documented "two `DamageType` enums" ambiguous-
+reference gotcha while writing these (an unqualified `DamageType.Melee`/`.Pierce`
+silently resolved against the wrong global enum in `UnitDefinition.cs` instead of
+`KingdomsOfBharat.Combat.DamageType`) — and hit the matching documented lesson too: the
+MCP console bridge (`read_console`) reported zero errors while the new file was
+completely failing to compile (test count stayed at 209, the file's own class wasn't
+discoverable by `run_tests` at all); the real `CS1503` errors were only visible by
+reading `~/Library/Logs/Unity/Editor.log` directly. Fixed by fully qualifying
+`KingdomsOfBharat.Combat.DamageType.Melee`/`.Pierce`, same fix `RetroactiveUpgradeTests`/
+`WildBoar.cs` used before. Also needed an explicit `LogAssert.Expect` per `TakeDamage`
+call (`LogAssert.ignoreFailingMessages` alone doesn't suppress the hit-VFX's
+Editor-only "Destroy may not be called from edit mode" error in this Unity Test
+Framework version) — same documented gotcha `RetroactiveUpgradeTests`/`SiegeSplashTests`
+already established.
+
+**Live verification**: Play mode via UnityMCP, through the real production path — a real
+match (`CivilizationSetup.BeginMatch(Chola)`), a real `ArcherFactory`-spawned Player
+Archer, a real `CavalryFactory`-spawned Enemy Cavalry. Configured the Archer with 500
+melee armor (simulating a heavily-researched target) and drove the real
+`MeleeAttacker.AttackMove`/`Tick`/`ResolveHit` path via reflection (the methods are
+internal/private, not a synthetic bypass of the formula) — Cavalry→Archer is
+`CombatBonus`'s real 0.4x hard-countered matchup (base damage 6 * 0.4 = 2.4, which 500
+armor would otherwise floor at/below 0). Result: the Archer's `Health` dropped by
+exactly 1 (18 → 17), confirming the floor holds end-to-end through the real combat
+resolution path, not just in isolated unit tests. A first attempt at this same
+verification (before correcting which armor field to stack) accidentally set
+`pierceArmor` instead of `meleeArmor` against a Melee-type Cavalry attacker, letting the
+full 2.4 damage through unclamped — a useful confirmation that the test setup itself was
+sensitive enough to catch a real miss, not just rubber-stamping a pass.
+
+**Roadmap**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 0 item 3 marked closed; `CLAUDE.md`
+"Current status" updated. Wave 0 items 1-3 are now all closed; item 4 (wire
+`DamageType.Trample`/`Fire`) is next, and per item 1's own note it also needs the
+separate `DamageType` enum duplication (`KingdomsOfBharat.Combat.DamageType` vs. the
+global `DamageType` in `UnitDefinition.cs`) resolved first.
+
+---
+
 ## 2026-09-04 — AoE-Parity Wave 0, item 2: make the retroactive upgrade rule actually retroactive
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 0 item 2, picked up right after item 1.

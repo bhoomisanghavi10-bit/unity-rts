@@ -11,6 +11,34 @@ asset requirements, 5. Priority order).
   see that file's own ground rules. `docs/ROADMAP.md` Section 5's priority
   order is the prior plan; items already closed under it stay closed, but new
   work picks up from `IMPLEMENTATION_ROADMAP.md` instead.**
+- **Wave 0 item 3 (confirm the minimum-damage clamp) closed (2026-09-04)** —
+  verify-only, no bug found: `Attackable.TakeDamage` (`Combat/Attackable.cs:160`,
+  `Mathf.Max(1f, amount - armor)`) already applies its 1-damage floor as the
+  *last* step, after armor subtraction, and every real call site
+  (`MeleeAttacker.ResolveHit`/`BoatAttacker.Tick`/`BuildingAttacker.Tick`)
+  passes the already counter-multiplied `baseDamage * CombatBonus.Multiplier(...)`
+  into `TakeDamage` — so a stacked armor value plus a sub-1.0 `CombatBonus`
+  multiplier can't silently floor a hit at 0, structurally, not just for
+  today's stat ranges. 4 new EditMode tests (`DamageClampTests.cs`, 213
+  total, up from 209, all pass) — hit this project's own documented "two
+  `DamageType` enums" ambiguous-reference gotcha along the way (fixed by
+  fully qualifying `KingdomsOfBharat.Combat.DamageType.Melee`/`.Pierce`,
+  same fix as Wave 0 item 2/`WildBoar.cs`), and confirmed again that the MCP
+  console bridge can report zero errors while a new file is fully failing to
+  compile — the real `CS1503` errors were only visible in
+  `~/Library/Logs/Unity/Editor.log` directly. Live-verified via UnityMCP
+  through the real production path: a real match
+  (`CivilizationSetup.BeginMatch`), a real `CavalryFactory`-spawned Cavalry
+  unit (0.4x hard-countered vs. Archer, `CombatBonus`'s real matchup)
+  attacking a real `ArcherFactory`-spawned Archer configured with 500 melee
+  armor — the real `MeleeAttacker.ResolveHit`/`Attackable.TakeDamage` path
+  dealt exactly 1 damage, not 0. See `docs/SESSION_LOG.md`'s matching entry
+  for full detail, including a first verification attempt that (correctly)
+  failed to clamp because it stacked the wrong armor field against a
+  Melee-type attacker — confirming the test setup itself was sensitive
+  enough to catch a real miss. Next: Wave 0 item 4 (wire
+  `DamageType.Trample`/`Fire` — also needs the separate `DamageType` enum
+  duplication resolved first, per item 1's own note).
 - **Wave 0 item 2 (verify the retroactive upgrade rule) closed (2026-09-04)**
   — confirmed `Progression/UpgradeProgress.cs` did NOT promote already-
   spawned units; its own comment said so explicitly ("baked in at spawn,

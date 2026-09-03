@@ -63,11 +63,32 @@ budget.
    already baked it in (buildings/Workers never called it and still don't — no scope creep).
    See `docs/SESSION_LOG.md`'s matching entry and this session's `CLAUDE.md` status note for
    full detail.
-3. **[S] Confirm the minimum-damage clamp.** AoE guarantees 1 damage per hit so no unit is
-   ever mathematically unkillable. With flat `meleeArmor`/`pierceArmor` fields plus a
-   `CounterMatrix` multiplier, verify `Combat/Attackable.cs` clamps correctly — a stacked
-   armor + a <1.0 counter multiplier is exactly the kind of combination that can silently
-   floor damage at zero. *Depends on: nothing. Blocks: safe tuning of any new counter unit.*
+3. ~~**[S] Confirm the minimum-damage clamp.**~~ **Closed (2026-09-04).** Confirmed
+   `Attackable.TakeDamage` (`Combat/Attackable.cs:160`,
+   `Mathf.Max(1f, amount - armor)`) already clamps correctly: every real call site
+   (`MeleeAttacker.ResolveHit`, `BoatAttacker.Tick`, `BuildingAttacker.Tick`) computes
+   `baseDamage * CombatBonus.Multiplier(...)` — already including any sub-1.0 counter
+   multiplier — before passing the final `amount` into `TakeDamage`, and the floor is
+   applied as the *last* step, after armor subtraction, not before it — so a stacked
+   armor value plus a <1.0 `CombatBonus` multiplier can't silently floor a hit at 0. No
+   code change needed — this was a verify-only item, not a bug. 4 new EditMode tests
+   (`DamageClampTests.cs`, 213 total, up from 209) covering: armor exceeding a
+   post-multiplier hit, armor an order of magnitude over the hit, the floor NOT
+   distorting a hit that legitimately beats armor, and repeated clamped hits still
+   accumulating toward 0 (never stalling — the actual AoE guarantee this item exists
+   to protect: no unit is mathematically unkillable). Hit this project's own documented
+   "two `DamageType` enums" ambiguous-reference gotcha while writing the tests (an
+   unqualified `DamageType.Melee` silently resolved to the wrong global enum — fixed by
+   fully qualifying `KingdomsOfBharat.Combat.DamageType.Melee`/`.Pierce`, same fix
+   `WildBoar.cs`/Wave 0 item 2 hit before) — the MCP console bridge reported zero
+   compile errors while this was broken; the real errors were only visible in
+   `~/Library/Logs/Unity/Editor.log` directly, matching this project's own documented
+   lesson. Live-verified via UnityMCP through the real production path: a real match
+   (`CivilizationSetup.BeginMatch`), a real `CavalryFactory`-spawned Cavalry unit
+   attacking a real `ArcherFactory`-spawned Archer with 500 melee armor configured
+   (Cavalry→Archer is CombatBonus's real 0.4x hard-countered matchup) — the real
+   `MeleeAttacker.ResolveHit`/`Attackable.TakeDamage` path dealt exactly 1 damage, not
+   0. *Depends on: nothing. Blocks: safe tuning of any new counter unit.*
 4. **[S] Wire `DamageType.Trample` and `DamageType.Fire`.** Both are declared on
    `UnitDefinition.cs` and unused. Trample onto `MauryaWarElephantFactory.cs` /
    `VijayanagaraWarElephantFactory.cs` (thematically obvious — a trampling war elephant).
