@@ -52,17 +52,18 @@ namespace KingdomsOfBharat.Units
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure((def != null ? def.maxHP : 45f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
-                meleeArmor: (def != null ? def.meleeArmor : 0f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Naval),
-                pierceArmor: (def != null ? def.pierceArmor : 0f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Naval));
+                meleeArmor: def != null ? def.meleeArmor : 0f,
+                pierceArmor: def != null ? def.pierceArmor : 0f);
             attackable.ConfigureClass(UnitClass.Naval);
+            attackable.EnableUpgradeArmorScaling();
             go.AddComponent<KingdomsOfBharat.Combat.Repairable>();
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<BoatAttacker>();
             attacker.SetBaseDamage(def != null ? def.attackDamage : 8f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
-            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Naval));
             attacker.SetRange(def != null ? def.attackRange : 4f);
+            attacker.EnableUpgradeDamageScaling();
 
             go.AddComponent<FactionMember>().Configure(faction);
 

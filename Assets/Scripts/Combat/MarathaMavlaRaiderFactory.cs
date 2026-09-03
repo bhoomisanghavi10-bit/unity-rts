@@ -62,17 +62,18 @@ namespace KingdomsOfBharat.Combat
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure((def != null ? def.maxHP : 32f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
-                meleeArmor: (def != null ? def.meleeArmor : 1f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Cavalry),
-                pierceArmor: (def != null ? def.pierceArmor : 0f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Cavalry));
+                meleeArmor: def != null ? def.meleeArmor : 1f,
+                pierceArmor: def != null ? def.pierceArmor : 0f);
             attackable.ConfigureClass(UnitClass.Cavalry);
+            attackable.EnableUpgradeArmorScaling();
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
             attacker.SetBaseDamage(def != null ? def.attackDamage : 7f);
             attacker.SetRange(def != null ? def.attackRange : 1f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
-            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Cavalry));
             attacker.SetUnitClass(UnitClass.Cavalry);
+            attacker.EnableUpgradeDamageScaling();
             go.AddComponent<StanceController>();
 
             go.AddComponent<FactionMember>().Configure(faction);

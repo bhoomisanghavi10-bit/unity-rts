@@ -3,6 +3,7 @@ using UnityEngine;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Buildings;
+using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Combat
 {
@@ -35,6 +36,12 @@ namespace KingdomsOfBharat.Combat
         private float _cooldown;
         private float _damageMultiplier = 1f;
         private float _damageBonus;
+        // Wave 0 item 2 (retroactive upgrade rule): opt-in, mirrors
+        // Attackable.EnableUpgradeArmorScaling - only combat-unit factories
+        // that already baked UpgradeProgress's damage bonus in before this
+        // fix call EnableUpgradeDamageScaling (Worker deliberately never
+        // does).
+        private bool _upgradeDamageScaling;
         private readonly List<Attackable> _splashBuffer = new List<Attackable>();
 
         // For SelectedUnitPanel/HoverTooltip (UI) to show a status line.
@@ -106,6 +113,14 @@ namespace KingdomsOfBharat.Combat
         public void SetDamageBonus(float bonus)
         {
             _damageBonus = bonus;
+        }
+
+        // Called only by factories that already baked UpgradeProgress's
+        // flat + per-class damage bonus into SetDamageBonus before this
+        // fix - see each factory's own call site.
+        public void EnableUpgradeDamageScaling()
+        {
+            _upgradeDamageScaling = true;
         }
 
         // Applied by SiegeFactory only (Roadmap Section 1 Phase 2.3 -
@@ -184,7 +199,10 @@ namespace KingdomsOfBharat.Combat
         // below passes splashDamageMultiplier instead.
         private void ResolveHit(Attackable victim, float extraMultiplier = 1f)
         {
-            float baseDamage = damage * _damageMultiplier + _damageBonus;
+            float upgradeBonus = _upgradeDamageScaling && Faction != null
+                ? UpgradeProgress.DamageBonus(Faction.Faction) + UpgradeProgress.ClassDamageBonus(Faction.Faction, unitClass)
+                : 0f;
+            float baseDamage = damage * _damageMultiplier + _damageBonus + upgradeBonus;
             float bonus = CombatBonus.Multiplier(unitClass, victim.Class);
             // Roadmap Section 5 item 3: a Durg Garrison unit inside this
             // building strips Siege's usual 3x anti-building bonus down to

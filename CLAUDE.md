@@ -6,7 +6,81 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
-- Working from Roadmap Section 5's priority order.
+- **Now working from `docs/IMPLEMENTATION_ROADMAP.md`'s wave order (the new
+  AoE-parity execution plan), strictly in wave order, one item per session —
+  see that file's own ground rules. `docs/ROADMAP.md` Section 5's priority
+  order is the prior plan; items already closed under it stay closed, but new
+  work picks up from `IMPLEMENTATION_ROADMAP.md` instead.**
+- **Wave 0 item 2 (verify the retroactive upgrade rule) closed (2026-09-04)**
+  — confirmed `Progression/UpgradeProgress.cs` did NOT promote already-
+  spawned units; its own comment said so explicitly ("baked in at spawn,
+  not retroactive"), and the bonus was in fact read once per unit at spawn
+  time by 13 combat-unit factories. Fixed: `Attackable`/`MeleeAttacker`/
+  `BoatAttacker` now live-read `UpgradeProgress`'s bonus at damage-
+  resolution time (using each unit's already-stored `FactionMember` +
+  `unitClass`) instead of a value baked in once. Deliberately **opt-in**,
+  not automatic — new `EnableUpgradeArmorScaling(melee, pierce)`/
+  `EnableUpgradeDamageScaling()` calls, made only by the same 13 factories
+  that already baked this bonus in before the fix (Soldier/Archer/Cavalry/
+  Spearman/Siege/CholaNavalRaider/MauryaWarElephant/VijayanagaraWarElephant/
+  RajputRoyalGuard/MarathaMavlaRaider/MarathaDurgGarrison/PillarEdictScholar/
+  WarGalley) — buildings and Workers never baked this in and still don't
+  opt in, so they correctly stay untouched by Blacksmith-style research,
+  same as before. Preserved (not "fixed") an existing asymmetry:
+  Archer/CholaNavalRaider apply the armor bonus to `pierceArmor` only,
+  matching AoE's own pierce-specific "Archer Armor" line — the new
+  `EnableUpgradeArmorScaling` takes independent melee/pierce flags for
+  this. `CavalryFactory`'s Rajput unique-tech damage bonus
+  (`UniqueTechProgress`, a separate mechanic, already documented as its
+  own "not retroactive" convention) was left untouched, out of scope. 5
+  new EditMode tests (209 total, up from 204, all pass) — hit and fixed
+  this project's own documented "two `DamageType` enums" ambiguous-
+  reference gotcha along the way (same class of bug `WildBoar.cs` hit
+  before), same fix (fully-qualify
+  `KingdomsOfBharat.Combat.DamageType.Melee`/`.Pierce`). Live-verified via
+  UnityMCP through the real production path: a real match, a real
+  `SoldierFactory`-spawned Soldier took 9 damage from a fixed 10-damage
+  melee hit pre-research, then 8 damage from the identical hit on the SAME
+  GameObject post-`UpgradeProgress.AdvanceArmor` (no respawn) — exactly
+  `ArmorPerTier`'s 1-point improvement; a real Worker spawned after that
+  same tier was already researched still took the full 10 damage (the
+  opt-in scope guard holds live, not just in test fixtures); a real
+  Archer's melee hit ignored the researched tier while its pierce hit
+  reflected it, confirming the preserved asymmetry live. See
+  `docs/SESSION_LOG.md`'s matching entry for full detail. Next: Wave 0
+  item 3 (confirm the minimum-damage clamp) or item 4 (wire
+  `DamageType.Trample`/`Fire`).
+- **Wave 0 item 1 (reconcile UnitClass vs UnitCategory) closed (2026-09-04)**
+  — collapsed the two overlapping "what kind of combatant is this" enums into
+  one: `KingdomsOfBharat.Combat.UnitClass` now carries all 9 values (added
+  `Support`/`Hero`), the former global `UnitCategory` enum is deleted, and
+  every call site (`CounterMatrix`/`TechNode`/`FormationDefinition`/
+  `CivilizationProfile`/`Barracks`/`Dock`/`WorkerFactory`/`CavalryFactory`/
+  `CsvToScriptableObject`) reads the shared type. `FormationController`'s
+  lossy translation shim (`MapUnitClass`) is gone — `CategoryOf` now reads
+  `Attackable.Class` directly. `CombatBonus.Multiplier`'s own hand-tuned
+  pairings are untouched (Support/Hero simply fall through to the existing 1x
+  default, same as any other unlisted pairing) — this is not a merge of the
+  CombatBonus/CounterMatrix *systems* (still deliberately separate, see this
+  file's own gotcha below), just their shared vocabulary type. All 204
+  EditMode tests pass unmodified; live-verified via UnityMCP: regenerated
+  every CSV-driven asset (`BharatRTS/Generate Data Assets From CSV`, zero
+  parse warnings, `worker` unit's `category` correctly reads `Support`),
+  confirmed `CombatBonus.Multiplier(Archer, Cavalry)` still resolves to the
+  audited 2.0x, and confirmed a real `FormationController.ComputeOffsets`
+  call still places an Infantry unit at the front rank and an Archer unit at
+  the back rank under the simplified direct read. **Flagged, not fixed**: a
+  separate, adjacent enum duplication noticed while reading `Attackable.cs`
+  — `KingdomsOfBharat.Combat.DamageType` (2 values: Melee/Pierce, what
+  `Attackable.TakeDamage` actually uses) vs. the global `DamageType` in
+  `UnitDefinition.cs` (5 values, including `Trample`/`Fire`) — is a different
+  divergence, directly relevant to Wave 0 item 4 (wiring `Trample`/`Fire`),
+  not this item. See `docs/SESSION_LOG.md`'s matching entry for full detail.
+  Next: Wave 0 item 2 (verify the retroactive upgrade rule), item 3 (confirm
+  the minimum-damage clamp), or item 4 (wire `DamageType.Trample`/`Fire` —
+  now also needs the `DamageType` duplication resolved first).
+- Prior plan's status (kept for history — see below for the full detail):
+  working from Roadmap Section 5's priority order.
 - **Fixed (2026-09-03): the Objectives tab `RectMask2D` over-culling bug
   flagged (not fixed) at the end of session 6 below, via `task_545a0590`'s
   follow-up.** Root cause: not an engine bug — every row/label/field under

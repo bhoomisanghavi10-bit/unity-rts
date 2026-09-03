@@ -77,17 +77,18 @@ namespace KingdomsOfBharat.Combat
             var attackable = root.AddComponent<Attackable>();
             attackable.Configure((def != null ? def.maxHP : 100f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
-                meleeArmor: (def != null ? def.meleeArmor : 2f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Siege),
-                pierceArmor: (def != null ? def.pierceArmor : 2f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Siege));
+                meleeArmor: def != null ? def.meleeArmor : 2f,
+                pierceArmor: def != null ? def.pierceArmor : 2f);
             attackable.ConfigureClass(UnitClass.Siege);
+            attackable.EnableUpgradeArmorScaling();
             root.AddComponent<HealthBar>();
 
             var attacker = root.AddComponent<MeleeAttacker>();
             attacker.SetBaseDamage(def != null ? def.attackDamage : 11f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
-            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Siege));
             attacker.SetRange(def != null ? def.attackRange : 2.5f);
             attacker.SetUnitClass(UnitClass.Siege);
+            attacker.EnableUpgradeDamageScaling();
             root.AddComponent<StanceController>();
 
             root.AddComponent<FactionMember>().Configure(faction);

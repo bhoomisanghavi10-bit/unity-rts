@@ -2,6 +2,8 @@ using System;
 using UnityEngine;
 using KingdomsOfBharat.Vfx;
 using KingdomsOfBharat.Audio;
+using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Combat
 {
@@ -26,10 +28,51 @@ namespace KingdomsOfBharat.Combat
 
         [SerializeField] private bool siegeImmune;
 
+        // Wave 0 item 2 (retroactive upgrade rule): whether this Attackable
+        // should live-read UpgradeProgress's flat + per-class armor bonus
+        // in TakeDamage below, split per damage type since ArcherFactory/
+        // CholaNavalRaiderFactory only ever applied the bonus to
+        // pierceArmor (matching AoE's own pierce-specific "Archer Armor"
+        // line) while every other combat-unit factory applied it to both.
+        // Opt-in, not automatic - see EnableUpgradeArmorScaling. Buildings
+        // and Workers never called this before the fix and must not start
+        // silently benefiting from Blacksmith-style research now.
+        private bool _upgradeArmorAppliesMelee;
+        private bool _upgradeArmorAppliesPierce;
+        private FactionMember _faction;
+        private bool _factionResolved;
+
         public float Health { get; private set; }
         public float MaxHealth => maxHealth;
         public bool IsDead => Health <= 0f;
         public UnitClass Class => unitClass;
+
+        // Resolved lazily, not cached in Awake - same convention as
+        // MeleeAttacker.Faction (a factory adds FactionMember well after
+        // Attackable in every spawn sequence).
+        private FactionMember Faction
+        {
+            get
+            {
+                if (!_factionResolved)
+                {
+                    TryGetComponent(out _faction);
+                    _factionResolved = true;
+                }
+                return _faction;
+            }
+        }
+
+        // Called only by the combat-unit factories that already baked
+        // UpgradeProgress's bonus into ConfigureArmor's arguments before
+        // this fix - see each factory's own call site. Default true/true
+        // matches every factory except Archer/CholaNavalRaider, which pass
+        // melee: false.
+        public void EnableUpgradeArmorScaling(bool melee = true, bool pierce = true)
+        {
+            _upgradeArmorAppliesMelee = melee;
+            _upgradeArmorAppliesPierce = pierce;
+        }
         // Roadmap Section 5 item 3 (Maratha Durg Garrison): a building
         // with a Durg Garrison unit inside is immune to Siege's normal 3x
         // anti-building bonus - see GarrisonPoint.TryGarrison/UngarrisonAll,
@@ -109,6 +152,11 @@ namespace KingdomsOfBharat.Combat
             }
 
             float armor = damageType == DamageType.Melee ? meleeArmor : pierceArmor;
+            bool appliesToThisType = damageType == DamageType.Melee ? _upgradeArmorAppliesMelee : _upgradeArmorAppliesPierce;
+            if (appliesToThisType && Faction != null)
+            {
+                armor += UpgradeProgress.ArmorBonus(Faction.Faction) + UpgradeProgress.ClassArmorBonus(Faction.Faction, unitClass);
+            }
             float effective = Mathf.Max(1f, amount - armor);
 
             Health -= effective;

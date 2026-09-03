@@ -52,16 +52,17 @@ namespace KingdomsOfBharat.Combat
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure((def != null ? def.maxHP : 35f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
-                meleeArmor: (def != null ? def.meleeArmor : 1f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Spearman),
-                pierceArmor: (def != null ? def.pierceArmor : 0f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Spearman));
+                meleeArmor: def != null ? def.meleeArmor : 1f,
+                pierceArmor: def != null ? def.pierceArmor : 0f);
             attackable.ConfigureClass(UnitClass.Spearman);
+            attackable.EnableUpgradeArmorScaling();
             go.AddComponent<HealthBar>();
             var attacker = go.AddComponent<MeleeAttacker>();
             attacker.SetBaseDamage(def != null ? def.attackDamage : 5f);
             attacker.SetRange(def != null ? def.attackRange : 1f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
-            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Spearman));
             attacker.SetUnitClass(UnitClass.Spearman);
+            attacker.EnableUpgradeDamageScaling();
             go.AddComponent<StanceController>();
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);

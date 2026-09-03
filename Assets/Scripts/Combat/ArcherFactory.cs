@@ -51,17 +51,18 @@ namespace KingdomsOfBharat.Combat
             attackable.Configure((def != null ? def.maxHP : 18f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
                 meleeArmor: def != null ? def.meleeArmor : 0f,
-                pierceArmor: (def != null ? def.pierceArmor : 0f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Archer));
+                pierceArmor: def != null ? def.pierceArmor : 0f);
             attackable.ConfigureClass(UnitClass.Archer);
+            attackable.EnableUpgradeArmorScaling(melee: false, pierce: true);
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
             attacker.SetBaseDamage(def != null ? def.attackDamage : 4f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
-            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Archer));
             attacker.SetRange(def != null ? def.attackRange : 6f);
             attacker.SetDamageType(DamageType.Pierce);
             attacker.SetUnitClass(UnitClass.Archer);
+            attacker.EnableUpgradeDamageScaling();
             go.AddComponent<StanceController>();
 
             go.AddComponent<FactionMember>().Configure(faction);

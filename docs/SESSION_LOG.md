@@ -5,6 +5,130 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-04 — AoE-Parity Wave 0, item 2: make the retroactive upgrade rule actually retroactive
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 0 item 2, picked up right after item 1.
+Confirm `Progression/UpgradeProgress.cs` promotes already-spawned units, not just newly
+trained ones; fix it now if it doesn't, since every Wave 3 upgrade-line item depends on
+this being correct.
+
+**Finding**: it did not. `UpgradeProgress.DamageBonus`/`ArmorBonus`/`ClassDamageBonus`/
+`ClassArmorBonus` were read exactly once, at spawn time, by each of 13 combat-unit
+factories, and baked into the unit's `Attackable`/`MeleeAttacker`/`BoatAttacker`
+components as a frozen scalar — the class's own comment said so explicitly ("baked in
+at spawn, not retroactive"). In real AoE II, Blacksmith Attack/Armor research applies to
+units already on the field the moment research completes; this project's units trained
+before an upgrade finished stayed at their old stats forever, even after the Barracks
+research completed.
+
+**Fix**: `Attackable`/`MeleeAttacker`/`BoatAttacker` now live-read the `UpgradeProgress`
+bonus at damage-resolution time (`TakeDamage`/`ResolveHit`/`Update`), using each unit's
+already-stored `FactionMember` (resolved lazily, same convention `MeleeAttacker.Faction`
+already used) and `unitClass` field, instead of a value baked in once at spawn. This is
+opt-in, not automatic: a new `EnableUpgradeArmorScaling(melee, pierce)` on `Attackable`
+and `EnableUpgradeDamageScaling()` on `MeleeAttacker`/`BoatAttacker`, called only by the
+13 factories that already baked the bonus in before this fix (`SoldierFactory`,
+`ArcherFactory`, `CavalryFactory`, `SpearmanFactory`, `SiegeFactory`,
+`CholaNavalRaiderFactory`, `MauryaWarElephantFactory`, `VijayanagaraWarElephantFactory`,
+`RajputRoyalGuardFactory`, `MarathaMavlaRaiderFactory`, `MarathaDurgGarrisonFactory`,
+`PillarEdictScholarFactory`, `WarGalleyFactory`). Buildings and Workers never baked this
+bonus in and still don't opt in — making the read unconditional on every `Attackable`
+would have silently granted them the flat faction-wide bonus for the first time, real
+scope creep beyond "make the existing mechanic retroactive." Also preserved, not
+"fixed": `ArcherFactory`/`CholaNavalRaiderFactory` apply the armor bonus to `pierceArmor`
+only (AoE's own pierce-specific "Archer Armor" line), so `EnableUpgradeArmorScaling`
+takes independent melee/pierce flags rather than one on/off switch. `CavalryFactory`'s
+`uniqueTechDamageBonus` (Rajput's Warrior Clans unique tech + team-bonus stack) is a
+separate, already-documented "not retroactive" mechanic (`UniqueTechProgress`, not
+`UpgradeProgress`) — left untouched, out of scope. Added `UpgradeProgress.ResetForTests()`
+(test-only, `InternalsVisibleTo`-gated) since no prior test touched this static class and
+its dictionaries persist for the whole Test Runner domain.
+
+**Tests**: new `Assets/Tests/EditMode/RetroactiveUpgradeTests.cs`, 5 tests (209 total, up
+from 204, all pass) — hit this project's own documented "two DamageType enums" ambiguous-
+reference gotcha along the way (the same class of bug `WildBoar.cs` hit before), fixed the
+same way, fully qualifying `KingdomsOfBharat.Combat.DamageType.Melee`/`.Pierce`. Proves,
+on a single already-constructed `Attackable`/`MeleeAttacker` instance with no respawn: an
+armor hit lands lighter after `AdvanceArmor`; a `Tick()` hit deals more after
+`AdvanceAttack`; a unit that never called `EnableUpgrade*Scaling` (Worker/building shape)
+is unaffected even after several tiers advance (the opt-in gate actually gates); and
+Archer's melee/pierce armor asymmetry holds under live research.
+
+**Live verification**: Play mode via UnityMCP, through the real production path — a real
+match (`CivilizationSetup.BeginMatch`), a real `SoldierFactory.Spawn`'d Soldier. Dealt a
+fixed 10-damage melee hit to the same live instance before research (9 damage landed, its
+own def-based armor), called `UpgradeProgress.AdvanceArmor(Player)` on the real static
+class, dealt the identical hit again to the SAME GameObject (8 damage landed — exactly
+`ArmorPerTier`'s 1-point improvement, no respawn). Separately spawned a real Worker after
+that same Armor tier had already been researched and confirmed it still took the full 10
+damage — the opt-in scope guard holds in the running game, not just in test fixtures.
+Separately spawned a real Archer and confirmed a melee hit ignored the researched Armor
+tier while a pierce hit reflected it, matching the preserved asymmetry.
+
+**Roadmap**: Wave 0 item 2 checked off in `docs/IMPLEMENTATION_ROADMAP.md`; `CLAUDE.md`
+"Current status" updated. Next: Wave 0 item 3 (confirm the minimum-damage clamp) or item 4
+(wire `DamageType.Trample`/`Fire`).
+
+---
+
+## 2026-09-04 — AoE-Parity Wave 0, item 1: reconcile UnitClass vs UnitCategory
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 0 item 1 — the first item in the new
+AoE-parity execution plan. Two enums represented the same "what kind of combatant is
+this" concept: `KingdomsOfBharat.Combat.UnitClass` (7 values, read at runtime from
+`Attackable.Class`, consumed by `CombatBonus`/`FormationController`) and the global
+`UnitCategory` (9 values, adding `Support`/`Hero`, the CSV-driven design-data enum used
+by `UnitDefinition`/`CounterMatrix`/`TechNode`/`FormationDefinition`/
+`CivilizationProfile`). `FormationController.MapUnitClass` bridged them with a lossy,
+one-directional translation whose own comment already named the gap: Support/Hero had
+no `UnitClass` equivalent, so a Support unit (Vaidya/Purohita, Wave 4) or Hero unit
+(Maharaja, Wave 4) could never get a real runtime combat class.
+
+**What changed**: Collapsed to one enum. Extended `UnitClass` (`Assets/Scripts/Combat/
+UnitClass.cs`) with `Support`/`Hero`; deleted the global `UnitCategory` enum from
+`UnitDefinition.cs`; repointed every reference (`CounterMatrix.cs`, `TechNode.cs`'s
+`StatModifier.targetCategory`, `FormationDefinition.cs`'s preferred-row lists,
+`CivilizationProfile.cs`'s `FindMultiplier`/`FindCategoryMultiplier`, the literal
+category args in `Barracks.cs`/`Dock.cs`/`WorkerFactory.cs`/`CavalryFactory.cs`,
+`CsvToScriptableObject.cs`'s parsing, and comment-only mentions in
+`BuildingPlacer.cs`/`TeamBonus.cs`/`BuildingAttacker.cs`/`SelectionManager.cs`) at
+`UnitClass`, adding `using KingdomsOfBharat.Combat;` where needed. Deleted
+`FormationController.MapUnitClass` entirely — `CategoryOf` is now a direct
+`attackable.Class` read instead of a translated lookup. `CombatBonus.Multiplier`
+itself untouched: every existing hand-tuned pairing is unchanged, `Support`/`Hero`
+simply fall through to the same `1f` default any other unlisted pairing already gets.
+This does **not** touch the separate, deliberate CombatBonus-vs-CounterMatrix system
+split documented in CLAUDE.md's gotchas — that's about keeping two pieces of balance
+*logic* apart, not about the vocabulary enum they both read.
+
+**Tests**: No new test needed (pure rename/type-merge, no new logic, matching this
+project's convention for this class of change). All 204 pre-existing EditMode tests
+pass unmodified.
+
+**Manual verification**: Ran `BharatRTS/Generate Data Assets From CSV` to freshly
+reserialize every generated asset against the merged enum (avoids any stale-int risk
+from the type change) — zero parse warnings, confirmed live via `Resources.LoadAll
+<UnitDefinition>` that all 18 generated units' `category` field round-tripped
+correctly (e.g. `worker: category=Support`). Live-verified via UnityMCP `execute_code`:
+`CombatBonus.Multiplier(Archer, Cavalry)` still resolves to the audited 2.0x;
+`Support`/`Hero` resolve to the 1x default; a real `FormationController.ComputeOffsets`
+call with an Infantry unit + an Archer unit (Line formation) still places Infantry at
+the front rank (offset z=0) and Archer at the back rank (offset z=-1.5) — proving the
+simplified `attackable.Class` read didn't silently break front/back-row placement.
+
+**Flagged, not fixed**: `Combat.Attackable`'s own local `DamageType` enum (2 values:
+Melee/Pierce) is a *separate* duplicate from the global `DamageType` in
+`UnitDefinition.cs` (5 values, including `Trample`/`Fire`) — noticed while reading
+`Attackable.cs` for this item, but out of scope here; directly relevant to Wave 0 item
+4 ("Wire `DamageType.Trample` and `DamageType.Fire`"), the next Wave 0 item.
+
+**Roadmap**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 0 item 1 closed. Next: Wave 0 item 2
+(verify the retroactive upgrade rule), item 3 (confirm the minimum-damage clamp), or
+item 4 (wire `DamageType.Trample`/`Fire` — now flagged as also needing to resolve the
+`Combat.DamageType` vs. global `DamageType` duplication found this session).
+
+---
+
 ## 2026-09-03 — Docs: close out the Partial-Elements Fix Plan
 
 **Scope**: at the user's explicit request, update

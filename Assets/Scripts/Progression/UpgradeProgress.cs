@@ -111,5 +111,19 @@ namespace KingdomsOfBharat.Progression
         {
             return ClassArmorTier(faction, unitClass) * ClassArmorPerTier;
         }
+
+        // Test-only: this class's state is static (persists for the whole
+        // Editor/Test-Runner domain, not per-match), so EditMode tests that
+        // call AdvanceAttack/AdvanceArmor/etc need a way to isolate
+        // themselves from tiers a previous test left behind - same
+        // InternalsVisibleTo grant as MeleeAttacker/BoatAttacker's own
+        // internal Tick(deltaTime) (see AssemblyInfo.cs).
+        internal static void ResetForTests()
+        {
+            AttackTiers.Clear();
+            ArmorTiers.Clear();
+            ClassAttackTiers.Clear();
+            ClassArmorTiers.Clear();
+        }
     }
 }

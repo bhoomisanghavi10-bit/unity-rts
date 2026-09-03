@@ -50,18 +50,19 @@ namespace KingdomsOfBharat.Combat
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure((def != null ? def.maxHP : 50f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
-                meleeArmor: (def != null ? def.meleeArmor : 0f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Siege),
-                pierceArmor: (def != null ? def.pierceArmor : 0f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Siege));
+                meleeArmor: def != null ? def.meleeArmor : 0f,
+                pierceArmor: def != null ? def.pierceArmor : 0f);
             attackable.ConfigureClass(UnitClass.Siege);
+            attackable.EnableUpgradeArmorScaling();
             go.AddComponent<Repairable>();
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
             attacker.SetBaseDamage(def != null ? def.attackDamage : 15f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
-            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Siege));
             attacker.SetRange(def != null ? def.attackRange : 3f);
             attacker.SetUnitClass(UnitClass.Siege);
+            attacker.EnableUpgradeDamageScaling();
             // Roadmap Section 1 Phase 2.3 (AoE-parity execution plan):
             // splash damage is what makes Line vs. Staggered/Flank/
             // Skirmish formations matter against Siege at all - see

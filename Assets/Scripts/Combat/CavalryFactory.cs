@@ -45,7 +45,7 @@ namespace KingdomsOfBharat.Combat
             // Phase 6 gap-close: Maratha's Cavalry-only move-speed bonus -
             // see CivilizationProfile.FindCategoryMultiplier for why this
             // isn't one of CivilizationProfile's named fields.
-            agent.speed *= CivilizationProfile.FindCategoryMultiplier(civilization, StatType.MoveSpeed, UnitCategory.Cavalry);
+            agent.speed *= CivilizationProfile.FindCategoryMultiplier(civilization, StatType.MoveSpeed, UnitClass.Cavalry);
             // AoE-parity Phase 3.2: Maratha's team bonus - allied Cavalry
             // get +10% move speed, unconditional and stacking with the
             // owner's own civ-wide Cavalry speed bonus above. See
@@ -65,9 +65,10 @@ namespace KingdomsOfBharat.Combat
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure((def != null ? def.maxHP : 40f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
-                meleeArmor: (def != null ? def.meleeArmor : 1f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Cavalry),
-                pierceArmor: (def != null ? def.pierceArmor : 0f) + UpgradeProgress.ArmorBonus(faction) + UpgradeProgress.ClassArmorBonus(faction, UnitClass.Cavalry));
+                meleeArmor: def != null ? def.meleeArmor : 1f,
+                pierceArmor: def != null ? def.pierceArmor : 0f);
             attackable.ConfigureClass(UnitClass.Cavalry);
+            attackable.EnableUpgradeArmorScaling();
             go.AddComponent<HealthBar>();
 
             // Phase 6: Rajput's unique tech (Warrior Clans) adds flat
@@ -91,8 +92,9 @@ namespace KingdomsOfBharat.Combat
             attacker.SetBaseDamage(def != null ? def.attackDamage : 6f);
             attacker.SetRange(def != null ? def.attackRange : 1f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
-            attacker.SetDamageBonus(UpgradeProgress.DamageBonus(faction) + UpgradeProgress.ClassDamageBonus(faction, UnitClass.Cavalry) + uniqueTechDamageBonus);
+            attacker.SetDamageBonus(uniqueTechDamageBonus);
             attacker.SetUnitClass(UnitClass.Cavalry);
+            attacker.EnableUpgradeDamageScaling();
             // Item 3 (Area of Effect / Trample, docs/PARTIAL_ELEMENTS_FIX_PLAN.md):
             // a charging Cavalry hit also lightly damages any other hostile
             // clumped within 1.25 units of the impact point - below

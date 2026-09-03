@@ -1,4 +1,6 @@
 using UnityEngine;
+using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Progression;
 using KingdomsOfBharat.Units;
 
 namespace KingdomsOfBharat.Combat
@@ -28,9 +30,15 @@ namespace KingdomsOfBharat.Combat
         private WaterMover _mover;
         private Attackable _self;
         private Attackable _target;
+        private FactionMember _faction;
+        private bool _factionResolved;
         private float _cooldown;
         private float _damageMultiplier = 1f;
         private float _damageBonus;
+        // Wave 0 item 2 (retroactive upgrade rule): opt-in, mirrors
+        // MeleeAttacker.EnableUpgradeDamageScaling - only WarGalleyFactory
+        // calls this (the sole BoatAttacker user).
+        private bool _upgradeDamageScaling;
 
         public bool IsAttacking => _target != null;
 
@@ -40,6 +48,21 @@ namespace KingdomsOfBharat.Combat
         }
 
         private Attackable Self => _self != null ? _self : (_self = GetComponent<Attackable>());
+
+        // Resolved lazily, not cached in Awake - same convention as
+        // MeleeAttacker.Faction.
+        private FactionMember Faction
+        {
+            get
+            {
+                if (!_factionResolved)
+                {
+                    TryGetComponent(out _faction);
+                    _factionResolved = true;
+                }
+                return _faction;
+            }
+        }
 
         public void SetDamageMultiplier(float multiplier)
         {
@@ -59,6 +82,14 @@ namespace KingdomsOfBharat.Combat
         public void SetDamageBonus(float bonus)
         {
             _damageBonus = bonus;
+        }
+
+        // Called only by WarGalleyFactory, which already baked
+        // UpgradeProgress's flat + per-class damage bonus into
+        // SetDamageBonus before this fix.
+        public void EnableUpgradeDamageScaling()
+        {
+            _upgradeDamageScaling = true;
         }
 
         public void AttackMove(Attackable target)
@@ -91,7 +122,10 @@ namespace KingdomsOfBharat.Combat
             _cooldown -= Time.deltaTime;
             if (_cooldown <= 0f)
             {
-                float baseDamage = damage * _damageMultiplier + _damageBonus;
+                float upgradeBonus = _upgradeDamageScaling && Faction != null
+                    ? UpgradeProgress.DamageBonus(Faction.Faction) + UpgradeProgress.ClassDamageBonus(Faction.Faction, unitClass)
+                    : 0f;
+                float baseDamage = damage * _damageMultiplier + _damageBonus + upgradeBonus;
                 float bonus = CombatBonus.Multiplier(unitClass, _target.Class);
                 _target.TakeDamage(baseDamage * bonus, damageType, Self);
                 _cooldown = attackInterval;
