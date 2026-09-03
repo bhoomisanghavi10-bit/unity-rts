@@ -5,6 +5,77 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Scenario Editor heavy path, session 4: richer palette icons
+
+**Scope**: at the user's explicit request ("start item on richer palette art for
+scenario editor"), the last cosmetic item session 1 had flagged as deferred
+("richer palette icons"). `ScenarioEditorMenu`'s Buildings/Units palette had been
+plain text-only buttons since session 1.
+
+**Design**: this project already has real command-card icon assets for almost
+every placeable type - `BuildMenu.cs` already wires them onto its own training/
+building buttons via a small private `AddCommandIcon` helper reading
+`Resources/UI/Icons/<name>.png`. Rather than sourcing new art (against this
+project's standing "asset creation isn't Claude Code's job" rule), this session
+wired the already-provided assets, mirroring an established pattern. Cross-checked
+directly (directory listing, not assumed) against `EntitySpawner.BuildingTypes`
+(`TownCenter`, `Barracks`, `Farm`, `House`, `Wall`, `Gate`, `Tower`, `Market`) and
+`EntitySpawner.UnitTypes` (`Worker`, `Soldier`, `Archer`, `Cavalry`, `Siege`) - the
+exact vocabulary the palette already iterates: 12 of 13 types have a ready icon;
+only `TownCenter` has none (no `build_towncenter.png` exists anywhere in the
+project, since TownCenter is normally auto-spawned rather than player-built
+through any existing menu - no other UI surface ever needed one either).
+
+New `ScenarioEditorMenu.AddPaletteIcon` (private static, local to this file) is
+adapted from `BuildMenu.AddCommandIcon`'s own "load sprite, add a left-anchored
+Image child, inset the label's `offsetMin.x`" shape, but retuned for this file's
+smaller 260×24 palette rows (vs. BuildMenu's 204×28 command cards): a 16×16 icon
+(vs. BuildMenu's 20×20) at a 4px left offset, insetting the label by 22px. A new
+`static readonly Dictionary<string, string> PaletteIconNames` maps each of the 12
+covered type names to its icon file name; `TownCenter` deliberately has no entry,
+so `AddPaletteIcon`'s existing `icon == null` early-return (mirroring
+`AddCommandIcon`'s own defensive handling) leaves it exactly as it already was -
+the same disclosed text-only fallback `BuildMenu.cs` itself already uses for
+Dock/LumberCamp/MiningCamp/Mill. Not shared directly with `BuildMenu.
+AddCommandIcon` (which is `private` to that class, and the two button geometries
+differ enough that reuse would need extra size/offset parameters, not a clean 1:1
+call) - a small, deliberate duplication rather than a premature shared
+abstraction.
+
+**Testing**: pure UI-wiring with no new branching logic, so no new EditMode test
+was added - `BuildMenu`'s own equivalent (`AddCommandIcon`) has none either, for
+the same reason (a static `Resources.Load` + `RectTransform` positioning call, not
+business logic). Ran the full EditMode suite to confirm 200/200 pass unchanged (no
+regression from touching `ScenarioEditorMenu.cs`).
+
+Live-verified via UnityMCP: opened the real editor (destroying the leftover
+`MissionSelectMenu`/`CivPicker` first, same as prior sessions' verification
+technique) and screenshotted the real Buildings/Units palette - confirmed all 12
+icons (Barracks/Farm/House/Wall/Gate/Tower/Market/Worker/Soldier/Archer/Cavalry/
+Siege) render correctly at the left edge of their own row with no text overlap or
+clipping, and `TownCenter`'s row renders cleanly text-only with no broken/missing-
+icon placeholder. A faint background HUD ghost visible in the top-left corner of
+the screenshot was investigated and confirmed unrelated to this session's change -
+`FindObjectsByType<Canvas>` showed no leftover `MissionSelectMenu`/`CivPicker`
+canvas existed; it was the game's own always-present HUD (`UICanvas`,
+`FormationIndicatorCanvas`, both `sortingOrder=0`) showing through the small
+uncovered strip above `ScenarioEditorMenu`'s left-anchored panel, from an earlier
+match still running underneath in the same Play session - pre-existing background
+behavior, not a regression.
+
+**Deferred, not silently dropped**: the same items sessions 1-3 already named -
+per-kind bespoke input widgets (session 2's own item), multiplayer/LAN play of a
+custom scenario. `TownCenter`'s missing icon is a genuine, disclosed asset gap
+(flagged per this project's standing "always flag when a task needs a real art
+asset" rule) - a future session could source a small `build_towncenter.png` if
+wanted, but no other UI surface in this project has ever needed one either, so
+it's not blocking anything beyond this one palette row.
+
+**Files**: `Assets/Scripts/UI/ScenarioEditorMenu.cs`,
+`docs/PARTIAL_ELEMENTS_FIX_PLAN.md`, `CLAUDE.md`.
+
+---
+
 ## 2026-09-03 — Scenario Editor heavy path, session 3: saved-scenario browse list
 
 **Scope**: at the user's explicit request ("start a saved-scenario browse list on

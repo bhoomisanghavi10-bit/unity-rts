@@ -7,6 +7,29 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Scenario Editor heavy path, session 4 (richer palette icons) closed
+  (2026-09-03)** — picked up at the user's explicit request ("start item
+  on richer palette art for scenario editor"), the last cosmetic item
+  session 1 flagged as deferred. This project already has real command-
+  card icon assets for almost every placeable type (`BuildMenu.cs`'s own
+  `build_*`/`train_*` icons under `Resources/UI/Icons/`), so this was a
+  wiring task, not new asset sourcing. New
+  `ScenarioEditorMenu.AddPaletteIcon` (adapted from `BuildMenu.
+  AddCommandIcon`'s own "icon + inset label" shape, retuned for this
+  file's smaller 260×24 palette rows) wires icons onto 12 of 13
+  `EntitySpawner` types. **`TownCenter` is the one confirmed gap** — no
+  `build_towncenter.png` exists anywhere in the project (TownCenter is
+  normally auto-spawned, never player-built through any other menu) —
+  stays text-only, the same disclosed fallback `BuildMenu.cs` itself
+  already uses for Dock/LumberCamp/MiningCamp/Mill. Pure UI-wiring, no new
+  branching logic, so no new test (matching `BuildMenu`'s own equivalent);
+  full suite confirmed 200/200 unchanged. Live-verified via UnityMCP:
+  screenshotted the real palette, all 12 icons render correctly with no
+  text overlap, TownCenter renders cleanly text-only. See
+  `docs/SESSION_LOG.md`'s matching entry for full detail. Next: the user's
+  call among the remaining deferred items (per-kind input widgets,
+  multiplayer play of a custom scenario), or another Roadmap Section 5
+  item.
 - **Scenario Editor heavy path, session 3 (saved-scenario browse list)
   closed (2026-09-03)** — picked up at the user's explicit request ("start
   a saved-scenario browse list on MissionSelectMenu"), the last item
@@ -707,16 +730,18 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: **Scenario Editor heavy path, session 3 (saved-scenario
-  browse list) closed (2026-09-03)** — see this file's own bullet above
-  for full detail. Picked up directly from a deferred item session 1/2
-  both flagged. This is a multi-session epic; the remaining explicitly-
-  deferred items are per-kind bespoke input widgets, richer palette art,
-  and multiplayer/LAN play of a custom scenario — pick up per user
-  direction, no fixed order assumed. Before that: **Scenario Editor heavy
-  path, session 2 (Objective/Trigger authoring) closed (2026-09-03)** —
-  see this file's own bullet above for full detail. Before that:
-  **Scenario Editor heavy path, session 1 (Placements)
+- Currently on: **Scenario Editor heavy path, session 4 (richer palette
+  icons) closed (2026-09-03)** — see this file's own bullet above for full
+  detail. Picked up directly at the user's request, the last cosmetic item
+  session 1 flagged. This is a multi-session epic; the remaining
+  explicitly-deferred items are per-kind bespoke input widgets and
+  multiplayer/LAN play of a custom scenario — pick up per user direction,
+  no fixed order assumed. Before that: **Scenario Editor heavy path,
+  session 3 (saved-scenario browse list) closed (2026-09-03)** — see this
+  file's own bullet above for full detail. Before that: **Scenario Editor
+  heavy path, session 2 (Objective/Trigger authoring) closed
+  (2026-09-03)** — see this file's own bullet above for full detail.
+  Before that: **Scenario Editor heavy path, session 1 (Placements)
   closed (2026-09-03)** — see this file's own bullet above for full
   detail. Before that: **item 6 (Scenario Editor) light path
   closed (2026-09-03)** — see this file's own bullet above for full

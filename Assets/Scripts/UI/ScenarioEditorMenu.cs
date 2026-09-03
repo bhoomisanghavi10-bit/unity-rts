@@ -758,6 +758,32 @@ namespace KingdomsOfBharat.UI
             }
         }
 
+        // Heavy path session 4 ("richer palette art"): every EntitySpawner
+        // type name that has a matching command-card icon already wired
+        // elsewhere (BuildMenu.cs's own build_*/train_* icons under
+        // Resources/UI/Icons/). TownCenter deliberately has no entry - no
+        // build_towncenter.png exists anywhere in the project (confirmed
+        // by directory listing, not assumed) since TownCenter is normally
+        // auto-spawned rather than player-built through a menu elsewhere -
+        // it stays text-only in the palette, the same disclosed fallback
+        // BuildMenu.cs itself already uses for Dock/LumberCamp/MiningCamp/
+        // Mill ("no matching icon asset yet, stay text-only").
+        private static readonly Dictionary<string, string> PaletteIconNames = new Dictionary<string, string>
+        {
+            { "Barracks", "build_barracks" },
+            { "Farm", "build_farm" },
+            { "House", "build_house" },
+            { "Wall", "build_wall" },
+            { "Gate", "build_gate" },
+            { "Tower", "build_tower" },
+            { "Market", "build_market" },
+            { "Worker", "train_worker" },
+            { "Soldier", "train_soldier" },
+            { "Archer", "train_archer" },
+            { "Cavalry", "train_cavalry" },
+            { "Siege", "train_siege" },
+        };
+
         private void CreatePaletteButton(Transform parent, string type, bool isBuilding, ref float y)
         {
             TMP_Text label = CreateButton(parent, type, new Vector2(150f, y), new Vector2(260f, 24f), () =>
@@ -767,7 +793,42 @@ namespace KingdomsOfBharat.UI
                 SetStatus("Placing: " + type + " (" + _selectedFaction + ")");
             });
             label.fontSize = 13;
+
+            if (PaletteIconNames.TryGetValue(type, out string iconName))
+            {
+                AddPaletteIcon(label, iconName);
+            }
+
             y -= 26f;
+        }
+
+        // Adapted from BuildMenu.AddCommandIcon's own "icon + inset label"
+        // shape, retuned for this file's smaller 260x24 palette rows
+        // (BuildMenu's own command cards are 204x28) rather than shared
+        // directly - the two button geometries differ enough that reusing
+        // one method would need extra size/offset parameters, not a clean
+        // 1:1 call.
+        private static void AddPaletteIcon(TMP_Text label, string iconName)
+        {
+            Sprite icon = Resources.Load<Sprite>("UI/Icons/" + iconName);
+            if (icon == null)
+            {
+                return;
+            }
+
+            Transform button = label.transform.parent;
+            var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            iconGo.transform.SetParent(button, false);
+            var iconRect = iconGo.GetComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0f, 0.5f);
+            iconRect.anchorMax = new Vector2(0f, 0.5f);
+            iconRect.pivot = new Vector2(0f, 0.5f);
+            iconRect.sizeDelta = new Vector2(16f, 16f);
+            iconRect.anchoredPosition = new Vector2(4f, 0f);
+            iconGo.GetComponent<Image>().sprite = icon;
+
+            RectTransform labelRect = label.GetComponent<RectTransform>();
+            labelRect.offsetMin = new Vector2(22f, labelRect.offsetMin.y);
         }
 
         private static TMP_Text CreateLabel(Transform parent, string text, Vector2 position, int fontSize, TextAlignmentOptions alignment, float wrapWidth = 260f)

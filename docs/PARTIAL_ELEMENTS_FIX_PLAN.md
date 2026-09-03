@@ -17,7 +17,7 @@ one item per session, Plan Mode before nontrivial changes, test before done, log
 | 3 | Area of Effect / Trample damage | **Done (2026-09-03)** — Cavalry trample via a generalized splash-damage multiplier |
 | 4 | Diplomacy (tribute) | **Done (2026-09-03)** — stance UI already existed; added Tribute + buttons |
 | 5 | Renewable resource (Farm reseed) | **Farm half done (2026-09-03)**; Fish Trap still deferred/asset-blocked |
-| 6 | Scenario Editor | **Light path done; heavy path sessions 1 (Placements), 2 (Objective/Trigger authoring), and 3 (saved-scenario browse list) done (2026-09-03)** |
+| 6 | Scenario Editor | **Light path done; heavy path sessions 1 (Placements), 2 (Objective/Trigger authoring), 3 (saved-scenario browse list), and 4 (palette icons) done (2026-09-03)** |
 
 Fish Trap (part of item 5) and a full in-game visual level editor (part of item 6) are called
 out as **blocked on asset sourcing / a scope decision**, not part of this implementation pass,
@@ -288,8 +288,38 @@ larger, asset-blocked item — don't bundle it into the same session.
 ---
 
 ## 6. Scenario Editor — light path (CSV-authoring) **Done**; heavy path sessions 1
-(Placements), 2 (Objective/Trigger authoring), and 3 (saved-scenario browse list) —
-**Done (2026-09-03)**
+(Placements), 2 (Objective/Trigger authoring), 3 (saved-scenario browse list), and
+4 (palette icons) — **Done (2026-09-03)**
+
+**Heavy path, session 4 result**: picked up per the user's explicit request ("start
+item on richer palette art for scenario editor"), the last cosmetic item session 1
+flagged as deferred ("richer palette icons"). This project already has real
+command-card icon assets for almost every placeable type - `BuildMenu.cs` already
+wires them via its own `AddCommandIcon` helper reading `Resources/UI/Icons/
+<name>.png` - so this was a wiring task (reusing already-provided assets), not new
+asset sourcing, consistent with this project's standing rule that asset creation
+isn't Claude Code's job. Cross-referencing `EntitySpawner.BuildingTypes`/
+`UnitTypes` (the exact vocabulary `ScenarioEditorMenu`'s palette already iterates)
+against the real `Resources/UI/Icons/` folder found **12 of 13 entries have a ready
+icon; only `TownCenter` has none** (no `build_towncenter.png` exists anywhere in
+the project - TownCenter is normally auto-spawned, never player-built through any
+existing menu, so no other UI surface ever needed one either). New
+`ScenarioEditorMenu.AddPaletteIcon` (adapted from `BuildMenu.AddCommandIcon`'s own
+"icon + inset label" shape, retuned for this file's smaller 260×24 palette rows vs.
+BuildMenu's 204×28 command cards - not shared directly, since the geometries differ
+enough that reuse would need extra parameters) wires all 12; `TownCenter` stays
+text-only, the same disclosed fallback `BuildMenu.cs` itself already uses for
+Dock/LumberCamp/MiningCamp/Mill - a precedented pattern in this exact codebase, not
+invented for this session. Pure UI-wiring with no new branching logic, so no new
+EditMode test was added (matching `BuildMenu`'s own equivalent, which has none for
+the same reason); ran the full suite to confirm 200/200 unchanged. Live-verified via
+UnityMCP: opened the real editor and screenshotted the Buildings/Units palette -
+all 12 icons render correctly next to their labels with no text overlap/clipping,
+and TownCenter's row renders cleanly text-only with no broken/missing-icon
+placeholder. See `docs/SESSION_LOG.md` for full detail.
+
+<details>
+<summary>Heavy path, session 3 result (for reference)</summary>
 
 **Heavy path, session 3 result**: picked up per the user's explicit request ("start
 a saved-scenario browse list on MissionSelectMenu"), the last item session 1/2 both
@@ -320,6 +350,8 @@ saved scenario exactly - not the hand-coded/CSV mission list's own content. Test
 scenario files deleted after verification. Explicitly still out of scope: deleting/
 renaming a saved scenario from this browse list (editor-only for now), row metadata
 (civ/map/placement count), thumbnail art. See `docs/SESSION_LOG.md` for full detail.
+
+</details>
 
 <details>
 <summary>Heavy path, session 2 result (for reference)</summary>
