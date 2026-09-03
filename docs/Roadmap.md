@@ -776,19 +776,160 @@ entirely. What follows is the real remaining list.
 
 ### Lower priority — real gaps, but not urgent
 
-- [ ] **Music is entirely absent** — item 42's audio pass was explicitly SFX-only.
-- [ ] **No dedicated new-player tutorial** — the 3 campaign missions are real content
-  but aren't a "learn to play" onboarding flow; a genuinely new player still has only
-  the README to go on.
-- [ ] **No profiling/optimization pass at real scale** — maps were scaled up 2.5x
-  (item, Phase 5) and the map-unaware-systems bugs were fixed, but nobody has profiled
-  actual frame cost with a realistic large-match unit count on the new map sizes.
-- [ ] **Store/marketing assets** — not started, only relevant if a public release is
-  a real goal; worth deciding intent explicitly rather than leaving implicit.
-- [ ] **README drift** — the roadmap doc's own maintenance rule says to keep README's
-  "Build milestones" section in sync; given the sheer volume of work past milestone
-  26, confirm that section actually reflects current reality before it's read by
-  anyone (including a future Claude Code session bootstrapping from it).
+**Planned 2026-09-03** (scoping-only session, at the user's explicit request —
+"plan out the items in everything else" — nothing below was implemented this
+session). Each item is now broken into what's actually blocked vs. genuinely
+doable-now, and given a recommended order. Sourced from a fresh read of the
+actual repo (`Assets/Scripts/Audio/SfxPlayer.cs`, `Assets/Scripts/Match/
+MissionObjective.cs`/`MissionTrigger.cs`, `Assets/Scripts/UI/
+MissionSelectMenu.cs`, `README.md`), not assumed from prior session-log
+claims.
+
+- [ ] **Music is entirely absent** — item 42's audio pass was explicitly
+  SFX-only. **Doable now, not blocked on the user**: `SfxPlayer.cs`'s own
+  header comment documents its SFX clips came from Kenney.nl (CC0, no
+  attribution required) — the same source has a dedicated Music Jingles/RPG
+  Music pack, also CC0, and this environment's internet access is already
+  confirmed working (used to fetch `UnityMeshSimplifier` via a UPM git URL).
+  A future session can fetch tracks the same self-serve way the SFX pass did,
+  no user sourcing step required (unlike the art-asset items above).
+  **Scope**: new `Assets/Scripts/Audio/MusicPlayer.cs` mirroring `SfxPlayer`'s
+  static-class/lazy-load convention, but needs a persistent looping
+  `AudioSource` + crossfade (SFX's one-shot `PlayClipAtPoint` pattern doesn't
+  fit background music). Suggested layers, cheapest-to-richest: (1) one menu
+  track + one gameplay track, manually swapped on scene load — a real,
+  shippable v1 on its own; (2) a combat-state crossfade (swap to a
+  higher-intensity track when any `Attackable` on the player's side takes
+  damage within N seconds, fall back after a cooldown) — the natural
+  "dynamic" layer AoE-style games use, driven off the same `Attackable.
+  OnDamaged` event `WorkerCombatResponseDefaults` already consumes, so no new
+  hook needed. Per-civ leitmotifs (5 distinct gameplay tracks instead of one
+  shared) would need 5x the CC0 track sourcing — worth flagging as a stretch
+  option when scoping starts, not assumed as v1's bar. **Recommended
+  priority: do this one first among the 5** — it's genuinely code-and-fetch
+  work with zero external blocker, unlike 3 of the other 4 items below.
+- [ ] **No dedicated new-player tutorial** — the 3 campaign missions are real
+  content but aren't a "learn to play" onboarding flow; a genuinely new
+  player still has only the README to go on. **Doable now, no new asset
+  need** — the mission system this would ride on already exists and is
+  proven (`MissionObjective.cs`, `MissionTrigger.cs`,
+  `MissionSelectMenu.cs`), so this is pure content/data authoring against an
+  existing pipeline, the same shape of work as adding a 4th campaign
+  mission, not a new system. **Scope**: a new "Tutorial" entry in
+  `MissionSelectMenu`, gated to explain one mechanic per `MissionObjective`
+  step in the AoE-campaign-mission style already established — e.g. step 1
+  "select your Town Center and train a Worker" (objective: Population ≥
+  starting+1), step 2 "gather 50 Wood" (objective: Wood stockpile
+  threshold), step 3 "build a House", step 4 "build a Barracks and train a
+  Soldier", step 5 "attack-move the Soldier onto the target dummy or a weak
+  scripted enemy" — each step's completion driven by a `MissionTrigger`
+  polling the relevant stockpile/population/unit-count state, matching how
+  the existing 3 missions already gate progression. **Real design decision
+  to make explicitly before writing it, not guess at**: should the tutorial
+  be a scripted no-fail hand-holding flow (each step blocks input until
+  done, like a strict onboarding wizard) or a soft-guided real mini-match
+  (objectives shown as a checklist/toast via the existing `MissionToast.cs`,
+  but the player can freely act outside the intended order)? The existing 3
+  missions are the soft-guided style — recommend matching that precedent
+  unless the user wants something stricter. **Recommended priority: second**
+  — also has zero external blocker, and directly serves anyone trying the
+  game for the first time.
+- [ ] **No profiling/optimization pass at real scale** — maps were scaled up
+  2.5x (Phase 5-era item) and the map-unaware-systems bugs that surfaced were
+  fixed, but nobody has profiled actual frame cost with a realistic
+  large-match unit count on the current map sizes. **Doable now, no
+  blocker** — `mcp__UnityMCP__manage_profiler` (this project's own Unity-MCP
+  tool surface) can drive the real Unity Profiler directly, the same way
+  past sessions used `execute_code`/`run_tests` for live verification; no
+  new tooling needs to be added first. **Scope**: (1) spawn a realistic
+  large-match scenario — both factions near a raised population cap (several
+  Houses built), a mix of unit types (Workers gathering, Soldiers/Archers/
+  Cavalry/Siege in a formation, at least one active naval fight if a Coastal
+  map is used), civ-specific building models on screen (the ~500,000-tri/
+  building decimation target means a full 9-building base is still ~4.5M
+  triangles — worth specifically checking this isn't a GPU-bound bottleneck
+  now that it's real geometry, not a placeholder); (2) profile with the real
+  Profiler (CPU: `Update`/`FixedUpdate` cost per system — `NavMeshAgent`
+  count is the most likely single largest cost given how many components
+  poll it directly (`UnitMover`, `WaterMover`, `GarrisonSeeker`, etc.);
+  Rendering: draw calls/batching with 45 real civ-specific models plus
+  environment-prop variants; Memory/GC: `Gatherer`/`Builder`/combat systems'
+  per-tick allocations, a classic hidden RTS-at-scale cost); (3) fix what's
+  actually found to be a real bottleneck rather than optimizing
+  speculatively — this item is explicitly a *measurement* task first, a fix
+  task second, and should report the real numbers (frame time, draw calls,
+  GC alloc/frame) before touching anything. **Recommended priority: third**
+  — no blocker, but lower urgency than the two above since nothing is
+  currently reported as unplayably slow; this is preventative.
+- [ ] **Store/marketing assets** — not started. **Genuinely blocked on a
+  decision only the user can make, not on sourcing or code** — the item's
+  own framing ("only relevant if a public release is a real goal") is the
+  actual blocker: this isn't scopeable further without first knowing (a)
+  is a public release (Steam page, itch.io, etc.) actually intended, and if
+  so (b) roughly when, since store assets (capsule/header images, trailer,
+  screenshots, store description) are usually done late, close to a real
+  release candidate build, not speculatively early. **Recommended action for
+  the next session that reaches this item: ask the user directly whether
+  public release is a real goal before scoping anything further** — do not
+  start speculative store-asset work without that answer, per this project's
+  own "asset sourcing/intent decisions aren't Claude Code's to assume" norm.
+  **Recommended priority: last of the 5**, and only after an explicit
+  intent-confirming conversation, not by default sequencing.
+- [ ] **README drift** — the roadmap doc's own maintenance rule says to keep
+  README's "Build milestones" section in sync; confirmed by re-reading
+  `README.md` directly this session: it is badly stale, not just mildly
+  behind. It still describes "the first playable prototype," a single
+  ~40x40 map, "one generic Kingdom civilization template," and "no naval
+  mechanics" as the *current* scope (lines 6-19), and its milestone list
+  stops at **26** (the 2026-08-xx uGUI/TextMeshPro swap) — everything since
+  (civ-specific building art across 5 civs, naval warfare, diplomacy/
+  alliances, formations, rally points, control groups, save/load, settings
+  menu, the entire worker-mechanics-audit feature set, team bonuses, general
+  garrisoning, repair, LAN multiplayer) is undocumented for a reader who
+  only opens `README.md`. **Doable now, no blocker, pure doc-writing work**
+  — the single most immediately actionable item of the 5. **Scope**: rewrite
+  the "Scope of this prototype" section to reflect the real current state
+  (5 civs, naval, multiplayer LAN, real art), and extend "Build milestones"
+  past 26 with the real subsequent milestones — this roadmap's own Section 5
+  numbered list and `docs/SESSION_LOG.md` are the authoritative source to
+  compress from, not guesswork. **Recommended priority: do this alongside
+  or immediately after the music item** — it's the cheapest of the 5 and the
+  one most likely to actively mislead someone (including a future Claude
+  Code session bootstrapping context) the longer it's left as-is.
+
+- [ ] **Fish Trap** (part of item 5, `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` —
+  flagged 2026-09-03, deliberately not touched that session, kept in the
+  project for a later one at the user's explicit request). Farm's own
+  "Renewable resource" gap was closed that session (real depletion + reseed,
+  see `docs/SESSION_LOG.md`'s matching entry), but Fish Trap — a placeable
+  water-adjacent food building, AoE's naval-economy counterpart to Farm — is
+  genuinely new content, not a fix: no such building exists anywhere in the
+  codebase today (no script, no model, no factory). **Blocked on the user
+  sourcing a model** (1 generic model, or 1 per civ if it should match the
+  rest of the building roster's civ-specific standard, per this project's
+  own "asset sourcing/creation is NOT Claude Code's job right now" rule —
+  see this file's own sourcing-checklist section and the cursor-pack/Maurya-
+  crest precedent for how that gap gets handled: flagged to the user, never
+  substituted with a low-confidence placeholder). **Once a model exists,
+  wiring it in is small, mechanical work** — same `MeshyBuildingImporter`/
+  `BuildingModelFactory` pipeline every other building already uses, plus a
+  new `FishTrap`/`FishTrapFactory` pair that can mostly mirror `Farm`/
+  `FarmFactory`'s now-just-closed depletion+reseed shape (a Food-bearing
+  building near water, likely without the land-based reseed action - real
+  AoE's Fish Trap is destroyed and rebuilt rather than reseeded in place,
+  a design question worth confirming with the user rather than assuming
+  when this item is actually picked up).
+
+**Suggested overall order for future sessions**: README drift and Music can
+run in either order first (both zero-blocker, cheap); Tutorial next (zero
+blocker, more content-authoring effort); Profiling after that (zero blocker,
+but a measurement task with no known urgent problem driving it); Store/
+marketing assets last, gated on an explicit user go/no-go on public release
+before any scoping work begins. Fish Trap sits alongside Store/marketing
+assets as the other asset-sourcing-blocked item — pick it up whenever the
+user supplies a model, not on a fixed schedule. Per this project's own
+session protocol, each should still be its own separate session/commit, not
+batched.
 
 ---
 
@@ -1348,9 +1489,16 @@ buying, or making an asset yourself:
    session's scope** — 15 real fights logged, roster coverage gaps filled, stacking
    audited and confirmed correct (no code fix needed). Training cost-vs-power ratios
    and continued sustained playtesting remain open for a future balance session.
-6. Everything else (music, tutorial, performance profiling, store assets) is
-   real but lower-urgency — sequence after the above based on what you want to
-   prioritize next, not by default order. UI skin's code-side work (9-slice polish
+6. Everything else (music, tutorial, performance profiling, store assets,
+   README drift) is real but lower-urgency — **scoped in detail 2026-09-03**
+   (Section 1's "Lower priority" subsection): README drift and Music are
+   zero-blocker and cheapest, do those first (in either order); Tutorial next
+   (zero blocker, more effort); Profiling after that (zero blocker, no known
+   urgent problem driving it); Store/marketing assets last, gated on an
+   explicit user go/no-go on public release before any work starts — see
+   Section 1 for the full per-item breakdown, including which are genuinely
+   doable now (4 of 5, all but store assets) vs. blocked on a real user
+   decision (store assets alone). UI skin's code-side work (9-slice polish
    pass, item 9 below) is done; what remains is art-only (Maurya crest recolor, 5th
    cursor), not a code task.
 7. ~~**Per-civ architectural differentiation, architecture groundwork** — audited
