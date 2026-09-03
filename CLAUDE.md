@@ -7,6 +7,25 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Fixed (2026-09-03): the Objectives tab `RectMask2D` over-culling bug
+  flagged (not fixed) at the end of session 6 below, via `task_545a0590`'s
+  follow-up.** Root cause: not an engine bug — every row/label/field under
+  the growing `_objectivesScrollContent` was anchored to that rect's
+  shifting CENTER `(0.5,0.5)` instead of its fixed TOP edge, so as content
+  grew past ~7 rows the anchor drift pushed rows genuinely outside the
+  scroll viewport's clip rect (RectMask2D was correctly culling them, just
+  not where anyone intended). Fixed via a new `anchorTop` parameter on
+  `CreateLabel`/`CreateButton`/`CreateInputField` (default `false`,
+  every other call site unaffected), threaded through every creator call
+  parented to `_objectivesScrollContent`. 204 EditMode tests pass
+  unmodified (pure anchor-data change). Live-verified via UnityMCP: real
+  10-row Objectives tab, confirmed early rows land at their exact intended
+  `anchoredPosition` and render, confirmed the rows still reading
+  `culled=true` at default scroll are legitimately below the viewport
+  (scrolling to the bottom correctly un-culls exactly those) — i.e. what's
+  left is real scroll clipping, not the bug. Screenshotted the real Game
+  View. See `docs/SESSION_LOG.md`'s matching entry for full detail. Next:
+  another Roadmap Section 5 item, user's call.
 - **Scenario Editor heavy path, session 6 (per-kind bespoke input
   widgets) closed (2026-09-03) — this closes the entire Scenario Editor
   heavy-path epic.** Picked up at the user's explicit request ("start

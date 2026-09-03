@@ -5,6 +5,60 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Fix: Objectives tab RectMask2D over-culling (`task_545a0590` follow-up)
+
+**Scope**: dedicated follow-up to the bug flagged (not fixed) at the end of
+heavy-path session 6 below — the Objectives tab's scroll content renders
+completely blank once it grows past roughly 7 objective/trigger rows.
+
+**Root cause found**: not an engine bug. `RefreshObjectivesSection()` resizes
+`_objectivesScrollContent`'s own `RectTransform.sizeDelta.y` every rebuild
+(needed so `ScrollRect` knows its real scroll extent), but every row/label/
+field under it was created via `CreateLabel`/`CreateButton`/`CreateInputField`
+with the default `anchorMin`/`anchorMax = (0.5, 0.5)` - the CENTER of that
+growing rect - while their `anchoredPosition.y` was computed by the caller's
+own accumulating `y` variable, which assumes a fixed TOP origin. As Content's
+height grows, its center-anchor point drifts further down each rebuild
+(`-height/2`), silently pulling every child away from the position the `y`
+math intended - for small row counts the drift was too small to notice, but
+past ~7 rows it pushed rows outside the scroll viewport's actual clip rect
+entirely. `RectMask2D` was correctly culling them - they genuinely were
+outside its bounds, just not the bounds anyone intended. This is why
+disabling the mask "fixed" it in the prior session's testing (removed the
+correct clip, not the actual bug) and why DestroyImmediate/
+ForceUpdateCanvases/toggling the mask all did nothing (none of those touch
+anchoring).
+
+**Fix**: added an `anchorTop` parameter to `CreateLabel`/`CreateButton`/
+`CreateInputField` (default `false`, preserving every other call site's
+existing center-anchor behavior against their own fixed-size parents, which
+never had this problem). Every call site that parents directly to
+`_objectivesScrollContent` - in `RefreshObjectivesSection`,
+`BuildObjectiveRowUi`, `BuildTriggerRowUi`, `BindTextField`, and
+`BindEnumCycleField` - now passes `anchorTop: true`, anchoring those children
+to Content's fixed top edge `(0.5, 1)` instead of its shifting center,
+matching what the `y` accumulator already assumed. Removed the stale
+"KNOWN BUG, not fixed here" comment block that documented the original
+(now-resolved) finding.
+
+**Verification**: all 204 EditMode tests pass unmodified (pure anchor-data
+change, no new logic). Live-verified via UnityMCP through the real
+production path: opened the real Scenario Editor via
+`MissionSelectMenu.ChooseCreateScenario`, populated 10 real `ObjectiveRow`s
+(past the ~7-row threshold that broke before), called the real
+`RefreshObjectivesSection()`. Confirmed every early row's `anchoredPosition`
+now matches its intended offset exactly (e.g. row 0's Kind button at
+`(150, -24)`, not drifted) and renders uncalled; confirmed the later rows
+that read `culled=true` at the default scroll position are legitimately
+below the 464px-tall viewport (proved by setting
+`ScrollRect.verticalNormalizedPosition = 0` to scroll to the bottom, which
+correctly un-culled exactly those rows) - i.e. what remains "culled" now is
+real, correct scroll clipping, not the bug. Screenshotted the real Game View
+showing rows 0-3+ rendering cleanly (`Assets/Screenshots/
+scenario_editor_objectives_fix_top.png`).
+
+---
+
 ## 2026-09-03 — Scenario Editor heavy path, session 6: per-kind bespoke input widgets
 
 **Scope**: at the user's explicit request ("start item on per-kind bespoke input

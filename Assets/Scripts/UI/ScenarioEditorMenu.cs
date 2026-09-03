@@ -669,36 +669,13 @@ namespace KingdomsOfBharat.UI
                 return;
             }
 
-            // KNOWN BUG, found live this session (heavy path session 6),
-            // not fixed here - flagged as a follow-up item rather than
-            // silently left unnoticed: once this Objectives tab's content
-            // grows past roughly 7 rows (~40+ UI GameObjects under
-            // _objectivesScrollContent), the scroll viewport's RectMask2D
-            // starts reporting CanvasRenderer.cull=true for every child -
-            // including ones well within the visible viewport bounds - so
-            // the whole tab renders blank despite the content itself being
-            // built correctly (confirmed via reflection: correct child
-            // count/labels/values every time; confirmed via disabling the
-            // RectMask2D entirely, which restores visibility). Root cause
-            // not fully isolated - tried DestroyImmediate instead of
-            // Destroy here (ruled out: cull flips back to true on a later
-            // frame regardless), Canvas.ForceUpdateCanvases, toggling the
-            // mask's enabled state, and this project's own documented
-            // EditorApplication.QueuePlayerLoopUpdate fix for stuck-frame
-            // issues - none resolved it. This is a pre-existing latent bug
-            // (any 5+ objective/trigger list would have hit it since
-            // session 2, this session's own widget change didn't introduce
-            // it - a fresh per-kind field count is roughly the same order
-            // of magnitude as the old generic Param1-N fields), not
-            // something this session's own scope (per-kind input widgets)
-            // is responsible for fixing outright.
             for (int i = _objectivesScrollContent.childCount - 1; i >= 0; i--)
             {
                 Destroy(_objectivesScrollContent.GetChild(i).gameObject);
             }
 
             float y = 0f;
-            CreateLabel(_objectivesScrollContent, "Objectives", new Vector2(150f, y), 16, TextAlignmentOptions.Center);
+            CreateLabel(_objectivesScrollContent, "Objectives", new Vector2(150f, y), 16, TextAlignmentOptions.Center, anchorTop: true);
             y -= 24f;
 
             foreach (ObjectiveRow row in _objectiveRows)
@@ -710,10 +687,10 @@ namespace KingdomsOfBharat.UI
             {
                 _objectiveRows.Add(new ObjectiveRow { kind = ObjectiveKind.SurviveSeconds, param1 = string.Empty, param2 = string.Empty, param3 = string.Empty, description = string.Empty });
                 RefreshObjectivesSection();
-            });
+            }, anchorTop: true);
             y -= 36f;
 
-            CreateLabel(_objectivesScrollContent, "Triggers", new Vector2(150f, y), 16, TextAlignmentOptions.Center);
+            CreateLabel(_objectivesScrollContent, "Triggers", new Vector2(150f, y), 16, TextAlignmentOptions.Center, anchorTop: true);
             y -= 24f;
 
             foreach (TriggerRow row in _triggerRows)
@@ -725,19 +702,19 @@ namespace KingdomsOfBharat.UI
             {
                 _triggerRows.Add(new TriggerRow { kind = TriggerKind.GrantResourceAtTime, param1 = string.Empty, param2 = string.Empty, param3 = string.Empty, param4 = string.Empty, param5 = string.Empty });
                 RefreshObjectivesSection();
-            });
+            }, anchorTop: true);
             y -= 36f;
 
-            CreateLabel(_objectivesScrollContent, "Victory Text (optional)", new Vector2(150f, y), 12, TextAlignmentOptions.Center);
+            CreateLabel(_objectivesScrollContent, "Victory Text (optional)", new Vector2(150f, y), 12, TextAlignmentOptions.Center, anchorTop: true);
             y -= 20f;
-            _victoryTextField = CreateInputField(_objectivesScrollContent, new Vector2(150f, y), "Victory message...", height: 26f);
+            _victoryTextField = CreateInputField(_objectivesScrollContent, new Vector2(150f, y), "Victory message...", height: 26f, anchorTop: true);
             _victoryTextField.text = _victoryText;
             _victoryTextField.onValueChanged.AddListener(v => _victoryText = v);
             y -= 32f;
 
-            CreateLabel(_objectivesScrollContent, "Defeat Text (optional)", new Vector2(150f, y), 12, TextAlignmentOptions.Center);
+            CreateLabel(_objectivesScrollContent, "Defeat Text (optional)", new Vector2(150f, y), 12, TextAlignmentOptions.Center, anchorTop: true);
             y -= 20f;
-            _defeatTextField = CreateInputField(_objectivesScrollContent, new Vector2(150f, y), "Defeat message...", height: 26f);
+            _defeatTextField = CreateInputField(_objectivesScrollContent, new Vector2(150f, y), "Defeat message...", height: 26f, anchorTop: true);
             _defeatTextField.text = _defeatText;
             _defeatTextField.onValueChanged.AddListener(v => _defeatText = v);
             y -= 26f;
@@ -751,7 +728,7 @@ namespace KingdomsOfBharat.UI
             {
                 row.kind = NextEnum(row.kind);
                 RefreshObjectivesSection();
-            });
+            }, anchorTop: true);
             y -= 26f;
 
             ParamFieldSpec[] specs = ObjectiveFieldSpecs[row.kind];
@@ -768,7 +745,7 @@ namespace KingdomsOfBharat.UI
             {
                 _objectiveRows.Remove(row);
                 RefreshObjectivesSection();
-            });
+            }, anchorTop: true);
             y -= 32f;
         }
 
@@ -778,7 +755,7 @@ namespace KingdomsOfBharat.UI
             {
                 row.kind = NextEnum(row.kind);
                 RefreshObjectivesSection();
-            });
+            }, anchorTop: true);
             y -= 26f;
 
             ParamFieldSpec[] specs = TriggerFieldSpecs[row.kind];
@@ -793,7 +770,7 @@ namespace KingdomsOfBharat.UI
             {
                 _triggerRows.Remove(row);
                 RefreshObjectivesSection();
-            });
+            }, anchorTop: true);
             y -= 32f;
         }
 
@@ -821,7 +798,7 @@ namespace KingdomsOfBharat.UI
 
         private void BindTextField(Transform parent, ref float y, string placeholder, string initialValue, Action<string> onChanged)
         {
-            TMP_InputField field = CreateInputField(parent, new Vector2(150f, y), placeholder, height: 26f);
+            TMP_InputField field = CreateInputField(parent, new Vector2(150f, y), placeholder, height: 26f, anchorTop: true);
             field.text = initialValue ?? string.Empty;
             field.onValueChanged.AddListener(v => onChanged(v));
             y -= 30f;
@@ -856,7 +833,7 @@ namespace KingdomsOfBharat.UI
                 string next = options[(index + 1) % options.Length];
                 onChanged(next);
                 RefreshObjectivesSection();
-            });
+            }, anchorTop: true);
             y -= 30f;
         }
 
@@ -955,13 +932,27 @@ namespace KingdomsOfBharat.UI
             labelRect.offsetMin = new Vector2(22f, labelRect.offsetMin.y);
         }
 
-        private static TMP_Text CreateLabel(Transform parent, string text, Vector2 position, int fontSize, TextAlignmentOptions alignment, float wrapWidth = 260f)
+        // anchorTop: true anchors this element to its parent's fixed TOP
+        // edge (0.5, 1) instead of the default (0.5, 0.5) center. Needed
+        // for any child of a RectTransform whose own sizeDelta.y grows
+        // over time (e.g. _objectivesScrollContent, resized every
+        // RefreshObjectivesSection() so ScrollRect knows its scroll
+        // extent) - a center anchor point drifts downward as that parent
+        // grows, silently pulling every "position.y" (which assumes a
+        // fixed top-origin, matching the accumulating `y` variable callers
+        // use) further from where it's supposed to land, eventually past
+        // the scroll viewport's clip rect entirely. See the RectMask2D
+        // over-culling bug this was written to fix (heavy path session 6
+        // follow-up, flagged via spawn_task task_545a0590). Fixed-size
+        // parents (every other call site) are unaffected either way, since
+        // a fixed-size rect's center and top are both constant points.
+        private static TMP_Text CreateLabel(Transform parent, string text, Vector2 position, int fontSize, TextAlignmentOptions alignment, float wrapWidth = 260f, bool anchorTop = false)
         {
             var go = new GameObject("Label_" + text);
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.anchorMin = new Vector2(0.5f, anchorTop ? 1f : 0.5f);
+            rect.anchorMax = new Vector2(0.5f, anchorTop ? 1f : 0.5f);
             rect.sizeDelta = new Vector2(wrapWidth, 30f);
             rect.anchoredPosition = position;
 
@@ -974,13 +965,13 @@ namespace KingdomsOfBharat.UI
             return tmp;
         }
 
-        private static TMP_Text CreateButton(Transform parent, string text, Vector2 position, Vector2 size, System.Action onClick)
+        private static TMP_Text CreateButton(Transform parent, string text, Vector2 position, Vector2 size, System.Action onClick, bool anchorTop = false)
         {
             var go = new GameObject("Button_" + text);
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.anchorMin = new Vector2(0.5f, anchorTop ? 1f : 0.5f);
+            rect.anchorMax = new Vector2(0.5f, anchorTop ? 1f : 0.5f);
             rect.sizeDelta = size;
             rect.anchoredPosition = position;
 
@@ -1013,13 +1004,13 @@ namespace KingdomsOfBharat.UI
         // Description/Victory/Defeat field too, hence the placeholder/size
         // parameters (both defaulted to the original name-field values so
         // the one pre-existing call site is unaffected).
-        private static TMP_InputField CreateInputField(Transform parent, Vector2 position, string placeholder = "Scenario name...", float width = 260f, float height = 30f)
+        private static TMP_InputField CreateInputField(Transform parent, Vector2 position, string placeholder = "Scenario name...", float width = 260f, float height = 30f, bool anchorTop = false)
         {
             var go = new GameObject("InputField_" + placeholder);
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.anchorMin = new Vector2(0.5f, anchorTop ? 1f : 0.5f);
+            rect.anchorMax = new Vector2(0.5f, anchorTop ? 1f : 0.5f);
             rect.sizeDelta = new Vector2(width, height);
             rect.anchoredPosition = position;
 
