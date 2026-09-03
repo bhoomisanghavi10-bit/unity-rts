@@ -5,6 +5,108 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Partial-Elements Fix Plan item 6: Scenario Editor (light path, CSV-authored missions)
+
+**Scope**: `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 6 ("Scenario Editor — recommend
+the lightweight (CSV-authoring) path"), picked up right after item 5 per the user's
+"start item 6". Reading `MissionObjective.cs`/`MissionTrigger.cs`/
+`ScenarioDefinition.cs`/`ScenarioRegistry.cs` directly (not trusting the plan's own
+premise that the existing CSV pipeline "extends the same way civ/unit/tech data
+already works") surfaced a real architecture correction: `ScenarioDefinition.
+BuildObjectives`/`BuildTriggers` are `System.Func<>` delegates, and Unity cannot
+serialize a delegate into a ScriptableObject asset - so unlike `TechNode`/
+`UnitDefinition`/`CivilizationDefinition` (all baked at Editor time by
+`CsvToScriptableObject.cs` into `.asset` files loaded via `Resources.Load` at
+runtime), there is no possible Editor-time "bake CSV → asset" step for missions. The
+CSV has to be parsed into real objective/trigger closures **at runtime** instead.
+This is a real, disclosed limitation, not glossed over: a CSV-authored mission is
+restricted to a small, fixed vocabulary of objective/trigger *kinds* a programmer has
+already written a handler for, not literally "any mission logic a non-programmer can
+invent."
+
+**Implementation** (Plan Mode, approved before coding): the vocabulary was sized
+directly off the 3 real hand-coded missions in `ScenarioRegistry.cs` (every
+objective/trigger they use reduces to one of 5 shapes: survive N seconds, own N
+buildings of a kind, destroy a scripted target, grant a resource at a time or on a
+repeating interval) plus 2 more shapes (`ResourceThreshold`/`PopulationThreshold`)
+the Roadmap's own already-scoped Tutorial item explicitly names as objectives it will
+want - forward-compatible with that future work, not invented in isolation. New
+`Assets/Scripts/Match/MissionCsvLoader.cs`: `ObjectiveKind`/`TriggerKind` enums, a
+small self-contained quoted-field-aware CSV parser (mirrors
+`CsvToScriptableObject.ParseCsvLine`'s logic - can't reuse that method directly, it
+lives in the Editor-only assembly), and `LoadAll()`/`BuildFromCsv()` (the latter the
+testable seam, internal, taking CSV strings directly) that read 3 new CSVs
+(`mission_definitions`/`mission_objectives`/`mission_triggers`) as `TextAsset`s under
+`Assets/Resources/Data/Missions/` via `Resources.Load<TextAsset>` (not
+`File.ReadAllLines` against an `Assets/Design/Data` path the way
+`CsvToScriptableObject.ReadCsv` does - that only works in the Editor, not a built
+player) and build real `MissionObjective`/`MissionTrigger` closures via a small
+switch per row. `ScenarioRegistry.All` now merges the 3 hand-coded missions with
+`MissionCsvLoader.LoadAll()`; `MissionSelectMenu.cs` needed **zero changes** since it
+already iterates `ScenarioRegistry.All` directly (confirmed by reading it before
+assuming). One new real sample mission authored purely via the CSVs ("The Muster" -
+Maratha vs. Maurya, `PopulationThreshold` objective + `GrantResourceAtTime` trigger),
+proving the pipeline through the real UI rather than a hidden test fixture. The 3
+existing hand-coded missions were left untouched (not migrated to CSV this session -
+lower risk, avoids re-touching already-tuned narrative content for a same-session
+proof-of-pipeline).
+
+**A real environment problem, not a code bug, cost significant time mid-session**:
+new code stopped appearing in the compiled assembly despite Unity reporting every
+compile as successful with no console errors - confirmed directly via reflection
+(`MissionCsvLoader` absent from the loaded `KingdomsOfBharat.Runtime` assembly) and
+via the DLL's own unchanged on-disk timestamp across multiple forced recompiles.
+Tried (all unsuccessful): `CompilationPipeline.RequestScriptCompilation` with a
+clean-cache flag, `EditorUtility.RequestScriptReload`, forced `AssetDatabase.
+ImportAsset`, the project's own documented `Application.runInBackground`+
+`QueuePlayerLoopUpdate`+repaint fix, and toggling Play mode. Flagged to the user
+directly rather than continuing to guess blindly; the user restarted the Unity
+Editor. **That surfaced the real cause, which had been silently hidden the whole
+time**: reading the actual `~/Library/Logs/Unity/Editor.log` file directly (bypassing
+the MCP console bridge, which had been reporting zero errors throughout - a real gap
+in this session's own verification, not investigated further) showed a genuine `CS0246`
+compile error - `MissionCsvLoader.cs` used `Attackable` (for `DestroyScriptedTarget`)
+without importing `KingdomsOfBharat.Combat`. The Editor restart wasn't itself the fix;
+it was what let the real error become visible. Fixed the missing `using`, then hit
+one more real compile error the same way (`CS1503`, an ambiguous `DamageType` -
+the exact same "two different `DamageType` enums in this codebase" class of bug
+`WildBoar.cs` hit once before, per this project's own documented history) in the new
+test file, fixed by fully qualifying it. **Lesson for future sessions**: when
+`read_console` reports zero errors but new code isn't taking effect, check
+`~/Library/Logs/Unity/Editor.log` directly before assuming an Editor/tooling
+problem - the console bridge can apparently miss real compile errors.
+
+**Testing**: 8 new EditMode tests (`MissionCsvLoaderTests.cs`, 180 total, all pass),
+covering `BuildFromCsv`'s mission-definition parsing and working closures for 4 of
+the 5 objective kinds plus both trigger kinds. `DestroyScriptedTarget` specifically
+could not be covered in EditMode: calling `BarracksFactory.Place` outside Play mode
+throws (`SelectionIndicator.Configure` NREs, confirmed directly - a pre-existing
+limitation of building factories in general, not something introduced by this
+session), so that Kind's EditMode test covers only CSV-row parsing and is explicitly
+verified live instead. Live-verified via UnityMCP through the real production path:
+opened the actual Mission Select menu (screenshot confirmed "The Muster" renders
+correctly alongside the 3 existing missions, no layout changes needed), clicked its
+real button, confirmed the real match started with the CSV's exact civs/map
+(Maratha/Maurya/RiverValley) and the real `ScenarioManager.CurrentObjectives`
+reflected the live objective; spawned real Workers and confirmed the population
+objective flipped to complete through the real `Population.Current` path; confirmed
+the real `GrantResourceAtTime` trigger (loaded via the actual `Resources.
+Load<TextAsset>` path, not the EditMode tests' in-memory strings) correctly granted
+Gold; and confirmed `DestroyScriptedTarget` correctly spawned a real Barracks and
+flipped its objective complete once destroyed - the one Kind EditMode couldn't cover.
+
+**Files**: `Assets/Scripts/Match/MissionCsvLoader.cs` (new),
+`Assets/Scripts/Match/ScenarioRegistry.cs`, `Assets/Resources/Data/Missions/
+mission_definitions.csv`/`mission_objectives.csv`/`mission_triggers.csv` (new),
+`Assets/Tests/EditMode/MissionCsvLoaderTests.cs` (new). One scoped commit.
+`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 6's light path marked done; the heavy path
+stays deferred pending explicit user intent. This closes the last item in that plan
+doc's own recommended order (items 1-6 all now closed, Fish Trap and the heavy
+Scenario Editor path remain explicitly deferred/asset-or-intent-blocked, tracked in
+`docs/Roadmap.md`).
+
+---
+
 ## 2026-09-03 — Partial-Elements Fix Plan item 5: Renewable resource (real Farm depletion + reseed)
 
 **Scope**: `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 5 ("Renewable resource (Farms) —

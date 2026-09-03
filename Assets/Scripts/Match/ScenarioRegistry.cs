@@ -15,12 +15,24 @@ namespace KingdomsOfBharat.Match
     // infrastructure nobody exercises.
     public static class ScenarioRegistry
     {
-        public static readonly List<ScenarioDefinition> All = new List<ScenarioDefinition>
+        // Item 6 (Scenario Editor, docs/PARTIAL_ELEMENTS_FIX_PLAN.md), light
+        // path: the 3 hand-coded missions below stay exactly as they are,
+        // plus any CSV-authored missions MissionCsvLoader finds under
+        // Resources/Data/Missions/ - MissionSelectMenu.cs already iterates
+        // this list directly, so a CSV mission needs no UI change to appear.
+        public static readonly List<ScenarioDefinition> All = BuildAll();
+
+        private static List<ScenarioDefinition> BuildAll()
         {
-            CholaExpansion(),
-            DefendHampi(),
-            RajputFrontier(),
-        };
+            var list = new List<ScenarioDefinition>
+            {
+                CholaExpansion(),
+                DefendHampi(),
+                RajputFrontier(),
+            };
+            list.AddRange(MissionCsvLoader.LoadAll());
+            return list;
+        }
 
         // Objective type: destroy a specific scripted target. The target
         // Barracks is spawned here (in BuildObjectives, not a trigger) so

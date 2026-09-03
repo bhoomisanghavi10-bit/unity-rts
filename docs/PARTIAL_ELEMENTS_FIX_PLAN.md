@@ -17,7 +17,7 @@ one item per session, Plan Mode before nontrivial changes, test before done, log
 | 3 | Area of Effect / Trample damage | **Done (2026-09-03)** — Cavalry trample via a generalized splash-damage multiplier |
 | 4 | Diplomacy (tribute) | **Done (2026-09-03)** — stance UI already existed; added Tribute + buttons |
 | 5 | Renewable resource (Farm reseed) | **Farm half done (2026-09-03)**; Fish Trap still deferred/asset-blocked |
-| 6 | Scenario Editor | Largest scope question — recommend the lightweight path, flag the heavy path |
+| 6 | Scenario Editor | **Light path done (2026-09-03)**; heavy path still deferred pending user intent |
 
 Fish Trap (part of item 5) and a full in-game visual level editor (part of item 6) are called
 out as **blocked on asset sourcing / a scope decision**, not part of this implementation pass,
@@ -287,7 +287,32 @@ larger, asset-blocked item — don't bundle it into the same session.
 
 ---
 
-## 6. Scenario Editor — recommend the lightweight (CSV-authoring) path
+## 6. Scenario Editor — light path (CSV-authoring) — **Done (2026-09-03)**
+
+**Result**: implemented the recommended light path, with a real architecture
+correction found by reading the actual mission system before assuming the existing
+CSV pipeline pattern transfers directly — see `docs/SESSION_LOG.md`'s matching entry
+for full detail. `ScenarioDefinition.BuildObjectives`/`BuildTriggers` are
+`System.Func<>` delegates, which Unity can't serialize into a ScriptableObject asset,
+so unlike Tech/Unit/Civ data there's no Editor-time "bake CSV → asset" step possible
+here — missions are parsed and turned into real closures **at runtime** instead, via
+a new `Assets/Scripts/Match/MissionCsvLoader.cs` reading 3 CSVs
+(`mission_definitions`/`mission_objectives`/`mission_triggers`) as `TextAsset`s under
+`Assets/Resources/Data/Missions/`. A small fixed vocabulary of 5 objective kinds and 2
+trigger kinds (sized directly off the 3 real hand-coded missions in
+`ScenarioRegistry.cs`, plus 2 shapes the Roadmap's own Tutorial item already wants)
+covers real mission content without a general expression language — a disclosed
+limitation, not literally "any mission logic." `ScenarioRegistry.All` now merges the 3
+hand-coded missions with `MissionCsvLoader.LoadAll()`; `MissionSelectMenu.cs` needed
+**zero changes** since it already iterates that list directly. 8 new EditMode tests
+(`MissionCsvLoaderTests.cs`) plus one new real sample mission ("The Muster"), live-
+verified via UnityMCP through the actual Mission Select UI and the real
+`Resources.Load<TextAsset>` path (not just the EditMode tests' in-memory CSV
+strings). The heavy path (a true visual in-game editor) stays deferred, pending
+explicit user intent, per this item's own original scoping below.
+
+<details>
+<summary>Original plan (for reference)</summary>
 
 **Gap:** `MissionObjective`/`MissionTrigger` exist as a real trigger/objective system, but
 there's no player-facing in-game editor tool to build missions — mission authoring today is
@@ -315,6 +340,8 @@ scope until chosen.
 
 **Estimated size:** Light path — small-medium, fits the existing data-pipeline pattern.
 Heavy path — large, separate scoping conversation.
+
+</details>
 
 ---
 

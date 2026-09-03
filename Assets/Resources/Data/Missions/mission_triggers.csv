@@ -1,0 +1,2 @@
+MissionId,TriggerId,Kind,Param1,Param2,Param3,Param4,Param5
+the_muster,muster_gold,GrantResourceAtTime,Gold,100,30,Player,

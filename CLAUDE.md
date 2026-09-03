@@ -7,6 +7,39 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 6 (Scenario Editor) light path
+  closed (2026-09-03)** — picked up right after item 5 per the user's
+  "start item 6". Reading `ScenarioDefinition.cs` directly (not trusting
+  the plan's premise) found a real architecture correction:
+  `BuildObjectives`/`BuildTriggers` are `Func<>` delegates, which Unity
+  can't serialize into a ScriptableObject — so unlike Tech/Unit/Civ data,
+  missions can't be Editor-time-baked; they're parsed into real closures
+  **at runtime** instead. New `Assets/Scripts/Match/MissionCsvLoader.cs`:
+  a small fixed vocabulary (5 objective kinds, 2 trigger kinds — sized off
+  the 3 real hand-coded missions plus 2 shapes the Tutorial roadmap item
+  already wants), reading 3 new CSVs as `Resources`-loaded `TextAsset`s.
+  `ScenarioRegistry.All` merges CSV-loaded missions with the 3 existing
+  hand-coded ones; `MissionSelectMenu.cs` needed **zero changes** (already
+  iterates that list). One new real sample mission ("The Muster") proves
+  the pipeline through the actual UI. 8 new EditMode tests (180 total, all
+  pass) plus live UnityMCP verification of every kind, including the one
+  (`DestroyScriptedTarget`) that can't run in EditMode at all
+  (`BarracksFactory.Place` NREs outside Play mode — a pre-existing
+  factory limitation, not new). **Hit a real environment problem
+  mid-session**: new code silently stopped compiling into the assembly
+  with zero errors from `read_console`; the user restarted the Unity
+  Editor, which surfaced (via `~/Library/Logs/Unity/Editor.log` directly,
+  not the MCP console bridge) 2 real compile errors in the new code
+  (a missing `using`, then the same "two `DamageType` enums" class of bug
+  `WildBoar.cs` hit once before) — both fixed. **New lesson for future
+  sessions: if `read_console` shows zero errors but new code isn't taking
+  effect, check the real Editor.log file directly before assuming a
+  tooling problem** — the console bridge can miss real compile errors.
+  See `docs/SESSION_LOG.md`'s matching entry for full detail. This closes
+  the last item in the Partial-Elements Fix Plan's own recommended order
+  — items 1-6 are all done; Fish Trap (item 5) and the heavy Scenario
+  Editor path (item 6) remain explicitly deferred, tracked in
+  `docs/Roadmap.md`.
 - **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 5 (Renewable Resource — Farm
   depletion) Farm half closed (2026-09-03)** — picked up right after item
   4 per the user's "start item 5". Step 1 (verify, don't assume) found a
@@ -579,16 +612,21 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 5 (Renewable
-  Resource — Farm depletion) Farm half closed (2026-09-03)** — see this
-  file's own bullet above for full detail. Next per that plan doc's own
-  recommended order: item 6 (Scenario Editor), not started, unless the
-  user says otherwise. Before that: **item 4 (Diplomacy — Tribute) closed
+- Currently on: **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 6 (Scenario
+  Editor) light path closed (2026-09-03)** — see this file's own bullet
+  above for full detail. This closes the plan doc's entire recommended
+  order (items 1-6 all done); remaining deferred sub-items (Fish Trap,
+  the heavy Scenario Editor path) are tracked in `docs/Roadmap.md`, pick
+  up per user direction — see this file's own "Lower priority" Roadmap
+  notes and the "Everything else" items scoped 2026-09-03. Before that:
+  **item 5 (Renewable Resource — Farm depletion) Farm half closed
   (2026-09-03)** — see this file's own bullet above for full detail.
-  Before that: **item 3 (Area of Effect / Trample) closed (2026-09-03)** —
-  see this file's own bullet above for full detail. Before that: **item 2
-  (Victory Conditions) closed (2026-09-03)** — see this file's own bullet
-  above for full detail. Before that: **item 1 (Hotkeys) closed
+  Before that: **item 4 (Diplomacy — Tribute) closed (2026-09-03)** — see
+  this file's own bullet above for full detail. Before that: **item 3
+  (Area of Effect / Trample) closed (2026-09-03)** — see this file's own
+  bullet above for full detail. Before that: **item 2 (Victory
+  Conditions) closed (2026-09-03)** — see this file's own bullet above
+  for full detail. Before that: **item 1 (Hotkeys) closed
   (2026-09-03)** — see this file's own bullet above for
   full detail. Before that:
   **"Everything else" items scoped (2026-09-03)** — Music,
