@@ -50,15 +50,7 @@ namespace KingdomsOfBharat.Buildings
             Archer,
             Cavalry,
             Siege,
-            UniqueUnit,
             Spearman,
-            // Roadmap Section 5 item 3: Maurya/Maratha each have 2 unique
-            // units (see UniqueUnitDefinition's per-civ List). UniqueUnit
-            // above is always slot 0; this is slot 1, only ever reachable
-            // via RequestTrainUniqueUnit(1) - civs with just 1 unique unit
-            // never populate it (BuildMenu hides the 2nd button entirely,
-            // see UniqueUnitCount).
-            UniqueUnit2,
         }
 
         [SerializeField] private float soldierFoodCost = 50f;
@@ -167,16 +159,6 @@ namespace KingdomsOfBharat.Buildings
             ? 1f - (_uniqueTechResearchRemaining / UniqueTech.ResearchTime)
             : 0f;
 
-        // Phase 6 unique unit: exposed the same way UniqueTech is, so
-        // BuildMenu can show the owning faction's actual civ-specific unit
-        // name/cost without duplicating the CivilizationRegistry lookup.
-        public UniqueUnitDefinition UniqueUnit => UniqueUnitDefinition.For(CivilizationRegistry.For(Faction));
-
-        // Roadmap Section 5 item 3: slot-indexed counterpart for civs with
-        // a 2nd unique unit (Maurya/Maratha) - see UniqueUnitDefinition.
-        public int UniqueUnitCount => UniqueUnitDefinition.CountFor(CivilizationRegistry.For(Faction));
-        public UniqueUnitDefinition UniqueUnitAt(int slot) => UniqueUnitDefinition.For(CivilizationRegistry.For(Faction), slot);
-
         private void Update()
         {
             if (IsTraining)
@@ -263,7 +245,7 @@ namespace KingdomsOfBharat.Buildings
             // specifically is a hand-picked reading of the CSV's own
             // description text, not something the data itself encodes.
             float goldCost = cavalryGoldCost * CivilizationProfile.FindCategoryMultiplier(
-                CivilizationRegistry.For(Faction), StatType.ResourceCost, UnitCategory.Cavalry);
+                CivilizationRegistry.For(Faction), StatType.ResourceCost, UnitClass.Cavalry);
 
             ResourceStockpile stockpile = ResourceStockpile.For(Faction);
             if (stockpile.GetTotal(ResourceType.Food) < cavalryFoodCost
@@ -330,43 +312,6 @@ namespace KingdomsOfBharat.Buildings
             _remaining = ScaledTrainTime();
         }
 
-        // Phase 6: same shape as every other RequestTrain* above, but cost
-        // and the spawn call both come from the owning faction's civ
-        // (UniqueUnitDefinition) instead of a fixed constant. Slot 0 only -
-        // kept as the original no-arg signature so existing call sites
-        // (BuildMenu's first button, tests) don't need to change; see
-        // RequestTrainUniqueUnit(int) for slot 1.
-        public void RequestTrainUniqueUnit()
-        {
-            RequestTrainUniqueUnit(0);
-        }
-
-        // Roadmap Section 5 item 3: slot-indexed version - Maurya/Maratha
-        // each have a 2nd unique unit (see UniqueUnitDefinition), reachable
-        // only via slot 1. Civs with just 1 unique unit never get a slot-1
-        // button from BuildMenu (see UniqueUnitCount), so this is never
-        // called with an out-of-range slot in practice.
-        public void RequestTrainUniqueUnit(int slot)
-        {
-            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
-            {
-                return;
-            }
-
-            UniqueUnitDefinition unique = UniqueUnitDefinition.For(CivilizationRegistry.For(Faction), slot);
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Food) < unique.FoodCost
-                || stockpile.GetTotal(ResourceType.Gold) < unique.GoldCost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Food, -unique.FoodCost);
-            stockpile.Add(ResourceType.Gold, -unique.GoldCost);
-            _trainingUnit = slot == 0 ? TrainingUnit.UniqueUnit : TrainingUnit.UniqueUnit2;
-            _remaining = ScaledTrainTime(unique.TrainTimeSeconds);
-        }
-
         private float ScaledTrainTime(float baseTrainTime = -1f)
         {
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
@@ -384,8 +329,6 @@ namespace KingdomsOfBharat.Buildings
                     TrainingUnit.Archer => ArcherFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.Cavalry => CavalryFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.Siege => SiegeFactory.Spawn(transform.position + rallyOffset, Faction),
-                    TrainingUnit.UniqueUnit => UniqueUnitDefinition.For(CivilizationRegistry.For(Faction), 0).Spawn(transform.position + rallyOffset, Faction),
-                    TrainingUnit.UniqueUnit2 => UniqueUnitDefinition.For(CivilizationRegistry.For(Faction), 1).Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.Spearman => SpearmanFactory.Spawn(transform.position + rallyOffset, Faction),
                     _ => SoldierFactory.Spawn(transform.position + rallyOffset, Faction),
                 };

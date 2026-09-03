@@ -84,6 +84,16 @@ namespace KingdomsOfBharat.Tests
             return go.AddComponent<Barracks>();
         }
 
+        // Wave 2 item 7: unique-unit training moved off Barracks onto Durg
+        // this session - same shape as CreateBarracks above.
+        private Durg CreateDurg(FactionId faction, CivilizationId civ)
+        {
+            CivilizationRegistry.Assign(faction, civ);
+            GameObject go = CreateGameObject("Durg");
+            go.AddComponent<FactionMember>().Configure(faction);
+            return go.AddComponent<Durg>();
+        }
+
         // ResourceStockpile's own faction field ([SerializeField], no
         // Configure method - see ResourceStockpile.cs) always defaults to
         // Player with no way to construct one for Enemy in a test, so
@@ -101,11 +111,11 @@ namespace KingdomsOfBharat.Tests
         public void RequestTrainUniqueUnit_Slot0_DeductsWarElephantCost()
         {
             ResourceStockpile stockpile = CreateStockpile(FactionId.Player);
-            Barracks barracks = CreateBarracks(FactionId.Player, CivilizationId.Maurya);
+            Durg durg = CreateDurg(FactionId.Player, CivilizationId.Maurya);
 
-            barracks.RequestTrainUniqueUnit(0);
+            durg.RequestTrainUniqueUnit(0);
 
-            Assert.IsTrue(barracks.IsTraining);
+            Assert.IsTrue(durg.IsTraining);
             Assert.AreEqual(1000f - 130f, stockpile.GetTotal(ResourceType.Food));
             Assert.AreEqual(1000f - 100f, stockpile.GetTotal(ResourceType.Gold));
         }
@@ -114,11 +124,11 @@ namespace KingdomsOfBharat.Tests
         public void RequestTrainUniqueUnit_Slot1_DeductsPillarEdictScholarCost()
         {
             ResourceStockpile stockpile = CreateStockpile(FactionId.Player);
-            Barracks barracks = CreateBarracks(FactionId.Player, CivilizationId.Maurya);
+            Durg durg = CreateDurg(FactionId.Player, CivilizationId.Maurya);
 
-            barracks.RequestTrainUniqueUnit(1);
+            durg.RequestTrainUniqueUnit(1);
 
-            Assert.IsTrue(barracks.IsTraining);
+            Assert.IsTrue(durg.IsTraining);
             Assert.AreEqual(1000f - 40f, stockpile.GetTotal(ResourceType.Food));
             Assert.AreEqual(1000f - 10f, stockpile.GetTotal(ResourceType.Gold));
         }

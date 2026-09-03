@@ -5,6 +5,102 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-04 — AoE-Parity Wave 2, item 7: the Durg building
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 2 item 7, picked up at the user's
+explicit "START WAVE 2" request. Resolved the item's two flagged open design decisions
+via AskUserQuestion before writing any code: what it trains (unique units, relocated
+off `Barracks` — matches AoE's Castle-trains-uniques convention, user chose this over
+leaving training on Barracks or inventing new content) and its garrison/defensive
+stats (strongest in the game, strictly above `TownCenter` on every axis, user's
+explicit choice over "match TownCenter" or "modestly above").
+
+**What changed**:
+- New `Assets/Scripts/Buildings/Durg.cs` (trimmed `Barracks.cs` copy — unique-unit
+  training only, no Soldier/Archer/Cavalry/Siege/Spearman, no Attack/Armor/UniqueTech
+  research) and `DurgFactory.cs` (`TownCenterFactory.cs` template): `GarrisonCapacity`
+  12 (TownCenter 8), 6 max bonus shots (TownCenter 4), 700 HP / 4-6 armor (TownCenter
+  500 / 3-5), 12 dmg / range 9 / 1.2s interval (TownCenter 8 / 8 / 1.4). New
+  `BuildingFootprint.DurgTiles = 6` (matches TownCenter).
+- `Barracks.cs`: deleted `RequestTrainUniqueUnit()`/`RequestTrainUniqueUnit(int)`,
+  `UniqueUnitCount`, `UniqueUnitAt`, `UniqueUnit`, and the `TrainingUnit.UniqueUnit`/
+  `UniqueUnit2` cases — everything else on Barracks untouched.
+- `BuildingPlacer.cs`: new `BuildingKind.Durg` threaded through every per-kind switch
+  (`ApplyKeySettings`, `Update()`'s key dispatch, `CanAfford`, `CurrentSize`,
+  `CurrentFootprint`, `ExecuteBuild`, `ToNetBuildKind`/`ToBuildingKind`).
+  `CanPlaceDurg => AgeProgress.CurrentAge(...) >= AgeId.Durg` (mirrors
+  `CanPlaceBarracks`'s Classical gate, one age later). Cost 200 Wood/150 Stone, 25s
+  build, hotkey D.
+- `NetMessage.cs`/`CommandSerializer.cs`: `NetBuildKind.Durg`, and a
+  `building is Durg durg` branch in `ToTrainCommand` (same `NetTrainKind.UniqueUnit`/
+  `UniqueUnitSlot0`/`UniqueUnitSlot1` values as before, resolved against `Durg` now).
+- `BuildMenu.cs`: reused the existing `uniqueUnitButton`/`uniqueUnitButton2`/
+  `uniqueUnitLabel`/`uniqueUnitLabel2` — just re-gated from `Barracks` to `Durg`
+  (`Update()`'s selection block, `HandleHotkeys`, `UpdateBarracksButtons` split into a
+  new `UpdateDurgButtons`, `TrainUniqueUnitAtSelected`/`TrainUniqueUnit2AtSelected`).
+  One genuinely new button (`durgButton`/`durgLabel`, placement) added via UnityMCP
+  scene editing (see gotcha below), not code alone.
+- `HotkeyOverlay.cs`/`SettingsMenu.cs`: unique-unit hotkey entries moved from
+  `BarracksGroup` into a new `DurgGroup`; `SettingsMenu`'s label text updated
+  "(Barracks)" → "(Durg)"; new `PlaceDurg` binding (KeyCode.D) added alongside the
+  other placement keys.
+- `AiController.cs`: **a real regression caught before it shipped, not after** — the AI
+  trained its unique unit via `_barracks.RequestTrainUniqueUnit()` in
+  `TryTrainSoldiers()`'s case 6; moving that off Barracks with no AI-side Durg would
+  have silently ended the AI's unique-unit training forever. Fixed with
+  `TryBuildDurg()`/`AssignDurgBuilderIfNeeded()` mirroring `TryBuildBarracks()`'s own
+  shape exactly (own `durgOffset = (0,0,6)`, Durg-age gated), wired into `Update()`'s
+  decision list; case 6 now falls back to a plain Soldier when the AI's Durg isn't
+  built/complete yet instead of stalling that rotation slot.
+
+**Tests**: 4 new EditMode tests (`Assets/Tests/EditMode/DurgTests.cs`) plus 2 existing
+unique-unit tests in `UniqueUnitsTests.cs` updated to build a `Durg` instead of a
+`Barracks` (236 total, up from 232, all pass). Building factories deliberately not
+exercised in EditMode tests — this project's own documented NRE-outside-Play-mode
+limitation for `BarracksFactory.Place`/`TownCenterFactory.Place` applies identically to
+`DurgFactory.Place`, so component-level construction (`AddComponent<Durg>()` +
+`FactionMember`) is used instead, same as `UniqueUnitsTests.cs` already does.
+
+**Live-verified via UnityMCP through the real production path — including a real
+environment gotcha worked through, not around**: `BuildMenu`'s new `durgButton`/
+`durgLabel` `[SerializeField]` fields were null in the scene (a new C# field with
+nothing wired to it in the Inspector), which made `BuildMenu.Update()`
+`NullReferenceException` on every single frame with **zero errors surfaced by the MCP
+console bridge** — this project's own documented "the console bridge can miss real
+errors" gotcha, previously seen for compile errors, now seen for a runtime exception
+too. Root-caused by reflection-invoking `Update()` directly inside a try/catch, which
+surfaced the real stack trace (`SetPlacementButtonsActive` line 611). Fixed by actually
+duplicating `MillButton` into a new `DurgButton` scene GameObject via UnityMCP
+(`manage_gameobject action=duplicate`, `manage_components action=set_property` to wire
+`BuildMenu.durgButton`/`durgLabel`), not a code-only fix — this is a real, disclosed
+lesson: adding a new `[SerializeField] Button` field to an existing hand-wired
+Inspector-driven UI class needs a matching scene edit in the same session, not just the
+C# change. After that fix, with a real match (`CivilizationSetup.BeginMatch(Maurya)`):
+`BuildingPlacer.CanPlaceDurg` false pre-Durg-age, true after
+`AgeProgress.Advance(..., AgeId.Durg)`; a real `DurgFactory.Place` +
+`ConstructionSite.CompleteImmediately()` Durg's live stats matched every constant above
+exactly via reflection; selecting a real `Barracks` showed Soldier/Archer/etc. with
+unique-unit buttons hidden, selecting the real `Durg` showed the exact reverse with
+correct civ-specific labels (`Train Maurya War Elephant (130 Food, 100 Gold)` /
+`Train Pillar Edict Scholar (40 Food, 10 Gold)`); clicking the real 2nd unique-unit
+button's `onClick` correctly enqueued through `CommandBus` (deferred spend, matching
+this project's lockstep input-delay convention — confirmed the delayed Food
+1000→960/Gold 1000→990 a couple of ticks later, exactly Pillar Edict Scholar's cost);
+clicking the real `durgButton`'s `onClick` correctly entered
+`BuildingPlacer.IsPlacing`.
+
+**Flagged, not fixed (asset gap, not a bug)**: `Durg` has no bespoke 3D model yet, so
+`BuildingModelFactory.Spawn` falls back to its generic procedural shape — same
+disclosed placeholder convention as Lumber Camp/Mining Camp/Mill before their models
+existed. Needs real art sourced later, same as every other "(asset-blocked)" item in
+this roadmap.
+
+**Roadmap**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 2 item 7 checked off; `CLAUDE.md`
+"Current status" updated. Wave 2 item 8 (Karmashala) remains open — Wave 2 isn't fully
+closed yet.
+
+---
+
 ## 2026-09-04 — AoE-Parity Wave 1, item 6: age-up building-count requirement — closes Wave 1
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 1 item 6, picked up at the user's explicit

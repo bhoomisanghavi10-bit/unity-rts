@@ -11,6 +11,57 @@ asset requirements, 5. Priority order).
   see that file's own ground rules. `docs/ROADMAP.md` Section 5's priority
   order is the prior plan; items already closed under it stay closed, but new
   work picks up from `IMPLEMENTATION_ROADMAP.md` instead.**
+- **Wave 2 item 7 (the Durg building) closed (2026-09-04).** Picked up at the
+  user's explicit "START WAVE 2" request. Resolved the item's two flagged
+  open design decisions via AskUserQuestion before coding: it trains unique
+  units (relocated off `Barracks` — matches AoE's Castle-trains-uniques
+  convention), and it's the strongest defensive building in the game,
+  strictly above `TownCenter` on every axis (`GarrisonCapacity` 12 vs. 8, 6
+  max bonus shots vs. 4, 700 HP/4-6 armor vs. 500/3-5, 12 dmg/range 9/1.2s
+  interval vs. 8/8/1.4). New `Buildings/Durg.cs`/`DurgFactory.cs`
+  (`Barracks.cs`/`TownCenterFactory.cs` templates); `Barracks.cs`'s
+  `RequestTrainUniqueUnit`/`UniqueUnitCount`/`UniqueUnitAt`/`UniqueUnit`
+  deleted (everything else on Barracks untouched); `BuildingPlacer.cs` gained
+  a `Durg` kind (Age-gated to Durg+, 200 Wood/150 Stone, 25s, hotkey D);
+  `NetMessage.cs`/`CommandSerializer.cs` gained matching wire support;
+  `BuildMenu.cs` re-gated its existing unique-unit buttons from `Barracks` to
+  `Durg` and gained one genuinely new placement button (`durgButton`, wired
+  via UnityMCP scene editing — see gotcha below). **A real regression was
+  caught and fixed before it shipped**: the AI opponent trained its unique
+  unit via `_barracks.RequestTrainUniqueUnit()`; moving that off Barracks
+  with no AI-side Durg would have silently ended the AI's unique-unit
+  training forever — fixed with a `TryBuildDurg()`/
+  `AssignDurgBuilderIfNeeded()` pair mirroring `TryBuildBarracks()`'s own
+  shape, plus a Soldier fallback in the AI's training rotation until its own
+  Durg is complete. 4 new EditMode tests (`DurgTests.cs`) plus 2 existing
+  unique-unit tests updated to build a `Durg` instead of a `Barracks` (236
+  total, up from 232, all pass). **Hit a real environment gotcha mid-session,
+  worked through not around**: the new `durgButton`/`durgLabel`
+  `[SerializeField]` fields were null in the scene (added to the C# class but
+  never wired to a GameObject), which made `BuildMenu.Update()` NRE every
+  frame with **zero errors surfaced by the MCP console bridge** — same
+  "console bridge can miss real errors" gotcha this project has hit before
+  for compile errors, now also seen for a runtime exception; only
+  reflection-invoking `Update()` directly inside a try/catch surfaced the
+  real stack trace. Fixed by actually duplicating `MillButton` into a new
+  `DurgButton` scene GameObject via UnityMCP and wiring the component fields
+  to it — a real scene edit, not a code-only fix; the lesson: a new
+  `[SerializeField]` UI field on an existing hand-wired class needs a
+  matching scene edit in the same session. Live-verified via UnityMCP through
+  the real production path after that fix: a real match
+  (`CivilizationSetup.BeginMatch(Maurya)`), `CanPlaceDurg` false pre-Durg-age
+  and true after `AgeProgress.Advance`, a real spawned Durg's live stats
+  matched every constant exactly via reflection, selecting a real Barracks
+  vs. a real Durg showed exactly the right button sets with correct
+  civ-specific unique-unit labels, a real button click enqueued training
+  through `CommandBus` and spent/spawned correctly a couple of ticks later,
+  and a real placement-button click correctly entered
+  `BuildingPlacer.IsPlacing`. **Flagged, not fixed**: `Durg` has no bespoke
+  3D model yet (falls back to the generic procedural shape, same as Lumber
+  Camp/Mining Camp/Mill before their models existed) — needs real art
+  sourced later. Wave 2 item 8 (Karmashala) remains open; Wave 2 isn't fully
+  closed yet. See `docs/SESSION_LOG.md`'s matching entry for full detail.
+  Next: Wave 2 item 8 (Karmashala), user's call.
 - **Wave 1 item 6 (age-up building-count requirement) closed (2026-09-04) —
   this closes Wave 1.** Resolved the design question flagged when item 5
   closed via AskUserQuestion: "2 buildings" means 2 completed, non-TownCenter

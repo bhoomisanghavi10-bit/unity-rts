@@ -47,6 +47,16 @@ namespace KingdomsOfBharat.AI
         [SerializeField] private float barracksBuildTime = 8f;
         [SerializeField] private float barracksClearance = 3f;
         [SerializeField] private Vector3 barracksOffset = new Vector3(6f, 0f, 0f);
+        // Wave 2 item 7: the AI needs its own Durg once unique-unit
+        // training moved off Barracks, or it would silently stop training
+        // its unique unit entirely - see TryBuildDurg/TryTrainSoldiers'
+        // case 6 below. Own offset (+Z) since Barracks/Farm/House already
+        // claim +X/-X/-Z from townCenterPosition.
+        [SerializeField] private float durgWoodCost = 200f;
+        [SerializeField] private float durgStoneCost = 150f;
+        [SerializeField] private float durgBuildTime = 25f;
+        [SerializeField] private float durgClearance = 4f;
+        [SerializeField] private Vector3 durgOffset = new Vector3(0f, 0f, 6f);
         [SerializeField] private float farmWoodCost = 60f;
         [SerializeField] private float farmBuildTime = 5f;
         [SerializeField] private float farmClearance = 3f;
@@ -85,6 +95,9 @@ namespace KingdomsOfBharat.AI
         private Barracks _barracks;
         private ConstructionSite _barracksSite;
         private bool _barracksBuilderAssigned;
+        private Durg _durg;
+        private ConstructionSite _durgSite;
+        private bool _durgBuilderAssigned;
         private Farm _farm;
         private ConstructionSite _farmSite;
         private bool _farmBuilderAssigned;
@@ -429,6 +442,8 @@ namespace KingdomsOfBharat.AI
                 TryResearchEconomyTechs();
                 TryBuildBarracks();
                 AssignBuilderIfNeeded();
+                TryBuildDurg();
+                AssignDurgBuilderIfNeeded();
                 TryTrainSoldiers();
                 TryBuildFarm();
                 AssignFarmBuilderIfNeeded();
@@ -859,6 +874,68 @@ namespace KingdomsOfBharat.AI
             }
         }
 
+        // Wave 2 item 7: symmetric with TryBuildBarracks/AssignBuilderIfNeeded
+        // above, gated to Durg Age instead of Classical (mirrors the
+        // Player's own BuildingPlacer.CanPlaceDurg gate).
+        private void TryBuildDurg()
+        {
+            if (_durg != null || AgeProgress.CurrentAge(myFaction) < AgeId.Durg)
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(myFaction);
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(myFaction)).BuildCostMultiplier;
+            if (stockpile.GetTotal(ResourceType.Wood) < durgWoodCost * multiplier
+                || stockpile.GetTotal(ResourceType.Stone) < durgStoneCost * multiplier)
+            {
+                return;
+            }
+
+            Vector3 candidateXz = townCenterPosition + durgOffset;
+            if (!TryResolveGroundHeight(candidateXz, out Vector3 point))
+            {
+                return;
+            }
+
+            if (!DurgFactory.IsClear(point, durgClearance))
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Wood, -durgWoodCost * multiplier);
+            stockpile.Add(ResourceType.Stone, -durgStoneCost * multiplier);
+
+            GameObject go = DurgFactory.Place(point, myFaction, durgBuildTime);
+            go.TryGetComponent(out _durg);
+            go.TryGetComponent(out _durgSite);
+        }
+
+        private void AssignDurgBuilderIfNeeded()
+        {
+            if (_durgSite == null || _durgBuilderAssigned || _durgSite.IsComplete)
+            {
+                return;
+            }
+
+            foreach (Unit unit in Unit.All)
+            {
+                if (!IsMine(unit) || !unit.TryGetComponent(out Builder builder))
+                {
+                    continue;
+                }
+
+                if (unit.TryGetComponent(out Gatherer gatherer))
+                {
+                    gatherer.CancelGather();
+                }
+
+                builder.BuildAt(_durgSite);
+                _durgBuilderAssigned = true;
+                return;
+            }
+        }
+
         private int _trainRotation;
 
         // AoE-style mixed composition rather than an all-melee army: two
@@ -903,7 +980,20 @@ namespace KingdomsOfBharat.AI
                     _barracks.RequestTrainSiege();
                     break;
                 case 6:
-                    _barracks.RequestTrainUniqueUnit();
+                    // Wave 2 item 7: unique-unit training moved off
+                    // Barracks onto Durg - falls back to a plain Soldier
+                    // if the AI hasn't built/finished its Durg yet (e.g.
+                    // early Durg Age, or the site is still under
+                    // construction) rather than stalling this rotation
+                    // slot entirely.
+                    if (_durg != null && _durg.IsComplete && !_durg.IsTraining)
+                    {
+                        _durg.RequestTrainUniqueUnit();
+                    }
+                    else
+                    {
+                        _barracks.RequestTrain();
+                    }
                     break;
                 default:
                     _barracks.RequestTrain();

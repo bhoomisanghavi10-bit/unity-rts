@@ -70,6 +70,7 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         LumberCamp,
         MiningCamp,
         Mill,
+        Durg,
     }
 
     [System.Serializable]

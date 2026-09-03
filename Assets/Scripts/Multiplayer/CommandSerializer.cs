@@ -136,12 +136,24 @@ namespace KingdomsOfBharat.Multiplayer
                     NetTrainKind.Cavalry => barracks.RequestTrainCavalry,
                     NetTrainKind.Siege => barracks.RequestTrainSiege,
                     NetTrainKind.Spearman => barracks.RequestTrainSpearman,
-                    NetTrainKind.UniqueUnit => barracks.RequestTrainUniqueUnit,
-                    NetTrainKind.UniqueUnitSlot0 => () => barracks.RequestTrainUniqueUnit(0),
-                    NetTrainKind.UniqueUnitSlot1 => () => barracks.RequestTrainUniqueUnit(1),
                     _ => null,
                 };
                 return requestTrain == null ? null : new TrainCommand(faction, barracks, requestTrain);
+            }
+
+            // Wave 2 item 7: unique-unit training moved off Barracks onto
+            // Durg this session - same NetTrainKind values, just resolved
+            // against a different building type from here on.
+            if (building is Durg durg)
+            {
+                Action requestTrain = envelope.trainKind switch
+                {
+                    NetTrainKind.UniqueUnit => durg.RequestTrainUniqueUnit,
+                    NetTrainKind.UniqueUnitSlot0 => () => durg.RequestTrainUniqueUnit(0),
+                    NetTrainKind.UniqueUnitSlot1 => () => durg.RequestTrainUniqueUnit(1),
+                    _ => null,
+                };
+                return requestTrain == null ? null : new TrainCommand(faction, durg, requestTrain);
             }
 
             if (building is TownCenter townCenter && envelope.trainKind == NetTrainKind.Soldier)

@@ -200,14 +200,61 @@ Classical and Imperial now do. **All three confirmed live — Wave 1 is fully cl
 
 ## Wave 2 — The Durg building and Karmashala (structural buildings other systems need)
 
-7. **[M] Durg building.** (Proposed name already used for the Maratha unit
-   `MarathaDurgGarrisonFactory.cs` — this gives the *building* the same name, deliberately.)
-   No class exists yet. This is the single most-referenced missing piece in the spec workbook:
-   it anchors the late game (unique units, unique techs, best defence) the way AoE's Castle
-   does. Follow the existing building-factory pattern (`TownCenterFactory.cs` /
-   `BarracksFactory.cs` as the closest references). *Depends on: Wave 1 (it unlocks in the
-   Durg age). Design decision still open: garrison capacity, what it trains — resolve in Plan
-   Mode before writing code, don't guess.*
+7. ~~**[M] Durg building.**~~ **Closed (2026-09-04).** New `Buildings/Durg.cs`/
+   `DurgFactory.cs` (`TownCenterFactory.cs`/`BarracksFactory.cs` as templates). User-confirmed
+   design decisions via AskUserQuestion: it trains unique units (relocated off `Barracks`,
+   matching AoE's Castle-trains-uniques convention — `Barracks.RequestTrainUniqueUnit`/
+   `UniqueUnitCount`/`UniqueUnitAt`/`UniqueUnit` deleted, `Durg` has its own trimmed-down
+   copy), and it's the strongest defensive building in the game: `GarrisonCapacity` 12 (vs.
+   TownCenter's 8), 6 max bonus shots (vs. 4), 700 HP/4-6 armor (vs. 500/3-5), 12 dmg/range
+   9/1.2s interval (vs. 8/8/1.4) — strictly stronger on every axis, live-confirmed via
+   reflection against a real spawned TownCenter. Age-gated to Durg or later
+   (`BuildingPlacer.CanPlaceDurg`), 200 Wood/150 Stone, 25s build, hotkey D. Wired through
+   the full stack: `BuildingPlacer`'s per-kind switches, `NetBuildKind.Durg`/
+   `CommandSerializer`'s `building is Durg` train-dispatch branch (LAN parity with every
+   other trainable building), `BuildMenu`'s existing unique-unit buttons re-gated from
+   `Barracks` to `Durg` (no new button GameObjects needed there — only the placement button
+   itself is new, added via UnityMCP scene editing, not code), `HotkeyOverlay`/
+   `SettingsMenu` updated to match. **A real regression was caught and fixed before it
+   shipped**: the AI opponent trained its unique unit via `_barracks.RequestTrainUniqueUnit()`
+   in `TryTrainSoldiers()` — moving that off Barracks with no AI-side Durg would have
+   silently stopped the AI from ever training its unique unit again. Fixed with a
+   `TryBuildDurg()`/`AssignDurgBuilderIfNeeded()` pair mirroring `TryBuildBarracks()`'s own
+   shape (own `durgOffset`, Durg-age gated), and `TryTrainSoldiers()`'s case 6 now falls back
+   to a plain Soldier when the AI's Durg isn't built/complete yet rather than stalling that
+   rotation slot. 4 new EditMode tests (`DurgTests.cs`) plus 2 existing unique-unit tests in
+   `UniqueUnitsTests.cs` updated to build a `Durg` instead of a `Barracks` (236 total, up
+   from 232, all pass) — building factories deliberately not exercised in EditMode tests
+   (this project's own documented NRE-outside-Play-mode limitation for
+   `BarracksFactory.Place`/`TownCenterFactory.Place`, so `DurgFactory.Place` isn't tested
+   there either). **Live-verified via UnityMCP through the real production path, including a
+   real environment gotcha worked through, not around**: `BuildMenu`'s new `durgButton`/
+   `durgLabel` `[SerializeField]` fields were null in the scene (added to the C# class but
+   never wired to a GameObject) — this made `BuildMenu.Update()` NRE on every frame silently
+   (zero console errors reported by the MCP console bridge; only reflection-invoking
+   `Update()` directly and catching the exception surfaced the real stack trace pointing at
+   `SetPlacementButtonsActive`, another instance of this project's own "the console bridge
+   can miss real compile/runtime errors" gotcha — check directly when something inexplicably
+   doesn't update). Fixed by duplicating `MillButton` into a real `DurgButton` scene object
+   via UnityMCP (`manage_gameobject`/`manage_components`) and wiring it to the component's
+   fields, not a code workaround. After that fix: a real match
+   (`CivilizationSetup.BeginMatch(Maurya)`), `BuildingPlacer.CanPlaceDurg` false pre-Durg-age
+   and true after `AgeProgress.Advance(..., AgeId.Durg)`; a real `DurgFactory.Place` +
+   `ConstructionSite.CompleteImmediately()` Durg spawned with the exact stats above (via
+   reflection); selecting a real `Barracks` showed Soldier/Archer/etc. buttons with the
+   unique-unit buttons hidden, selecting the real `Durg` showed the reverse (`Train Maurya
+   War Elephant (130 Food, 100 Gold)`/`Train Pillar Edict Scholar (40 Food, 10 Gold)` labels
+   resolved correctly, civ-specific); clicking the real 2nd unique-unit button's `onClick`
+   correctly enqueued through `CommandBus` (deferred, matching this project's lockstep
+   input-delay convention — zero immediate spend, confirmed the delayed spend/train a couple
+   of ticks later: Food 1000→960, Gold 1000→990, matching Pillar Edict Scholar's cost
+   exactly); clicking the real `durgButton`'s `onClick` correctly entered
+   `BuildingPlacer.IsPlacing`. **Flagged, not fixed (asset gap, not a bug)**: `Durg` has no
+   bespoke 3D model yet, so `BuildingModelFactory.Spawn` falls back to its generic
+   procedural shape, same disclosed placeholder convention as Lumber Camp/Mining Camp/Mill
+   before their models existed — needs real art sourced later, same as every other
+   "(asset-blocked)" item in this roadmap. See `docs/SESSION_LOG.md`'s matching entry for
+   full detail. Next: item 8 (Karmashala), user's call.
 8. **[M] Karmashala (Blacksmith-equivalent building).** `Progression/UpgradeProgress.cs`
    already exists and works — what's missing is a physical, raidable building to research
    stat upgrades at, matching AoE's convention of every upgrade having a building "home."

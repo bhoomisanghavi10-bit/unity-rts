@@ -49,6 +49,11 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button lumberCampButton;
         [SerializeField] private Button miningCampButton;
         [SerializeField] private Button millButton;
+        // Wave 2 item 7: the Durg building - placement button, gated the
+        // same way barracksButton/dockButton are (interactable +
+        // requirement-text label when not yet available).
+        [SerializeField] private Button durgButton;
+        [SerializeField] private TMP_Text durgLabel;
         [SerializeField] private Button workerButton;
         [SerializeField] private Button soldierButton;
         [SerializeField] private Button archerButton;
@@ -58,8 +63,9 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button uniqueUnitButton;
         [SerializeField] private TMP_Text uniqueUnitLabel;
         // Roadmap Section 5 item 3: Maurya/Maratha each have a 2nd unique
-        // unit (see UniqueUnitDefinition/Barracks.UniqueUnitCount) - hidden
-        // entirely for the 3 civs that only have 1 (see Update()).
+        // unit (see UniqueUnitDefinition/Durg.UniqueUnitCount - moved from
+        // Barracks in Wave 2 item 7) - hidden entirely for the 3 civs that
+        // only have 1 (see Update()).
         [SerializeField] private Button uniqueUnitButton2;
         [SerializeField] private TMP_Text uniqueUnitLabel2;
         [SerializeField] private Button ungarrisonButton;
@@ -149,6 +155,7 @@ namespace KingdomsOfBharat.UI
             lumberCampButton.onClick.AddListener(() => _placer.BeginPlacementLumberCamp());
             miningCampButton.onClick.AddListener(() => _placer.BeginPlacementMiningCamp());
             millButton.onClick.AddListener(() => _placer.BeginPlacementMill());
+            durgButton.onClick.AddListener(() => _placer.BeginPlacementDurg());
             workerButton.onClick.AddListener(TrainWorkerAtSelected);
             soldierButton.onClick.AddListener(TrainSoldierAtSelected);
             archerButton.onClick.AddListener(TrainArcherAtSelected);
@@ -217,7 +224,7 @@ namespace KingdomsOfBharat.UI
             Button[] buttons =
             {
                 barracksButton, farmButton, houseButton, wallButton, gateButton, towerButton,
-                marketButton, dockButton, lumberCampButton, miningCampButton, millButton,
+                marketButton, dockButton, lumberCampButton, miningCampButton, millButton, durgButton,
                 workerButton, soldierButton, archerButton, cavalryButton,
                 siegeButton, spearmanButton, uniqueUnitButton, uniqueUnitButton2, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
@@ -277,7 +284,8 @@ namespace KingdomsOfBharat.UI
             // text-only: ungarrisonButton, fishingBoatButton, warGalleyButton,
             // uniqueTechButton, improvedToolsButton, packMulesButton,
             // tradeDiscountsButton, lumberCampButton, miningCampButton,
-            // millButton.
+            // millButton, durgButton (Wave 2 item 7 - no bespoke art yet,
+            // see DurgFactory's own asset-gap note).
         }
 
         // Adds a small icon to the left edge of a command-card button and
@@ -327,13 +335,16 @@ namespace KingdomsOfBharat.UI
             Barracks barracks = ownsSelected ? selected as Barracks : null;
             Dock dock = ownsSelected ? selected as Dock : null;
             Market market = ownsSelected ? selected as Market : null;
+            // Wave 2 item 7: unique-unit training lives on Durg, not
+            // Barracks, from this session on.
+            Durg durg = ownsSelected ? selected as Durg : null;
             // General garrisoning system (2026-09-01): every building with
             // a GarrisonPoint (TownCenter/Tower/Wall) shows the Ungarrison
             // button when occupied - no longer restricted to Wall/Tower's
             // type, since TownCenter now has one too.
             GarrisonPoint garrisonPoint = ownsSelected ? selected.GetComponent<GarrisonPoint>() : null;
 
-            HandleHotkeys(townCenter, barracks, dock, garrisonPoint);
+            HandleHotkeys(townCenter, barracks, dock, durg, garrisonPoint);
 
             SetPlacementButtonsActive(showPlacement);
             workerButton.gameObject.SetActive(townCenter != null);
@@ -346,8 +357,8 @@ namespace KingdomsOfBharat.UI
             cavalryButton.gameObject.SetActive(barracks != null);
             siegeButton.gameObject.SetActive(barracks != null);
             spearmanButton.gameObject.SetActive(barracks != null);
-            uniqueUnitButton.gameObject.SetActive(barracks != null);
-            uniqueUnitButton2.gameObject.SetActive(barracks != null && barracks.UniqueUnitCount > 1);
+            uniqueUnitButton.gameObject.SetActive(durg != null);
+            uniqueUnitButton2.gameObject.SetActive(durg != null && durg.UniqueUnitCount > 1);
             ungarrisonButton.gameObject.SetActive(garrisonPoint != null && garrisonPoint.Count > 0);
             attackUpgradeButton.gameObject.SetActive(barracks != null);
             armorUpgradeButton.gameObject.SetActive(barracks != null);
@@ -380,6 +391,10 @@ namespace KingdomsOfBharat.UI
                 lumberCampButton.interactable = true;
                 miningCampButton.interactable = true;
                 millButton.interactable = true;
+                durgButton.interactable = BuildingPlacer.CanPlaceDurg;
+                durgLabel.text = BuildingPlacer.CanPlaceDurg
+                    ? "Build Durg (200 Wood, 150 Stone)"
+                    : "Build Durg (Requires Durg Age)";
             }
 
             if (townCenter != null)
@@ -390,6 +405,11 @@ namespace KingdomsOfBharat.UI
             if (barracks != null)
             {
                 UpdateBarracksButtons(barracks);
+            }
+
+            if (durg != null)
+            {
+                UpdateDurgButtons(durg);
             }
 
             if (dock != null)
@@ -410,7 +430,7 @@ namespace KingdomsOfBharat.UI
         // disabled. Gated per-parameter (not a single "selected something"
         // check) so a key only ever acts on the currently selected building
         // of the matching type, fixing the old per-building Update() bug.
-        private void HandleHotkeys(TownCenter townCenter, Barracks barracks, Dock dock, GarrisonPoint garrisonPoint)
+        private void HandleHotkeys(TownCenter townCenter, Barracks barracks, Dock dock, Durg durg, GarrisonPoint garrisonPoint)
         {
             if (townCenter != null)
             {
@@ -428,11 +448,17 @@ namespace KingdomsOfBharat.UI
                 if (Input.GetKeyDown(_keyTrainCavalry)) TrainCavalryAtSelected();
                 if (Input.GetKeyDown(_keyTrainSiege)) TrainSiegeAtSelected();
                 if (Input.GetKeyDown(_keyTrainSpearman)) TrainSpearmanAtSelected();
-                if (Input.GetKeyDown(_keyTrainUniqueUnit)) TrainUniqueUnitAtSelected();
-                if (barracks.UniqueUnitCount > 1 && Input.GetKeyDown(_keyTrainUniqueUnit2)) TrainUniqueUnit2AtSelected();
                 if (Input.GetKeyDown(_keyResearchAttack)) ResearchAttackAtSelected();
                 if (Input.GetKeyDown(_keyResearchArmor)) ResearchArmorAtSelected();
                 if (Input.GetKeyDown(_keyResearchUniqueTech)) ResearchUniqueTechAtSelected();
+            }
+
+            // Wave 2 item 7: unique-unit training hotkeys now act on a
+            // selected Durg instead of a selected Barracks.
+            if (durg != null)
+            {
+                if (Input.GetKeyDown(_keyTrainUniqueUnit)) TrainUniqueUnitAtSelected();
+                if (durg.UniqueUnitCount > 1 && Input.GetKeyDown(_keyTrainUniqueUnit2)) TrainUniqueUnit2AtSelected();
             }
 
             if (dock != null)
@@ -455,15 +481,6 @@ namespace KingdomsOfBharat.UI
             cavalryButton.interactable = canTrain;
             siegeButton.interactable = canTrain;
             spearmanButton.interactable = canTrain;
-            uniqueUnitButton.interactable = canTrain;
-            uniqueUnitLabel.text = $"Train {barracks.UniqueUnit.Name} ({(int)barracks.UniqueUnit.FoodCost} Food, {(int)barracks.UniqueUnit.GoldCost} Gold)";
-
-            if (barracks.UniqueUnitCount > 1)
-            {
-                UniqueUnitDefinition unique2 = barracks.UniqueUnitAt(1);
-                uniqueUnitButton2.interactable = canTrain;
-                uniqueUnitLabel2.text = $"Train {unique2.Name} ({(int)unique2.FoodCost} Food, {(int)unique2.GoldCost} Gold)";
-            }
 
             UpdateUpgradeButton(
                 attackUpgradeButton, attackUpgradeLabel, "Attack",
@@ -478,6 +495,22 @@ namespace KingdomsOfBharat.UI
                 barracks.NextArmorUpgradeCost);
 
             UpdateUniqueTechButton(barracks);
+        }
+
+        // Wave 2 item 7: unique-unit training button state, split out of
+        // UpdateBarracksButtons now that it lives on Durg instead.
+        private void UpdateDurgButtons(Durg durg)
+        {
+            bool canTrain = durg.IsComplete && !durg.IsTraining;
+            uniqueUnitButton.interactable = canTrain;
+            uniqueUnitLabel.text = $"Train {durg.UniqueUnit.Name} ({(int)durg.UniqueUnit.FoodCost} Food, {(int)durg.UniqueUnit.GoldCost} Gold)";
+
+            if (durg.UniqueUnitCount > 1)
+            {
+                UniqueUnitDefinition unique2 = durg.UniqueUnitAt(1);
+                uniqueUnitButton2.interactable = canTrain;
+                uniqueUnitLabel2.text = $"Train {unique2.Name} ({(int)unique2.FoodCost} Food, {(int)unique2.GoldCost} Gold)";
+            }
         }
 
         private void UpdateDockButtons(Dock dock)
@@ -575,6 +608,7 @@ namespace KingdomsOfBharat.UI
             lumberCampButton.gameObject.SetActive(active);
             miningCampButton.gameObject.SetActive(active);
             millButton.gameObject.SetActive(active);
+            durgButton.gameObject.SetActive(active);
         }
 
         private void UpdateTownCenterButtons(TownCenter townCenter)
@@ -690,17 +724,17 @@ namespace KingdomsOfBharat.UI
 
         private void TrainUniqueUnitAtSelected()
         {
-            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Durg durg)
             {
-                EnqueueTrain(barracks, barracks.RequestTrainUniqueUnit, NetTrainKind.UniqueUnit);
+                EnqueueTrain(durg, durg.RequestTrainUniqueUnit, NetTrainKind.UniqueUnit);
             }
         }
 
         private void TrainUniqueUnit2AtSelected()
         {
-            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Durg durg)
             {
-                EnqueueTrain(barracks, () => barracks.RequestTrainUniqueUnit(1), NetTrainKind.UniqueUnitSlot1);
+                EnqueueTrain(durg, () => durg.RequestTrainUniqueUnit(1), NetTrainKind.UniqueUnitSlot1);
             }
         }
 

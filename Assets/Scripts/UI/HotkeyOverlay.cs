@@ -68,6 +68,7 @@ namespace KingdomsOfBharat.UI
             new Entry("Place Lumber Camp", "PlaceLumberCamp", KeyCode.J),
             new Entry("Place Mining Camp", "PlaceMiningCamp", KeyCode.U),
             new Entry("Place Mill", "PlaceMill", KeyCode.P),
+            new Entry("Place Durg", "PlaceDurg", KeyCode.D),
         });
 
         private static readonly Group TownCenterGroup = new Group("Town Center Selected", new[]
@@ -86,11 +87,17 @@ namespace KingdomsOfBharat.UI
             new Entry("Train Cavalry", "TrainCavalry", KeyCode.N),
             new Entry("Train Siege", "TrainSiege", KeyCode.S),
             new Entry("Train Spearman", "TrainSpearman", KeyCode.E),
-            new Entry("Unique Unit", "TrainUniqueUnit", KeyCode.Q),
-            new Entry("2nd Unique Unit", "TrainUniqueUnit2", KeyCode.Z),
             new Entry("Attack Upgrade", "ResearchAttack", KeyCode.U),
             new Entry("Armor Upgrade", "ResearchArmor", KeyCode.K),
             new Entry("Unique Tech", "ResearchUniqueTech", KeyCode.J),
+        });
+
+        // Wave 2 item 7: unique-unit training moved off Barracks onto the
+        // new Durg building - own group, same shape as BarracksGroup.
+        private static readonly Group DurgGroup = new Group("Durg Selected", new[]
+        {
+            new Entry("Unique Unit", "TrainUniqueUnit", KeyCode.Q),
+            new Entry("2nd Unique Unit", "TrainUniqueUnit2", KeyCode.Z),
         });
 
         private static readonly Group DockGroup = new Group("Dock Selected", new[]
@@ -110,7 +117,7 @@ namespace KingdomsOfBharat.UI
         {
             new[] { GlobalGroup, DockGroup, GarrisonGroup },
             new[] { PlacementGroup },
-            new[] { TownCenterGroup, BarracksGroup },
+            new[] { TownCenterGroup, BarracksGroup, DurgGroup },
         };
 
         private GameObject _panel;

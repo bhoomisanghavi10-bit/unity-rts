@@ -24,6 +24,9 @@ namespace KingdomsOfBharat.Buildings
         public const int MarketTiles = 3;
         public const int BarracksTiles = 4;
         public const int TownCenterTiles = 6;
+        // Wave 2 item 7: the Durg building matches TownCenter's footprint -
+        // both are the biggest/strongest defensive structures in the game.
+        public const int DurgTiles = 6;
         // Phase 3.1 (resource-specific drop-offs): Lumber Camp/Mining Camp/
         // Mill share this footprint - same as Farm/House, no reason for a
         // resource-collection shed to be bigger than either of those.
