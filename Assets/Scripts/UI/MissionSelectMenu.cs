@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -76,6 +77,39 @@ namespace KingdomsOfBharat.UI
             Destroy(gameObject);
         }
 
+        // Item 6 (Scenario Editor, heavy path session 3): plays a saved
+        // custom scenario directly from the browse list, without going
+        // through the editor - mirrors ChooseScenario's own shutdown
+        // sequence exactly, just calling BeginCustomScenarioMatch (same
+        // entry point ScenarioEditorMenu's own Play button already uses)
+        // instead of BeginScenarioMatch.
+        private void ChooseCustomScenario(string name)
+        {
+            CustomScenarioData data = SavedScenarioLibrary.Load(name);
+            if (data == null)
+            {
+                Debug.LogWarning("[MissionSelectMenu] Saved scenario not found: " + name);
+                return;
+            }
+
+            var civSetup = FindFirstObjectByType<CivilizationSetup>();
+            if (civSetup == null)
+            {
+                Debug.LogWarning("[MissionSelectMenu] No CivilizationSetup in scene - can't start scenario.");
+                return;
+            }
+
+            civSetup.BeginCustomScenarioMatch(data);
+
+            var civPicker = FindFirstObjectByType<CivPicker>();
+            if (civPicker != null)
+            {
+                Destroy(civPicker.gameObject);
+            }
+
+            Destroy(gameObject);
+        }
+
         private void BuildUi()
         {
             var canvasGo = new GameObject("MissionSelectMenuCanvas");
@@ -103,10 +137,10 @@ namespace KingdomsOfBharat.UI
             var boxRect = boxGo.AddComponent<RectTransform>();
             boxRect.anchorMin = new Vector2(0.5f, 0.5f);
             boxRect.anchorMax = new Vector2(0.5f, 0.5f);
-            boxRect.sizeDelta = new Vector2(640f, 520f);
+            boxRect.sizeDelta = new Vector2(640f, 640f);
             boxRect.anchoredPosition = Vector2.zero;
 
-            float y = 220f;
+            float y = 280f;
             CreateLabel(boxGo.transform, "Kingdoms of Bharat", new Vector2(0f, y), 30, TextAlignmentOptions.Center);
             y -= 40f;
             CreateLabel(boxGo.transform, "Choose a Campaign or play Skirmish", new Vector2(0f, y), 16, TextAlignmentOptions.Center);
@@ -121,6 +155,81 @@ namespace KingdomsOfBharat.UI
             CreateButton(boxGo.transform, "Skirmish (Free Play)", new Vector2(0f, y), new Vector2(400f, 44f), ChooseSkirmish);
             y -= 50f;
             CreateButton(boxGo.transform, "Create Scenario", new Vector2(0f, y), new Vector2(400f, 40f), ChooseCreateScenario);
+            y -= 46f;
+
+            BuildCustomScenariosSection(boxGo.transform, ref y);
+        }
+
+        // Item 6 (Scenario Editor, heavy path session 3): a saved-scenario
+        // browse list, previously only reachable from inside the editor
+        // itself (open editor -> Load -> Play). The list is unbounded (a
+        // player can save arbitrarily many), so it can't use the fixed-y
+        // row layout the mission list above uses - same ScrollRect/
+        // Viewport(RectMask2D)/Content pattern SettingsMenu.cs's own Key
+        // Bindings list and ScenarioEditorMenu's own Objectives tab
+        // (session 2) already establish for an unbounded row list.
+        private void BuildCustomScenariosSection(Transform parent, ref float y)
+        {
+            CreateLabel(parent, "Custom Scenarios", new Vector2(0f, y), 16, TextAlignmentOptions.Center);
+            y -= 26f;
+
+            List<string> names = SavedScenarioLibrary.ListSavedScenarioNames();
+            if (names.Count == 0)
+            {
+                CreateLabel(parent, "No saved scenarios yet - use Create Scenario to make one.",
+                    new Vector2(0f, y), 12, TextAlignmentOptions.Center, wrapWidth: 400f);
+                y -= 40f;
+                return;
+            }
+
+            const float rowHeight = 28f;
+            const float scrollHeight = 160f;
+
+            var scrollGo = new GameObject("CustomScenariosScroll");
+            scrollGo.transform.SetParent(parent, false);
+            var scrollRect = scrollGo.AddComponent<RectTransform>();
+            scrollRect.anchorMin = new Vector2(0.5f, 0.5f);
+            scrollRect.anchorMax = new Vector2(0.5f, 0.5f);
+            scrollRect.pivot = new Vector2(0.5f, 1f);
+            scrollRect.sizeDelta = new Vector2(420f, scrollHeight);
+            scrollRect.anchoredPosition = new Vector2(0f, y);
+            var scroll = scrollGo.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = rowHeight;
+
+            var viewportGo = new GameObject("Viewport");
+            viewportGo.transform.SetParent(scrollGo.transform, false);
+            var viewportRect = viewportGo.AddComponent<RectTransform>();
+            viewportRect.anchorMin = Vector2.zero;
+            viewportRect.anchorMax = Vector2.one;
+            viewportRect.offsetMin = Vector2.zero;
+            viewportRect.offsetMax = Vector2.zero;
+            viewportGo.AddComponent<RectMask2D>();
+            var viewportImage = viewportGo.AddComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
+
+            var contentGo = new GameObject("Content");
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            var contentRect = contentGo.AddComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.sizeDelta = new Vector2(0f, names.Count * rowHeight);
+            contentRect.anchoredPosition = Vector2.zero;
+
+            scroll.viewport = viewportRect;
+            scroll.content = contentRect;
+
+            float rowY = 0f;
+            foreach (string name in names)
+            {
+                CreateButton(contentGo.transform, name, new Vector2(0f, rowY), new Vector2(380f, 24f), () => ChooseCustomScenario(name));
+                rowY -= rowHeight;
+            }
+
+            y -= scrollHeight + 10f;
         }
 
         private void CreateMissionRow(Transform parent, ScenarioDefinition scenario, ref float y)

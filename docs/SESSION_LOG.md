@@ -5,6 +5,78 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Scenario Editor heavy path, session 3: saved-scenario browse list
+
+**Scope**: at the user's explicit request ("start a saved-scenario browse list on
+MissionSelectMenu"), the last remaining item both session 1 and session 2 had
+flagged as deferred. Until this session, the only way to play a saved custom
+scenario was from inside `ScenarioEditorMenu` itself (open editor → Load → Play) -
+a normal player at the Mission Select screen had no way to find or play one.
+
+**Design**: extracted the scenario-file I/O `ScenarioEditorMenu.cs` had inline
+(`ScenarioFolder` property, `RefreshFileList()`'s `Directory.GetFiles` call,
+`LoadFile()`'s read+`JsonUtility.FromJson`) into a new
+`Assets/Scripts/Core/SavedScenarioLibrary.cs` (`ScenarioFolder`,
+`ListSavedScenarioNames()`, `Load(name)`) - the same "extract shared logic to one
+source of truth" reasoning `EntitySpawner.cs` already established in session 1, so
+`MissionSelectMenu`'s new browse list reads the exact same files the editor itself
+writes, with no risk of the two implementations drifting apart. `ScenarioEditorMenu`
+was updated to call through this shared library instead of duplicating the logic;
+verified behavior-preserving by re-running its own already-proven Save→Close→
+re-Open→Load flow live after the refactor (see verification below).
+
+`MissionSelectMenu.cs` gained a new "Custom Scenarios" section, placed below the
+existing Skirmish/Create Scenario buttons (box grown 640×520 → 640×640 to fit it).
+The row list is unbounded (a player can save arbitrarily many scenarios), so it
+can't use the existing mission list's fixed-`y` row layout - reused the exact
+`ScrollRect`/`Viewport`(`RectMask2D`)/`Content` pattern `SettingsMenu.cs`'s own Key
+Bindings list and session 2's `ScenarioEditorMenu` Objectives tab already
+established, rather than inventing a new one. An explicit "No saved scenarios yet -
+use Create Scenario to make one." label replaces the scroll area when the list is
+empty. New `ChooseCustomScenario(string name)` loads via
+`SavedScenarioLibrary.Load`, then mirrors `ChooseScenario(ScenarioDefinition)`'s
+existing shutdown sequence exactly (`CivilizationSetup.BeginCustomScenarioMatch`,
+destroy `CivPicker` if present, destroy self) - no new match-start logic, this is
+the same entry point `ScenarioEditorMenu`'s own Play button already calls.
+
+**Testing**: 3 new EditMode tests (`SavedScenarioLibraryTests.cs`) writing/reading
+real small JSON files into the real `Application.persistentDataPath/Scenarios`
+folder (the same location the production code uses - no sandboxed alternative this
+project's save/load code supports), cleaned up in `[TearDown]`. 200 EditMode tests
+total (up from 197), all pass - confirms the `ScenarioEditorMenu` refactor changed
+nothing observable.
+
+Live-verified via UnityMCP through the real production path, not just the tests:
+1. Saved 2 scenarios through the real editor via the same reflection-driven
+   `Save()` technique established in session 2 - `browse_test_a` (with a
+   `SurviveSeconds` objective, "Survive 10 minutes") and `browse_test_b`
+   (placements-only, no objectives).
+2. Re-created a fresh `MissionSelectMenu` and screenshotted the real panel:
+   confirmed the existing 4 hand-coded/CSV missions, Skirmish, and Create Scenario
+   are all still laid out correctly at the grown box height, and the new "Custom
+   Scenarios" section lists both saved names below them.
+3. Invoked the real `ChooseCustomScenario("browse_test_a")` (the same call a click
+   makes) and confirmed `ScenarioManager.ActiveScenario.Title` read
+   `"browse_test_a"` and `CurrentObjectives` contained the exact authored
+   objective ("Survive 10 minutes") - proving the browse list starts a real match
+   with that scenario's own data, not the mission list's hand-coded content.
+
+Test-residue scenario files (`browse_test_a.json`, `browse_test_b.json`) were
+deleted from `persistentDataPath/Scenarios/` after verification.
+
+**Deferred, not silently dropped**: deleting/renaming a saved scenario from this
+browse list (still editor-only, via Save overwriting); row metadata (civ/map/
+placement count - title-only for v1, matching the mission list's own minimal row);
+thumbnail/preview art; per-kind bespoke input widgets (from session 2); multiplayer/
+LAN play of a custom scenario.
+
+**Files**: `Assets/Scripts/Core/SavedScenarioLibrary.cs` (new),
+`Assets/Scripts/UI/ScenarioEditorMenu.cs`, `Assets/Scripts/UI/MissionSelectMenu.cs`,
+`Assets/Tests/EditMode/SavedScenarioLibraryTests.cs` (new),
+`docs/PARTIAL_ELEMENTS_FIX_PLAN.md`, `CLAUDE.md`.
+
+---
+
 ## 2026-09-03 — Scenario Editor heavy path, session 2: Objective/Trigger authoring
 
 **Scope**: at the user's explicit request ("start item on objective/trigger

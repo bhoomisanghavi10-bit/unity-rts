@@ -7,6 +7,35 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Scenario Editor heavy path, session 3 (saved-scenario browse list)
+  closed (2026-09-03)** — picked up at the user's explicit request ("start
+  a saved-scenario browse list on MissionSelectMenu"), the last item
+  session 1/2 both flagged as deferred. New
+  `Assets/Scripts/Core/SavedScenarioLibrary.cs` extracts the scenario-file
+  I/O `ScenarioEditorMenu` had inline (`ScenarioFolder`/
+  `ListSavedScenarioNames`/`Load`) into one shared source of truth, so both
+  the editor and `MissionSelectMenu` read the exact same saved files —
+  verified behavior-preserving by re-running the editor's own Save/Load
+  flow live after the refactor. `MissionSelectMenu` gained a "Custom
+  Scenarios" section (a `ScrollRect`-based row list, same pattern
+  `SettingsMenu`'s Key Bindings list and session 2's own Objectives tab
+  already establish, since the list is unbounded) with an explicit
+  "No saved scenarios yet" empty state. New `ChooseCustomScenario(string)`
+  mirrors `ChooseScenario`'s existing shutdown sequence, calling the same
+  `CivilizationSetup.BeginCustomScenarioMatch` the editor's own Play
+  button already uses. 3 new EditMode tests (200 total, all pass).
+  Live-verified via UnityMCP through the real production path: saved 2
+  scenarios through the real editor (one with a `SurviveSeconds`
+  objective, one placements-only), screenshotted the real Mission Select
+  panel confirming both appear correctly, then invoked the real
+  `ChooseCustomScenario` and confirmed `ScenarioManager.ActiveScenario`'s
+  title/objective matched the saved scenario exactly. Explicitly still out
+  of scope: deleting/renaming a saved scenario from this list, row
+  metadata (civ/map/placement count), thumbnail art. See
+  `docs/SESSION_LOG.md`'s matching entry for full detail. Next: the user's
+  call among the remaining deferred items (per-kind input widgets, richer
+  palette art, multiplayer play of a custom scenario), or another Roadmap
+  Section 5 item.
 - **Scenario Editor heavy path, session 2 (Objective/Trigger authoring)
   closed (2026-09-03)** — picked up directly from the offer at the end of
   session 1 ("objective/trigger authoring for custom scenarios," the
@@ -678,14 +707,16 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: **Scenario Editor heavy path, session 2 (Objective/Trigger
-  authoring) closed (2026-09-03)** — see this file's own bullet above for
-  full detail. Picked up directly from session 1's own offered next steps.
-  This is a multi-session epic; the remaining explicitly-deferred items
-  are per-kind bespoke input widgets, a saved-scenario browse list on
-  `MissionSelectMenu`, richer palette art, and multiplayer/LAN play of a
-  custom scenario — pick up per user direction, no fixed order assumed.
-  Before that: **Scenario Editor heavy path, session 1 (Placements)
+- Currently on: **Scenario Editor heavy path, session 3 (saved-scenario
+  browse list) closed (2026-09-03)** — see this file's own bullet above
+  for full detail. Picked up directly from a deferred item session 1/2
+  both flagged. This is a multi-session epic; the remaining explicitly-
+  deferred items are per-kind bespoke input widgets, richer palette art,
+  and multiplayer/LAN play of a custom scenario — pick up per user
+  direction, no fixed order assumed. Before that: **Scenario Editor heavy
+  path, session 2 (Objective/Trigger authoring) closed (2026-09-03)** —
+  see this file's own bullet above for full detail. Before that:
+  **Scenario Editor heavy path, session 1 (Placements)
   closed (2026-09-03)** — see this file's own bullet above for full
   detail. Before that: **item 6 (Scenario Editor) light path
   closed (2026-09-03)** — see this file's own bullet above for full

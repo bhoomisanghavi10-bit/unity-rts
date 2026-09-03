@@ -17,7 +17,7 @@ one item per session, Plan Mode before nontrivial changes, test before done, log
 | 3 | Area of Effect / Trample damage | **Done (2026-09-03)** — Cavalry trample via a generalized splash-damage multiplier |
 | 4 | Diplomacy (tribute) | **Done (2026-09-03)** — stance UI already existed; added Tribute + buttons |
 | 5 | Renewable resource (Farm reseed) | **Farm half done (2026-09-03)**; Fish Trap still deferred/asset-blocked |
-| 6 | Scenario Editor | **Light path done; heavy path sessions 1 (Placements) and 2 (Objective/Trigger authoring) done (2026-09-03)** |
+| 6 | Scenario Editor | **Light path done; heavy path sessions 1 (Placements), 2 (Objective/Trigger authoring), and 3 (saved-scenario browse list) done (2026-09-03)** |
 
 Fish Trap (part of item 5) and a full in-game visual level editor (part of item 6) are called
 out as **blocked on asset sourcing / a scope decision**, not part of this implementation pass,
@@ -288,7 +288,41 @@ larger, asset-blocked item — don't bundle it into the same session.
 ---
 
 ## 6. Scenario Editor — light path (CSV-authoring) **Done**; heavy path sessions 1
-(Placements) and 2 (Objective/Trigger authoring) — **Done (2026-09-03)**
+(Placements), 2 (Objective/Trigger authoring), and 3 (saved-scenario browse list) —
+**Done (2026-09-03)**
+
+**Heavy path, session 3 result**: picked up per the user's explicit request ("start
+a saved-scenario browse list on MissionSelectMenu"), the last item session 1/2 both
+flagged as deferred - until now, the only way to play a saved custom scenario was
+from inside the editor itself (open editor → Load → Play). New
+`Assets/Scripts/Core/SavedScenarioLibrary.cs` extracts the scenario-file I/O
+(`ScenarioFolder`/`ListSavedScenarioNames`/`Load`) that `ScenarioEditorMenu` had
+inline in its own `ScenarioFolder`/`RefreshFileList`/`LoadFile` - both the editor and
+`MissionSelectMenu` now read the exact same files through one source of truth,
+verified behavior-preserving (the editor's own already-tested Save/Load flow was
+re-run live after the refactor with no change in behavior). `MissionSelectMenu`
+gained a "Custom Scenarios" section below Skirmish/Create Scenario: a `ScrollRect`-
+based row list (same pattern `SettingsMenu`'s Key Bindings list and session 2's own
+`ScenarioEditorMenu` Objectives tab already establish, reused rather than
+reinvented, since the list is unbounded) listing every saved scenario name, with an
+explicit "No saved scenarios yet" empty state. A new `ChooseCustomScenario(string)`
+mirrors `ChooseScenario(ScenarioDefinition)`'s existing shutdown sequence exactly,
+calling the same `CivilizationSetup.BeginCustomScenarioMatch` the editor's own Play
+button already uses - no new match-start logic. 3 new EditMode tests
+(`SavedScenarioLibraryTests.cs`), 200 total, all pass. Live-verified via UnityMCP
+through the real production path: saved 2 scenarios through the real editor (one
+with a `SurviveSeconds` objective, one placements-only) via reflection against the
+real `Save()`, screenshotted the real Mission Select panel confirming both appear
+in the new list with the correct empty/populated states elsewhere unaffected, then
+invoked the real `ChooseCustomScenario` (the same call a click makes) and confirmed
+`ScenarioManager.ActiveScenario`'s title and objective description matched the
+saved scenario exactly - not the hand-coded/CSV mission list's own content. Test
+scenario files deleted after verification. Explicitly still out of scope: deleting/
+renaming a saved scenario from this browse list (editor-only for now), row metadata
+(civ/map/placement count), thumbnail art. See `docs/SESSION_LOG.md` for full detail.
+
+<details>
+<summary>Heavy path, session 2 result (for reference)</summary>
 
 **Heavy path, session 2 result**: picked up per the user's explicit request ("start
 item on objective/trigger authoring for custom scenarios"), one of the deferred
@@ -332,6 +366,8 @@ JsonUtility unit test). Explicitly still deferred, not silently dropped: per-kin
 bespoke input widgets (dropdowns instead of generic Param text fields), a
 saved-scenario browse list on `MissionSelectMenu` itself, richer palette art,
 multiplayer/LAN play of a custom scenario. See `docs/SESSION_LOG.md` for full detail.
+
+</details>
 
 <details>
 <summary>Heavy path, session 1 result (for reference)</summary>

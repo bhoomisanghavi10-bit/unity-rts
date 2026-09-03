@@ -58,7 +58,6 @@ namespace KingdomsOfBharat.UI
         };
 
         private const float MarkerPickRadius = 1.5f;
-        private const string ScenarioFolderName = "Scenarios";
 
         private UnityEngine.Camera _camera;
         private readonly List<PlacedMarker> _markers = new List<PlacedMarker>();
@@ -292,8 +291,6 @@ namespace KingdomsOfBharat.UI
 
         // --- Save / Load / Play ---
 
-        private static string ScenarioFolder => Path.Combine(Application.persistentDataPath, ScenarioFolderName);
-
         private void Save()
         {
             string name = _nameField.text.Trim();
@@ -305,8 +302,8 @@ namespace KingdomsOfBharat.UI
 
             CustomScenarioData data = BuildScenarioData(name);
 
-            Directory.CreateDirectory(ScenarioFolder);
-            string path = Path.Combine(ScenarioFolder, name + ".json");
+            Directory.CreateDirectory(SavedScenarioLibrary.ScenarioFolder);
+            string path = Path.Combine(SavedScenarioLibrary.ScenarioFolder, name + ".json");
             File.WriteAllText(path, JsonUtility.ToJson(data, true));
             SetStatus("Saved to " + path);
             RefreshFileList();
@@ -372,14 +369,13 @@ namespace KingdomsOfBharat.UI
 
         private void LoadFile(string name)
         {
-            string path = Path.Combine(ScenarioFolder, name + ".json");
-            if (!File.Exists(path))
+            CustomScenarioData data = SavedScenarioLibrary.Load(name);
+            if (data == null)
             {
                 SetStatus("Not found: " + name);
                 return;
             }
 
-            CustomScenarioData data = JsonUtility.FromJson<CustomScenarioData>(File.ReadAllText(path));
             ClearMarkers();
             _nameField.text = data.title;
 
@@ -754,15 +750,9 @@ namespace KingdomsOfBharat.UI
                 Destroy(_fileListContainer.GetChild(i).gameObject);
             }
 
-            if (!Directory.Exists(ScenarioFolder))
-            {
-                return;
-            }
-
             float y = 0f;
-            foreach (string path in Directory.GetFiles(ScenarioFolder, "*.json"))
+            foreach (string name in SavedScenarioLibrary.ListSavedScenarioNames())
             {
-                string name = Path.GetFileNameWithoutExtension(path);
                 CreateButton(_fileListContainer, name, new Vector2(0f, y), new Vector2(260f, 24f), () => LoadFile(name));
                 y -= 26f;
             }
