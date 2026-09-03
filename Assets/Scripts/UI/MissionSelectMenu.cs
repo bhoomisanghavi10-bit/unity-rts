@@ -39,6 +39,23 @@ namespace KingdomsOfBharat.UI
             Destroy(gameObject);
         }
 
+        // Item 6 (Scenario Editor, heavy path session 1): opens the in-game
+        // placements editor. Same self-destroying handoff ChooseScenario
+        // already uses below (CivPicker isn't needed for editing - the
+        // editor picks civ/map itself when a scenario is actually saved/
+        // played), so this menu just gets out of the way.
+        private void ChooseCreateScenario()
+        {
+            var civPicker = FindFirstObjectByType<CivPicker>();
+            if (civPicker != null)
+            {
+                Destroy(civPicker.gameObject);
+            }
+
+            ScenarioEditorMenu.Open();
+            Destroy(gameObject);
+        }
+
         private void ChooseScenario(ScenarioDefinition scenario)
         {
             var civSetup = FindFirstObjectByType<CivilizationSetup>();
@@ -102,6 +119,8 @@ namespace KingdomsOfBharat.UI
 
             y -= 20f;
             CreateButton(boxGo.transform, "Skirmish (Free Play)", new Vector2(0f, y), new Vector2(400f, 44f), ChooseSkirmish);
+            y -= 50f;
+            CreateButton(boxGo.transform, "Create Scenario", new Vector2(0f, y), new Vector2(400f, 40f), ChooseCreateScenario);
         }
 
         private void CreateMissionRow(Transform parent, ScenarioDefinition scenario, ref float y)

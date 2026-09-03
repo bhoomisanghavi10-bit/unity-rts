@@ -5,6 +5,108 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Scenario Editor heavy path, session 1: in-game Placements
+
+**Scope**: at the user's explicit request ("start the heavy scenario path"), picked
+up right after the light-path (CSV missions) session closed. The light-path session
+had deferred the heavy path (a true visual editor) pending confirmed user intent -
+now given directly, not assumed. Before any code, confirmed 2 real forks via
+AskUserQuestion: (1) **in-game runtime editor**, not a Unity EditorWindow - real
+UGC/modding, players place on the real map and save/play their own scenarios; (2)
+**placements first** - starting units/buildings per faction, the part that genuinely
+doesn't exist anywhere (`MapDefinitionData` hardcodes exactly 2-3 fixed TownCenter
+spawn points per map; the light-path CSV missions cover objectives/triggers/civ/map
+but have no starting-layout concept at all). Objective/trigger authoring for custom
+scenarios and richer editor polish are explicit follow-on sessions, not folded in.
+
+**Implementation** (Plan Mode, approved before coding): `SaveManager`'s own
+type-string → factory-call dispatch (`RestoreUnits`/`RestoreBuildings`) was extracted
+into a new shared `Assets/Scripts/Core/EntitySpawner.cs` (pure refactor, same cases,
+same factory calls - verified behavior-preserving by the full existing test suite
+passing unmodified) so both save/load and the new placement system share one source
+of truth instead of two copies drifting apart. New `CustomScenarioData.cs` (mirrors
+`MatchSaveData`'s JsonUtility-serializable shape, reusing `UnitSaveData`/
+`BuildingSaveData` directly) and `CustomScenarioContext.cs` (a `MapRegistry.Current`-
+shaped static holder). New `CivilizationSetup.BeginCustomScenarioMatch` mirrors
+`BeginScenarioMatch` but deliberately does **not** call `ScenarioManager.Begin` - v1
+has no custom objectives/triggers, so `MatchManager`'s existing elimination-based
+Conquest evaluation just runs, same as a normal skirmish, zero new victory-condition
+code needed. New in-game `Assets/Scripts/UI/ScenarioEditorMenu.cs` (opened via a new
+"Create Scenario" button on `MissionSelectMenu`, which needed no other changes):
+faction toggle + a plain-text palette of every placeable type (the same restricted
+roster `EntitySpawner` already supports), click-to-place/drag-to-move/right-click-
+to-delete lightweight marker primitives (not the real heavyweight factory output -
+the real entity only spawns once a scenario is actually played, so free
+repositioning during editing doesn't fight construction-site/NavMesh side effects), a
+`TMP_InputField` for the scenario name (no prior precedent for in-game text input in
+this project - confirmed via grep, a new but standard/low-risk component), and
+Save/Load (`persistentDataPath/Scenarios/*.json`, same `JsonUtility`+
+`File.WriteAllText` convention `SaveManager.Save()` already uses)/Play.
+
+**A real gap was caught live, not left unnoticed**: `TownCenterSpawner`/
+`AiController` were the only 2 gated default-spawn components this item's own plan
+accounted for (each given a `CustomScenarioContext.HasPlacementsFor(faction)` opt-out
+so a scenario's own placements aren't duplicated by the map's hardcoded defaults).
+Live verification's own population check after Playing a saved scenario read
+Player=6 instead of the expected 2 - tracing it down (not just re-running and hoping)
+found a 3rd gated spawner, `UnitSpawner.cs`, unconditionally dropping 4 default
+Workers regardless of any custom scenario, which `CivilizationSetup`'s own existing
+comment had actually already named (`"TownCenterSpawner, ResourceNodeSpawner,
+UnitSpawner, AiController"`) but this item's own design step missed. Fixed with the
+same opt-out pattern (and `CustomScenarioContext.HasPlacementsFor` extended to check
+unit placements too, not just buildings, since a scenario could place only units for
+a faction with no starting building). Re-verified live: exact population match.
+
+**Also hit, and worked through without another Editor restart this time**: two
+genuine EditMode-only limitations, both confirmed via the real stack trace/behavior
+rather than guessed at, and both consistent with prior sessions' own precedent for
+this exact class of problem (Play-mode-only production code paths):
+`SpawnBuilding` (`BarracksFactory.Place` and every other building factory) NREs
+outside Play mode - `SelectionIndicator.Configure()`, called immediately after
+`AddComponent` by every building factory (unlike units, which never call `Configure`
+at all), assumes `Awake()` already ran synchronously, which EditMode doesn't
+guarantee - so building spawns are covered by live UnityMCP verification only, not
+EditMode tests. `SpawnUnit("Soldier")` specifically also can't run in EditMode:
+`WeaponAttachment.KeepOnlyFirstMesh` calls the real (non-Immediate) `Object.Destroy`
+to trim its weapon prop's extra mesh renderers, and Unity's Editor logs a hard error
+for that outside Play mode that neither `LogAssert.ignoreFailingMessages` nor
+disabling `Debug.unityLogger.logEnabled` suppressed (both tried directly) - unlike
+every other EditMode-only log this project's tests already document and work around.
+Soldier's own spawn is live-verified instead; Worker/Archer/Cavalry/Siege (the other
+4 unit types) are fully EditMode-covered.
+
+**Testing**: 12 new EditMode tests (`EntitySpawnerTests.cs`,
+`CustomScenarioDataTests.cs`; 190 total, all pass). Live-verified via UnityMCP
+through the real UI end to end, not synthetic calls: opened the editor from the real
+Mission Select "Create Scenario" button (screenshot confirmed the palette/faction/
+Save-Load-Play UI renders correctly, ground/camera visible for placement raycasting);
+placed 5 real markers across Player and Enemy factions (2 TownCenters, 3 Workers)
+via the same `PlaceMarker` method the real click-handler calls; Saved through the
+real Save button and confirmed the written JSON matched exactly; cleared and Loaded
+back through the real file-list button, confirming markers matched; Played through
+the real Play button and confirmed, against the real running match: both
+TownCenters at exactly their placed positions (not the map's hardcoded defaults),
+Player/Enemy population matching exactly (2/1, after the UnitSpawner fix above), the
+AI having adopted its placed TownCenter (age-up/research/train still function), and
+`ScenarioManager.ActiveScenario` null with `MatchManager.Outcome` reading `Ongoing`
+under standard Conquest evaluation.
+
+**Files**: `Assets/Scripts/Core/EntitySpawner.cs` (new), `Assets/Scripts/Core/
+CustomScenarioData.cs` (new), `Assets/Scripts/Core/CustomScenarioContext.cs` (new),
+`Assets/Scripts/Core/CivilizationSetup.cs`, `Assets/Scripts/Core/SaveManager.cs`,
+`Assets/Scripts/Buildings/TownCenterSpawner.cs`, `Assets/Scripts/Units/
+UnitSpawner.cs`, `Assets/Scripts/AI/AiController.cs`, `Assets/Scripts/UI/
+ScenarioEditorMenu.cs` (new), `Assets/Scripts/UI/MissionSelectMenu.cs`,
+`Assets/Tests/EditMode/EntitySpawnerTests.cs` (new), `Assets/Tests/EditMode/
+CustomScenarioDataTests.cs` (new). One scoped commit.
+`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 6's heavy path session 1 marked done.
+Explicitly deferred, not silently dropped: objective/trigger authoring for custom
+scenarios, a saved-scenario browse list back on `MissionSelectMenu` itself, richer
+palette art/icons, floating per-marker labels, multiplayer/LAN play of a custom
+scenario - any of these is a reasonable next session on this same epic.
+
+---
+
 ## 2026-09-03 — Partial-Elements Fix Plan item 6: Scenario Editor (light path, CSV-authored missions)
 
 **Scope**: `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 6 ("Scenario Editor — recommend

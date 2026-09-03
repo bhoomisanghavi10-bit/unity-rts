@@ -7,6 +7,35 @@ asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
 - Working from Roadmap Section 5's priority order.
+- **Scenario Editor heavy path, session 1 (Placements) closed (2026-09-03)**
+  — picked up at the user's explicit request ("start the heavy scenario
+  path") right after the light-path session closed. Confirmed 2 real
+  forks via AskUserQuestion before coding: in-game runtime editor (real
+  UGC, not a Unity EditorWindow), and placements first (starting units/
+  buildings per faction — the part that genuinely didn't exist anywhere).
+  New `EntitySpawner.cs` (pure extraction of `SaveManager`'s own type-
+  string→factory dispatch, shared by both), `CustomScenarioData.cs`/
+  `CustomScenarioContext.cs`, `CivilizationSetup.BeginCustomScenarioMatch`
+  (deliberately skips `ScenarioManager.Begin` — v1 has no custom
+  objectives, so standard Conquest just runs), and a new in-game
+  `ScenarioEditorMenu.cs` (palette, click-place/drag-move/right-click-
+  delete markers, Save/Load/Play) opened via a new "Create Scenario"
+  button on `MissionSelectMenu` — needed zero other UI changes. **A real
+  gap caught live, not left unnoticed**: the plan only accounted for 2 of
+  3 gated default-spawn components (`TownCenterSpawner`/`AiController`) —
+  a live population mismatch (6 instead of 2) after Playing a saved
+  scenario traced to a 3rd, `UnitSpawner.cs`, unconditionally dropping 4
+  default Workers; fixed with the same opt-out pattern. 12 new EditMode
+  tests (190 total, all pass) plus two disclosed EditMode-only limitations
+  (building factories and `SpawnUnit("Soldier")` both NRE/hard-error
+  outside Play mode for pre-existing reasons unrelated to this session —
+  covered by live UnityMCP verification instead). Live-verified the full
+  editor→Save→Load→Play loop through the real UI end to end. See
+  `docs/SESSION_LOG.md`'s matching entry for full detail. Explicitly
+  deferred: objective/trigger authoring for custom scenarios, a saved-
+  scenario browse list on `MissionSelectMenu`, richer palette art,
+  multiplayer/LAN play of a custom scenario — any is a reasonable next
+  session on this same epic.
 - **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 6 (Scenario Editor) light path
   closed (2026-09-03)** — picked up right after item 5 per the user's
   "start item 6". Reading `ScenarioDefinition.cs` directly (not trusting
@@ -612,13 +641,19 @@ asset requirements, 5. Priority order).
   immediately, fixed by reloading the scene from disk (nothing had been
   saved, fully recoverable). See Roadmap Section 6 and `docs/SESSION_LOG.md`
   for full detail.
-- Currently on: **`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` item 6 (Scenario
-  Editor) light path closed (2026-09-03)** — see this file's own bullet
-  above for full detail. This closes the plan doc's entire recommended
-  order (items 1-6 all done); remaining deferred sub-items (Fish Trap,
-  the heavy Scenario Editor path) are tracked in `docs/Roadmap.md`, pick
-  up per user direction — see this file's own "Lower priority" Roadmap
-  notes and the "Everything else" items scoped 2026-09-03. Before that:
+- Currently on: **Scenario Editor heavy path, session 1 (Placements)
+  closed (2026-09-03)** — see this file's own bullet above for full
+  detail. Started at the user's explicit request right after the light
+  path closed; this is a multi-session epic, and the natural next slice
+  is objective/trigger authoring for custom scenarios (currently v1
+  defaults to standard Conquest) or one of the other explicitly-deferred
+  items listed in that same bullet — pick up per user direction, no
+  fixed order assumed. Before that: **item 6 (Scenario Editor) light path
+  closed (2026-09-03)** — see this file's own bullet above for full
+  detail. That closed the plan doc's entire recommended order (items 1-6
+  all done); remaining deferred sub-items (Fish Trap) are tracked in
+  `docs/Roadmap.md` — see this file's own "Lower priority" Roadmap notes
+  and the "Everything else" items scoped 2026-09-03. Before that:
   **item 5 (Renewable Resource — Farm depletion) Farm half closed
   (2026-09-03)** — see this file's own bullet above for full detail.
   Before that: **item 4 (Diplomacy — Tribute) closed (2026-09-03)** — see

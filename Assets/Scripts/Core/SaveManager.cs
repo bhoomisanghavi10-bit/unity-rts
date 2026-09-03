@@ -448,18 +448,7 @@ namespace KingdomsOfBharat.Core
             foreach (BuildingSaveData saved in buildings)
             {
                 FactionId faction = (FactionId)saved.faction;
-                GameObject go = saved.buildingType switch
-                {
-                    "TownCenter" => TownCenterFactory.Place(saved.position, faction),
-                    "Barracks" => BarracksFactory.Place(saved.position, faction, 0.01f),
-                    "Farm" => FarmFactory.Place(saved.position, faction, 0.01f),
-                    "House" => HouseFactory.Place(saved.position, faction, 0.01f),
-                    "Wall" => WallFactory.Place(saved.position, faction, 0.01f),
-                    "Gate" => GateFactory.Place(saved.position, faction, 0.01f),
-                    "Tower" => TowerFactory.Place(saved.position, faction, 0.01f),
-                    "Market" => MarketFactory.Place(saved.position, faction, 0.01f),
-                    _ => null,
-                };
+                GameObject go = EntitySpawner.SpawnBuilding(saved.buildingType, faction, saved.position);
 
                 if (go == null)
                 {
@@ -483,15 +472,7 @@ namespace KingdomsOfBharat.Core
             foreach (UnitSaveData saved in units)
             {
                 FactionId faction = (FactionId)saved.faction;
-                GameObject go = saved.unitType switch
-                {
-                    "Worker" => WorkerFactory.Spawn(saved.position, faction),
-                    "Soldier" => SoldierFactory.Spawn(saved.position, faction),
-                    "Archer" => ArcherFactory.Spawn(saved.position, faction),
-                    "Cavalry" => CavalryFactory.Spawn(saved.position, faction),
-                    "Siege" => SiegeFactory.Spawn(saved.position, faction),
-                    _ => null,
-                };
+                GameObject go = EntitySpawner.SpawnUnit(saved.unitType, faction, saved.position);
 
                 if (go == null)
                 {

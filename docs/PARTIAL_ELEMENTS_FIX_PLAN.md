@@ -17,7 +17,7 @@ one item per session, Plan Mode before nontrivial changes, test before done, log
 | 3 | Area of Effect / Trample damage | **Done (2026-09-03)** — Cavalry trample via a generalized splash-damage multiplier |
 | 4 | Diplomacy (tribute) | **Done (2026-09-03)** — stance UI already existed; added Tribute + buttons |
 | 5 | Renewable resource (Farm reseed) | **Farm half done (2026-09-03)**; Fish Trap still deferred/asset-blocked |
-| 6 | Scenario Editor | **Light path done (2026-09-03)**; heavy path still deferred pending user intent |
+| 6 | Scenario Editor | **Light path done; heavy path session 1 (Placements) done (2026-09-03)** |
 
 Fish Trap (part of item 5) and a full in-game visual level editor (part of item 6) are called
 out as **blocked on asset sourcing / a scope decision**, not part of this implementation pass,
@@ -287,7 +287,38 @@ larger, asset-blocked item — don't bundle it into the same session.
 
 ---
 
-## 6. Scenario Editor — light path (CSV-authoring) — **Done (2026-09-03)**
+## 6. Scenario Editor — light path (CSV-authoring) **Done**; heavy path session 1
+(Placements) — **Done (2026-09-03)**
+
+**Heavy path, session 1 result**: at the user's explicit request ("start the heavy
+scenario path"), confirmed via AskUserQuestion this means a real in-game runtime
+editor (UGC/modding), not a Unity EditorWindow, and that this first session should
+ship placements (starting units/buildings per faction) — the part that genuinely
+doesn't exist anywhere, deferring objective/trigger authoring to a follow-on. New
+`Assets/Scripts/UI/ScenarioEditorMenu.cs` (opened via a new "Create Scenario" button
+on `MissionSelectMenu`): a faction-scoped palette, click-to-place/drag-to-move/
+right-click-to-delete lightweight markers on the real map, named Save/Load to
+`persistentDataPath/Scenarios/*.json`, and Play (starts a real match with exactly
+those placements via a new `CivilizationSetup.BeginCustomScenarioMatch`).
+`SaveManager`'s own type-string→factory dispatch was extracted into a shared
+`EntitySpawner.cs` (pure refactor) so both save/load and the new placement system
+use one source of truth. v1 has no custom objectives/triggers — `MatchManager`'s
+existing elimination-based Conquest evaluation just runs, same as a normal skirmish.
+**A real gap was caught live, not assumed away**: this item's own plan only accounted
+for 2 of the 3 gated default-spawn components (`TownCenterSpawner`/`AiController`) —
+a live population check after Playing a saved scenario read 6 instead of the expected
+2, revealing a 3rd gated spawner (`UnitSpawner`, unconditionally dropping 4 default
+Workers) that needed the same opt-out. Fixed and re-verified live: exact population
+match. 12 new EditMode tests, live-verified via UnityMCP through the real UI end to
+end (open editor → place 5 markers across 2 factions → Save → Load → Play → confirm
+exact positions/population/AI-adoption/standard-Conquest in the real running match).
+Explicitly deferred, not silently dropped: objective/trigger authoring for custom
+scenarios, a saved-scenario browse list on `MissionSelectMenu` itself, richer palette
+art, multiplayer/LAN play of a custom scenario. See `docs/SESSION_LOG.md` for full
+detail.
+
+<details>
+<summary>Light-path result (for reference)</summary>
 
 **Result**: implemented the recommended light path, with a real architecture
 correction found by reading the actual mission system before assuming the existing
@@ -340,6 +371,8 @@ scope until chosen.
 
 **Estimated size:** Light path — small-medium, fits the existing data-pipeline pattern.
 Heavy path — large, separate scoping conversation.
+
+</details>
 
 </details>
 

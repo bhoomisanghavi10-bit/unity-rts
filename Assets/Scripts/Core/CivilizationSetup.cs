@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using KingdomsOfBharat.Progression;
 using KingdomsOfBharat.Match;
+using KingdomsOfBharat.Buildings;
+using KingdomsOfBharat.AI;
 
 namespace KingdomsOfBharat.Core
 {
@@ -45,6 +47,7 @@ namespace KingdomsOfBharat.Core
         {
             HasMatchStarted = false;
             ScenarioManager.EndScenario();
+            CustomScenarioContext.End();
             Multiplayer.NetworkMatch.End();
         }
 
@@ -75,6 +78,58 @@ namespace KingdomsOfBharat.Core
         {
             ScenarioManager.Begin(scenario);
             BeginMatchCore(scenario.PlayerCivilization, scenario.AiCivilization, scenario.Map);
+        }
+
+        // Item 6 (Scenario Editor, heavy path session 1): a player-authored
+        // custom scenario. Deliberately does NOT call ScenarioManager.Begin
+        // - v1 has no custom objectives/triggers, so ScenarioManager.
+        // ActiveScenario stays null and MatchManager's existing elimination-
+        // based Conquest evaluation just runs, same as a normal skirmish.
+        // CustomScenarioContext.Begin() runs BEFORE BeginMatchCore so
+        // TownCenterSpawner/AiController (gated content BeginMatchCore
+        // activates) can see it in their own Awake()/Start() and skip their
+        // own hardcoded default spawn when this scenario already supplies
+        // their faction's placements. The actual placements are spawned
+        // AFTER BeginMatchCore returns (ground/NavMesh already rebuilt by
+        // then, civ/age registries already populated).
+        public void BeginCustomScenarioMatch(CustomScenarioData data)
+        {
+            CustomScenarioContext.Begin(data);
+            BeginMatchCore((CivilizationId)data.playerCivilization, (CivilizationId)data.aiCivilization, (MapId)data.mapId);
+            SpawnPlacements(data);
+        }
+
+        // Separated from BeginCustomScenarioMatch for clarity - spawns every
+        // placement via EntitySpawner (the same dispatch SaveManager's own
+        // restore path uses) and immediately completes any building's
+        // ConstructionSite, matching how a scenario's starting base is
+        // already-built, not a fresh foundation.
+        private static void SpawnPlacements(CustomScenarioData data)
+        {
+            foreach (BuildingSaveData building in data.buildings)
+            {
+                FactionId faction = (FactionId)building.faction;
+                GameObject go = EntitySpawner.SpawnBuilding(building.buildingType, faction, building.position);
+                if (go != null && go.TryGetComponent(out ConstructionSite site))
+                {
+                    site.CompleteImmediately();
+                }
+            }
+
+            foreach (UnitSaveData unit in data.units)
+            {
+                FactionId faction = (FactionId)unit.faction;
+                EntitySpawner.SpawnUnit(unit.unitType, faction, unit.position);
+            }
+
+            // Every AiController whose faction this scenario placed a
+            // TownCenter for needs to adopt it - it skipped its own spawn
+            // in Start() (see AiController.AdoptTownCenter), so without this
+            // it would have no _townCenter reference at all.
+            foreach (AiController ai in FindObjectsByType<AiController>(FindObjectsSortMode.None))
+            {
+                ai.AdoptTownCenter();
+            }
         }
 
         private void BeginMatchCore(CivilizationId playerCivilization, CivilizationId aiCiv, MapId mapId)

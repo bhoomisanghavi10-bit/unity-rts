@@ -150,6 +150,19 @@ namespace KingdomsOfBharat.AI
         {
             ApplyDifficulty();
 
+            // Item 6 (Scenario Editor, heavy path session 1): a custom
+            // scenario that already placed a building for this AI's faction
+            // supplies its own starting base - skip the hardcoded default
+            // spawn entirely (real AoE scenario-editor semantic: a faction
+            // with nothing placed has nothing to play with, not a silent
+            // fallback to the map default). CivilizationSetup.
+            // BeginCustomScenarioMatch calls AdoptTownCenter() afterward
+            // once the placements themselves have actually spawned.
+            if (CustomScenarioContext.HasPlacementsFor(myFaction))
+            {
+                return;
+            }
+
             // Item 44: the selected map picks the AI's starting position;
             // RiverValley's matches this field's own default exactly.
             // Item 48: Enemy2 reads the map's 3rd spawn slot instead.
@@ -165,6 +178,35 @@ namespace KingdomsOfBharat.AI
                 float x = i * workerSpacing - (startingWorkerCount - 1) * workerSpacing * 0.5f;
                 Vector3 spawnPos = townCenterPosition + new Vector3(x, 0f, -3f);
                 WorkerFactory.Spawn(spawnPos, myFaction);
+            }
+        }
+
+        // Item 6 (Scenario Editor, heavy path session 1): called by
+        // CivilizationSetup.BeginCustomScenarioMatch after a custom
+        // scenario's placements have actually spawned, for any AI whose
+        // Start() skipped its own default spawn above (HasPlacementsFor
+        // true) - finds the TownCenter belonging to this AI's own faction
+        // among what just got placed. Every other _townCenter call site
+        // already guards on null (age-up/research/train), so a faction
+        // with no placed TownCenter at all degrades safely rather than
+        // crashing - matches this scenario's own "nothing placed, nothing
+        // to play with" semantic.
+        public void AdoptTownCenter()
+        {
+            if (_townCenter != null)
+            {
+                return;
+            }
+
+            foreach (Building building in Building.All)
+            {
+                if (building is TownCenter townCenter
+                    && building.TryGetComponent(out FactionMember factionMember)
+                    && factionMember.Faction == myFaction)
+                {
+                    _townCenter = townCenter;
+                    return;
+                }
             }
         }
 
