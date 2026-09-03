@@ -71,6 +71,7 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         MiningCamp,
         Mill,
         Durg,
+        Karmashala,
     }
 
     [System.Serializable]

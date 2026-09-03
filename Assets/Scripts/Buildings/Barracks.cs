@@ -6,18 +6,22 @@ using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Buildings
 {
-    // Trains Soldier/Archer units and researches Attack/Armor upgrades for
-    // whichever faction owns this Barracks - the Player's via BuildMenu's
-    // hotkeys/buttons (BuildMenu owns hotkey dispatch, gated on selection),
-    // the AI's via AiController - all funnel through the same entry points.
+    // Trains Soldier/Archer/Cavalry/Siege/Spearman units and researches the
+    // per-class Attack/Armor tracks (item 40) plus each civ's own UniqueTech
+    // for whichever faction owns this Barracks - the Player's via
+    // BuildMenu's hotkeys/buttons (BuildMenu owns hotkey dispatch, gated on
+    // selection), the AI's via AiController - all funnel through the same
+    // entry points. Wave 2 item 8 moved the flat Attack/Armor tracks'
+    // RequestResearchAttack/Armor off this class onto the new Karmashala
+    // building (AoE's Blacksmith-equivalent) - see Karmashala.cs.
     //
-    // Training (Soldier/Archer) shares one queue slot (_remaining), same as
-    // before Archers existed - only one unit trains at a time. Research
-    // (Attack/Armor) is its own independent countdown per track, mirroring
-    // TownCenter's Age-up-alongside-Worker-training shape: a faction can
-    // train a unit and research an upgrade at the same time, and even
-    // research both tracks at once, since real AoE's Blacksmith queues
-    // don't block each other either.
+    // Training (Soldier/Archer/...) shares one queue slot (_remaining), same
+    // as before Archers existed - only one unit trains at a time. Research
+    // (ClassAttack/ClassArmor/UniqueTech) is its own independent countdown
+    // per track, mirroring TownCenter's Age-up-alongside-Worker-training
+    // shape: a faction can train a unit and research an upgrade at the same
+    // time, and even research multiple tracks at once, since real AoE's
+    // Blacksmith/Castle queues don't block each other either.
     //
     // Deliberately NOT [RequireComponent(typeof(FactionMember))]: that would
     // auto-add a default (Player) FactionMember the instant AddComponent
@@ -63,6 +67,9 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float siegeGoldCost = 75f;
         [SerializeField] private float trainTime = 5f;
         [SerializeField] private Vector3 rallyOffset = new Vector3(3f, 0f, 3f);
+        // Wave 2 item 8: RequestResearchAttack/Armor themselves moved to
+        // Karmashala, but both fields stay here - ClassAttack/ClassArmor
+        // below still use them for their own cost/timing.
         [SerializeField] private float upgradeGoldCostPerTier = 80f;
         [SerializeField] private float upgradeResearchTimePerTier = 15f;
 
@@ -72,8 +79,6 @@ namespace KingdomsOfBharat.Buildings
         private RallyPoint _rally;
         private float _remaining = -1f;
         private TrainingUnit _trainingUnit;
-        private float _attackResearchRemaining = -1f;
-        private float _armorResearchRemaining = -1f;
 
         // Item 40's additive layer - one more independent research track
         // each for Attack/Armor, same "doesn't block the others" shape as
@@ -128,21 +133,6 @@ namespace KingdomsOfBharat.Buildings
 
         public bool IsComplete => Site == null || Site.IsComplete;
         public bool IsTraining => _remaining >= 0f;
-        public bool IsResearchingAttack => _attackResearchRemaining >= 0f;
-        public bool IsResearchingArmor => _armorResearchRemaining >= 0f;
-        public float AttackResearchProgress => IsResearchingAttack
-            ? 1f - (_attackResearchRemaining / (upgradeResearchTimePerTier * (UpgradeProgress.AttackTier(Faction) + 1)))
-            : 0f;
-        public float ArmorResearchProgress => IsResearchingArmor
-            ? 1f - (_armorResearchRemaining / (upgradeResearchTimePerTier * (UpgradeProgress.ArmorTier(Faction) + 1)))
-            : 0f;
-
-        // Exposed so BuildMenu's cost label reads the same number
-        // RequestResearchAttack/Armor actually charge, instead of
-        // duplicating the *(tier+1) formula and risking the two drifting
-        // apart if upgradeGoldCostPerTier is ever tuned in the Inspector.
-        public float NextAttackUpgradeCost => upgradeGoldCostPerTier * (UpgradeProgress.AttackTier(Faction) + 1);
-        public float NextArmorUpgradeCost => upgradeGoldCostPerTier * (UpgradeProgress.ArmorTier(Faction) + 1);
 
         public bool IsResearchingClassAttack => _classAttackResearchRemaining >= 0f;
         public bool IsResearchingClassArmor => _classArmorResearchRemaining >= 0f;
@@ -164,16 +154,6 @@ namespace KingdomsOfBharat.Buildings
             if (IsTraining)
             {
                 TickTraining();
-            }
-
-            if (IsResearchingAttack)
-            {
-                TickAttackResearch();
-            }
-
-            if (IsResearchingArmor)
-            {
-                TickArmorResearch();
             }
 
             if (IsResearchingClassAttack)
@@ -337,66 +317,9 @@ namespace KingdomsOfBharat.Buildings
             }
         }
 
-        public void RequestResearchAttack()
-        {
-            if (!IsComplete || IsResearchingAttack || !UpgradeProgress.HasNextAttackTier(Faction))
-            {
-                return;
-            }
-
-            int tier = UpgradeProgress.AttackTier(Faction);
-            float cost = upgradeGoldCostPerTier * (tier + 1);
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Gold) < cost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Gold, -cost);
-            _attackResearchRemaining = upgradeResearchTimePerTier * (tier + 1);
-        }
-
-        public void RequestResearchArmor()
-        {
-            if (!IsComplete || IsResearchingArmor || !UpgradeProgress.HasNextArmorTier(Faction))
-            {
-                return;
-            }
-
-            int tier = UpgradeProgress.ArmorTier(Faction);
-            float cost = upgradeGoldCostPerTier * (tier + 1);
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Gold) < cost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Gold, -cost);
-            _armorResearchRemaining = upgradeResearchTimePerTier * (tier + 1);
-        }
-
-        private void TickAttackResearch()
-        {
-            _attackResearchRemaining -= Time.deltaTime;
-            if (_attackResearchRemaining <= 0f)
-            {
-                UpgradeProgress.AdvanceAttack(Faction);
-                _attackResearchRemaining = -1f;
-            }
-        }
-
-        private void TickArmorResearch()
-        {
-            _armorResearchRemaining -= Time.deltaTime;
-            if (_armorResearchRemaining <= 0f)
-            {
-                UpgradeProgress.AdvanceArmor(Faction);
-                _armorResearchRemaining = -1f;
-            }
-        }
-
         // Item 40's additive per-class research - same cost/no-blocking
-        // shape as RequestResearchAttack/Armor above, just keyed to a
+        // shape RequestResearchAttack/Armor used to have before Wave 2 item
+        // 8 moved those two off Barracks onto Karmashala, just keyed to a
         // specific UnitClass instead of applying to everyone.
         public void RequestResearchClassAttack(UnitClass unitClass)
         {

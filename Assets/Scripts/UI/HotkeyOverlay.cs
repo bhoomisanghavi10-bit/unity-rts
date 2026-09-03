@@ -69,6 +69,7 @@ namespace KingdomsOfBharat.UI
             new Entry("Place Mining Camp", "PlaceMiningCamp", KeyCode.U),
             new Entry("Place Mill", "PlaceMill", KeyCode.P),
             new Entry("Place Durg", "PlaceDurg", KeyCode.D),
+            new Entry("Place Karmashala", "PlaceKarmashala", KeyCode.R),
         });
 
         private static readonly Group TownCenterGroup = new Group("Town Center Selected", new[]
@@ -87,8 +88,6 @@ namespace KingdomsOfBharat.UI
             new Entry("Train Cavalry", "TrainCavalry", KeyCode.N),
             new Entry("Train Siege", "TrainSiege", KeyCode.S),
             new Entry("Train Spearman", "TrainSpearman", KeyCode.E),
-            new Entry("Attack Upgrade", "ResearchAttack", KeyCode.U),
-            new Entry("Armor Upgrade", "ResearchArmor", KeyCode.K),
             new Entry("Unique Tech", "ResearchUniqueTech", KeyCode.J),
         });
 
@@ -98,6 +97,15 @@ namespace KingdomsOfBharat.UI
         {
             new Entry("Unique Unit", "TrainUniqueUnit", KeyCode.Q),
             new Entry("2nd Unique Unit", "TrainUniqueUnit2", KeyCode.Z),
+        });
+
+        // Wave 2 item 8: flat Attack/Armor research moved off Barracks onto
+        // the new Karmashala building - own group, same shape as DurgGroup's
+        // own split from BarracksGroup last session.
+        private static readonly Group KarmashalaGroup = new Group("Karmashala Selected", new[]
+        {
+            new Entry("Attack Upgrade", "ResearchAttack", KeyCode.U),
+            new Entry("Armor Upgrade", "ResearchArmor", KeyCode.K),
         });
 
         private static readonly Group DockGroup = new Group("Dock Selected", new[]
@@ -117,7 +125,7 @@ namespace KingdomsOfBharat.UI
         {
             new[] { GlobalGroup, DockGroup, GarrisonGroup },
             new[] { PlacementGroup },
-            new[] { TownCenterGroup, BarracksGroup, DurgGroup },
+            new[] { TownCenterGroup, BarracksGroup, DurgGroup, KarmashalaGroup },
         };
 
         private GameObject _panel;

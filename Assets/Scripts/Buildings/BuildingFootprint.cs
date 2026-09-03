@@ -31,6 +31,10 @@ namespace KingdomsOfBharat.Buildings
         // Mill share this footprint - same as Farm/House, no reason for a
         // resource-collection shed to be bigger than either of those.
         public const int DropOffTiles = 2;
+        // Wave 2 item 8: Karmashala (Blacksmith-equivalent) shares Market's
+        // footprint - a mid-size production/research building, smaller than
+        // Barracks/Durg's own bigger training footprints.
+        public const int KarmashalaTiles = 3;
 
         private const float ObstacleHeight = 10f;
         internal const float MinObstacleSize = 0.1f;

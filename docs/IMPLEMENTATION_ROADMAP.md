@@ -254,15 +254,65 @@ Classical and Imperial now do. **All three confirmed live — Wave 1 is fully cl
    procedural shape, same disclosed placeholder convention as Lumber Camp/Mining Camp/Mill
    before their models existed — needs real art sourced later, same as every other
    "(asset-blocked)" item in this roadmap. See `docs/SESSION_LOG.md`'s matching entry for
-   full detail. Next: item 8 (Karmashala), user's call.
-8. **[M] Karmashala (Blacksmith-equivalent building).** `Progression/UpgradeProgress.cs`
-   already exists and works — what's missing is a physical, raidable building to research
-   stat upgrades at, matching AoE's convention of every upgrade having a building "home."
-   *Depends on: nothing structurally, but do it in this wave since it's the same shape of
-   work as item 7 (a new production/research building) and shares review context.*
+   full detail.
+8. ~~**[M] Karmashala (Blacksmith-equivalent building).**~~ **Closed (2026-09-04) — this
+   closes Wave 2.** New `Buildings/Karmashala.cs`/`KarmashalaFactory.cs`
+   (`MillFactory.cs` as the factory template, `Barracks.cs`'s own flat Attack/Armor
+   research code as the component template). User-confirmed design decisions via
+   AskUserQuestion: gated to Classical Age (same as Barracks, not a late-game unlock like
+   Durg), and the flat Attack/Armor tracks (`RequestResearchAttack`/`RequestResearchArmor`
+   and their supporting state) move OFF Barracks onto Karmashala entirely — mirrors how
+   Durg took unique-unit training off Barracks last session. Barracks' per-class
+   Attack/Armor tracks (item 40, never wired to any UI button) and civ UniqueTech stay on
+   Barracks/Durg untouched, out of scope. 150 Wood only (no Stone/Gold, matching AoE2's
+   real Blacksmith cost), 10s build, 220 HP/1-2 armor (deliberately "raidable," between
+   Mill's 200 HP and Barracks' 300), 3-tile footprint (Market-sized). Wired through the
+   full stack: `BuildingPlacer`'s per-kind switches (`CanPlaceKarmashala`), `NetBuildKind.Karmashala`
+   (build-only — research itself was already un-networked before this session, a
+   pre-existing gap not fixed here), `BuildMenu`'s `attackUpgradeButton`/`armorUpgradeButton`
+   re-gated from a selected Barracks to a selected Karmashala (new `UpdateKarmashalaButtons`,
+   split out of `UpdateBarracksButtons` the same way `UpdateDurgButtons` split out
+   unique-unit training last session) plus one genuinely new placement button
+   (`karmashalaButton`, wired via UnityMCP scene editing — same gotcha as Durg's, see
+   below), `SettingsMenu`/`HotkeyOverlay` updated to match (new `KarmashalaGroup`,
+   mirroring `DurgGroup`'s own split from `BarracksGroup`). **A real regression was caught
+   and fixed before it shipped, same class of bug Durg's session hit**: the AI opponent
+   researched Attack/Armor via `_barracks.RequestResearchAttack()/RequestResearchArmor()`
+   in `TryResearchUpgrades()` — moving those off Barracks with no AI-side Karmashala would
+   have silently ended the AI's flat Attack/Armor research forever. Fixed with a
+   `TryBuildKarmashala()`/`AssignKarmashalaBuilderIfNeeded()` pair mirroring
+   `TryBuildDurg()`'s own shape, and `TryResearchUpgrades()` now checks `_karmashala` first
+   (independently of the `_barracks` guard below it) — if the AI has no Karmashala yet, it
+   simply skips flat Attack/Armor research for now rather than erroring, same
+   "silently no-ops if unavailable" convention `TryTrainSoldiers`' Durg fallback already
+   established. 9 new EditMode tests (`KarmashalaTests.cs`, 245 total, up from 236, all
+   pass) — building factories deliberately not exercised there, same documented
+   NRE-outside-Play-mode limitation as `BarracksFactory.Place`/`DurgFactory.Place`. Hit the
+   exact same environment gotcha Durg's session already documented: the new
+   `karmashalaButton`/`karmashalaLabel` `[SerializeField]` fields were null in the scene
+   (added to the C# class but never wired to a GameObject) — `BuildMenu.Update()` NRE'd
+   every frame with zero errors surfaced by the MCP console bridge; only
+   reflection-invoking `Update()` directly inside a try/catch surfaced the real stack
+   trace pointing at `SetPlacementButtonsActive`. Fixed the same way Durg's session did:
+   duplicated `DurgButton` into a real `KarmashalaButton` scene GameObject via UnityMCP and
+   wired the component fields to it. Live-verified via UnityMCP through the real
+   production path after that fix: a real match (`CivilizationSetup.BeginMatch(Chola)`,
+   which starts at Ancient — Maurya's own Classical-start convention would have made the
+   Ancient-age gate check meaningless), `CanPlaceKarmashala` false in Ancient/true in
+   Classical, a real spawned Karmashala + a real spawned Barracks selected in turn showed
+   exactly the right button sets (`attackUpgradeButton`/`armorUpgradeButton` active only on
+   Karmashala, `soldierButton` active only on Barracks), a real button click on
+   `attackUpgradeButton` deducted Gold and started research through the real
+   `RequestResearchAttack` path, a real `karmashalaButton` click correctly entered
+   `BuildingPlacer.IsPlacing`, and the AI's own `TryBuildKarmashala`/
+   `AssignKarmashalaBuilderIfNeeded`/`TryResearchUpgrades` chain built a real Karmashala,
+   deducted Wood, then deducted Gold and started research once complete — all through the
+   real production path, not test shortcuts. **Flagged, not fixed**: `Karmashala` has no
+   bespoke 3D model yet (falls back to the generic procedural shape, same as Durg/Lumber
+   Camp/Mining Camp/Mill before their models existed) — needs real art sourced later.
 
-**Wave 2 exit criteria:** the two buildings every later unique-unit and upgrade-line item
-implicitly assumes exist, actually exist.
+**Wave 2 exit criteria met (2026-09-04):** the two buildings every later unique-unit and
+upgrade-line item implicitly assumes exist, actually exist. **This closes Wave 2.**
 
 ---
 

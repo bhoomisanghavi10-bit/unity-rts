@@ -54,6 +54,10 @@ namespace KingdomsOfBharat.UI
         // requirement-text label when not yet available).
         [SerializeField] private Button durgButton;
         [SerializeField] private TMP_Text durgLabel;
+        // Wave 2 item 8: Karmashala (Blacksmith-equivalent) - placement
+        // button, same gating shape as durgButton/barracksButton above.
+        [SerializeField] private Button karmashalaButton;
+        [SerializeField] private TMP_Text karmashalaLabel;
         [SerializeField] private Button workerButton;
         [SerializeField] private Button soldierButton;
         [SerializeField] private Button archerButton;
@@ -156,6 +160,7 @@ namespace KingdomsOfBharat.UI
             miningCampButton.onClick.AddListener(() => _placer.BeginPlacementMiningCamp());
             millButton.onClick.AddListener(() => _placer.BeginPlacementMill());
             durgButton.onClick.AddListener(() => _placer.BeginPlacementDurg());
+            karmashalaButton.onClick.AddListener(() => _placer.BeginPlacementKarmashala());
             workerButton.onClick.AddListener(TrainWorkerAtSelected);
             soldierButton.onClick.AddListener(TrainSoldierAtSelected);
             archerButton.onClick.AddListener(TrainArcherAtSelected);
@@ -225,6 +230,7 @@ namespace KingdomsOfBharat.UI
             {
                 barracksButton, farmButton, houseButton, wallButton, gateButton, towerButton,
                 marketButton, dockButton, lumberCampButton, miningCampButton, millButton, durgButton,
+                karmashalaButton,
                 workerButton, soldierButton, archerButton, cavalryButton,
                 siegeButton, spearmanButton, uniqueUnitButton, uniqueUnitButton2, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
@@ -284,8 +290,9 @@ namespace KingdomsOfBharat.UI
             // text-only: ungarrisonButton, fishingBoatButton, warGalleyButton,
             // uniqueTechButton, improvedToolsButton, packMulesButton,
             // tradeDiscountsButton, lumberCampButton, miningCampButton,
-            // millButton, durgButton (Wave 2 item 7 - no bespoke art yet,
-            // see DurgFactory's own asset-gap note).
+            // millButton, durgButton (Wave 2 item 7), karmashalaButton
+            // (Wave 2 item 8 - no bespoke art yet, see KarmashalaFactory's
+            // own asset-gap note).
         }
 
         // Adds a small icon to the left edge of a command-card button and
@@ -338,13 +345,16 @@ namespace KingdomsOfBharat.UI
             // Wave 2 item 7: unique-unit training lives on Durg, not
             // Barracks, from this session on.
             Durg durg = ownsSelected ? selected as Durg : null;
+            // Wave 2 item 8: flat Attack/Armor research lives on Karmashala,
+            // not Barracks, from this session on.
+            Karmashala karmashala = ownsSelected ? selected as Karmashala : null;
             // General garrisoning system (2026-09-01): every building with
             // a GarrisonPoint (TownCenter/Tower/Wall) shows the Ungarrison
             // button when occupied - no longer restricted to Wall/Tower's
             // type, since TownCenter now has one too.
             GarrisonPoint garrisonPoint = ownsSelected ? selected.GetComponent<GarrisonPoint>() : null;
 
-            HandleHotkeys(townCenter, barracks, dock, durg, garrisonPoint);
+            HandleHotkeys(townCenter, barracks, dock, durg, karmashala, garrisonPoint);
 
             SetPlacementButtonsActive(showPlacement);
             workerButton.gameObject.SetActive(townCenter != null);
@@ -360,8 +370,8 @@ namespace KingdomsOfBharat.UI
             uniqueUnitButton.gameObject.SetActive(durg != null);
             uniqueUnitButton2.gameObject.SetActive(durg != null && durg.UniqueUnitCount > 1);
             ungarrisonButton.gameObject.SetActive(garrisonPoint != null && garrisonPoint.Count > 0);
-            attackUpgradeButton.gameObject.SetActive(barracks != null);
-            armorUpgradeButton.gameObject.SetActive(barracks != null);
+            attackUpgradeButton.gameObject.SetActive(karmashala != null);
+            armorUpgradeButton.gameObject.SetActive(karmashala != null);
             uniqueTechButton.gameObject.SetActive(barracks != null);
             fishingBoatButton.gameObject.SetActive(dock != null);
             warGalleyButton.gameObject.SetActive(dock != null);
@@ -395,6 +405,10 @@ namespace KingdomsOfBharat.UI
                 durgLabel.text = BuildingPlacer.CanPlaceDurg
                     ? "Build Durg (200 Wood, 150 Stone)"
                     : "Build Durg (Requires Durg Age)";
+                karmashalaButton.interactable = BuildingPlacer.CanPlaceKarmashala;
+                karmashalaLabel.text = BuildingPlacer.CanPlaceKarmashala
+                    ? "Build Karmashala (150 Wood)"
+                    : "Build Karmashala (Requires Classical Age)";
             }
 
             if (townCenter != null)
@@ -410,6 +424,11 @@ namespace KingdomsOfBharat.UI
             if (durg != null)
             {
                 UpdateDurgButtons(durg);
+            }
+
+            if (karmashala != null)
+            {
+                UpdateKarmashalaButtons(karmashala);
             }
 
             if (dock != null)
@@ -430,7 +449,7 @@ namespace KingdomsOfBharat.UI
         // disabled. Gated per-parameter (not a single "selected something"
         // check) so a key only ever acts on the currently selected building
         // of the matching type, fixing the old per-building Update() bug.
-        private void HandleHotkeys(TownCenter townCenter, Barracks barracks, Dock dock, Durg durg, GarrisonPoint garrisonPoint)
+        private void HandleHotkeys(TownCenter townCenter, Barracks barracks, Dock dock, Durg durg, Karmashala karmashala, GarrisonPoint garrisonPoint)
         {
             if (townCenter != null)
             {
@@ -448,8 +467,6 @@ namespace KingdomsOfBharat.UI
                 if (Input.GetKeyDown(_keyTrainCavalry)) TrainCavalryAtSelected();
                 if (Input.GetKeyDown(_keyTrainSiege)) TrainSiegeAtSelected();
                 if (Input.GetKeyDown(_keyTrainSpearman)) TrainSpearmanAtSelected();
-                if (Input.GetKeyDown(_keyResearchAttack)) ResearchAttackAtSelected();
-                if (Input.GetKeyDown(_keyResearchArmor)) ResearchArmorAtSelected();
                 if (Input.GetKeyDown(_keyResearchUniqueTech)) ResearchUniqueTechAtSelected();
             }
 
@@ -459,6 +476,14 @@ namespace KingdomsOfBharat.UI
             {
                 if (Input.GetKeyDown(_keyTrainUniqueUnit)) TrainUniqueUnitAtSelected();
                 if (durg.UniqueUnitCount > 1 && Input.GetKeyDown(_keyTrainUniqueUnit2)) TrainUniqueUnit2AtSelected();
+            }
+
+            // Wave 2 item 8: flat Attack/Armor research hotkeys now act on a
+            // selected Karmashala instead of a selected Barracks.
+            if (karmashala != null)
+            {
+                if (Input.GetKeyDown(_keyResearchAttack)) ResearchAttackAtSelected();
+                if (Input.GetKeyDown(_keyResearchArmor)) ResearchArmorAtSelected();
             }
 
             if (dock != null)
@@ -482,19 +507,24 @@ namespace KingdomsOfBharat.UI
             siegeButton.interactable = canTrain;
             spearmanButton.interactable = canTrain;
 
+            UpdateUniqueTechButton(barracks);
+        }
+
+        // Wave 2 item 8: flat Attack/Armor research button state, split out
+        // of UpdateBarracksButtons now that it lives on Karmashala instead.
+        private void UpdateKarmashalaButtons(Karmashala karmashala)
+        {
             UpdateUpgradeButton(
                 attackUpgradeButton, attackUpgradeLabel, "Attack",
-                barracks.IsComplete, barracks.IsResearchingAttack, barracks.AttackResearchProgress,
+                karmashala.IsComplete, karmashala.IsResearchingAttack, karmashala.AttackResearchProgress,
                 UpgradeProgress.AttackTier(NetworkMatch.LocalFaction), UpgradeProgress.HasNextAttackTier(NetworkMatch.LocalFaction),
-                barracks.NextAttackUpgradeCost);
+                karmashala.NextAttackUpgradeCost);
 
             UpdateUpgradeButton(
                 armorUpgradeButton, armorUpgradeLabel, "Armor",
-                barracks.IsComplete, barracks.IsResearchingArmor, barracks.ArmorResearchProgress,
+                karmashala.IsComplete, karmashala.IsResearchingArmor, karmashala.ArmorResearchProgress,
                 UpgradeProgress.ArmorTier(NetworkMatch.LocalFaction), UpgradeProgress.HasNextArmorTier(NetworkMatch.LocalFaction),
-                barracks.NextArmorUpgradeCost);
-
-            UpdateUniqueTechButton(barracks);
+                karmashala.NextArmorUpgradeCost);
         }
 
         // Wave 2 item 7: unique-unit training button state, split out of
@@ -609,6 +639,7 @@ namespace KingdomsOfBharat.UI
             miningCampButton.gameObject.SetActive(active);
             millButton.gameObject.SetActive(active);
             durgButton.gameObject.SetActive(active);
+            karmashalaButton.gameObject.SetActive(active);
         }
 
         private void UpdateTownCenterButtons(TownCenter townCenter)
@@ -807,17 +838,17 @@ namespace KingdomsOfBharat.UI
 
         private void ResearchAttackAtSelected()
         {
-            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Karmashala karmashala)
             {
-                barracks.RequestResearchAttack();
+                karmashala.RequestResearchAttack();
             }
         }
 
         private void ResearchArmorAtSelected()
         {
-            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Karmashala karmashala)
             {
-                barracks.RequestResearchArmor();
+                karmashala.RequestResearchArmor();
             }
         }
 

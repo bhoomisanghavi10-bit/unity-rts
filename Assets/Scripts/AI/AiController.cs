@@ -57,6 +57,16 @@ namespace KingdomsOfBharat.AI
         [SerializeField] private float durgBuildTime = 25f;
         [SerializeField] private float durgClearance = 4f;
         [SerializeField] private Vector3 durgOffset = new Vector3(0f, 0f, 6f);
+        // Wave 2 item 8: the AI needs its own Karmashala once the flat
+        // Attack/Armor research moved off Barracks, or it would silently
+        // stop researching them entirely - see TryBuildKarmashala/
+        // TryResearchUpgrades below. Own diagonal offset since +X/-X/+Z/-Z
+        // from townCenterPosition are already claimed by Barracks/Farm/
+        // Durg/House.
+        [SerializeField] private float karmashalaWoodCost = 150f;
+        [SerializeField] private float karmashalaBuildTime = 10f;
+        [SerializeField] private float karmashalaClearance = 3f;
+        [SerializeField] private Vector3 karmashalaOffset = new Vector3(6f, 0f, 6f);
         [SerializeField] private float farmWoodCost = 60f;
         [SerializeField] private float farmBuildTime = 5f;
         [SerializeField] private float farmClearance = 3f;
@@ -98,6 +108,9 @@ namespace KingdomsOfBharat.AI
         private Durg _durg;
         private ConstructionSite _durgSite;
         private bool _durgBuilderAssigned;
+        private Karmashala _karmashala;
+        private ConstructionSite _karmashalaSite;
+        private bool _karmashalaBuilderAssigned;
         private Farm _farm;
         private ConstructionSite _farmSite;
         private bool _farmBuilderAssigned;
@@ -444,6 +457,8 @@ namespace KingdomsOfBharat.AI
                 AssignBuilderIfNeeded();
                 TryBuildDurg();
                 AssignDurgBuilderIfNeeded();
+                TryBuildKarmashala();
+                AssignKarmashalaBuilderIfNeeded();
                 TryTrainSoldiers();
                 TryBuildFarm();
                 AssignFarmBuilderIfNeeded();
@@ -936,6 +951,67 @@ namespace KingdomsOfBharat.AI
             }
         }
 
+        // Wave 2 item 8: symmetric with TryBuildDurg/AssignDurgBuilderIfNeeded
+        // above, gated to Classical Age like TryBuildBarracks (user-confirmed
+        // decision - Karmashala is a foundational military building, not a
+        // late-game unlock).
+        private void TryBuildKarmashala()
+        {
+            if (_karmashala != null || AgeProgress.CurrentAge(myFaction) == AgeId.Ancient)
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(myFaction);
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(myFaction)).BuildCostMultiplier;
+            if (stockpile.GetTotal(ResourceType.Wood) < karmashalaWoodCost * multiplier)
+            {
+                return;
+            }
+
+            Vector3 candidateXz = townCenterPosition + karmashalaOffset;
+            if (!TryResolveGroundHeight(candidateXz, out Vector3 point))
+            {
+                return;
+            }
+
+            if (!KarmashalaFactory.IsClear(point, karmashalaClearance))
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Wood, -karmashalaWoodCost * multiplier);
+
+            GameObject go = KarmashalaFactory.Place(point, myFaction, karmashalaBuildTime);
+            go.TryGetComponent(out _karmashala);
+            go.TryGetComponent(out _karmashalaSite);
+        }
+
+        private void AssignKarmashalaBuilderIfNeeded()
+        {
+            if (_karmashalaSite == null || _karmashalaBuilderAssigned || _karmashalaSite.IsComplete)
+            {
+                return;
+            }
+
+            foreach (Unit unit in Unit.All)
+            {
+                if (!IsMine(unit) || !unit.TryGetComponent(out Builder builder))
+                {
+                    continue;
+                }
+
+                if (unit.TryGetComponent(out Gatherer gatherer))
+                {
+                    gatherer.CancelGather();
+                }
+
+                builder.BuildAt(_karmashalaSite);
+                _karmashalaBuilderAssigned = true;
+                return;
+            }
+        }
+
         private int _trainRotation;
 
         // AoE-style mixed composition rather than an all-melee army: two
@@ -1006,28 +1082,39 @@ namespace KingdomsOfBharat.AI
         // Same early-margin-not-exact-threshold shape as TryAgeUp: research
         // once holding a comfortable buffer above the tier's Gold cost,
         // alternating tracks so both keep advancing over a long game.
+        //
+        // Wave 2 item 8: the flat Attack/Armor tracks moved off Barracks
+        // onto Karmashala - checked first, independently of the
+        // Barracks-gated block below, so the AI simply skips flat
+        // Attack/Armor research until its own Karmashala exists/completes
+        // (same "silently no-ops if unavailable" convention TryTrainSoldiers'
+        // Durg fallback already established) rather than erroring now that
+        // Barracks no longer has these methods at all.
         private void TryResearchUpgrades()
         {
-            if (_barracks == null || !_barracks.IsComplete)
-            {
-                return;
-            }
-
             ResourceStockpile stockpile = ResourceStockpile.For(myFaction);
 
-            if (!_barracks.IsResearchingAttack
-                && UpgradeProgress.HasNextAttackTier(myFaction)
-                && stockpile.GetTotal(ResourceType.Gold) > 150f)
+            if (_karmashala != null && _karmashala.IsComplete)
             {
-                _barracks.RequestResearchAttack();
-                return;
+                if (!_karmashala.IsResearchingAttack
+                    && UpgradeProgress.HasNextAttackTier(myFaction)
+                    && stockpile.GetTotal(ResourceType.Gold) > 150f)
+                {
+                    _karmashala.RequestResearchAttack();
+                    return;
+                }
+
+                if (!_karmashala.IsResearchingArmor
+                    && UpgradeProgress.HasNextArmorTier(myFaction)
+                    && stockpile.GetTotal(ResourceType.Gold) > 150f)
+                {
+                    _karmashala.RequestResearchArmor();
+                    return;
+                }
             }
 
-            if (!_barracks.IsResearchingArmor
-                && UpgradeProgress.HasNextArmorTier(myFaction)
-                && stockpile.GetTotal(ResourceType.Gold) > 150f)
+            if (_barracks == null || !_barracks.IsComplete)
             {
-                _barracks.RequestResearchArmor();
                 return;
             }
 
