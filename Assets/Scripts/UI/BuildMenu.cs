@@ -599,7 +599,15 @@ namespace KingdomsOfBharat.UI
                 return;
             }
 
+            AgeId current = AgeProgress.CurrentAge(NetworkMatch.LocalFaction);
             AgeProfile next = AgeProfile.For(AgeProgress.NextAge(NetworkMatch.LocalFaction));
+            if (AgeUpRequirement.AppliesTo(current) && !AgeUpRequirement.IsMet(NetworkMatch.LocalFaction))
+            {
+                ageButton.interactable = false;
+                ageLabel.text = $"Advance to {next.DisplayName} (needs {AgeUpRequirement.RequiredBuildingCount} buildings)";
+                return;
+            }
+
             ageButton.interactable = true;
             ageLabel.text = $"Advance to {next.DisplayName} ({(int)next.WoodCost} Wood, {(int)next.StoneCost} Stone)";
         }

@@ -159,22 +159,42 @@ one deliberate unit, not spread across other work.
    Durg correctly targeted `Imperial` (deducted 300 Wood/200 Stone, began progressing). User
    explicitly deferred item 6 (see below) rather than bundling it into this session.
    *Depends on: nothing. Blocks: every "Durg" row in Waves 2-4.*
-6. **[S] Age-up building-count requirement — explicitly deferred (2026-09-04), not
-   started.** Asked the user directly (AskUserQuestion) whether to bundle this into item 5's
-   session per the wave's own suggestion, and separately what "2 buildings of the previous
-   age" should mean given this codebase has no per-age building taxonomy (tagging buildings
-   by which age unlocks them would be a materially bigger feature than this item's [S]
-   sizing implies) — user chose to skip the design decision and this item entirely for now,
-   rather than force a definition. Still open for a future session; the real open question
-   is the exact rule (candidates discussed: any 2 non-TownCenter buildings owned, vs. 2 of
-   any kind including TownCenter, vs. a true per-age building taxonomy), not just the
-   implementation. *Depends on: item 5 (closed, so this is now unblocked whenever picked up).
-   Parallel-safe with Wave 0.*
+6. ~~**[S] Age-up building-count requirement.**~~ **Closed (2026-09-04).** Resolved the
+   design question flagged when item 5 closed via AskUserQuestion: "2 buildings" means 2
+   completed, non-TownCenter buildings currently owned by the faction (not a true per-age
+   building taxonomy — that remains materially out of scope for an [S] item), and the gate
+   applies from Classical onward only — Ancient→Classical stays cost-only, since a player's
+   very first age-up may genuinely only have the starting TownCenter. New
+   `Buildings/AgeUpRequirement.cs` (`AppliesTo(AgeId)`, `IsMet(FactionId)`) recomputes fresh
+   from `Building.All` every call, same "recompute, don't incrementally track" convention as
+   `Population.Cap` — no counter that can drift when a building is destroyed. A building
+   still under construction (`ConstructionSite.IsComplete == false`) doesn't count, checked
+   generically via `TryGetComponent<ConstructionSite>` rather than a per-type switch (mirrors
+   `Market.IsComplete`'s own pattern). Wired into `TownCenter.RequestAgeUp()` as an
+   additional gate alongside the existing Wood/Stone cost check, and into `BuildMenu`'s
+   Age-up button label/interactability so a blocked player sees "(needs 2 buildings)"
+   instead of a silently inert button. 11 new EditMode tests
+   (`AgeUpRequirementTests.cs`, 232 total, up from 221, all pass) — hit and worked around
+   this project's own documented `Building.OnEnable` timing gotcha (component registration
+   into `Building.All` isn't guaranteed synchronous within a single EditMode test method,
+   same as `BuildingFootprintTests`/`Unit.All`-using tests already document; fixed by
+   registering directly into `Building.All` in the test helpers, matching that existing
+   convention, after first hitting real test failures from trusting `AddComponent` alone).
+   Live-verified via UnityMCP through the real production path: a real match
+   (`CivilizationSetup.BeginMatch(Rajput)`, which starts at Ancient), a real
+   `TownCenter.RequestAgeUp()` correctly advanced Ancient→Classical with zero non-TownCenter
+   buildings (exempt, as designed); the same real TownCenter then correctly *refused*
+   Classical→Durg with zero non-TownCenter buildings owned (no resources spent, `IsAgingUp`
+   stayed false); real `HouseFactory.Place`/`BarracksFactory.Place` + `ConstructionSite.
+   CompleteImmediately()` then brought the Player to 2 real completed non-TownCenter
+   buildings, and the identical `RequestAgeUp()` call immediately succeeded (250 Wood
+   deducted, `IsAgingUp` true) — proving the gate reads real, live building state, not just
+   a test fixture. *Depends on: item 5 (closed).*
 
 **Wave 1 exit criteria:** a player can reach 4 ages in a match, `AgeProfile.For(AgeId.Durg)`
-returns real data — **both confirmed live this session** — and reaching Durg requires the
-same kind of building prerequisite as Classical and Imperial now do — **still open, item 6
-deferred.**
+returns real data, and reaching Durg requires the same kind of building prerequisite as
+Classical and Imperial now do. **All three confirmed live — Wave 1 is fully closed
+(2026-09-04).**
 
 ---
 

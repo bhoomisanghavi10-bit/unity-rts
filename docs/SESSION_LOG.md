@@ -5,6 +5,65 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-04 — AoE-Parity Wave 1, item 6: age-up building-count requirement — closes Wave 1
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 1 item 6, picked up at the user's explicit
+request to resolve its design question, deferred by an earlier session the same day.
+Confirmed the two open design decisions via AskUserQuestion before coding: what "2
+buildings" should mean (chosen: 2 completed, non-TownCenter buildings currently owned —
+no per-age building taxonomy, which would be materially bigger than this item's [S]
+sizing), and which age transitions the gate applies to (chosen: Classical onward only —
+Ancient→Classical stays cost-only, since a player's very first age-up may genuinely only
+have the starting TownCenter).
+
+**What changed**:
+- New `Assets/Scripts/Buildings/AgeUpRequirement.cs`: `AppliesTo(AgeId currentAge)` (false
+  only for `Ancient`) and `IsMet(FactionId faction)` (counts `Building.All` entries owned
+  by the faction, excluding `TownCenter` and any building whose `ConstructionSite.
+  IsComplete` is false — checked generically via `TryGetComponent<ConstructionSite>`,
+  mirroring `Market.IsComplete`'s own pattern, so it works for every building type without
+  a per-type switch). Recomputed fresh every call, same "recompute, don't incrementally
+  track" convention as `Population.Cap` — no counter to drift when a building is destroyed.
+- `Assets/Scripts/Buildings/TownCenter.cs`'s `RequestAgeUp()`: added the gate check
+  alongside the existing Wood/Stone cost check, before either is evaluated.
+- `Assets/Scripts/UI/BuildMenu.cs`'s Age-up button: when the gate applies and isn't met,
+  shows "Advance to X (needs 2 buildings)" and goes non-interactable, instead of silently
+  no-opping on click.
+
+**Tests**: 11 new EditMode tests, `Assets/Tests/EditMode/AgeUpRequirementTests.cs` (232
+total, up from 221, all pass): `AppliesTo` exempts only Ancient; `IsMet` is false with 0
+buildings, true with 2 completed ones; a TownCenter doesn't count toward the requirement;
+an under-construction building doesn't count; another faction's buildings don't count;
+`RequestAgeUp` from Classical with 0 buildings doesn't advance and doesn't spend resources;
+the same call with 2 buildings does advance; `RequestAgeUp` from Ancient still advances with
+0 buildings (exempt). **Hit a real gotcha mid-session**: the first draft's test helpers
+created buildings via plain `AddComponent<Building>()` and trusted `Building.OnEnable` to
+register them into `Building.All` synchronously — 2 real test failures resulted, root-caused
+to the same "component lifecycle callbacks aren't guaranteed synchronous right after
+`AddComponent` in EditMode" class of gotcha `BuildingFootprintTests`/the `Unit.All`-using
+tests already document and work around; fixed the same way (register directly into
+`Building.All` in the test helper, matching that existing convention) rather than
+discovering a new workaround.
+
+**Manual verification**: Play Mode, via UnityMCP `execute_code`, through the real production
+path: started a real match (`CivilizationSetup.BeginMatch(Rajput)`, starts at Ancient),
+confirmed a real `TownCenter.RequestAgeUp()` correctly advances Ancient→Classical with zero
+non-TownCenter buildings owned (exempt transition). Forced the faction to Classical, then
+confirmed the identical real `RequestAgeUp()` call correctly refuses to start (no Wood/Stone
+deducted, `IsAgingUp` stays false) with zero non-TownCenter buildings. Then used the real
+`HouseFactory.Place`/`BarracksFactory.Place` factories (the same ones `BuildingPlacer` calls
+for a real player click) plus `ConstructionSite.CompleteImmediately()` to bring the Player to
+2 real completed buildings, and confirmed the identical `RequestAgeUp()` call now succeeds
+immediately (250 Wood deducted, matching Durg's cost, `IsAgingUp` true) — proving the gate
+reads real, live `Building.All` state through the actual gameplay path, not a test-only
+fixture.
+
+**Roadmap**: `docs/IMPLEMENTATION_ROADMAP.md` item 6 marked closed with full detail — this
+closes Wave 1 (both its exit criteria now hold live). `CLAUDE.md`'s Current status section
+updated to match. Next: Wave 2 (the Durg building / Karmashala), user's call.
+
+---
+
 ## 2026-09-04 — AoE-Parity Wave 1, item 5: add AgeId.Durg (item 6 deferred)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 1, picked up right after Wave 0 closed.

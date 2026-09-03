@@ -134,6 +134,12 @@ namespace KingdomsOfBharat.Buildings
                 return;
             }
 
+            AgeId current = AgeProgress.CurrentAge(Faction);
+            if (AgeUpRequirement.AppliesTo(current) && !AgeUpRequirement.IsMet(Faction))
+            {
+                return;
+            }
+
             AgeId next = AgeProgress.NextAge(Faction);
             AgeProfile profile = AgeProfile.For(next);
 

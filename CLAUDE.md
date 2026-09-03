@@ -11,6 +11,26 @@ asset requirements, 5. Priority order).
   see that file's own ground rules. `docs/ROADMAP.md` Section 5's priority
   order is the prior plan; items already closed under it stay closed, but new
   work picks up from `IMPLEMENTATION_ROADMAP.md` instead.**
+- **Wave 1 item 6 (age-up building-count requirement) closed (2026-09-04) —
+  this closes Wave 1.** Resolved the design question flagged when item 5
+  closed via AskUserQuestion: "2 buildings" means 2 completed, non-TownCenter
+  buildings currently owned (no per-age building taxonomy — that stays
+  materially out of scope), and the gate applies from Classical onward only
+  (Ancient→Classical stays cost-only). New `Buildings/AgeUpRequirement.cs`
+  wired into `TownCenter.RequestAgeUp()` alongside the existing Wood/Stone
+  check, and into `BuildMenu`'s Age-up button label. 11 new EditMode tests
+  (232 total, up from 221, all pass) — hit this project's own documented
+  `Building.OnEnable`-isn't-synchronous-in-EditMode-tests gotcha, fixed the
+  same way `BuildingFootprintTests` already does (register directly into
+  `Building.All`). Live-verified via UnityMCP through the real production
+  path: a real match (`CivilizationSetup.BeginMatch(Rajput)`), a real
+  `TownCenter.RequestAgeUp()` correctly exempted Ancient→Classical with zero
+  extra buildings, then correctly refused Classical→Durg with zero extra
+  buildings (no resources spent) — then real `HouseFactory.Place`/
+  `BarracksFactory.Place` + `ConstructionSite.CompleteImmediately()` brought
+  the Player to 2 real buildings and the identical request immediately
+  succeeded. Wave 1's exit criteria are all met. Next: Wave 2 (the Durg
+  building / Karmashala), user's call.
 - **Wave 1 item 5 (add `AgeId.Durg`) closed (2026-09-04).** `AgeId` now has 4
   values (Ancient/Classical/Durg/Imperial), `age_profile_template.csv` has a
   new interpolated Durg row (250 Wood/150 Stone, 40s research, gather x1.18,
