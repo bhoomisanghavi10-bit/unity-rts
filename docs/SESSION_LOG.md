@@ -5,6 +5,48 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-03 — Docs: close out the Partial-Elements Fix Plan
+
+**Scope**: at the user's explicit request, update
+`docs/AoE_vs_KingdomsOfBharat_Comparison.xlsx` to reflect every element
+`docs/PARTIAL_ELEMENTS_FIX_PLAN.md` addressed, then delete that plan doc
+since all 6 of its numbered items are done.
+
+**Comparison sheet updates** (`Comparison` tab, by row): Hotkey (row 67) and
+Area of Effect / Trample (row 36) moved `Partial` -> `Implemented` (full
+coverage now shipped in both cases). Scenario Editor (row 72) moved
+`Partial` -> `Implemented` (the full in-game heavy-path editor now exists:
+Placements, Objectives/Triggers authoring with per-kind widgets, saved-
+scenario browse list, palette icons, LAN play). Victory conditions (row
+11), Renewable resource (row 20), and Diplomacy (row 62) stayed `Partial`
+on purpose — each has a real, disclosed remaining gap the fix plan itself
+never claimed to close (Score/Regicide/King-of-the-Hill; Fish Trap; shared
+vision between allies) — only their Evidence/Assets/Notes columns were
+updated to describe exactly what's done vs. still open. Row heights
+recomputed so the longer evidence text doesn't clip. Could not run the
+skill's `recalc.py` (no LibreOffice/`soffice` on this machine, no `brew`
+either, so installing it was out of scope for a docs-only session) — no new
+formulas were added, only the text values existing `COUNTIF` formulas in
+the `Summary` tab already reference, so Excel/Sheets recalculates the
+summary counts automatically on next open; flagging this rather than
+claiming a recalc that didn't happen.
+
+**Plan doc deletion**: `docs/PARTIAL_ELEMENTS_FIX_PLAN.md`'s own "Recommended
+order" table already marked all 6 items Done as of the per-kind-widgets
+session, with Fish Trap explicitly scoped out from the start as "blocked on
+asset sourcing... not part of this implementation pass" rather than an
+incomplete item of the plan itself — so the plan's actual deliverable scope
+is fully closed. Deleted the file. Fixed the one forward-looking pointer to
+it (`docs/Roadmap.md`'s open Fish Trap checklist item) to cite
+`docs/SESSION_LOG.md` instead. Left the many historical mentions of the
+file in `CLAUDE.md`'s "Current status" and this log's own past entries
+untouched — those are accurate records of what happened at the time,
+consistent with how this project already leaves references to other
+since-deleted files (raw Meshy source folders, etc.) standing in its
+history.
+
+---
+
 ## 2026-09-03 — Fix: Objectives tab RectMask2D over-culling (`task_545a0590` follow-up)
 
 **Scope**: dedicated follow-up to the bug flagged (not fixed) at the end of

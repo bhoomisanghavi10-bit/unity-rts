@@ -897,9 +897,12 @@ claims.
   one most likely to actively mislead someone (including a future Claude
   Code session bootstrapping context) the longer it's left as-is.
 
-- [ ] **Fish Trap** (part of item 5, `docs/PARTIAL_ELEMENTS_FIX_PLAN.md` —
-  flagged 2026-09-03, deliberately not touched that session, kept in the
-  project for a later one at the user's explicit request). Farm's own
+- [ ] **Fish Trap** (flagged 2026-09-03 during the Partial-Elements Fix
+  Plan's item 5 — that plan doc has since been deleted, all 6 of its
+  numbered items closed; see `docs/SESSION_LOG.md`'s 2026-09-03 Farm-reseed
+  entry for the original finding — deliberately not touched that session,
+  kept in the project for a later one at the user's explicit request).
+  Farm's own
   "Renewable resource" gap was closed that session (real depletion + reseed,
   see `docs/SESSION_LOG.md`'s matching entry), but Fish Trap — a placeable
   water-adjacent food building, AoE's naval-economy counterpart to Farm — is
