@@ -11,6 +11,25 @@ asset requirements, 5. Priority order).
   see that file's own ground rules. `docs/ROADMAP.md` Section 5's priority
   order is the prior plan; items already closed under it stay closed, but new
   work picks up from `IMPLEMENTATION_ROADMAP.md` instead.**
+- **Wave 1 item 5 (add `AgeId.Durg`) closed (2026-09-04).** `AgeId` now has 4
+  values (Ancient/Classical/Durg/Imperial), `age_profile_template.csv` has a
+  new interpolated Durg row (250 Wood/150 Stone, 40s research, gather x1.18,
+  HP x1.15, train x0.85 — deliberately no Gold cost, since the schema has
+  never had one for any age), `AgeProfile.cs`'s `Fallback`/`AgeIds`
+  dictionaries updated to match. 6 new EditMode tests (221 total, up from
+  215, all pass). Live-verified via UnityMCP through the real production
+  path: a real match, a real Player `TownCenter.RequestAgeUp()` correctly
+  spent Durg's exact cost and, after its real 40s `Update()`-ticked
+  countdown, landed `AgeProgress.CurrentAge(Player)` on `Durg`; a second real
+  age-up from Durg correctly targeted Imperial (cost/progress both
+  confirmed). **Item 6 (age-up building-count requirement) explicitly
+  deferred, not started** — the user chose to skip its design decision
+  (what "2 buildings" should mean, given this codebase has no per-age
+  building taxonomy) rather than force a definition this session; see
+  `docs/IMPLEMENTATION_ROADMAP.md`'s matching item for the open question.
+  Wave 1's exit criteria are otherwise met (a player can reach Durg/Imperial
+  in a real match). Next: item 6 if you want the design question resolved,
+  or Wave 2 (the Durg building / Karmashala), user's call.
 - **Wave 0 item 4 (wire `DamageType.Trample`/`Fire`) closed (2026-09-04) — this
   closes Wave 0 (items 1-4 all done).** Trample wired, Fire correctly deferred
   to its real Wave 4 consumer (the Fire Ship). First resolved the enum

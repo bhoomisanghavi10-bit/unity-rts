@@ -8,6 +8,7 @@ namespace KingdomsOfBharat.Progression
     {
         Ancient,
         Classical,
+        Durg,
         Imperial,
     }
 
@@ -64,6 +65,12 @@ namespace KingdomsOfBharat.Progression
                     gatherRateMultiplier: 1.1f, maxHealthMultiplier: 1.1f, trainTimeMultiplier: 0.9f)
             },
             {
+                AgeId.Durg,
+                new AgeProfile(
+                    "Durg Age", woodCost: 250f, stoneCost: 150f, researchTime: 40f,
+                    gatherRateMultiplier: 1.18f, maxHealthMultiplier: 1.15f, trainTimeMultiplier: 0.85f)
+            },
+            {
                 AgeId.Imperial,
                 new AgeProfile(
                     "Imperial Age", woodCost: 300f, stoneCost: 200f, researchTime: 50f,
@@ -75,6 +82,7 @@ namespace KingdomsOfBharat.Progression
         {
             { AgeId.Ancient, "Ancient" },
             { AgeId.Classical, "Classical" },
+            { AgeId.Durg, "Durg" },
             { AgeId.Imperial, "Imperial" },
         };
 

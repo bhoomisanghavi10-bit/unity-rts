@@ -1,4 +1,5 @@
 AgeID,DisplayName,WoodCost,StoneCost,ResearchTime,GatherRateMultiplier,MaxHealthMultiplier,TrainTimeMultiplier
 Ancient,Ancient Age,0,0,0,1.0,1.0,1.0
 Classical,Classical Age,150,100,30,1.1,1.1,0.9
+Durg,Durg Age,250,150,40,1.18,1.15,0.85
 Imperial,Imperial Age,300,200,50,1.25,1.2,0.8

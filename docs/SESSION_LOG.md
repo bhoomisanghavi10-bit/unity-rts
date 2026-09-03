@@ -5,6 +5,66 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-04 — AoE-Parity Wave 1, item 5: add AgeId.Durg (item 6 deferred)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 1, picked up right after Wave 0 closed.
+Confirmed session scope via AskUserQuestion before coding: do items 5+6 together (the
+wave's own suggestion) or item 5 alone, and — since item 6's "2 buildings of the previous
+age" gate has no natural implementation in a codebase with no per-age building taxonomy —
+what "2 buildings" should concretely mean if built. User chose to skip item 6's design
+decision and the item entirely this session; scope narrowed to item 5 only.
+
+**What changed**:
+- `Assets/Scripts/Progression/AgeProfile.cs`: `AgeId` enum gained `Durg` between
+  `Classical` and `Imperial` (int ordering: Ancient=0, Classical=1, Durg=2, Imperial=3 —
+  Imperial's numeric value shifted from 2 to 3). Checked every call site that reads
+  `AgeId` values directly (`AgeProgress.NextAge`'s `CurrentAge + 1`, `AgeProgress.
+  HasNextAge`'s `!= AgeId.Imperial`, `SaveManager`'s `(int)`/`(AgeId)` round-trip,
+  `BuildingPlacer`/`AiController`'s `== AgeId.Ancient` checks) — none hardcode a numeric
+  value, so all still work correctly off the enum's new ordering. No old-save-format
+  compatibility guarantee was made or needed (consistent with this project's other
+  enum-reordering sessions).
+- `AgeProfile.cs`'s `Fallback` and `AgeIds` dictionaries gained matching `Durg` entries.
+- `Assets/Design/Data/age_profile_template.csv`: new `Durg` row between `Classical` and
+  `Imperial` — 250 Wood, 150 Stone, 40s research, gather x1.18, HP x1.15, train x0.85,
+  interpolated between the two neighboring ages per the roadmap item's own proposal.
+  **Deliberately dropped the roadmap's proposed "+50 Gold" component**: `AgeProfileDefinition`
+  and the CSV schema have never had a Gold-cost column for any age (only Wood/Stone) —
+  adding one for Durg alone would be an unrequested schema change, not something this
+  item needed. Regenerated via `BharatRTS/Generate Data Assets From CSV` (new
+  `Durg.asset` confirmed created under `Assets/Resources/Data/Generated/Ages/`, zero
+  console errors).
+
+**Tests**: 6 new EditMode tests, `Assets/Tests/EditMode/AgeProgressionDurgTests.cs` (221
+total, up from 215, all pass): `AgeProgress.NextAge` from Classical resolves to Durg, from
+Durg resolves to Imperial; `HasNextAge` from Durg is true; `Advance`/`CurrentAge` round-trip
+through Durg; `AgeProfile.For(AgeId.Durg)`'s every field (WoodCost/StoneCost/
+GatherRateMultiplier/MaxHealthMultiplier/TrainTimeMultiplier) sits strictly between
+Classical's and Imperial's; `DisplayName` is "Durg Age".
+
+**Manual verification**: Play Mode, via UnityMCP `execute_code`, through the real
+production path (not a shortcut): started a real match (`CivilizationSetup.BeginMatch
+(Maurya)` — Maurya's existing bonus starts Player at Classical already), found the real
+Player `TownCenter`, granted Wood/Stone, and called the real `RequestAgeUp()`. Confirmed:
+exactly 250 Wood / 150 Stone deducted (Durg's cost), `IsAgingUp` true, `AgeUpProgress`
+advancing correctly against a real 40s countdown ticked by the real `Update()` loop (not a
+forced tick), and after the countdown genuinely elapsed in real wall-clock time,
+`AgeProgress.CurrentAge(Player)` correctly read `Durg`. Called `RequestAgeUp()` a second
+time from Durg: confirmed it correctly targeted `Imperial` (deducted 300 Wood / 200 Stone,
+matching Imperial's existing cost) and began progressing.
+
+**Deferred, not started**: item 6 (age-up building-count requirement) — see
+`docs/IMPLEMENTATION_ROADMAP.md`'s matching item for the open design question (what "2
+buildings" should mean, given no per-age building taxonomy exists). Wave 1's other exit
+criterion (reach Durg/Imperial in a real match) is met; the building-prerequisite half is
+not.
+
+**Roadmap**: `docs/IMPLEMENTATION_ROADMAP.md` item 5 marked closed with full detail; item 6
+marked explicitly deferred (not silently skipped). `CLAUDE.md`'s Current status section
+updated to match.
+
+---
+
 ## 2026-09-04 — AoE-Parity Wave 0, item 4: wire DamageType.Trample (Fire deferred) — closes Wave 0
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 0 item 4, picked up right after item 3.

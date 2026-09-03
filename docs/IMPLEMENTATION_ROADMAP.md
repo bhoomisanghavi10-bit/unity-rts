@@ -134,21 +134,47 @@ Nothing shipped is visible to a player yet — that's expected and correct for t
 Everything in the spec workbook that says "Durg" as an age is blocked on this wave. Do it as
 one deliberate unit, not spread across other work.
 
-5. **[M] Add `AgeId.Durg`.** `Progression/AgeProfile.cs`: new enum value between `Classical`
-   and `Imperial`. Add a `Durg` row to `Assets/Design/Data/age_profile_template.csv`
-   (proposed: 250 wood + 150 stone + 50 gold, 40s research, gather x1.18, HP x1.15, train
-   x0.85 — interpolated between Classical and Imperial, per the spec workbook's Ages sheet),
-   regenerate via `BharatRTS/Generate Data Assets From CSV`, and add the matching literal
-   entry to `AgeProfile.cs`'s hardcoded `Fallback` dictionary so the fallback path stays
-   correct. *Depends on: nothing. Blocks: every "Durg" row in Waves 2-4.*
-6. **[S] Age-up building-count requirement.** AoE II requires 2 buildings of the previous age
-   before advancing; we currently gate on cost alone. Natural to add alongside item 5 since
-   you're already touching the age-up path. *Depends on: item 5 (do it while the age-up code
-   is open, not as a separate context-switch later). Parallel-safe with Wave 0.*
+5. ~~**[M] Add `AgeId.Durg`.**~~ **Closed (2026-09-04).** `Progression/AgeProfile.cs`'s
+   `AgeId` enum now has `Durg` between `Classical` and `Imperial` (int-backed ordering shifts
+   `Imperial` from 2→3 — `AgeProgress.NextAge`'s `CurrentAge + 1` arithmetic and
+   `SaveManager`'s `(int)`/`(AgeId)` round-trip both still work correctly off the enum's
+   *current* ordering, since neither hardcodes a numeric value; no back-compat guarantee was
+   made or needed for old save files, consistent with this project's other enum-reordering
+   sessions). Added a `Durg` row to `age_profile_template.csv` (250 Wood + 150 Stone, 40s
+   research, gather x1.18, HP x1.15, train x0.85 — interpolated between Classical/Imperial),
+   regenerated via `BharatRTS/Generate Data Assets From CSV`, and added the matching
+   `Fallback`/`AgeIds` dictionary entries to `AgeProfile.cs` so the no-generated-asset
+   fallback path stays correct too. **Deliberately dropped the roadmap's own proposed "50
+   gold" component**: `AgeProfileDefinition`/the CSV schema have never had a Gold-cost column
+   (only Wood/Stone) for any age, and adding one for Durg alone would be a schema change
+   this item didn't need — flagged rather than silently added. 6 new EditMode tests
+   (`AgeProgressionDurgTests.cs`, 221 total, up from 215, all pass): `NextAge` from
+   Classical/Durg resolves correctly, `Advance`/`CurrentAge` round-trip through Durg, and
+   `AgeProfile.For(AgeId.Durg)`'s every field sits strictly between Classical's and
+   Imperial's. Live-verified via UnityMCP through the real production path: a real match
+   (`CivilizationSetup.BeginMatch(Maurya)`, which itself starts Player at Classical per
+   Maurya's existing bonus), a real Player `TownCenter.RequestAgeUp()` deducted exactly 250
+   Wood/150 Stone, ran its real `Update()`-ticked 40s research countdown to completion, and
+   left `AgeProgress.CurrentAge(Player)` at `Durg` — then a second real `RequestAgeUp()` from
+   Durg correctly targeted `Imperial` (deducted 300 Wood/200 Stone, began progressing). User
+   explicitly deferred item 6 (see below) rather than bundling it into this session.
+   *Depends on: nothing. Blocks: every "Durg" row in Waves 2-4.*
+6. **[S] Age-up building-count requirement — explicitly deferred (2026-09-04), not
+   started.** Asked the user directly (AskUserQuestion) whether to bundle this into item 5's
+   session per the wave's own suggestion, and separately what "2 buildings of the previous
+   age" should mean given this codebase has no per-age building taxonomy (tagging buildings
+   by which age unlocks them would be a materially bigger feature than this item's [S]
+   sizing implies) — user chose to skip the design decision and this item entirely for now,
+   rather than force a definition. Still open for a future session; the real open question
+   is the exact rule (candidates discussed: any 2 non-TownCenter buildings owned, vs. 2 of
+   any kind including TownCenter, vs. a true per-age building taxonomy), not just the
+   implementation. *Depends on: item 5 (closed, so this is now unblocked whenever picked up).
+   Parallel-safe with Wave 0.*
 
 **Wave 1 exit criteria:** a player can reach 4 ages in a match, `AgeProfile.For(AgeId.Durg)`
-returns real data, and reaching Durg requires the same kind of building prerequisite as
-Classical and Imperial now do.
+returns real data — **both confirmed live this session** — and reaching Durg requires the
+same kind of building prerequisite as Classical and Imperial now do — **still open, item 6
+deferred.**
 
 ---
 
