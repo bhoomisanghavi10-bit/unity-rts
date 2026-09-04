@@ -124,6 +124,13 @@ namespace KingdomsOfBharat.Buildings
         // itself trains.
         private float _cavalryTierResearchRemaining = -1f;
 
+        // Wave 3 item 14: the Siege tier ladder (Shilakshepaka -> Maha
+        // Shilakshepaka -> Vajra Shilakshepaka) - same independent,
+        // non-blocking research-track shape as InfantryTier/SpearmanTier/
+        // ArcherTier/CavalryTier above, also living on Barracks since it
+        // upgrades what Barracks itself trains.
+        private float _siegeTierResearchRemaining = -1f;
+
         private ConstructionSite Site
         {
             get
@@ -196,6 +203,11 @@ namespace KingdomsOfBharat.Buildings
             ? 1f - (_cavalryTierResearchRemaining / CavalryLineProgress.NextTierData(Faction).ResearchTime)
             : 0f;
 
+        public bool IsResearchingSiegeTier => _siegeTierResearchRemaining >= 0f;
+        public float SiegeTierResearchProgress => IsResearchingSiegeTier
+            ? 1f - (_siegeTierResearchRemaining / SiegeLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -236,6 +248,11 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingCavalryTier)
             {
                 TickCavalryTierResearch();
+            }
+
+            if (IsResearchingSiegeTier)
+            {
+                TickSiegeTierResearch();
             }
         }
 
@@ -615,6 +632,41 @@ namespace KingdomsOfBharat.Buildings
             {
                 CavalryLineProgress.AdvanceTier(Faction);
                 _cavalryTierResearchRemaining = -1f;
+            }
+        }
+
+        // Wave 3 item 14: Siege tier ladder research - same shape as
+        // RequestResearchInfantryTier/RequestResearchSpearmanTier/
+        // RequestResearchArcherTier/RequestResearchCavalryTier above.
+        public void RequestResearchSiegeTier()
+        {
+            if (!IsComplete || IsResearchingSiegeTier
+                || !SiegeLineProgress.HasNextTier(Faction)
+                || !SiegeLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            SiegeTierData next = SiegeLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _siegeTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickSiegeTierResearch()
+        {
+            _siegeTierResearchRemaining -= Time.deltaTime;
+            if (_siegeTierResearchRemaining <= 0f)
+            {
+                SiegeLineProgress.AdvanceTier(Faction);
+                _siegeTierResearchRemaining = -1f;
             }
         }
     }

@@ -6,6 +6,39 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 3 item 14 (Mangonel/Siege line, 3 tiers) closed (2026-09-05).** Picked up
+  right after item 13, per the user's "start wave 3 item 14" request. No new design
+  decisions needed — item 14's own roadmap text already fixes tier count/names/ages
+  (Shilakshepaka → Maha Shilakshepaka → Vajra Shilakshepaka, Durg/Imperial/Imperial),
+  and the mechanism exactly mirrors `CavalryLineProgress.cs`'s own shape from item 12
+  (research on Barracks, baked in at spawn, not retroactive, back-to-back
+  Imperial-gated last two tiers). New `Progression/SiegeLineProgress.cs` mirrors
+  `CavalryLineProgress.cs` exactly; tier bonuses/costs reuse the same growth every
+  other line's own back-to-back Imperial pair already uses (Cavalry's Maha Ashvarohi
+  → Vir Ashvarohi values: +30 HP/+6 dmg/200 Gold/100 Wood/40s, then +45 HP/+9
+  dmg/250 Gold/125 Wood/50s), not independently balanced. New independent research
+  track on `Barracks.cs` (`RequestResearchSiegeTier`, alongside the existing
+  Infantry/Spearman/Archer/Cavalry tier tracks), `SiegeFactory.cs` now reads
+  `SiegeLineProgress.Current(faction)` at spawn (previously always named the unit
+  literal "Siege" — now `"{civ} {tier.Name}"`, matching every other tier-ladder
+  factory). New `siegeTierButton`/`siegeTierLabel` in `BuildMenu.cs` (identical
+  shape to `cavalryTierButton`), hotkey O, wired into `SettingsMenu`/`HotkeyOverlay`'s
+  `BarracksGroup`. Same explicitly-out-of-scope call as items 9-13: no AI-side
+  research hook (future balance work, not a regression). 10 new EditMode tests
+  (`SiegeLineTests.cs`, 312 total, all pass). Hit and fixed the same recurring
+  "new `[SerializeField]` null in the scene" gotcha every Wave 2/3 session has hit
+  (duplicated `CavalryTierButton` into a real `SiegeTierButton` scene object via
+  UnityMCP). Live-verified via UnityMCP through the real production path in Play
+  mode (needed for `BuildMenu.Awake()`'s `_selectionManager` resolution to actually
+  run): a real match (`CivilizationSetup.BeginMatch(Maurya)`), a real
+  `BarracksFactory.Place`-spawned Barracks selected via `SelectionManager`, the age
+  gate correctly showed the "(needs Imperial Age)" label at Durg with zero
+  deduction, the real scene button's own `onClick.Invoke()` deducted exactly 200
+  Gold/100 Wood at Imperial and started research, a forced tick advanced the tier
+  and a Siege unit trained afterward through the real `SiegeFactory.Spawn` path came
+  out "Maurya Maha Shilakshepaka" at 96 HP, and after researching the second tier
+  the real button's label correctly settled on "Siege (Max Tier)". Next: Wave 3
+  item 15 (Galley/Naval line, 3 tiers), user's call.
 - **Wave 3 item 13 (Elephant line, 2 tiers) closed (2026-09-05).** Picked up right
   after item 12's live-verification follow-up, per the user's "start wave 3 item 13"
   request. Two design decisions resolved via AskUserQuestion before coding — item 13's

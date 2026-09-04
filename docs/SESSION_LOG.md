@@ -5,6 +5,73 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-05 — AoE-Parity Wave 3, item 14: Mangonel/Siege line (3 tiers)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 14, picked up right after item
+13 per the user's "start wave 3 item 14" request.
+
+**No new design decisions needed** — item 14's own roadmap text already fixes tier
+count/names/ages (Shilakshepaka → Maha Shilakshepaka → Vajra Shilakshepaka,
+Durg/Imperial/Imperial), and the mechanism (research on Barracks, baked in at spawn,
+not retroactive, back-to-back Imperial-gated last two tiers) exactly mirrors
+`CavalryLineProgress.cs`'s own shape from item 12, the closest existing precedent for
+this exact tier-count/age-gate pattern.
+
+**What changed**:
+- New `Assets/Scripts/Progression/SiegeLineProgress.cs`: `SiegeTierData` struct, a
+  3-entry table (Shilakshepaka tier 0 = the existing flat Siege, no research needed →
+  Maha Shilakshepaka/Imperial → Vajra Shilakshepaka/Imperial), mirroring
+  `CavalryLineProgress.cs`'s shape exactly. Tier bonuses/costs reuse the same growth
+  every other line's own back-to-back Imperial pair already uses (Cavalry's Maha
+  Ashvarohi → Vir Ashvarohi values: +30 HP/+6 dmg/200 Gold/100 Wood/40s, then +45
+  HP/+9 dmg/250 Gold/125 Wood/50s), not independently balanced.
+- `Assets/Scripts/Buildings/Barracks.cs`: new independent research track
+  (`RequestResearchSiegeTier`/`IsResearchingSiegeTier`/`SiegeTierResearchProgress`/
+  `TickSiegeTierResearch`), runs alongside the existing Infantry/Spearman/Archer/
+  Cavalry tier tracks without blocking them — same shape as
+  `RequestResearchCavalryTier`.
+- `Assets/Scripts/Combat/SiegeFactory.cs`: now reads `SiegeLineProgress.Current(faction)`
+  at spawn, applying `HpBonus`/`DamageBonus` and naming the spawned unit
+  `"{civ} {tier.Name}"` (previously always the literal "Siege") — same convention
+  every other tier-ladder factory already uses.
+- `Assets/Scripts/UI/BuildMenu.cs`: new `siegeTierButton`/`siegeTierLabel` fields,
+  `UpdateSiegeTierButton` (identical shape to `UpdateCavalryTierButton`),
+  `ResearchSiegeTierAtSelected`, hotkey O (`ResearchSiegeTier` — the next available
+  unused letter; Barracks-context letters T/A/N/S/E/J/I/L/H/M were all already spoken
+  for).
+- `Assets/Scripts/UI/SettingsMenu.cs`/`Assets/Scripts/UI/HotkeyOverlay.cs`: new
+  `ResearchSiegeTier` binding added to `BarracksGroup`.
+- 10 new EditMode tests (`Assets/Tests/EditMode/SiegeLineTests.cs`, mirroring
+  `CavalryLineTests.cs` exactly) — 312 total, all pass.
+
+**Environment gotcha, hit and fixed same as every prior Wave 2/3 session**: the new
+`siegeTierButton`/`siegeTierLabel` `[SerializeField]` fields were null in the scene
+(added to the C# class but never wired to a GameObject) — fixed by duplicating
+`CavalryTierButton` into a real `SiegeTierButton` scene object via UnityMCP
+(`manage_gameobject` duplicate + reposition below `CavalryTierButton` at the
+established 32-unit row spacing), renaming its child label to `SiegeTierLabel`, and
+wiring both fields on `BuildMenu`'s component via `manage_components`. Scene saved.
+
+**Live-verified via UnityMCP through the real production path**: a real match
+(`CivilizationSetup.BeginMatch(Maurya)`), a real Barracks
+(`BarracksFactory.Place` + `ConstructionSite.CompleteImmediately()`) selected via
+`SelectionManager`. In Play mode (verification requires it — `BuildMenu.Awake()`
+resolves `_selectionManager` via `FindFirstObjectByType`, which only runs once the
+scene actually starts): the real button correctly showed "Upgrade to Maha
+Shilakshepaka (needs Imperial Age)" at Durg age with zero deduction; after advancing
+to Imperial, the real button's own `onClick.Invoke()` deducted exactly 200 Gold/100
+Wood and started research; forcing the real tick advanced the tier and a Siege unit
+trained afterward through `SiegeFactory.Spawn` came out "Maurya Maha Shilakshepaka"
+at 96 HP; researching the second tier the same way and re-running `BuildMenu.Update()`
+showed the real button's label correctly settle on "Siege (Max Tier)".
+
+**No AI-side research hook** — same explicitly-out-of-scope call as items 9-13
+(future balance work, not a regression).
+
+**Next**: Wave 3 item 15 (Galley/Naval line, 3 tiers), user's call.
+
+---
+
 ## 2026-09-05 — AoE-Parity Wave 3, item 13: Elephant line (2 tiers)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 13, picked up right after item

@@ -534,9 +534,35 @@ one-line-per-session.
     `SelectionManager`; a second real Durg built for a Rajput-assigned faction
     confirmed the button correctly stays hidden (`TrainsElephant=false`) for a civ with
     no elephant. *Depends on: Wave 0, Wave 1.*
-14. **[S] Mangonel/Siege line (3 tiers).** Shilakshepaka → Maha Shilakshepaka → Vajra
-    Shilakshepaka, Durg/Imperial/Imperial. `SiegeFactory.cs` becomes tier 1. *Depends on:
-    Wave 0, Wave 1.*
+14. ~~**[S] Mangonel/Siege line (3 tiers).**~~ **Closed (2026-09-05).** Shilakshepaka
+    (tier 0, the existing flat Siege, no research needed) → Maha Shilakshepaka → Vajra
+    Shilakshepaka, gated Durg/Imperial/Imperial. No new design decisions needed - this
+    item's own roadmap text already fixes tier count/names/ages, and the mechanism
+    (research on Barracks, baked in at spawn, not retroactive, back-to-back Imperial-gated
+    last two tiers) exactly mirrors `CavalryLineProgress.cs`'s own shape (item 12). New
+    `Progression/SiegeLineProgress.cs` mirrors `CavalryLineProgress.cs` exactly; tier
+    bonuses/costs reuse the same growth every other line's own back-to-back Imperial pair
+    already uses (Cavalry's Maha Ashvarohi → Vir Ashvarohi values: +30 HP/+6 dmg/200
+    Gold/100 Wood/40s, then +45 HP/+9 dmg/250 Gold/125 Wood/50s), not independently
+    balanced. New independent research track on `Barracks.cs`
+    (`RequestResearchSiegeTier`, runs alongside the existing Infantry/Spearman/Archer/
+    Cavalry tier tracks without blocking them), `SiegeFactory.cs` now reads
+    `SiegeLineProgress.Current(faction)` at spawn. New `siegeTierButton`/`siegeTierLabel`
+    in `BuildMenu.cs` (identical shape to `cavalryTierButton`), hotkey O, wired into
+    `SettingsMenu`/`HotkeyOverlay`'s `BarracksGroup`. Same explicitly-out-of-scope call as
+    items 9-13: no AI-side research hook (future balance work, not a regression). 10 new
+    EditMode tests (`SiegeLineTests.cs`, mirroring `CavalryLineTests.cs` - 312 total, all
+    pass). Hit the same recurring "new `[SerializeField]` null in the scene" gotcha every
+    Wave 2/3 session has hit - fixed the same way, duplicating `CavalryTierButton` into a
+    real `SiegeTierButton` scene object via UnityMCP. Live-verified via UnityMCP through
+    the real production path: a real match (`CivilizationSetup.BeginMatch(Maurya)`), a
+    real Barracks (`BarracksFactory.Place` + `ConstructionSite.CompleteImmediately()`),
+    the age gate correctly refused research at Durg (this line's tier 1 gates on
+    Imperial, not Durg) with zero deduction, then at Imperial deducted exactly 200
+    Gold/100 Wood via the real scene button's `onClick.Invoke()`; forcing the real tick
+    advanced the tier and a Siege unit trained afterward came out "Maurya Maha
+    Shilakshepaka" at 96 HP; the real scene button's label correctly showed "Siege (Max
+    Tier)" once both tiers were researched. *Depends on: Wave 0, Wave 1.*
 15. **[S] Galley/Naval line (3 tiers).** Rana Nauka → Maha Rana Nauka → Samrat Nauka,
     Classical/Durg/Imperial. `WarGalleyFactory.cs` becomes tier 1. *Depends on: Wave 0, Wave 1.*
 16. **[M] Unique-unit Elite tier (2 tiers × 5 units — was 7, see item 13).** Every

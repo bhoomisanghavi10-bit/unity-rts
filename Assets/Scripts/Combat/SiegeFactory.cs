@@ -34,10 +34,15 @@ namespace KingdomsOfBharat.Combat
                 Debug.LogWarning("SiegeFactory: no generated UnitDefinition for 'siege' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
+            // Wave 3 item 14: Siege tier ladder - baked in at spawn, not
+            // retroactive, same convention as Infantry/Spearman/Archer/
+            // Cavalry.
+            SiegeTierData tier = SiegeLineProgress.Current(faction);
+
             GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
             go.name = faction == FactionId.Player
-                ? $"{profile.DisplayName} Siege"
-                : $"Enemy {profile.DisplayName} Siege";
+                ? $"{profile.DisplayName} {tier.Name}"
+                : $"Enemy {profile.DisplayName} {tier.Name}";
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.5f;
@@ -48,7 +53,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure((def != null ? def.maxHP : 50f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure(((def != null ? def.maxHP : 50f) + tier.HpBonus) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
                 meleeArmor: def != null ? def.meleeArmor : 0f,
                 pierceArmor: def != null ? def.pierceArmor : 0f);
@@ -58,7 +63,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
-            attacker.SetBaseDamage(def != null ? def.attackDamage : 15f);
+            attacker.SetBaseDamage((def != null ? def.attackDamage : 15f) + tier.DamageBonus);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetRange(def != null ? def.attackRange : 3f);
             attacker.SetUnitClass(UnitClass.Siege);
