@@ -43,6 +43,11 @@ namespace KingdomsOfBharat.Buildings
         private RallyPoint _rally;
         private float _remaining = -1f;
         private TrainingUnit _trainingUnit;
+        // Wave 3 item 15: Naval tier ladder research track - lives on Dock
+        // (where War Galley trains), same "independent research track,
+        // doesn't block normal training" convention as Barracks' own
+        // Infantry/Spearman/Archer/Cavalry/Siege tracks.
+        private float _navalTierResearchRemaining = -1f;
 
         private ConstructionSite Site
         {
@@ -80,11 +85,21 @@ namespace KingdomsOfBharat.Buildings
         public bool IsComplete => Site == null || Site.IsComplete;
         public bool IsTraining => _remaining >= 0f;
 
+        public bool IsResearchingNavalTier => _navalTierResearchRemaining >= 0f;
+        public float NavalTierResearchProgress => IsResearchingNavalTier
+            ? 1f - (_navalTierResearchRemaining / NavalLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
             {
                 TickTraining();
+            }
+
+            if (IsResearchingNavalTier)
+            {
+                TickNavalTierResearch();
             }
         }
 
@@ -136,7 +151,7 @@ namespace KingdomsOfBharat.Buildings
             // TrainTimeMultiplier (not a replacement for it) - see
             // CivilizationProfile.FindCategoryMultiplier.
             float navalTrainMultiplier = CivilizationProfile.FindCategoryMultiplier(
-                CivilizationRegistry.For(Faction), StatType.TrainTime, UnitCategory.Naval);
+                CivilizationRegistry.For(Faction), StatType.TrainTime, UnitClass.Naval);
             return trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier
                 * ageTrainMultiplier * navalTrainMultiplier;
         }
@@ -153,6 +168,38 @@ namespace KingdomsOfBharat.Buildings
                 };
                 _rally.ApplyTo(spawned);
                 _remaining = -1f;
+            }
+        }
+
+        public void RequestResearchNavalTier()
+        {
+            if (!IsComplete || IsResearchingNavalTier
+                || !NavalLineProgress.HasNextTier(Faction)
+                || !NavalLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            NavalTierData next = NavalLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _navalTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickNavalTierResearch()
+        {
+            _navalTierResearchRemaining -= Time.deltaTime;
+            if (_navalTierResearchRemaining <= 0f)
+            {
+                NavalLineProgress.AdvanceTier(Faction);
+                _navalTierResearchRemaining = -1f;
             }
         }
     }

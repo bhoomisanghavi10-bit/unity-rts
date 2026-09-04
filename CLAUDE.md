@@ -6,6 +6,44 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 3 item 15 (Galley/Naval line, 3 tiers) closed (2026-09-05).** Picked up
+  right after item 14, per the user's "start wave 3 item 15" request. No new design
+  decisions needed — item 15's own roadmap text already fixes tier count/names/ages
+  (Rana Nauka → Maha Rana Nauka → Samrat Nauka, Classical/Durg/Imperial), and the
+  mechanism exactly mirrors `ArcherLineProgress.cs`'s own shape from item 11 (same
+  3-tier Classical/Durg/Imperial gate pattern). New `Progression/NavalLineProgress.cs`
+  mirrors `ArcherLineProgress.cs` exactly; tier bonuses/costs reuse Archer's own values
+  at matching gates (+18 HP/+4 dmg/120 Gold/60 Wood/25s at Durg, +30 HP/+6 dmg/200
+  Gold/100 Wood/40s at Imperial), not independently balanced. Unlike every land-line
+  item, research lives on **Dock**, not Barracks — the same "research lives where the
+  unit trains" deviation item 13's Elephant line already established for Durg, since
+  War Galley trains from Dock (`Dock.RequestTrainWarGalley`), not Barracks. New
+  `Dock.RequestResearchNavalTier`/`IsResearchingNavalTier`/`NavalTierResearchProgress`/
+  `TickNavalTierResearch` mirror Barracks' own tier-research shape exactly.
+  `WarGalleyFactory.cs` now reads `NavalLineProgress.Current(faction)` at spawn
+  (previously always named the unit literal "War Galley" — now `"{civ} {tier.Name}"`,
+  matching every other tier-ladder factory) and adds the tier's HP/damage bonus. New
+  `navalTierButton`/`navalTierLabel` in `BuildMenu.cs` (identical shape to
+  `siegeTierButton`, gated on a selected Dock), hotkey X (checked every other letter
+  was already claimed across the project's contextual hotkey map via
+  `GameSettings.GetKey` call sites before picking it), wired into
+  `SettingsMenu`/`HotkeyOverlay`'s existing `DockGroup`. Same explicitly-out-of-scope
+  call as items 9-14: no AI-side research hook (future balance work, not a
+  regression); Chola's Naval Raider unique unit is untouched, out of scope. 10 new
+  EditMode tests (`NavalLineTests.cs`, 322 total, all pass). Hit and fixed the same
+  recurring "new `[SerializeField]` null in the scene" gotcha every Wave 2/3 session
+  has hit (duplicated `WarGalleyButton` into a real `NavalTierButton` scene object via
+  UnityMCP). Live-verified via UnityMCP through the real production path: a real
+  match (`CivilizationSetup.BeginMatch(Chola)`), a real `DockFactory.Place`-spawned
+  Dock selected via `SelectionManager`, the age gate correctly refused research at
+  Ancient with 1000 Gold/Wood on hand (zero deduction), then at Durg deducted exactly
+  120 Gold/60 Wood and completed via a forced tick, a War Galley trained afterward
+  through the real `WarGalleyFactory.Spawn` path came out "Chola Maha Rana Nauka" at
+  72.45 HP, the real scene button's own `onClick.Invoke()` deducted exactly 200
+  Gold/100 Wood at Imperial for the second tier, and after that tier completed a War
+  Galley spawned "Chola Samrat Nauka" at 90 HP with the real button's label settling
+  on "Naval (Max Tier)" and `interactable=false`. Next: Wave 3 item 16 (Unique-unit
+  Elite tier, 2 tiers × 5 units), user's call.
 - **Wave 3 item 14 (Mangonel/Siege line, 3 tiers) closed (2026-09-05).** Picked up
   right after item 13, per the user's "start wave 3 item 14" request. No new design
   decisions needed — item 14's own roadmap text already fixes tier count/names/ages

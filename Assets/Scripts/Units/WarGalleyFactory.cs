@@ -24,6 +24,10 @@ namespace KingdomsOfBharat.Units
     // own "item 40" note), but keeps War Galley consistent with the rest of
     // the combat-factory convention instead of silently missing out the
     // moment Naval research is wired up.
+    //
+    // Wave 3 item 15: this factory IS the base Naval tier (Rana Nauka) -
+    // NavalLineProgress.Current's bonus/name is baked in at spawn, not
+    // retroactive, same convention as every other combat-unit tier ladder.
     public static class WarGalleyFactory
     {
         public static GameObject Spawn(Vector3 position, FactionId faction)
@@ -39,18 +43,20 @@ namespace KingdomsOfBharat.Units
                 Debug.LogWarning("WarGalleyFactory: no generated UnitDefinition for 'war_galley' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
+            NavalTierData tier = NavalLineProgress.Current(faction);
+
             // "CombatShip" is the sourced model's actual name (Ships/CombatShip.prefab) -
             // this class/method stays "WarGalley" as the internal gameplay term.
             GameObject go = BoatModelFactory.Spawn("CombatShip", position, profile.PrimaryColor, isWarGalley: true);
             go.name = faction == FactionId.Player
-                ? $"{profile.DisplayName} War Galley"
-                : $"Enemy {profile.DisplayName} War Galley";
+                ? $"{profile.DisplayName} {tier.Name}"
+                : $"Enemy {profile.DisplayName} {tier.Name}";
 
             go.AddComponent<Unit>();
             go.AddComponent<WaterMover>();
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure((def != null ? def.maxHP : 45f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure(((def != null ? def.maxHP : 45f) + tier.HpBonus) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
                 meleeArmor: def != null ? def.meleeArmor : 0f,
                 pierceArmor: def != null ? def.pierceArmor : 0f);
@@ -60,7 +66,7 @@ namespace KingdomsOfBharat.Units
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<BoatAttacker>();
-            attacker.SetBaseDamage(def != null ? def.attackDamage : 8f);
+            attacker.SetBaseDamage((def != null ? def.attackDamage : 8f) + tier.DamageBonus);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetRange(def != null ? def.attackRange : 4f);
             attacker.EnableUpgradeDamageScaling();

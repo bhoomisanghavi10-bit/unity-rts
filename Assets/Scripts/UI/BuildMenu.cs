@@ -75,6 +75,11 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button ungarrisonButton;
         [SerializeField] private Button fishingBoatButton;
         [SerializeField] private Button warGalleyButton;
+        // Wave 3 item 15: Naval tier ladder research button, same gating
+        // shape as siegeTierButton - acts on a selected Dock (War Galley
+        // trains there, not Barracks).
+        [SerializeField] private Button navalTierButton;
+        [SerializeField] private TMP_Text navalTierLabel;
         [SerializeField] private Button sellWoodButton;
         [SerializeField] private TMP_Text sellWoodLabel;
         [SerializeField] private Button buyWoodButton;
@@ -167,6 +172,7 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyResearchElephantTier;
         private KeyCode _keyTrainFishingBoat;
         private KeyCode _keyTrainWarGalley;
+        private KeyCode _keyResearchNavalTier;
         private KeyCode _keyUngarrison;
 
         private BuildingPlacer _placer;
@@ -204,6 +210,7 @@ namespace KingdomsOfBharat.UI
             ungarrisonButton.onClick.AddListener(UngarrisonAtSelected);
             fishingBoatButton.onClick.AddListener(TrainFishingBoatAtSelected);
             warGalleyButton.onClick.AddListener(TrainWarGalleyAtSelected);
+            navalTierButton.onClick.AddListener(ResearchNavalTierAtSelected);
             sellWoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Wood, sell: true));
             buyWoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Wood, sell: false));
             sellFoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Food, sell: true));
@@ -253,6 +260,7 @@ namespace KingdomsOfBharat.UI
             _keyResearchElephantTier = GameSettings.GetKey("ResearchElephantTier", KeyCode.R);
             _keyTrainFishingBoat = GameSettings.GetKey("TrainDockUnit", KeyCode.B);
             _keyTrainWarGalley = GameSettings.GetKey("TrainWarGalley", KeyCode.W);
+            _keyResearchNavalTier = GameSettings.GetKey("ResearchNavalTier", KeyCode.X);
             _keyUngarrison = GameSettings.GetKey("Ungarrison", KeyCode.U);
         }
 
@@ -279,7 +287,7 @@ namespace KingdomsOfBharat.UI
                 siegeButton, spearmanButton, uniqueUnitButton, uniqueUnitButton2, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
                 buyFoodButton, sellStoneButton, buyStoneButton, attackUpgradeButton, armorUpgradeButton,
-                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
+                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, navalTierButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
             };
 
             foreach (Button button in buttons)
@@ -339,7 +347,8 @@ namespace KingdomsOfBharat.UI
             // own asset-gap note), infantryTierButton (Wave 3 item 9),
             // spearmanTierButton (Wave 3 item 10), archerTierButton
             // (Wave 3 item 11), cavalryTierButton (Wave 3 item 12),
-            // siegeTierButton (Wave 3 item 14).
+            // siegeTierButton (Wave 3 item 14), navalTierButton
+            // (Wave 3 item 15).
         }
 
         // Adds a small icon to the left edge of a command-card button and
@@ -428,6 +437,7 @@ namespace KingdomsOfBharat.UI
             siegeTierButton.gameObject.SetActive(barracks != null);
             fishingBoatButton.gameObject.SetActive(dock != null);
             warGalleyButton.gameObject.SetActive(dock != null);
+            navalTierButton.gameObject.SetActive(dock != null);
             sellWoodButton.gameObject.SetActive(market != null);
             buyWoodButton.gameObject.SetActive(market != null);
             sellFoodButton.gameObject.SetActive(market != null);
@@ -549,6 +559,7 @@ namespace KingdomsOfBharat.UI
             {
                 if (Input.GetKeyDown(_keyTrainFishingBoat)) TrainFishingBoatAtSelected();
                 if (Input.GetKeyDown(_keyTrainWarGalley)) TrainWarGalleyAtSelected();
+                if (Input.GetKeyDown(_keyResearchNavalTier)) ResearchNavalTierAtSelected();
             }
 
             if (garrisonPoint != null && garrisonPoint.Count > 0 && Input.GetKeyDown(_keyUngarrison))
@@ -812,6 +823,41 @@ namespace KingdomsOfBharat.UI
             bool canTrain = dock.IsComplete && !dock.IsTraining;
             fishingBoatButton.interactable = canTrain;
             warGalleyButton.interactable = canTrain;
+
+            UpdateNavalTierButton(dock);
+        }
+
+        // Wave 3 item 15: Naval tier ladder research button state -
+        // identical shape to UpdateInfantryTierButton/UpdateArcherTierButton/
+        // UpdateSiegeTierButton, except it acts on a selected Dock (where
+        // War Galley trains) instead of Barracks.
+        private void UpdateNavalTierButton(Dock dock)
+        {
+            if (dock.IsResearchingNavalTier)
+            {
+                navalTierButton.interactable = false;
+                navalTierLabel.text = $"Researching Naval... {(int)(dock.NavalTierResearchProgress * 100f)}%";
+                return;
+            }
+
+            FactionId faction = NetworkMatch.LocalFaction;
+            if (!NavalLineProgress.HasNextTier(faction))
+            {
+                navalTierButton.interactable = false;
+                navalTierLabel.text = "Naval (Max Tier)";
+                return;
+            }
+
+            NavalTierData next = NavalLineProgress.NextTierData(faction);
+            if (!NavalLineProgress.NextTierAgeRequirementMet(faction))
+            {
+                navalTierButton.interactable = false;
+                navalTierLabel.text = $"Upgrade to {next.Name} (needs {next.RequiredAge} Age)";
+                return;
+            }
+
+            navalTierButton.interactable = dock.IsComplete;
+            navalTierLabel.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
         }
 
         // Market trade panel: gating reads the owning faction's stockpile
@@ -1161,6 +1207,17 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
                 barracks.RequestResearchSiegeTier();
+            }
+        }
+
+        // Wave 3 item 15: unlike most tier buttons, acts on a selected
+        // Dock - War Galleys train there, not Barracks (same deviation
+        // item 13's Elephant line already established for Durg).
+        private void ResearchNavalTierAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Dock dock)
+            {
+                dock.RequestResearchNavalTier();
             }
         }
 

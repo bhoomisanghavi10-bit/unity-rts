@@ -563,8 +563,46 @@ one-line-per-session.
     advanced the tier and a Siege unit trained afterward came out "Maurya Maha
     Shilakshepaka" at 96 HP; the real scene button's label correctly showed "Siege (Max
     Tier)" once both tiers were researched. *Depends on: Wave 0, Wave 1.*
-15. **[S] Galley/Naval line (3 tiers).** Rana Nauka → Maha Rana Nauka → Samrat Nauka,
-    Classical/Durg/Imperial. `WarGalleyFactory.cs` becomes tier 1. *Depends on: Wave 0, Wave 1.*
+15. ~~**[S] Galley/Naval line (3 tiers).**~~ **Closed (2026-09-05).** Rana Nauka
+    (tier 0, the existing flat War Galley, no research needed) → Maha Rana Nauka →
+    Samrat Nauka, gated Classical/Durg/Imperial. No new design decisions needed - this
+    item's own roadmap text already fixes tier count/names/ages, and the mechanism
+    exactly mirrors `ArcherLineProgress.cs`'s own shape (item 11, same 3-tier
+    Classical/Durg/Imperial gate pattern). New `Progression/NavalLineProgress.cs`
+    mirrors `ArcherLineProgress.cs` exactly; tier bonuses/costs reuse
+    `ArcherLineProgress`'s own values at matching age gates (+18 HP/+4 dmg/120
+    Gold/60 Wood/25s at Durg, +30 HP/+6 dmg/200 Gold/100 Wood/40s at Imperial), not
+    independently balanced. Unlike every land-line item, research lives on **Dock**,
+    not Barracks - the same "research lives where the unit trains" deviation item 13's
+    Elephant line already established for Durg, since War Galley trains from Dock
+    (`Dock.RequestTrainWarGalley`), not Barracks. New `Dock.RequestResearchNavalTier`/
+    `IsResearchingNavalTier`/`NavalTierResearchProgress`/`TickNavalTierResearch` mirror
+    Barracks' own tier-research shape exactly. `WarGalleyFactory.cs` now reads
+    `NavalLineProgress.Current(faction)` at spawn (previously always named the unit
+    literal "War Galley" - now `"{civ} {tier.Name}"`, matching every other tier-ladder
+    factory) and adds the tier's HP/damage bonus on top of the existing
+    `UpgradeProgress`/civ-profile scaling. New `navalTierButton`/`navalTierLabel` in
+    `BuildMenu.cs` (identical shape to `siegeTierButton`, gated on a selected Dock
+    instead of Barracks), hotkey X (every other letter already claimed across the
+    project's contextual hotkey map - checked directly via `GameSettings.GetKey`
+    call sites before picking it), wired into `SettingsMenu`/`HotkeyOverlay`'s existing
+    `DockGroup`. Same explicitly-out-of-scope call as items 9-14: no AI-side research
+    hook (future balance work, not a regression); Chola's separate War Galley-adjacent
+    unique unit (Naval Raider) is untouched, out of scope. 10 new EditMode tests
+    (`NavalLineTests.cs`, mirroring `SiegeLineTests.cs` - 322 total, all pass). Hit and
+    fixed the same recurring "new `[SerializeField]` null in the scene" gotcha every
+    Wave 2/3 session has hit (duplicated `WarGalleyButton` into a real
+    `NavalTierButton` scene object via UnityMCP). Live-verified via UnityMCP through
+    the real production path: a real match (`CivilizationSetup.BeginMatch(Chola)`), a
+    real `DockFactory.Place`-spawned Dock selected via `SelectionManager`, the age gate
+    correctly refused research at Ancient with 1000 Gold/Wood on hand (zero deduction),
+    then at Durg deducted exactly 120 Gold/60 Wood and completed via a forced real
+    tick, a War Galley trained afterward through the real `WarGalleyFactory.Spawn` path
+    came out "Chola Maha Rana Nauka" at 72.45 HP, the real scene button's own
+    `onClick.Invoke()` deducted exactly 200 Gold/100 Wood at Imperial for the second
+    tier, and after that tier completed a War Galley spawned "Chola Samrat Nauka" at
+    90 HP with the real button's label settling on "Naval (Max Tier)" and
+    `interactable=false`. *Depends on: Wave 0, Wave 1.*
 16. **[M] Unique-unit Elite tier (2 tiers × 5 units — was 7, see item 13).** Every
     existing unique unit EXCEPT `MauryaWarElephantFactory`/`VijayanagaraWarElephantFactory`
     (`CholaNavalRaiderFactory`, `RajputRoyalGuardFactory`, `PillarEdictScholarFactory`,

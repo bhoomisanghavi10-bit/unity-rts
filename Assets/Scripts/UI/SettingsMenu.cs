@@ -75,6 +75,7 @@ namespace KingdomsOfBharat.UI
             new RebindableAction("ResearchElephantTier", "Upgrade Elephant Tier (Durg)", KeyCode.R),
             new RebindableAction("TrainDockUnit", "Train Fishing Boat (Dock)", KeyCode.B),
             new RebindableAction("TrainWarGalley", "Train War Galley (Dock)", KeyCode.W),
+            new RebindableAction("ResearchNavalTier", "Upgrade Naval Tier (Dock)", KeyCode.X),
             new RebindableAction("Ungarrison", "Ungarrison", KeyCode.U),
             new RebindableAction("ToggleHotkeyOverlay", "Toggle Hotkey Reference (Overlay)", KeyCode.F1),
             new RebindableAction("SaveGame", "Quicksave", KeyCode.F5),

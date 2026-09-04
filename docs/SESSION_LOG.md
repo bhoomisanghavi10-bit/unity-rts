@@ -5,6 +5,84 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-05 — AoE-Parity Wave 3, item 15: Galley/Naval line (3 tiers)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 15, picked up right after item
+14 per the user's "start wave 3 item 15" request.
+
+**No new design decisions needed** — item 15's own roadmap text already fixes tier
+count/names/ages (Rana Nauka → Maha Rana Nauka → Samrat Nauka, Classical/Durg/
+Imperial), and the mechanism exactly mirrors `ArcherLineProgress.cs`'s own shape from
+item 11 (same 3-tier Classical/Durg/Imperial gate pattern). Unlike every land-line
+item, research lives on **Dock**, not Barracks — the same "research lives where the
+unit trains" deviation item 13's Elephant line already established for Durg, since
+War Galley trains from Dock (`Dock.RequestTrainWarGalley`), not Barracks — this
+followed directly from re-reading `Dock.cs` before coding, not a new decision put to
+the user.
+
+**What changed**:
+- New `Assets/Scripts/Progression/NavalLineProgress.cs`: `NavalTierData` struct, a
+  3-entry table (Rana Nauka tier 0 = the existing flat War Galley, no research needed
+  → Maha Rana Nauka/Durg → Samrat Nauka/Imperial), mirroring
+  `ArcherLineProgress.cs`'s shape exactly. Tier bonuses/costs reuse Archer's own
+  values at matching age gates (+18 HP/+4 dmg/120 Gold/60 Wood/25s at Durg, +30
+  HP/+6 dmg/200 Gold/100 Wood/40s at Imperial), not independently balanced — the same
+  consistency choice every prior Wave 3 line has made.
+- `Assets/Scripts/Buildings/Dock.cs`: new independent research track
+  (`RequestResearchNavalTier`/`IsResearchingNavalTier`/`NavalTierResearchProgress`/
+  `TickNavalTierResearch`), mirroring Barracks' own tier-research shape exactly, ticked
+  alongside Dock's existing `TickTraining()` in `Update()`.
+- `Assets/Scripts/Units/WarGalleyFactory.cs`: now reads
+  `NavalLineProgress.Current(faction)` at spawn, applying `HpBonus`/`DamageBonus` and
+  naming the spawned unit `"{civ} {tier.Name}"` (previously always the literal "War
+  Galley") — same convention every other tier-ladder factory already uses.
+- `Assets/Scripts/UI/BuildMenu.cs`: new `navalTierButton`/`navalTierLabel` fields,
+  `UpdateNavalTierButton` (identical shape to `UpdateSiegeTierButton`, gated on a
+  selected Dock instead of Barracks), `ResearchNavalTierAtSelected`, hotkey X — checked
+  every `GameSettings.GetKey` call site across the project directly before picking it;
+  every other letter is already claimed somewhere in the contextual hotkey map (Dock's
+  own context already uses B/W for the two Train buttons).
+- `Assets/Scripts/UI/SettingsMenu.cs`/`Assets/Scripts/UI/HotkeyOverlay.cs`: new
+  `ResearchNavalTier` binding added to the existing `DockGroup` (no new group needed,
+  unlike Durg/Karmashala's own sessions).
+- 10 new EditMode tests (`Assets/Tests/EditMode/NavalLineTests.cs`, mirroring
+  `SiegeLineTests.cs` exactly, swapping Barracks→Dock/SiegeFactory→WarGalleyFactory) —
+  322 total, all pass.
+
+**Environment gotcha, hit and fixed same as every prior Wave 2/3 session**: the new
+`navalTierButton`/`navalTierLabel` `[SerializeField]` fields were null in the scene
+(added to the C# class but never wired to a GameObject) — fixed by duplicating
+`WarGalleyButton` into a real `NavalTierButton` scene object via UnityMCP
+(`manage_gameobject` duplicate + reposition one row below at the established 36-unit
+row spacing measured directly off `FishingBoatButton`/`WarGalleyButton`'s own
+`anchoredPosition`), relabeling its child text, and wiring both fields on
+`BuildMenu`'s component via direct `SerializedObject` property assignment. Scene
+saved.
+
+**Live-verified via UnityMCP through the real production path**: a real match
+(`CivilizationSetup.BeginMatch(Chola)`, deliberately not Maurya/Maratha — see item 9's
+own flagged `UniqueTechDefinition` bug, `task_55dbb0cc`, still open and unrelated to
+this item), a real Dock (`DockFactory.Place` + `ConstructionSite.CompleteImmediately()`)
+selected via `SelectionManager` (reflection-invoked, matching every prior session's
+own approach). In Play mode: the age gate correctly refused
+`RequestResearchNavalTier()` at Ancient age with 1000 Gold/1000 Wood on hand (zero
+deducted), then at Durg deducted exactly 120 Gold/60 Wood and started research; a
+forced real tick (`_navalTierResearchRemaining` set near-zero, `Update()`
+reflection-invoked) advanced the tier and a War Galley trained afterward through the
+real `WarGalleyFactory.Spawn` path came out "Chola Maha Rana Nauka" at 72.45 HP; the
+real scene button's own `onClick.Invoke()` correctly deducted the second tier's exact
+200 Gold/100 Wood cost once Player reached Imperial, and after that tier completed a
+War Galley spawned "Chola Samrat Nauka" at 90 HP with the real button's label settling
+on "Naval (Max Tier)" and `interactable=false`.
+
+**No AI-side research hook** — same explicitly-out-of-scope call as items 9-14
+(future balance work, not a regression); Chola's separate Naval Raider unique unit is
+untouched, out of scope.
+
+**Next**: Wave 3 item 16 (Unique-unit Elite tier, 2 tiers × 5 units), user's call.
+
+---
+
 ## 2026-09-05 — AoE-Parity Wave 3, item 14: Mangonel/Siege line (3 tiers)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 14, picked up right after item
