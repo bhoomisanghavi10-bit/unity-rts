@@ -6,6 +6,26 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 3 item 12 live-verification follow-up closed (2026-09-04)** — picked up
+  exactly where the prior item 12 session left off (both `unity`/`UnityMCP` MCP
+  servers were unreachable that whole session, so the code+tests shipped without any
+  live verification). UnityMCP reachable again this session. Scene-wired
+  `CavalryTierButton`/`CavalryTierLabel` (duplicated from `ArcherTierButton`, the
+  exact predicted "new `[SerializeField]` null in the scene" gotcha every Wave 2/3
+  session has hit), wired both fields on `BuildMenu`'s component, scene saved. Full
+  EditMode suite: 289/289 pass. Live-verified via UnityMCP through the real
+  production path: a real match (`CivilizationSetup.BeginMatch(Rajput)`), the age
+  gate correctly refused research at both Ancient and Durg (this line's tier 1 gates
+  on Imperial, not Durg, confirmed against `CavalryLineProgress.cs`'s own table), a
+  real `RequestResearchCavalryTier()` deducted exactly 200 Gold/100 Wood at Imperial
+  and completed via a forced real tick, a Cavalry trained afterward came out "Rajput
+  Maha Ashvarohi" at 96.6 HP, and the real scene button's label ("Upgrade to Vir
+  Ashvarohi (250 Gold, 125 Wood)") and `onClick.Invoke()` correctly paid tier 2's
+  cost through `SelectionManager`-selected Barracks — the scene-wired button itself
+  works end to end, not just the underlying method. No script changes this session
+  (scene-only + docs). Next: Wave 3 item 13 (Elephant line, 2 tiers — needs a design
+  decision first per its own roadmap text: one shared ladder for
+  Maurya/Vijayanagara or two divergent ones), user's call.
 - **Female + male Worker body swap closed (2026-09-04)** — not a queued roadmap
   item, picked up at the user's explicit direction (2 real rigged Meshy AI
   "Harvest Guardian" villager glTF models supplied directly, one female one

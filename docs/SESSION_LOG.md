@@ -5,6 +5,58 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-04 — AoE-Parity Wave 3, item 12 follow-up: live UnityMCP verification
+
+**Scope**: Picked up exactly where the prior item 12 session left off (Knight/Cavalry
+line, 3 tiers) — its code and 10 new EditMode tests were already on disk and
+committed, but both `unity`/`UnityMCP` MCP servers were unreachable that entire
+session, so the recurring "new `[SerializeField]` null in the scene" gotcha was never
+fixed and the feature was never exercised through a real match. UnityMCP is reachable
+again this session; this entry closes that gap, no code changes.
+
+**Scene wiring**: Confirmed `cavalryTierButton`/`cavalryTierLabel` were in fact null
+on the scene's `BuildMenu` component, as predicted. Duplicated `ArcherTierButton`
+(and its child label) into a new `CavalryTierButton`/`CavalryTierLabel`, repositioned
+below `ArcherTierButton` at `(8, -1180)` (the next open row after
+Infantry/Spearman/Archer's tier buttons), and wired both fields on `BuildMenu`'s
+component via `manage_components.set_property`. Scene saved.
+
+**Tests**: Full EditMode suite — 289/289 pass (first run failed to initialize within
+timeout, a transient runner-startup issue, not a real failure; a retry succeeded
+cleanly).
+
+**Live verification** (UnityMCP, real production path, not test shortcuts): a real
+match via `CivilizationSetup.BeginMatch(Rajput)` (same deliberate choice as items
+10/11, avoiding the still-open Maurya/Maratha `UniqueTechDefinition` crash,
+`task_55dbb0cc`, unrelated to this item). A real `BarracksFactory.Place` +
+`ConstructionSite.CompleteImmediately()` Barracks. Confirmed the full gate chain live:
+`RequestResearchCavalryTier()` correctly refused at Ancient age (1000 Gold/Wood on
+hand, no deduction), refused again at Durg (this line's tier 1 gates on Imperial, not
+Durg — confirmed against `CavalryLineProgress.cs`'s own table rather than assumed),
+then at Imperial deducted exactly 200 Gold/100 Wood (Maha Ashvarohi's cost) and
+started research; forcing the real tick (reflection-set
+`_cavalryTierResearchRemaining` near zero, invoked the real private
+`TickCavalryTierResearch`) advanced `CavalryLineProgress.Tier` to 1. A Cavalry unit
+trained via the real `RequestTrainCavalry()` → `TickTraining()` path (after topping
+up Food, which the flat-Cavalry cost also requires and had been left at 0) spawned as
+"Rajput Maha Ashvarohi" at 96.6 HP (base + bonus, scaled by Rajput's own profile/age
+multipliers, matching the established convention). Selected the real Barracks through
+`SelectionManager.SelectBuilding` (private method, reflected) so `BuildMenu`'s own
+`Update()`/label logic ran for real: the real `cavalryTierLabel` correctly read
+"Upgrade to Vir Ashvarohi (250 Gold, 125 Wood)" while at Imperial with tier 1 already
+researched, and the real `cavalryTierButton.onClick.Invoke()` deducted exactly that
+amount (Gold 757.5→507.5, Wood 1100→975) and started tier 2's research — proving the
+scene-wired button, not just the underlying method, works end to end.
+
+**Commit**: one scoped commit for the scene change only (`Assets/Scenes/Main.unity`)
+plus this log/roadmap-status update — no script changes this session.
+
+**Next**: Wave 3 item 13 (Elephant line, 2 tiers — needs a design decision first per
+its own roadmap text: one shared ladder for Maurya/Vijayanagara or two divergent
+ones), user's call.
+
+---
+
 ## 2026-09-04 — Female + male Worker body swap ("Harvest Guardian" villager models)
 
 **Scope**: Not a queued roadmap item — picked up at the user's explicit direction
