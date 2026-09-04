@@ -68,6 +68,7 @@ namespace KingdomsOfBharat.UI
             new RebindableAction("ResearchArmor", "Research Armor (Karmashala)", KeyCode.K),
             new RebindableAction("ResearchUniqueTech", "Research Unique Tech (Barracks)", KeyCode.J),
             new RebindableAction("ResearchInfantryTier", "Upgrade Infantry Tier (Barracks)", KeyCode.I),
+            new RebindableAction("ResearchSpearmanTier", "Upgrade Spearman Tier (Barracks)", KeyCode.L),
             new RebindableAction("TrainDockUnit", "Train Fishing Boat (Dock)", KeyCode.B),
             new RebindableAction("TrainWarGalley", "Train War Galley (Dock)", KeyCode.W),
             new RebindableAction("Ungarrison", "Ungarrison", KeyCode.U),

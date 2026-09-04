@@ -5,6 +5,74 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-04 — AoE-Parity Wave 3, item 10: Spearman line (3 tiers)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 10, the next item after item 9
+(Infantry line), at the user's "start wave 3 remaining item" request. No design
+decisions needed asking about — item 10's own roadmap text already fixes tier
+count/names/ages, and the mechanism (research on Barracks, baked in at spawn, not
+retroactive) was already established by item 9 in the same wave.
+
+**What changed**:
+- New `Assets/Scripts/Progression/SpearmanLineProgress.cs`: `SpearmanTierData` struct,
+  a hardcoded 3-entry table (Bhaladhari tier 0 = the existing flat Spearman, no
+  research needed → Trishuladhari/Durg → Maha Trishuladhari/Imperial), mirroring
+  `InfantryLineProgress.cs`'s shape exactly. Tier bonuses/costs scaled off Infantry's
+  own curve at matching age gates (Trishuladhari = Khandayata's Durg-gate growth;
+  Maha Trishuladhari = Maha Khandayata's Imperial-gate growth) rather than
+  independently balanced.
+- `Buildings/Barracks.cs`: new independent research track
+  (`_spearmanTierResearchRemaining`, `IsResearchingSpearmanTier`,
+  `SpearmanTierResearchProgress`, `RequestResearchSpearmanTier`,
+  `TickSpearmanTierResearch`) — runs alongside the existing Infantry tier track
+  without blocking it, same as every other pair of independent Barracks tracks.
+- `Combat/SpearmanFactory.cs`: reads `SpearmanLineProgress.Current(faction)` at
+  spawn, bakes the tier's name/HP bonus/damage bonus into the spawned unit — not
+  retroactive.
+- `UI/BuildMenu.cs`: new `spearmanTierButton`/`spearmanTierLabel`, identical
+  "Researching.../(Max Tier)/Upgrade to X (needs Y Age)/Upgrade to X (Gold, Wood)"
+  shape as `UpdateInfantryTierButton`, gated on a selected Barracks. Hotkey L
+  (`ResearchSpearmanTier`), wired into `SettingsMenu.Actions`/`HotkeyOverlay`'s
+  existing `BarracksGroup`.
+- Explicitly out of scope, not a regression: no AI-side research hook for Spearman
+  tiers (same as Infantry tiers before it) — future balance work.
+
+**Tests**: 10 new EditMode tests (`SpearmanLineTests.cs`, mirroring
+`InfantryLineTests.cs`'s coverage — `SpearmanLineProgress` gating/sequencing,
+`Barracks.RequestResearchSpearmanTier`'s cost/age-gate/already-researching/max-tier
+guards, `SpearmanFactory` baking the current tier in at spawn without retroactively
+changing an already-spawned unit). Full suite: 269 total, all pass.
+
+**Environment gotcha**: hit the same one every Wave 2/3 session has hit —
+`spearmanTierButton`/`spearmanTierLabel` `[SerializeField]` fields were null in the
+scene (added to the C# class but never wired to a GameObject). Fixed by duplicating
+`InfantryTierButton` into a real `SpearmanTierButton` scene object via UnityMCP,
+renaming its child label to `SpearmanTierLabel`, repositioning it below
+`InfantryTierButton`, and wiring both fields on `BuildMenu`'s component via
+`manage_components`. Confirmed non-null via the components resource before
+live-testing.
+
+**Live verification** (UnityMCP, real production path, not test shortcuts): a real
+match via `CivilizationSetup.BeginMatch(Rajput)` — deliberately not Maurya/Maratha,
+to avoid the pre-existing `UniqueTechDefinition.For` crash flagged (not fixed) by
+item 9's own session (`task_55dbb0cc`, still open, unrelated to this item) whenever
+`BuildMenu.Update()` runs for a selected Barracks on those two civs. A real
+`BarracksFactory.Place` + `ConstructionSite.CompleteImmediately()` Barracks;
+`RequestResearchSpearmanTier()` correctly refused at Ancient age even with 1000
+Gold/Wood on hand, then deducted exactly 120 Gold/60 Wood and started research once
+advanced to Durg; forcing the real `Update()` tick (reflection-set
+`_spearmanTierResearchRemaining` near zero, then invoked the real private `Update()`)
+advanced `SpearmanLineProgress.Tier` to 1; a Spearman spawned via
+`SpearmanFactory.Spawn` after that came out "Rajput Trishuladhari" at 70.0925 HP; the
+real `spearmanTierButton`'s label correctly read "Upgrade to Maha Trishuladhari
+(needs Imperial Age)" while Player was Durg (non-interactable), and after advancing
+Player to Imperial the same button's real `onClick.Invoke()` deducted the real Maha
+Trishuladhari cost (200 Gold/100 Wood), matching the label exactly.
+
+**Next**: Wave 3 item 11 (Archer line, 3 tiers), user's call.
+
+---
+
 ## 2026-09-04 — AoE-Parity Wave 3, item 9: Infantry line (5 tiers)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 9, the first item of Wave 3, at

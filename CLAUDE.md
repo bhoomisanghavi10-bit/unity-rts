@@ -11,6 +11,39 @@ asset requirements, 5. Priority order).
   see that file's own ground rules. `docs/ROADMAP.md` Section 5's priority
   order is the prior plan; items already closed under it stay closed, but new
   work picks up from `IMPLEMENTATION_ROADMAP.md` instead.**
+- **Wave 3 item 10 (Spearman line, 3 tiers) closed (2026-09-04).** Picked up right
+  after item 9 per the user's "start wave 3 remaining item" request. No new design
+  decisions needed — item 10's own roadmap text already fixes tier count/names/ages
+  (Bhaladhari → Trishuladhari/Durg → Maha Trishuladhari/Imperial), and the mechanism
+  (research on Barracks, baked in at spawn, not retroactive) was already established
+  by item 9 in the same wave. New `Progression/SpearmanLineProgress.cs` mirrors
+  `InfantryLineProgress.cs`'s shape exactly; tier bonuses/costs scaled off Infantry's
+  own curve at matching age gates rather than independently balanced
+  (Trishuladhari = Khandayata's Durg-gate growth: +18 HP/+4 dmg/120 Gold/60 Wood/25s;
+  Maha Trishuladhari = Maha Khandayata's Imperial-gate growth: +30 HP/+6 dmg/200
+  Gold/100 Wood/40s). New independent research track on `Barracks.cs`
+  (`RequestResearchSpearmanTier`, runs alongside the existing Infantry tier track
+  without blocking it), `SpearmanFactory.cs` now reads
+  `SpearmanLineProgress.Current(faction)` at spawn. New `spearmanTierButton`/
+  `spearmanTierLabel` in `BuildMenu.cs` (identical shape to `infantryTierButton`),
+  hotkey L, wired into `SettingsMenu`/`HotkeyOverlay`'s `BarracksGroup`. Same
+  explicitly-out-of-scope call as item 9: no AI-side research hook (future balance
+  work, not a regression). 10 new EditMode tests (`SpearmanLineTests.cs`, mirroring
+  `InfantryLineTests.cs` — 269 total, all pass). Hit the same environment gotcha
+  every Wave 2/3 session has documented (new `[SerializeField]` fields null in the
+  scene) — fixed the same way, duplicating `InfantryTierButton` into a real
+  `SpearmanTierButton` scene object via UnityMCP. Live-verified via UnityMCP through
+  the real production path: a real match (`CivilizationSetup.BeginMatch(Rajput)`,
+  deliberately not Maurya/Maratha — see item 9's own flagged `UniqueTechDefinition`
+  bug, `task_55dbb0cc`, still open and unrelated to this item), a real
+  `RequestResearchSpearmanTier()` correctly refused at Ancient age even with funds
+  on hand, then deducted exactly 120 Gold/60 Wood at Durg; forcing the real
+  `Update()` tick advanced the tier and a Spearman spawned afterward came out
+  "Rajput Trishuladhari" at 70.0925 HP (not retroactive to already-spawned units,
+  matching the established convention); the real button's label and
+  `onClick.Invoke()` correctly showed and paid the Maha Trishuladhari cost (200
+  Gold/100 Wood) once Player reached Imperial. Next: Wave 3 item 11 (Archer line, 3
+  tiers), user's call.
 - **Wave 3 item 9 (Infantry line, 5 tiers) closed (2026-09-04) — first Wave 3
   item.** Picked up at the user's "start wave 3" request. Resolved 3 design
   decisions via AskUserQuestion before coding: research lives on Barracks

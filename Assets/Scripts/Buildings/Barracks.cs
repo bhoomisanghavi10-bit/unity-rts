@@ -105,6 +105,12 @@ namespace KingdomsOfBharat.Buildings
         // convention.
         private float _infantryTierResearchRemaining = -1f;
 
+        // Wave 3 item 10: the Spearman tier ladder (Bhaladhari ->
+        // Trishuladhari -> Maha Trishuladhari) - same independent,
+        // non-blocking research-track shape as InfantryTier above, also
+        // living on Barracks since it upgrades what Barracks itself trains.
+        private float _spearmanTierResearchRemaining = -1f;
+
         private ConstructionSite Site
         {
             get
@@ -162,6 +168,11 @@ namespace KingdomsOfBharat.Buildings
             ? 1f - (_infantryTierResearchRemaining / InfantryLineProgress.NextTierData(Faction).ResearchTime)
             : 0f;
 
+        public bool IsResearchingSpearmanTier => _spearmanTierResearchRemaining >= 0f;
+        public float SpearmanTierResearchProgress => IsResearchingSpearmanTier
+            ? 1f - (_spearmanTierResearchRemaining / SpearmanLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -187,6 +198,11 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingInfantryTier)
             {
                 TickInfantryTierResearch();
+            }
+
+            if (IsResearchingSpearmanTier)
+            {
+                TickSpearmanTierResearch();
             }
         }
 
@@ -463,6 +479,40 @@ namespace KingdomsOfBharat.Buildings
             {
                 InfantryLineProgress.AdvanceTier(Faction);
                 _infantryTierResearchRemaining = -1f;
+            }
+        }
+
+        // Wave 3 item 10: Spearman tier ladder research - same shape as
+        // RequestResearchInfantryTier above.
+        public void RequestResearchSpearmanTier()
+        {
+            if (!IsComplete || IsResearchingSpearmanTier
+                || !SpearmanLineProgress.HasNextTier(Faction)
+                || !SpearmanLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            SpearmanTierData next = SpearmanLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _spearmanTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickSpearmanTierResearch()
+        {
+            _spearmanTierResearchRemaining -= Time.deltaTime;
+            if (_spearmanTierResearchRemaining <= 0f)
+            {
+                SpearmanLineProgress.AdvanceTier(Faction);
+                _spearmanTierResearchRemaining = -1f;
             }
         }
     }

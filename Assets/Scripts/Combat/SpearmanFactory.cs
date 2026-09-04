@@ -32,10 +32,15 @@ namespace KingdomsOfBharat.Combat
                 Debug.LogWarning("SpearmanFactory: no generated UnitDefinition for 'spearman' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
+            // Wave 3 item 10: Spearman tier ladder - baked in at spawn, not
+            // retroactive, same convention as InfantryLineProgress/
+            // SoldierFactory.
+            SpearmanTierData tier = SpearmanLineProgress.Current(faction);
+
             GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
             go.name = faction == FactionId.Player
-                ? $"{profile.DisplayName} Spearman"
-                : $"Enemy {profile.DisplayName} Spearman";
+                ? $"{profile.DisplayName} {tier.Name}"
+                : $"Enemy {profile.DisplayName} {tier.Name}";
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f;
@@ -50,7 +55,7 @@ namespace KingdomsOfBharat.Combat
             // see GarrisonSeeker.
             go.AddComponent<GarrisonSeeker>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure((def != null ? def.maxHP : 35f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure(((def != null ? def.maxHP : 35f) + tier.HpBonus) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
                 meleeArmor: def != null ? def.meleeArmor : 1f,
                 pierceArmor: def != null ? def.pierceArmor : 0f);
@@ -58,7 +63,7 @@ namespace KingdomsOfBharat.Combat
             attackable.EnableUpgradeArmorScaling();
             go.AddComponent<HealthBar>();
             var attacker = go.AddComponent<MeleeAttacker>();
-            attacker.SetBaseDamage(def != null ? def.attackDamage : 5f);
+            attacker.SetBaseDamage((def != null ? def.attackDamage : 5f) + tier.DamageBonus);
             attacker.SetRange(def != null ? def.attackRange : 1f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetUnitClass(UnitClass.Spearman);

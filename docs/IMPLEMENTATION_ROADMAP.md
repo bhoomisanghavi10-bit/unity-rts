@@ -385,8 +385,51 @@ one-line-per-session.
    my own new `UpdateInfantryTierButton` logic by invoking it directly via reflection instead
    of through the crashing `Update()` to keep this item's own verification clean. *Depends
    on: Wave 0 items 1-2, Wave 1.*
-10. **[S] Spearman line (3 tiers).** Bhaladhari → Trishuladhari → Maha Trishuladhari,
-    Classical/Durg/Imperial. `SpearmanFactory.cs` becomes tier 1. *Depends on: Wave 0, Wave 1.*
+10. ~~**[S] Spearman line (3 tiers).**~~ **Closed (2026-09-04).** Bhaladhari (tier 0, the
+    existing flat Spearman, no research needed) → Trishuladhari → Maha Trishuladhari, gated
+    Classical/Durg/Imperial. Mirrored item 9's (Infantry line) exact shape, since this item's
+    own roadmap text left no open design questions the way item 9's did: new
+    `Progression/SpearmanLineProgress.cs` (`SpearmanTierData` struct table, same
+    "intentionally hardcoded" reasoning), a new independent research track on `Barracks.cs`
+    (`RequestResearchSpearmanTier`/`IsResearchingSpearmanTier`/`SpearmanTierResearchProgress`,
+    same non-blocking shape alongside the existing Infantry tier track - a Barracks can
+    research both tracks at once, same as every other pair of independent tracks there), and
+    `SpearmanFactory.cs` now reads `SpearmanLineProgress.Current(faction)` at spawn to bake in
+    the current tier's name/HP/damage bonus, not retroactive. Tier costs/bonuses scaled off
+    Infantry's own established curve at matching age gates (Trishuladhari mirrors Khandayata's
+    Durg-gate growth: +18 HP/+4 damage, 120 Gold/60 Wood, 25s; Maha Trishuladhari mirrors Maha
+    Khandayata's Imperial-gate growth: +30 HP/+6 damage, 200 Gold/100 Wood, 40s) - a deliberate
+    consistency choice, not independently balanced. New `spearmanTierButton`/
+    `spearmanTierLabel` in `BuildMenu.cs` (identical "Researching.../(Max Tier)/Upgrade to X
+    (needs Y Age)/Upgrade to X (Gold, Wood)" shape as `UpdateInfantryTierButton`, gated on a
+    selected Barracks), hotkey L (`ResearchSpearmanTier` - avoided every hotkey already used
+    within the Barracks-selected context), wired into `SettingsMenu`/`HotkeyOverlay`'s existing
+    `BarracksGroup`. Same explicitly-out-of-scope call as item 9: no AI-side research hook
+    added (the AI simply won't research Spearman tiers yet - a future balance-work item, not a
+    regression). 10 new EditMode tests (`SpearmanLineTests.cs`, mirroring `InfantryLineTests.cs`
+    exactly - 269 total including these, all pass; the full suite's prior count had already
+    drifted past CLAUDE.md's stale 255 figure before this session started, from work this
+    session didn't do - not re-verified here beyond confirming the current 269 all pass). Hit the same environment gotcha every Wave 2/3
+    session before this one has documented: the new `spearmanTierButton`/`spearmanTierLabel`
+    `[SerializeField]` fields were null in the scene - fixed the same way, duplicating
+    `InfantryTierButton` into a real `SpearmanTierButton` scene object via UnityMCP and wiring
+    the component fields to it (confirmed via reflection before live-testing). Live-verified via
+    UnityMCP through the real production path: a real match
+    (`CivilizationSetup.BeginMatch(Rajput)`, deliberately not Maurya/Maratha - see item 9's own
+    flagged `UniqueTechDefinition` bug, `task_55dbb0cc`, still open and unrelated to this item -
+    to keep this item's own `BuildMenu.Update()` calls crash-free), a real spawned+completed
+    Barracks; `RequestResearchSpearmanTier()` correctly refused at Ancient age even with 1000
+    Gold/Wood on hand, then correctly deducted exactly 120 Gold/60 Wood and started research
+    once advanced to Durg; forcing the real `Update()` tick to complete it (reflection-set
+    `_spearmanTierResearchRemaining` near zero, then invoked the real private `Update()` method)
+    advanced `SpearmanLineProgress.Tier` to 1; a Spearman spawned via `SpearmanFactory.Spawn`
+    after that came out "Rajput Trishuladhari" at 70.0925 HP (base 35 + 18 bonus, scaled by
+    Rajput's own profile/age multipliers); the real `spearmanTierButton`'s label correctly read
+    "Upgrade to Maha Trishuladhari (needs Imperial Age)" while Player was Durg (button
+    non-interactable), and after advancing Player to Imperial the same button's real
+    `onClick.Invoke()` correctly called through to `RequestResearchSpearmanTier` and deducted
+    the real Maha Trishuladhari cost (200 Gold/100 Wood), matching the button's own displayed
+    label exactly. *Depends on: Wave 0, Wave 1.*
 11. **[S] Archer line (3 tiers).** Dhanurdhara → Yantra Dhanurdhara → Maha Dhanurdhara,
     Classical/Durg/Imperial. `ArcherFactory.cs` becomes tier 1. *Depends on: Wave 0, Wave 1.*
 12. **[S] Knight/Cavalry line (3 tiers).** Ashvarohi → Maha Ashvarohi → Vir Ashvarohi,
