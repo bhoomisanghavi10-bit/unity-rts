@@ -6,6 +6,60 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Age-aware building visuals + new asset import closed (2026-09-04)** —
+  `docs/YOUR_ACTION_ITEMS.md` items 1-4. User supplied a fresh art delivery
+  (`/Volumes/US/3D MODELS/`): TownCenter Ancient/Classical (2 shared) + 5 civ-specific
+  Durg models, Tower/Wall Ancient/Classical/Durg (3 shared each), Lumber Camp/Mining
+  Camp/Mill. Villager art was already fully wired from a prior session (staged files
+  confirmed byte-identical via `md5`) — nothing to do there. **User-confirmed design
+  decision**: Age-up re-skins ARE retroactive (every standing TownCenter/Tower/Wall a
+  faction owns rebuilds its visual mesh in place the instant Age-up completes,
+  AoE-style) — a deliberate one-off exception to this project's usual
+  "baked in at spawn, not retroactive" convention. `BuildingModelFactory.Spawn`
+  gained an optional `AgeId?` param (all 11 other, non-age-tiered factories
+  unaffected) and a new `Refresh` method (destroys/rebuilds only the visual mesh +
+  collider on an already-live building, leaving every gameplay component untouched —
+  a pure re-skin, not a re-spawn); new `AgeTieredBuildingVisual.cs` marker + static
+  `RefreshAllForFaction`, called from `TownCenter.TickAgeUp()` (the sole call site of
+  `AgeProgress.Advance`) right after a faction's Age actually advances — covers
+  Tower/Wall too, since they react to the same faction-wide event.
+  **Resource-path convention** (load-bearing for future sessions — see
+  `docs/SESSION_LOG.md`'s matching entry for the full spec): shared non-civ age tiers
+  at `Buildings/{resourceName}_{ageId}`; civ-specific age tiers (TownCenter Durg only)
+  at `Buildings/{civId}/{resourceName}_{ageId}`; Imperial keeps its original unsuffixed
+  path, untouched. Extended `MeshyBuildingImporter.cs` with a new
+  `ImportSharedBuilding` entry point for the non-civ assets. **Found and fixed a real
+  import bug**: source folders on the external volume carry macOS AppleDouble shadow
+  files (`._<name>`, same extension, ~4KB) that `Directory.GetFiles(...).
+  FirstOrDefault()` could silently pick over the real 76MB+ asset with zero
+  compile/console errors (a 4096-byte, 0-mesh prefab was the tell) — fixed by
+  excluding `._`-prefixed filenames from every glob in the importer, permanently.
+  Asset identification required real visual verification twice over, not name-trust:
+  the 4 unlabeled Durg-Age TownCenter folders were matched to civs by their raw UV-atlas
+  texture's dominant color/motifs (confirmed live against each civ's existing Imperial
+  art); Tower's "Stonewatch_Tower"/"Stonewatch_Bastion" folder names turned out
+  **backwards** from their actual tier content once screenshotted against the real
+  Ancient/Classical/Durg reference art. Also re-hit (and re-fixed, same algebraic
+  method as prior sessions) the documented Tower-specific
+  `ImportRotationCorrections` runtime-stomp gotcha — baking a raw visually-verified
+  rotation into a new Tower prefab without accounting for the civ-blind stomp
+  produces a double-rotated result that only shows up through the real
+  `BuildingModelFactory.Spawn` path, not a raw `Resources.Load` probe. All 289
+  EditMode tests pass unmodified (pure asset-pipeline + visual-only code, no new
+  test, matching every prior building-import session's convention). Live-verified via
+  UnityMCP through the real production path: a real match
+  (`CivilizationSetup.BeginMatch(Rajput)`), a real Tower + Wall spawned for Player,
+  then a real `TownCenter.RequestAgeUp()` forced through Classical→Durg→Imperial —
+  `GetInstanceID()` on both confirmed unchanged at every step (re-skinned in place,
+  not respawned), `Attackable`/`GarrisonPoint`/`FactionMember` intact, exactly one
+  `BoxCollider` each (no duplicate leftover), and the correct model rendered at every
+  tier via screenshot. Also confirmed a real `WorkerFactory.Spawn` villager still
+  plays its Idle clip correctly through the existing `PlayableGraph`-based
+  `AnimationDriver` (untouched this session). See `docs/SESSION_LOG.md`'s matching
+  entry for full detail, including the exact scale/rotation numbers per building.
+  Next: item 5 (per-civ unit gear, 12 sets × 3 pieces) or item 6 (Wave 4 new-unit
+  models) whenever the user sources that art, or back to
+  `docs/IMPLEMENTATION_ROADMAP.md`'s wave order for code-only work, user's call.
 - **Wave 3 item 12 live-verification follow-up closed (2026-09-04)** — picked up
   exactly where the prior item 12 session left off (both `unity`/`UnityMCP` MCP
   servers were unreachable that whole session, so the code+tests shipped without any

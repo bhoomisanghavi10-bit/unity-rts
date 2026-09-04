@@ -1,5 +1,6 @@
 using UnityEngine;
 using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -50,7 +51,54 @@ namespace KingdomsOfBharat.Buildings
         // rallyOffset, etc.) keeps reading the same position it always
         // has, unaffected by whichever visual (real model or procedural
         // shape) ends up under it.
-        public static GameObject Spawn(string resourceName, CivilizationId civId, Vector3 rootPosition, Vector3 fallbackSize, Color civColor)
+        // Age-aware building visuals (Wave: age-tiered art import): age is
+        // optional so the other 11 non-age-tiered factories (Barracks/Dock/
+        // Farm/Gate/House/Karmashala/LumberCamp/Market/Mill/MiningCamp/Durg)
+        // keep calling Spawn exactly as before, byte-for-byte the same
+        // lookup chain. Only TownCenter/Tower/Wall pass a real AgeId.
+        // Resource-path convention (see docs/SESSION_LOG.md for the full
+        // writeup): shared non-civ age tiers live at
+        // Buildings/{resourceName}_{ageId}; civ-specific age tiers (only
+        // TownCenter at Durg, per the standing rule) live at
+        // Buildings/{civId}/{resourceName}_{ageId}; Imperial keeps the
+        // original unsuffixed Buildings/{civId}/{resourceName} path
+        // untouched, so none of the 45 existing Imperial prefabs are
+        // re-probed differently.
+        public static GameObject Spawn(string resourceName, CivilizationId civId, Vector3 rootPosition, Vector3 fallbackSize, Color civColor, AgeId? age = null)
+        {
+            GameObject root = new GameObject(resourceName);
+            root.transform.position = rootPosition;
+            BuildVisual(root, resourceName, civId, age, fallbackSize, civColor);
+            return root;
+        }
+
+        // Destroys and rebuilds only the visual child + tight BoxCollider
+        // on an already-live building root, leaving every gameplay
+        // component already on it (Attackable, GarrisonPoint,
+        // BuildingAttacker, HealthBar, FactionMember, Repairable,
+        // ConstructionSite, SelectionIndicator, AgeTieredBuildingVisual
+        // itself, etc.) completely untouched - a pure re-skin, not a
+        // re-spawn. Used by AgeTieredBuildingVisual.RefreshAllForFaction
+        // for the confirmed-retroactive Age-up re-skin.
+        public static void Refresh(GameObject root, string resourceName, CivilizationId civId, AgeId age, Vector3 fallbackSize, Color civColor)
+        {
+            Transform existingVisual = root.transform.Find(VisualChildName);
+            if (existingVisual != null)
+            {
+                Object.DestroyImmediate(existingVisual.gameObject);
+            }
+
+            foreach (BoxCollider leftover in root.GetComponents<BoxCollider>())
+            {
+                Object.DestroyImmediate(leftover);
+            }
+
+            BuildVisual(root, resourceName, civId, age, fallbackSize, civColor);
+        }
+
+        private const string VisualChildName = "Visual";
+
+        private static void BuildVisual(GameObject root, string resourceName, CivilizationId civId, AgeId? age, Vector3 fallbackSize, Color civColor)
         {
             // Roadmap Section 4.1: each civ should eventually read as a
             // distinct architectural tradition rather than one shared
@@ -81,14 +129,20 @@ namespace KingdomsOfBharat.Buildings
             // import-tool convention difference rather than anything this
             // project chose - so a bare Buildings/<name>/scene path is
             // tried too, after the more specific patterns above.
-            GameObject prefab = Resources.Load<GameObject>($"Buildings/{civId}/{resourceName}")
+            // Age-aware pass: a non-Imperial age tries its own civ-specific
+            // and shared age-suffixed paths FIRST, then falls through to
+            // this same original chain unchanged if neither exists yet
+            // (so a not-yet-imported age tier degrades gracefully instead
+            // of erroring, same "degrade gracefully" spirit as every
+            // fallback below it).
+            bool hasAgeTier = age.HasValue && age.Value != AgeId.Imperial;
+            GameObject prefab = (hasAgeTier ? Resources.Load<GameObject>($"Buildings/{civId}/{resourceName}_{age.Value}") : null)
+                ?? (hasAgeTier ? Resources.Load<GameObject>($"Buildings/{resourceName}_{age.Value}") : null)
+                ?? Resources.Load<GameObject>($"Buildings/{civId}/{resourceName}")
                 ?? Resources.Load<GameObject>($"Buildings/{resourceName}")
                 ?? Resources.Load<GameObject>($"Buildings/{resourceName}/{resourceName}/scene")
                 ?? Resources.Load<GameObject>($"Buildings/{resourceName}/scene")
                 ?? Resources.Load<GameObject>($"Ships/{resourceName}");
-
-            GameObject root = new GameObject(resourceName);
-            root.transform.position = rootPosition;
 
             GameObject model;
             if (prefab != null)
@@ -105,6 +159,7 @@ namespace KingdomsOfBharat.Buildings
                 model = ProceduralBuildingFactory.Build(resourceName, civColor, root.transform);
             }
 
+            model.name = VisualChildName;
             model.transform.localPosition = Vector3.zero;
             // Only a real imported model can need an import-orientation
             // correction - a procedural fallback shape is already built
@@ -176,11 +231,9 @@ namespace KingdomsOfBharat.Buildings
             // latent flat-Y issue unit spawns had before ResolveGroundHeight
             // was added), exact for Barracks/Farm/House (their point is
             // already ground-raycast-resolved by the caller).
-            float groundY = rootPosition.y - fallbackSize.y * 0.5f;
+            float groundY = root.transform.position.y - fallbackSize.y * 0.5f;
             Bounds bounds = AlignBaseToGround(model, groundY);
             AddBoundsCollider(root, bounds);
-
-            return root;
         }
 
         private static Bounds AlignBaseToGround(GameObject model, float groundY)

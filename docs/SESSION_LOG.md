@@ -5,6 +5,125 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-04 — Age-aware building visuals + new asset import (`docs/YOUR_ACTION_ITEMS.md` items 1-4)
+
+**Scope**: User supplied a freshly-sourced art delivery at `/Volumes/US/3D MODELS/`
+(TownCenter Ancient/Classical/5×Durg, Tower/Wall Ancient/Classical/Durg, Lumber
+Camp/Mining Camp/Mill) and asked for the age-tier art pipeline to be built and the
+assets wired in. Villager art turned out to already be fully wired (the staged
+`male villager`/`female villager` folders are byte-identical, confirmed via `md5`, to
+the `Harvest Guardian` models a prior session already imported into
+`Assets/Resources/human/{Male,Female}Villager/`) — nothing to do there.
+
+**Design decision (confirmed via AskUserQuestion before coding)**: Age-up re-skins ARE
+retroactive — every standing TownCenter/Tower/Wall a faction owns rebuilds its visual
+mesh in place the instant that faction's Age-up completes, AoE-style. This is a
+deliberate exception to this project's usual "baked in at spawn, not retroactive"
+convention (unit tiers, upgrades, civ bonuses all stay non-retroactive) — the user
+picked it explicitly over the simpler non-retroactive option.
+
+**Resource-path convention** (load-bearing for any future age-tiered building or
+Tower/Wall Imperial civ variant — follow this, don't invent another one):
+- Shared, non-civ age tiers (Tower/Wall below Imperial; TownCenter at
+  Ancient/Classical only): `Resources/Buildings/{resourceName}_{ageId}`.
+- Civ-specific age tiers (only TownCenter at Durg, per the standing rule):
+  `Resources/Buildings/{civId}/{resourceName}_{ageId}`.
+- Imperial tier: unchanged existing `Resources/Buildings/{civId}/{resourceName}` path,
+  no suffix — all 45 existing prefabs untouched.
+
+**Code changes**:
+- `BuildingModelFactory.cs`: `Spawn` gained an optional `AgeId? age = null` parameter
+  (the other 11 non-age-tiered factories keep calling it unchanged). Refactored into
+  `Spawn`/`BuildVisual`/new `Refresh` — `Refresh` destroys and rebuilds only the
+  visual mesh child (now consistently named `"Visual"`) and the tight `BoxCollider` on
+  an already-live building root, leaving every gameplay component untouched. This is
+  what makes the retroactive re-skin a pure re-skin, not a re-spawn.
+- New `AgeTieredBuildingVisual.cs`: marker component (added by
+  `TownCenterFactory`/`TowerFactory`/`WallFactory` only) with static
+  `RefreshAllForFaction(faction, newAge)`, called from the one real call site of
+  `AgeProgress.Advance` — `TownCenter.TickAgeUp()` — right after the Age actually
+  advances. One call covers all 3 building types for that faction (Tower/Wall don't
+  research Age-up themselves, they just react).
+- `TownCenterFactory.cs`/`TowerFactory.cs`/`WallFactory.cs`: now pass
+  `AgeProgress.CurrentAge(faction)` into `Spawn` and attach `AgeTieredBuildingVisual`.
+- `Assets/Editor/MeshyBuildingImporter.cs`: added `ImportSharedBuilding` (mirrors
+  `ImportBuilding` minus the civ folder segment, for shared/age-tiered assets) via a
+  shared private `Import` helper. **Found and fixed a real bug while using it**: the
+  source folders on the external volume ship macOS AppleDouble shadow files
+  (`._<name>`, same extension, ~4KB) next to every real file, and
+  `Directory.GetFiles(...).FirstOrDefault()`'s unspecified ordering silently picked
+  the shadow instead of the real asset once (a 76MB Town Center FBX import produced a
+  4096-byte, 0-mesh prefab with **zero compile/console errors** — only caught by
+  checking `GetComponentsInChildren<MeshFilter>().Length == 0` on the imported result
+  directly). Fixed with a `GetRealFiles` wrapper excluding `._`-prefixed filenames on
+  every glob, permanently, not just for this session's assets.
+
+**Asset identification** (name-based/caption-based assumptions were wrong twice this
+session — verified everything visually before committing, per this project's own
+standing rule):
+- The 4 unlabeled Durg-Age TownCenter folders were identified by their raw UV-atlas
+  texture's dominant color/motifs against each civ's known material language (rose-pink
+  + sun-banner accents → Rajput; gray granite + terracotta tile → Vijayanagara; cream
+  sandstone + maroon/green accents, name literally "Dome_of_the_Elephant" → Maurya;
+  dark basalt + saffron accents, name "Suncrest_Citadel" → Maratha) — then confirmed
+  live via `BuildingModelFactory.Spawn` that each Durg model's color reads as a
+  seamless continuation of that civ's existing Imperial art.
+- Tower/Wall: the Meshy-generated folder *names* ("Stonewatch_Tower" vs
+  "Stonewatch_Bastion") turned out to be **misleading** — a live screenshot comparison
+  against each tier's own reference/prompt jpg showed "Stonewatch_Bastion" is actually
+  the Classical tier (stone base + open wooden canopy roof) and "Stonewatch_Tower" is
+  actually Durg (fully enclosed crenellated stone with an arched door) — the reverse of
+  what the folder names implied. Caught only by comparing live screenshots against the
+  reference art, not by trusting names.
+- Drop-off buildings: user-confirmed `Medieval_Mine_Hoist` → Mining Camp,
+  `Rustic_Watermill` → Mill (both were captioned identically "grain mill" —
+  the folder *names* were trusted over the mismatched captions), `Timber_Market_Stall`
+  → Lumber Camp (caption explicitly said "lumber camp" despite the Meshy auto-name).
+
+**A new rotation-stomp gotcha, specific to Tower**: `BuildingModelFactory`'s existing
+civ-blind `ImportRotationCorrections["Tower"]` runtime stomp
+(`Quaternion.Euler(0,0,-90)`) applies to every Tower age tier, not just Imperial — so
+naively baking the visually-verified `Euler(-90,0,0)` correction directly into the new
+shared Tower prefabs produced a double-rotated, sideways result once spawned through
+the real `BuildingModelFactory.Spawn` path (only caught because verification always
+goes through the real factory, not a raw `Resources.Load` + manual instantiate).
+Fixed the same way prior Tower-import sessions have: solved algebraically for the
+correction to bake in given the fixed stomp
+(`Quaternion.Inverse(stomp) * desiredFinalRotation`), then re-verified through the
+real `Spawn` path. Wall has no such stomp (no dict entry), so its correction could be
+baked in directly.
+
+**Import order and scale**: TownCenter Ancient (4.19x worker height)/Classical
+(4.5x)/5× Durg (civ-specific, computed per-model to land near the existing Imperial
+tier's own ~10.9-11.3x, so Durg reads as "close to Imperial but not quite there" per
+civ) → Tower Ancient(2.2x)/Classical(3.2x)/Durg(4.2x, all below the existing
+Imperial tier's ~7.8-8.25x) → Wall Ancient/Classical/Durg (targeted flat 1.7/1.8/1.9
+world-unit heights, matching the existing Wall's own scale convention) → Lumber
+Camp/Mining Camp/Mill (2.5x worker height each, in line with House/Farm's existing
+small-building scale). Worker height re-measured fresh at 1.902692 (matches the
+project's already-established baseline).
+
+**Tests**: All 289 pre-existing EditMode tests pass unmodified (no new test — pure
+asset-pipeline + visual-only code, no new pure logic warranting one, matching every
+prior building-import session's own convention).
+
+**Live verification** (UnityMCP, real production path): a real match
+(`CivilizationSetup.BeginMatch(Rajput)`), a real spawned Tower + Wall for Player at
+Ancient age, then a real `TownCenter.RequestAgeUp()` → forced-completed via reflection
+(the established `Update()`-forcing technique) through Classical → Durg → Imperial —
+at each step, `GameObject.GetInstanceID()` on both Tower and Wall was confirmed
+**unchanged** (same GameObjects, not respawned), `Attackable`/`GarrisonPoint`/
+`FactionMember` all still present, exactly one `BoxCollider` (no leftover duplicate
+from the previous tier), and a real screenshot at each tier showed the correct model.
+Also confirmed live: a real `WorkerFactory.Spawn` still plays its Idle clip correctly
+through the existing `PlayableGraph`-based `AnimationDriver` (unaffected, no code
+touched there) — `_currentClip == "HumanM@Idle01"`, `graph.IsPlaying() == true`.
+
+**Roadmap/docs**: `docs/YOUR_ACTION_ITEMS.md` items 1-4's Villager/TownCenter/Tower/
+Wall/drop-off asset gaps are now closed (item 5's per-civ gear and item 6's new-unit
+models remain open, unrelated to this session). This session's resource-path
+convention (above) is the one future sessions should extend, not reinvent.
+
 ## 2026-09-04 — AoE-Parity Wave 3, item 12 follow-up: live UnityMCP verification
 
 **Scope**: Picked up exactly where the prior item 12 session left off (Knight/Cavalry

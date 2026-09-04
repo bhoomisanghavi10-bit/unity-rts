@@ -8,9 +8,13 @@ namespace KingdomsOfBharat.Editor
     /// <summary>
     /// One-shot pipeline for wiring a raw Meshy AI building export (FBX + separate
     /// albedo/metallic/normal/roughness PNGs, plus a pre-packed metallic+smoothness PNG)
-    /// into a civ-specific building prefab at
-    /// Assets/Resources/Buildings/&lt;civId&gt;/&lt;buildingName&gt;.prefab, the path
-    /// BuildingModelFactory.Spawn probes first.
+    /// into a building prefab at either
+    /// Assets/Resources/Buildings/&lt;civId&gt;/&lt;buildingName&gt;.prefab (civ-specific,
+    /// via ImportBuilding) or Assets/Resources/Buildings/&lt;buildingName&gt;.prefab
+    /// (shared/non-civ, via ImportSharedBuilding) - both paths BuildingModelFactory.Spawn
+    /// probes. Age-aware building visuals: pass buildingName with an "_{AgeId}" suffix
+    /// (e.g. "TownCenter_Durg", "Tower_Ancient") for an age-tiered import - see
+    /// BuildingModelFactory's own resource-path-convention comment.
     ///
     /// The metallic(R)+smoothness(A) packing itself is done outside Unity (see
     /// scratchpad/pack_metallic_smoothness.py) — an in-Editor Texture2D.GetPixels/
@@ -33,13 +37,46 @@ namespace KingdomsOfBharat.Editor
         /// </summary>
         public static void ImportBuilding(string civId, string buildingName, string sourceFolder, float extraScale, Quaternion modelRotationCorrection)
         {
+            Import($"Assets/Resources/Buildings/{civId}/_Source/{buildingName}",
+                $"Assets/Resources/Buildings/{civId}/{buildingName}.prefab",
+                $"{civId}/{buildingName}", buildingName, sourceFolder, extraScale, modelRotationCorrection);
+        }
+
+        public static void ImportSharedBuilding(string buildingName, string sourceFolder, float extraScale)
+        {
+            ImportSharedBuilding(buildingName, sourceFolder, extraScale, Quaternion.identity);
+        }
+
+        /// <summary>
+        /// Same pipeline as ImportBuilding, minus the civ folder segment - for a
+        /// shared/non-civ age tier (TownCenter Ancient/Classical, Tower/Wall
+        /// Ancient/Classical/Durg) or a non-age-tiered shared building (Lumber
+        /// Camp/Mining Camp/Mill).
+        /// </summary>
+        public static void ImportSharedBuilding(string buildingName, string sourceFolder, float extraScale, Quaternion modelRotationCorrection)
+        {
+            Import($"Assets/Resources/Buildings/_Source/{buildingName}",
+                $"Assets/Resources/Buildings/{buildingName}.prefab",
+                buildingName, buildingName, sourceFolder, extraScale, modelRotationCorrection);
+        }
+
+        private static void Import(string destFolder, string prefabPath, string logLabel, string buildingName, string sourceFolder, float extraScale, Quaternion modelRotationCorrection)
+        {
+            // A source folder on an external volume ships a macOS
+            // AppleDouble shadow file next to every real file
+            // ("._<name>", same extension, ~4KB resource-fork stub) -
+            // Directory.GetFiles' unspecified ordering let FirstOrDefault
+            // silently pick the shadow instead of the real asset once
+            // (a 76MB FBX import silently produced a 4096-byte, 0-mesh
+            // prefab with zero compile/console errors), so every glob
+            // below explicitly excludes filenames starting with "._".
             string absSourceFolder = Path.GetFullPath(sourceFolder);
-            string fbxSrc = Directory.GetFiles(absSourceFolder, "*.fbx").FirstOrDefault();
-            string normalSrc = Directory.GetFiles(absSourceFolder, "*_normal.png").FirstOrDefault();
-            string packedSrc = Directory.GetFiles(absSourceFolder, "*_metallicSmoothness.png").FirstOrDefault();
-            string metallicSrc = Directory.GetFiles(absSourceFolder, "*_metallic.png").FirstOrDefault();
-            string roughnessSrc = Directory.GetFiles(absSourceFolder, "*_roughness.png").FirstOrDefault();
-            string albedoSrc = Directory.GetFiles(absSourceFolder, "*.png")
+            string fbxSrc = GetRealFiles(absSourceFolder, "*.fbx").FirstOrDefault();
+            string normalSrc = GetRealFiles(absSourceFolder, "*_normal.png").FirstOrDefault();
+            string packedSrc = GetRealFiles(absSourceFolder, "*_metallicSmoothness.png").FirstOrDefault();
+            string metallicSrc = GetRealFiles(absSourceFolder, "*_metallic.png").FirstOrDefault();
+            string roughnessSrc = GetRealFiles(absSourceFolder, "*_roughness.png").FirstOrDefault();
+            string albedoSrc = GetRealFiles(absSourceFolder, "*.png")
                 .FirstOrDefault(p => p != metallicSrc && p != normalSrc && p != roughnessSrc && p != packedSrc);
 
             if (fbxSrc == null || normalSrc == null || packedSrc == null || albedoSrc == null)
@@ -48,7 +85,6 @@ namespace KingdomsOfBharat.Editor
                 return;
             }
 
-            string destFolder = $"Assets/Resources/Buildings/{civId}/_Source/{buildingName}";
             Directory.CreateDirectory(Path.GetFullPath(destFolder));
 
             string fbxDest = CopyInto(fbxSrc, destFolder, $"{buildingName}_model.fbx");
@@ -80,11 +116,16 @@ namespace KingdomsOfBharat.Editor
             }
             root.transform.localScale = Vector3.one * extraScale;
 
-            string prefabPath = $"Assets/Resources/Buildings/{civId}/{buildingName}.prefab";
             PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
             Object.DestroyImmediate(root);
 
-            Debug.Log($"MeshyBuildingImporter: wired {civId}/{buildingName} -> {prefabPath} (extraScale={extraScale})");
+            Debug.Log($"MeshyBuildingImporter: wired {logLabel} -> {prefabPath} (extraScale={extraScale})");
+        }
+
+        private static System.Collections.Generic.IEnumerable<string> GetRealFiles(string folder, string pattern)
+        {
+            return Directory.GetFiles(folder, pattern)
+                .Where(p => !Path.GetFileName(p).StartsWith("._"));
         }
 
         private static string CopyInto(string absSrc, string destFolder, string destFileName)

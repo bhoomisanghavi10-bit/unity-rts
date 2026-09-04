@@ -3,6 +3,7 @@ using KingdomsOfBharat.Core;
 using KingdomsOfBharat.FogOfWar;
 using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.Selection;
+using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -29,10 +30,11 @@ namespace KingdomsOfBharat.Buildings
             CivilizationId civ = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civ);
 
-            GameObject go = BuildingModelFactory.Spawn("TownCenter", civ, position, Size, profile.PrimaryColor);
+            GameObject go = BuildingModelFactory.Spawn("TownCenter", civ, position, Size, profile.PrimaryColor, AgeProgress.CurrentAge(faction));
             go.name = faction == FactionId.Player ? "TownCenter" : "EnemyTownCenter";
             BuildingFootprint.Attach(go, BuildingFootprint.Square(BuildingFootprint.TownCenterTiles), carveObstacle: true);
 
+            go.AddComponent<AgeTieredBuildingVisual>().Configure("TownCenter", Size);
             go.AddComponent<TownCenter>();
             go.AddComponent<SelectionIndicator>().Configure(1.9f, -Size.y * 0.5f);
             var attackable = go.AddComponent<Attackable>();

@@ -168,6 +168,11 @@ namespace KingdomsOfBharat.Buildings
             if (_ageUpRemaining <= 0f)
             {
                 AgeProgress.Advance(Faction, _ageUpTarget);
+                // User-confirmed retroactive re-skin: every standing
+                // TownCenter/Tower/Wall this faction owns rebuilds its
+                // visual mesh in place right now - see
+                // AgeTieredBuildingVisual.
+                AgeTieredBuildingVisual.RefreshAllForFaction(Faction, _ageUpTarget);
                 _ageUpRemaining = -1f;
             }
         }

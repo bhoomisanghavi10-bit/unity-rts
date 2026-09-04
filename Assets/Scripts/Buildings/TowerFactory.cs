@@ -30,10 +30,11 @@ namespace KingdomsOfBharat.Buildings
             CivilizationId civ = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civ);
 
-            GameObject go = BuildingModelFactory.Spawn("Tower", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
+            GameObject go = BuildingModelFactory.Spawn("Tower", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor, AgeProgress.CurrentAge(faction));
             go.name = faction == FactionId.Player ? "Tower" : "EnemyTower";
             BuildingFootprint.Attach(go, BuildingFootprint.Square(BuildingFootprint.TowerTiles), carveObstacle: true);
 
+            go.AddComponent<AgeTieredBuildingVisual>().Configure("Tower", Size);
             go.AddComponent<Tower>();
             var site = go.AddComponent<ConstructionSite>();
             site.Configure(buildTime);
