@@ -117,6 +117,13 @@ namespace KingdomsOfBharat.Buildings
         // living on Barracks since it upgrades what Barracks itself trains.
         private float _archerTierResearchRemaining = -1f;
 
+        // Wave 3 item 12: the Cavalry tier ladder (Ashvarohi -> Maha
+        // Ashvarohi -> Vir Ashvarohi) - same independent, non-blocking
+        // research-track shape as InfantryTier/SpearmanTier/ArcherTier
+        // above, also living on Barracks since it upgrades what Barracks
+        // itself trains.
+        private float _cavalryTierResearchRemaining = -1f;
+
         private ConstructionSite Site
         {
             get
@@ -184,6 +191,11 @@ namespace KingdomsOfBharat.Buildings
             ? 1f - (_archerTierResearchRemaining / ArcherLineProgress.NextTierData(Faction).ResearchTime)
             : 0f;
 
+        public bool IsResearchingCavalryTier => _cavalryTierResearchRemaining >= 0f;
+        public float CavalryTierResearchProgress => IsResearchingCavalryTier
+            ? 1f - (_cavalryTierResearchRemaining / CavalryLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -219,6 +231,11 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingArcherTier)
             {
                 TickArcherTierResearch();
+            }
+
+            if (IsResearchingCavalryTier)
+            {
+                TickCavalryTierResearch();
             }
         }
 
@@ -563,6 +580,41 @@ namespace KingdomsOfBharat.Buildings
             {
                 ArcherLineProgress.AdvanceTier(Faction);
                 _archerTierResearchRemaining = -1f;
+            }
+        }
+
+        // Wave 3 item 12: Cavalry tier ladder research - same shape as
+        // RequestResearchInfantryTier/RequestResearchSpearmanTier/
+        // RequestResearchArcherTier above.
+        public void RequestResearchCavalryTier()
+        {
+            if (!IsComplete || IsResearchingCavalryTier
+                || !CavalryLineProgress.HasNextTier(Faction)
+                || !CavalryLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            CavalryTierData next = CavalryLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _cavalryTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickCavalryTierResearch()
+        {
+            _cavalryTierResearchRemaining -= Time.deltaTime;
+            if (_cavalryTierResearchRemaining <= 0f)
+            {
+                CavalryLineProgress.AdvanceTier(Faction);
+                _cavalryTierResearchRemaining = -1f;
             }
         }
     }

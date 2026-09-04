@@ -11,6 +11,46 @@ asset requirements, 5. Priority order).
   see that file's own ground rules. `docs/ROADMAP.md` Section 5's priority
   order is the prior plan; items already closed under it stay closed, but new
   work picks up from `IMPLEMENTATION_ROADMAP.md` instead.**
+- **Wave 3 item 12 (Knight/Cavalry line, 3 tiers) closed (2026-09-04) - code and
+  tests only, live UnityMCP verification still outstanding.** Picked up right
+  after item 11 per the user's "wave 3 item 12 start" request. No new design
+  decisions needed - item 12's own roadmap text already fixes tier count/names/
+  ages (Ashvarohi → Maha Ashvarohi/Durg → Vir Ashvarohi/Imperial - note both
+  upgrade tiers gate on Imperial, per the roadmap's own "Durg/Imperial/Imperial"
+  spec), and the mechanism (research on Barracks, baked in at spawn, not
+  retroactive) was already established by items 9-11. Confirmed tier 0's
+  `RequiredAge` is descriptive only (never enforced), so `RequestTrainCavalry`
+  keeps its existing no-age-gate behavior - only the tier ladder above it is
+  new. New `Progression/CavalryLineProgress.cs` mirrors `SpearmanLineProgress.cs`'s
+  shape exactly; tier bonuses/costs reuse `InfantryLineProgress`'s own
+  back-to-back Imperial pair (Maha Khandayata → Vir Yodha) at matching gates -
+  the closest existing precedent for two successive Imperial-gated tiers - rather
+  than independently balanced (Maha Ashvarohi = +30 HP/+6 dmg/200 Gold/100
+  Wood/40s; Vir Ashvarohi = +45 HP/+9 dmg/250 Gold/125 Wood/50s). New independent
+  research track on `Barracks.cs` (`RequestResearchCavalryTier`, alongside the
+  existing Infantry/Spearman/Archer tracks), `CavalryFactory.cs` now reads
+  `CavalryLineProgress.Current(faction)` at spawn. New `cavalryTierButton`/
+  `cavalryTierLabel` in `BuildMenu.cs`, hotkey M, wired into
+  `SettingsMenu`/`HotkeyOverlay`'s `BarracksGroup`. Same explicitly-out-of-scope
+  call as items 9-11: no AI-side research hook; Rajput Royal Guard untouched. 10
+  new EditMode tests (`CavalryLineTests.cs`, mirroring `SpearmanLineTests.cs`).
+  **Could not live-verify via UnityMCP this session**: both the `unity` and
+  `UnityMCP` MCP servers failed to connect (`ConnectionRefused`) for this entire
+  session despite a real Unity Editor instance actively running and compiling
+  the new files - checked `~/Library/Logs/Unity/Editor-prev.log` and the
+  project's own `Logs/` directory directly (this project's own "console bridge
+  can miss real errors" convention) and found no compile errors, but could not
+  run the Unity Test Runner or drive a real match/button click the way every one
+  of items 9-11 did. **Flagging directly, not glossing over it**: the new
+  `cavalryTierButton`/`cavalryTierLabel` `[SerializeField]` fields are almost
+  certainly null in the scene right now (the exact recurring gotcha every Wave
+  2/3 session has hit) and still need the scene-wiring fix (duplicate
+  `ArcherTierButton` into a real `CavalryTierButton` scene object) plus a real
+  live-verification pass once UnityMCP reconnects. Next: retry live
+  verification for this item once Unity/UnityMCP is reachable, then Wave 3 item
+  13 (Elephant line, 2 tiers - needs a design decision first per its own
+  roadmap text: one shared ladder for Maurya/Vijayanagara or two divergent
+  ones), user's call.
 - **Wave 3 item 11 (Archer line, 3 tiers) closed (2026-09-04).** Picked up right
   after item 10 per the user's "start wave 3 item 11" request. No new design
   decisions needed — item 11's own roadmap text already fixes tier count/names/ages

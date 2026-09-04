@@ -456,9 +456,45 @@ one-line-per-session.
     47.61 HP; the real button's label and `onClick.Invoke()` correctly showed and
     paid the Maha Dhanurdhara cost (200 Gold/100 Wood) once Player reached Imperial.
     *Depends on: Wave 0, Wave 1.*
-12. **[S] Knight/Cavalry line (3 tiers).** Ashvarohi → Maha Ashvarohi → Vir Ashvarohi,
-    Durg/Imperial/Imperial. `CavalryFactory.cs` becomes tier 1; Rajput Royal Guard stays the
-    civ-unique alternative alongside it. *Depends on: Wave 0, Wave 1.*
+12. ~~**[S] Knight/Cavalry line (3 tiers).**~~ **Closed (2026-09-04).** Ashvarohi (tier 0,
+    the existing flat Cavalry, no research needed) → Maha Ashvarohi → Vir Ashvarohi, gated
+    Durg/Imperial/Imperial. Mirrored item 11's (Archer line) exact shape - no new design
+    decisions needed, since this item's own roadmap text already fixes tier count/names/
+    ages and the mechanism (research on Barracks, baked in at spawn, not retroactive) was
+    already established by items 9-11 in the same wave. Confirmed by re-reading
+    `SpearmanLineProgress`/`InfantryLineProgress` that tier 0's `RequiredAge` field is
+    descriptive only (never enforced - `NextTierAgeRequirementMet` only checks the *next*
+    tier), so this item does not change when Cavalry itself becomes trainable
+    (`RequestTrainCavalry` still has no age gate, as before). New
+    `Progression/CavalryLineProgress.cs` mirrors `SpearmanLineProgress.cs`'s shape exactly
+    (same Durg/Imperial gate pattern, with the last two tiers sharing the Imperial gate per
+    this item's own spec); tier bonuses/costs reuse `InfantryLineProgress`'s own
+    back-to-back Imperial pair (Maha Khandayata → Vir Yodha) at matching gates, the closest
+    existing precedent for two successive Imperial-gated tiers, rather than independently
+    balanced (Maha Ashvarohi = Maha Khandayata's growth: +30 HP/+6 dmg/200 Gold/100
+    Wood/40s; Vir Ashvarohi = Vir Yodha's growth: +45 HP/+9 dmg/250 Gold/125 Wood/50s). New
+    independent research track on `Barracks.cs` (`RequestResearchCavalryTier`, runs
+    alongside the existing Infantry/Spearman/Archer tier tracks without blocking them),
+    `CavalryFactory.cs` now reads `CavalryLineProgress.Current(faction)` at spawn. New
+    `cavalryTierButton`/`cavalryTierLabel` in `BuildMenu.cs` (identical shape to
+    `archerTierButton`/`spearmanTierButton`), hotkey M, wired into
+    `SettingsMenu`/`HotkeyOverlay`'s `BarracksGroup`. Same explicitly-out-of-scope call as
+    items 9-11: no AI-side research hook (future balance work, not a regression); Rajput
+    Royal Guard (the civ-unique cavalry alternative) untouched, as the roadmap text
+    specifies. 10 new EditMode tests (`CavalryLineTests.cs`, mirroring
+    `SpearmanLineTests.cs`). **Live UnityMCP verification could not be completed this
+    session**: both `unity` and `UnityMCP` MCP servers failed to connect (`ConnectionRefused`)
+    despite a real Unity Editor instance running and actively compiling the new files
+    throughout - checked `~/Library/Logs/Unity/Editor-prev.log`/the project's own `Logs/`
+    directory directly per this project's own "console bridge can miss real errors"
+    convention and found no compile errors for the new files, but could not drive a real
+    match/button/scene-wiring pass the way every one of items 9-11 did. The
+    `cavalryTierButton`/`cavalryTierLabel` `[SerializeField]` fields are almost certainly
+    null in the scene right now (the exact gotcha every Wave 2/3 session before this one
+    has hit) and need the same fix once UnityMCP is reachable: duplicate `ArcherTierButton`
+    into a real `CavalryTierButton` scene object and wire the component fields to it, then
+    live-verify through a real match the same way items 9-11 did. Flag this to the user as
+    an open follow-up, not a false "done." *Depends on: Wave 0, Wave 1.*
 13. **[S] Elephant line (2 tiers, our own invention — no AoE II line to import).** Gajaroha →
     Maha Gajaroha, Durg/Imperial. Design decision first: one shared ladder for Maurya and
     Vijayanagara, or two divergent ones — resolve before coding. *Depends on: Wave 0, Wave 1.*

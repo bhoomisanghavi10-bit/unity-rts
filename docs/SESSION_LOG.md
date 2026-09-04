@@ -5,6 +5,89 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-04 — AoE-Parity Wave 3, item 12: Knight/Cavalry line (3 tiers)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 12, the next item after item 11
+(Archer line), at the user's "wave 3 item 12 start" request. No design decisions needed
+asking about — item 12's own roadmap text already fixes tier count/names/ages
+(Ashvarohi → Maha Ashvarohi/Durg → Vir Ashvarohi/Imperial — note both upgrade tiers gate
+on Imperial, per the item's own "Durg/Imperial/Imperial" spec), and the mechanism
+(research on Barracks, baked in at spawn, not retroactive) was already established by
+items 9-11. Confirmed by re-reading `SpearmanLineProgress`/`InfantryLineProgress` that
+tier 0's `RequiredAge` field is descriptive only — `NextTierAgeRequirementMet` only ever
+checks the *next* tier's age, and `RequestTrainCavalry` has no age gate of its own — so
+this item does not change when Cavalry itself becomes trainable, only the tier ladder
+above it.
+
+**What changed**:
+- New `Assets/Scripts/Progression/CavalryLineProgress.cs`: `CavalryTierData` struct, a
+  hardcoded 3-entry table (Ashvarohi tier 0 = the existing flat Cavalry, no research
+  needed → Maha Ashvarohi/Imperial → Vir Ashvarohi/Imperial), mirroring
+  `SpearmanLineProgress.cs`'s shape exactly. Since this line's last two tiers share the
+  Imperial gate (unlike Spearman/Archer's one-tier-per-age shape), tier bonuses/costs
+  reuse `InfantryLineProgress`'s own back-to-back Imperial pair (Maha Khandayata → Vir
+  Yodha) at matching gates instead — the closest existing precedent for two successive
+  Imperial-gated tiers — rather than independently balanced (Maha Ashvarohi: +30 HP/+6
+  dmg/200 Gold/100 Wood/40s; Vir Ashvarohi: +45 HP/+9 dmg/250 Gold/125 Wood/50s).
+- `Buildings/Barracks.cs`: new independent research track
+  (`_cavalryTierResearchRemaining`, `IsResearchingCavalryTier`,
+  `CavalryTierResearchProgress`, `RequestResearchCavalryTier`,
+  `TickCavalryTierResearch`) — runs alongside the existing Infantry/Spearman/Archer
+  tier tracks without blocking them.
+- `Combat/CavalryFactory.cs`: reads `CavalryLineProgress.Current(faction)` at spawn,
+  bakes the tier's name/HP bonus/damage bonus into the spawned unit — not retroactive.
+  Every other line (Rajput unique-tech damage bonus, Maratha/Rajput team-bonus
+  stacking, trample-style splash, horse-mount cosmetic) untouched.
+- `UI/BuildMenu.cs`: new `cavalryTierButton`/`cavalryTierLabel`, identical
+  "Researching.../(Max Tier)/Upgrade to X (needs Y Age)/Upgrade to X (Gold, Wood)"
+  shape as `UpdateArcherTierButton`, gated on a selected Barracks. Hotkey M
+  (`ResearchCavalryTier` — free within the Barracks-selected context; already reused
+  for `PlaceMarket` in the mutually-exclusive Placement context, same convention as
+  I/L/H today), wired into `SettingsMenu.Actions`/`HotkeyOverlay`'s existing
+  `BarracksGroup`.
+- Explicitly out of scope, not a regression: no AI-side research hook for Cavalry
+  tiers (same as Infantry/Spearman/Archer tiers before it) — future balance work.
+  Rajput Royal Guard (the civ-unique cavalry alternative) untouched, per the roadmap
+  text's own "stays the civ-unique alternative alongside it."
+
+**Tests**: 10 new EditMode tests (`CavalryLineTests.cs`, mirroring
+`SpearmanLineTests.cs`'s coverage — `CavalryLineProgress` gating/sequencing,
+`Barracks.RequestResearchCavalryTier`'s cost/age-gate/already-researching/max-tier
+guards, `CavalryFactory` baking the current tier in at spawn without retroactively
+changing an already-spawned unit).
+
+**Blocked, not skipped — live UnityMCP verification could not run this session**: both
+the `unity` and `UnityMCP` MCP servers returned `ConnectionRefused` for this entire
+session, despite a real Unity Editor instance (`ps aux` confirmed pid 3685, started
+7:54PM, with both `AssetImportWorker0`/`1` actively running) genuinely open on this
+project throughout. Checked `~/Library/Logs/Unity/Editor-prev.log` and the project's own
+`Logs/AssetImportWorker*.log` directly, per this project's own "the MCP console bridge
+can miss real compile errors" convention, and found the new files being imported with
+no `error CS` lines — but this only confirms no compile error, not that the feature
+actually works end to end. Every one of items 9-11 needed a real UnityMCP pass to catch
+the recurring "new `[SerializeField]` field null in the scene" gotcha (the button/label
+fields are added to the C# class but never wired to a GameObject) — that fix (duplicate
+`ArcherTierButton` into a real `CavalryTierButton` scene object, wire the component
+fields via `SerializedObject`/`SerializedProperty`) almost certainly still needs to
+happen here too, plus the full real-match live-verification pass (age-gate refusal,
+correct Gold/Wood deduction, tier advancing a real spawned Cavalry's name/HP, the real
+button's label and `onClick.Invoke()`). Flagging this directly rather than claiming a
+live-verified "done" the way items 9-11 could.
+
+**Commit**: one scoped commit covering `Assets/Scripts/Progression/CavalryLineProgress.cs`
+(new), `Assets/Scripts/Buildings/Barracks.cs`, `Assets/Scripts/Combat/CavalryFactory.cs`,
+`Assets/Scripts/UI/BuildMenu.cs`, `Assets/Scripts/UI/SettingsMenu.cs`,
+`Assets/Scripts/UI/HotkeyOverlay.cs`, `Assets/Tests/EditMode/CavalryLineTests.cs` (new).
+No scene changes this session (blocked on UnityMCP - see above).
+
+**Next**: retry live UnityMCP verification for this item once Unity/UnityMCP reconnects
+(scene-wire `CavalryTierButton`, run the full EditMode suite, live-verify through a real
+match), then Wave 3 item 13 (Elephant line, 2 tiers — needs a design decision first per
+its own roadmap text: one shared ladder for Maurya/Vijayanagara or two divergent ones),
+user's call.
+
+---
+
 ## 2026-09-04 — AoE-Parity Wave 3, item 11: Archer line (3 tiers)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 11, the next item after item 10

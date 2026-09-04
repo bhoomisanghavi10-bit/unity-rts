@@ -70,6 +70,7 @@ namespace KingdomsOfBharat.UI
             new RebindableAction("ResearchInfantryTier", "Upgrade Infantry Tier (Barracks)", KeyCode.I),
             new RebindableAction("ResearchSpearmanTier", "Upgrade Spearman Tier (Barracks)", KeyCode.L),
             new RebindableAction("ResearchArcherTier", "Upgrade Archer Tier (Barracks)", KeyCode.H),
+            new RebindableAction("ResearchCavalryTier", "Upgrade Cavalry Tier (Barracks)", KeyCode.M),
             new RebindableAction("TrainDockUnit", "Train Fishing Boat (Dock)", KeyCode.B),
             new RebindableAction("TrainWarGalley", "Train War Galley (Dock)", KeyCode.W),
             new RebindableAction("Ungarrison", "Ungarrison", KeyCode.U),
