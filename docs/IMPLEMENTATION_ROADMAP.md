@@ -430,8 +430,32 @@ one-line-per-session.
     `onClick.Invoke()` correctly called through to `RequestResearchSpearmanTier` and deducted
     the real Maha Trishuladhari cost (200 Gold/100 Wood), matching the button's own displayed
     label exactly. *Depends on: Wave 0, Wave 1.*
-11. **[S] Archer line (3 tiers).** Dhanurdhara → Yantra Dhanurdhara → Maha Dhanurdhara,
-    Classical/Durg/Imperial. `ArcherFactory.cs` becomes tier 1. *Depends on: Wave 0, Wave 1.*
+11. ~~**[S] Archer line (3 tiers).**~~ **Closed (2026-09-04).** Dhanurdhara (base) →
+    Yantra Dhanurdhara (Durg) → Maha Dhanurdhara (Imperial). New
+    `Progression/ArcherLineProgress.cs` mirrors SpearmanLineProgress.cs exactly (same
+    Classical/Durg/Imperial gate shape, same "baked in at spawn, not retroactive"
+    convention); tier bonuses/costs reuse SpearmanLineProgress's own values at
+    matching age gates (Yantra Dhanurdhara = Trishuladhari's Durg-gate growth: +18
+    HP/+4 dmg/120 Gold/60 Wood/25s; Maha Dhanurdhara = Maha Trishuladhari's
+    Imperial-gate growth: +30 HP/+6 dmg/200 Gold/100 Wood/40s). New independent
+    research track on `Barracks.cs` (`RequestResearchArcherTier`, non-blocking
+    alongside Infantry/Spearman tracks), `ArcherFactory.cs` now reads
+    `ArcherLineProgress.Current(faction)` at spawn. New `archerTierButton`/
+    `archerTierLabel` in `BuildMenu.cs` (identical shape), hotkey H, wired into
+    `SettingsMenu`/`HotkeyOverlay`'s `BarracksGroup`. Same explicitly-out-of-scope
+    call as items 9/10: no AI-side research hook. 10 new EditMode tests
+    (`ArcherLineTests.cs`, mirroring `SpearmanLineTests.cs` - 279 total, all pass).
+    Hit the same environment gotcha every Wave 2/3 session has documented (new
+    `[SerializeField]` fields null in the scene) - fixed by duplicating
+    `SpearmanTierButton` into a real `ArcherTierButton` scene object via UnityMCP.
+    Live-verified via UnityMCP through the real production path: a real match
+    (`CivilizationSetup.BeginMatch(Rajput)`), a real `RequestResearchArcherTier()`
+    correctly refused at Ancient age even with 1000 Gold/Wood on hand, then deducted
+    exactly 120 Gold/60 Wood at Durg; forcing the real `Update()` tick advanced the
+    tier and an Archer spawned afterward came out "Rajput Yantra Dhanurdhara" at
+    47.61 HP; the real button's label and `onClick.Invoke()` correctly showed and
+    paid the Maha Dhanurdhara cost (200 Gold/100 Wood) once Player reached Imperial.
+    *Depends on: Wave 0, Wave 1.*
 12. **[S] Knight/Cavalry line (3 tiers).** Ashvarohi → Maha Ashvarohi → Vir Ashvarohi,
     Durg/Imperial/Imperial. `CavalryFactory.cs` becomes tier 1; Rajput Royal Guard stays the
     civ-unique alternative alongside it. *Depends on: Wave 0, Wave 1.*

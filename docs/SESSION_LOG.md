@@ -5,6 +5,81 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-04 — AoE-Parity Wave 3, item 11: Archer line (3 tiers)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 11, the next item after item 10
+(Spearman line), at the user's "start wave 3 item 11" request. No design decisions
+needed asking about — item 11's own roadmap text already fixes tier count/names/ages,
+and the mechanism (research on Barracks, baked in at spawn, not retroactive) was
+already established by items 9/10 in the same wave.
+
+**What changed**:
+- New `Assets/Scripts/Progression/ArcherLineProgress.cs`: `ArcherTierData` struct,
+  a hardcoded 3-entry table (Dhanurdhara tier 0 = the existing flat Archer, no
+  research needed → Yantra Dhanurdhara/Durg → Maha Dhanurdhara/Imperial), mirroring
+  `SpearmanLineProgress.cs`'s shape exactly. Tier bonuses/costs reuse
+  SpearmanLineProgress's own values at matching age gates (Yantra Dhanurdhara =
+  Trishuladhari's Durg-gate growth; Maha Dhanurdhara = Maha Trishuladhari's
+  Imperial-gate growth) rather than independently balanced.
+- `Buildings/Barracks.cs`: new independent research track
+  (`_archerTierResearchRemaining`, `IsResearchingArcherTier`,
+  `ArcherTierResearchProgress`, `RequestResearchArcherTier`,
+  `TickArcherTierResearch`) — runs alongside the existing Infantry/Spearman tier
+  tracks without blocking them, same as every other pair of independent Barracks
+  tracks.
+- `Combat/ArcherFactory.cs`: reads `ArcherLineProgress.Current(faction)` at spawn,
+  bakes the tier's name/HP bonus/damage bonus into the spawned unit — not
+  retroactive.
+- `UI/BuildMenu.cs`: new `archerTierButton`/`archerTierLabel`, identical
+  "Researching.../(Max Tier)/Upgrade to X (needs Y Age)/Upgrade to X (Gold, Wood)"
+  shape as `UpdateSpearmanTierButton`, gated on a selected Barracks. Hotkey H
+  (`ResearchArcherTier`), wired into `SettingsMenu.Actions`/`HotkeyOverlay`'s
+  existing `BarracksGroup`.
+- Explicitly out of scope, not a regression: no AI-side research hook for Archer
+  tiers (same as Infantry/Spearman tiers before it) — future balance work.
+
+**Tests**: 10 new EditMode tests (`ArcherLineTests.cs`, mirroring
+`SpearmanLineTests.cs`'s coverage — `ArcherLineProgress` gating/sequencing,
+`Barracks.RequestResearchArcherTier`'s cost/age-gate/already-researching/max-tier
+guards, `ArcherFactory` baking the current tier in at spawn without retroactively
+changing an already-spawned unit). Full suite: 279 total, all pass.
+
+**Environment gotcha**: hit the same one every Wave 2/3 session has hit —
+`archerTierButton`/`archerTierLabel` `[SerializeField]` fields were null in the
+scene (added to the C# class but never wired to a GameObject). Fixed by duplicating
+`SpearmanTierButton` into a real `ArcherTierButton` scene object via UnityMCP,
+renaming its child label to `ArcherTierLabel`, repositioning it below
+`SpearmanTierButton`, and wiring both fields on `BuildMenu`'s component via
+`SerializedObject`/`SerializedProperty`. Confirmed non-null before live-testing.
+
+**Live verification** (UnityMCP, real production path, not test shortcuts): a real
+match via `CivilizationSetup.BeginMatch(Rajput)` — deliberately not Maurya/Maratha,
+to avoid the pre-existing `UniqueTechDefinition.For` crash flagged (not fixed) by
+item 9's own session (`task_55dbb0cc`, still open, unrelated to this item) whenever
+`BuildMenu.Update()` runs for a selected Barracks on those two civs. A real
+`BarracksFactory.Place` + `ConstructionSite.CompleteImmediately()` Barracks;
+`RequestResearchArcherTier()` correctly refused at Ancient age even with 1000
+Gold/Wood on hand, then deducted exactly 120 Gold/60 Wood and started research once
+advanced to Durg; forcing the real `Update()` tick (reflection-set
+`_archerTierResearchRemaining` near zero, then invoked the real private `Update()`)
+advanced `ArcherLineProgress.Tier` to 1; an Archer spawned via `ArcherFactory.Spawn`
+after that came out "Rajput Yantra Dhanurdhara" at 47.61 HP (base 18 + 18 bonus,
+scaled by Rajput's own profile/age multipliers); the real `archerTierButton`'s label
+correctly read "Upgrade to Maha Dhanurdhara (needs Imperial Age)" while Player was
+Durg, and after advancing Player to Imperial the same button's real
+`onClick.Invoke()` deducted the real Maha Dhanurdhara cost (200 Gold/100 Wood),
+matching the button's own displayed label exactly.
+
+**Commit**: one scoped commit covering `Assets/Scripts/Progression/ArcherLineProgress.cs`
+(new), `Assets/Scripts/Buildings/Barracks.cs`, `Assets/Scripts/Combat/ArcherFactory.cs`,
+`Assets/Scripts/UI/BuildMenu.cs`, `Assets/Scripts/UI/SettingsMenu.cs`,
+`Assets/Scripts/UI/HotkeyOverlay.cs`, `Assets/Tests/EditMode/ArcherLineTests.cs` (new),
+plus the scene change adding `ArcherTierButton`/`ArcherTierLabel`.
+
+**Next**: Wave 3 item 12 (Knight/Cavalry line, 3 tiers), user's call.
+
+---
+
 ## 2026-09-04 — AoE-Parity Wave 3, item 10: Spearman line (3 tiers)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 10, the next item after item 9

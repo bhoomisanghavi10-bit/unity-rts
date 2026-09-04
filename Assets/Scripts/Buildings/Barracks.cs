@@ -111,6 +111,12 @@ namespace KingdomsOfBharat.Buildings
         // living on Barracks since it upgrades what Barracks itself trains.
         private float _spearmanTierResearchRemaining = -1f;
 
+        // Wave 3 item 11: the Archer tier ladder (Dhanurdhara -> Yantra
+        // Dhanurdhara -> Maha Dhanurdhara) - same independent, non-blocking
+        // research-track shape as InfantryTier/SpearmanTier above, also
+        // living on Barracks since it upgrades what Barracks itself trains.
+        private float _archerTierResearchRemaining = -1f;
+
         private ConstructionSite Site
         {
             get
@@ -173,6 +179,11 @@ namespace KingdomsOfBharat.Buildings
             ? 1f - (_spearmanTierResearchRemaining / SpearmanLineProgress.NextTierData(Faction).ResearchTime)
             : 0f;
 
+        public bool IsResearchingArcherTier => _archerTierResearchRemaining >= 0f;
+        public float ArcherTierResearchProgress => IsResearchingArcherTier
+            ? 1f - (_archerTierResearchRemaining / ArcherLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -203,6 +214,11 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingSpearmanTier)
             {
                 TickSpearmanTierResearch();
+            }
+
+            if (IsResearchingArcherTier)
+            {
+                TickArcherTierResearch();
             }
         }
 
@@ -513,6 +529,40 @@ namespace KingdomsOfBharat.Buildings
             {
                 SpearmanLineProgress.AdvanceTier(Faction);
                 _spearmanTierResearchRemaining = -1f;
+            }
+        }
+
+        // Wave 3 item 11: Archer tier ladder research - same shape as
+        // RequestResearchInfantryTier/RequestResearchSpearmanTier above.
+        public void RequestResearchArcherTier()
+        {
+            if (!IsComplete || IsResearchingArcherTier
+                || !ArcherLineProgress.HasNextTier(Faction)
+                || !ArcherLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            ArcherTierData next = ArcherLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _archerTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickArcherTierResearch()
+        {
+            _archerTierResearchRemaining -= Time.deltaTime;
+            if (_archerTierResearchRemaining <= 0f)
+            {
+                ArcherLineProgress.AdvanceTier(Faction);
+                _archerTierResearchRemaining = -1f;
             }
         }
     }

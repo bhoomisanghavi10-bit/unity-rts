@@ -11,6 +11,41 @@ asset requirements, 5. Priority order).
   see that file's own ground rules. `docs/ROADMAP.md` Section 5's priority
   order is the prior plan; items already closed under it stay closed, but new
   work picks up from `IMPLEMENTATION_ROADMAP.md` instead.**
+- **Wave 3 item 11 (Archer line, 3 tiers) closed (2026-09-04).** Picked up right
+  after item 10 per the user's "start wave 3 item 11" request. No new design
+  decisions needed — item 11's own roadmap text already fixes tier count/names/ages
+  (Dhanurdhara → Yantra Dhanurdhara/Durg → Maha Dhanurdhara/Imperial), and the
+  mechanism (research on Barracks, baked in at spawn, not retroactive) was already
+  established by items 9/10 in the same wave. New `Progression/ArcherLineProgress.cs`
+  mirrors `SpearmanLineProgress.cs`'s shape exactly (same Classical/Durg/Imperial
+  gate pattern); tier bonuses/costs reuse SpearmanLineProgress's own values at
+  matching age gates rather than independently balanced (Yantra Dhanurdhara =
+  Trishuladhari's Durg-gate growth: +18 HP/+4 dmg/120 Gold/60 Wood/25s; Maha
+  Dhanurdhara = Maha Trishuladhari's Imperial-gate growth: +30 HP/+6 dmg/200
+  Gold/100 Wood/40s). New independent research track on `Barracks.cs`
+  (`RequestResearchArcherTier`, runs alongside the existing Infantry/Spearman tier
+  tracks without blocking them), `ArcherFactory.cs` now reads
+  `ArcherLineProgress.Current(faction)` at spawn. New `archerTierButton`/
+  `archerTierLabel` in `BuildMenu.cs` (identical shape to
+  `infantryTierButton`/`spearmanTierButton`), hotkey H, wired into
+  `SettingsMenu`/`HotkeyOverlay`'s `BarracksGroup`. Same explicitly-out-of-scope
+  call as items 9/10: no AI-side research hook (future balance work, not a
+  regression). 10 new EditMode tests (`ArcherLineTests.cs`, mirroring
+  `SpearmanLineTests.cs` — 279 total, all pass). Hit the same environment gotcha
+  every Wave 2/3 session has documented (new `[SerializeField]` fields null in the
+  scene) — fixed the same way, duplicating `SpearmanTierButton` into a real
+  `ArcherTierButton` scene object via UnityMCP. Live-verified via UnityMCP through
+  the real production path: a real match (`CivilizationSetup.BeginMatch(Rajput)`,
+  deliberately not Maurya/Maratha — see item 9's own flagged `UniqueTechDefinition`
+  bug, `task_55dbb0cc`, still open and unrelated to this item), a real
+  `RequestResearchArcherTier()` correctly refused at Ancient age even with 1000
+  Gold/Wood on hand, then deducted exactly 120 Gold/60 Wood at Durg; forcing the real
+  `Update()` tick advanced the tier and an Archer spawned afterward came out
+  "Rajput Yantra Dhanurdhara" at 47.61 HP (base 18 + 18 bonus, scaled by Rajput's own
+  profile/age multipliers; not retroactive, matching the established convention); the
+  real button's label and `onClick.Invoke()` correctly showed and paid the Maha
+  Dhanurdhara cost (200 Gold/100 Wood) once Player reached Imperial. Next: Wave 3
+  item 12 (Knight/Cavalry line, 3 tiers), user's call.
 - **Wave 3 item 10 (Spearman line, 3 tiers) closed (2026-09-04).** Picked up right
   after item 9 per the user's "start wave 3 remaining item" request. No new design
   decisions needed — item 10's own roadmap text already fixes tier count/names/ages
