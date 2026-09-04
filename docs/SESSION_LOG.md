@@ -5,6 +5,114 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-04 — Female + male Worker body swap ("Harvest Guardian" villager models)
+
+**Scope**: Not a queued roadmap item — picked up at the user's explicit direction
+(`@"/Volumes/US/3D MODELS/female villager /"` ... "try this. then i will provide the
+male one", followed mid-session by the male delivery: `@"/Volumes/US/3D MODELS/male
+villager/" this is the male rigged model use this also. for vilagers`). Part of the
+same longer-running "per-civ/per-unit visual differentiation" thread as the earlier
+tint-gap fix and the still-blocked Crusader Knight body swap, but scoped narrowly to
+Worker only — `HumanModelFactory.Gender.Female` is used by exactly one factory
+(`WorkerFactory.cs`, confirmed by grep), so this is a Worker-body swap across all 5
+civs, not a general asset drop. Went through Plan Mode before coding (nontrivial,
+touches the animation-retargeting pipeline).
+
+**What the source assets are**: two Meshy AI "Harvest Guardian" biped glTF exports (one
+female, one male — same concept-art family: sickle + basket, Indian villager dress),
+each shipped as a `Character_output.glb` (mesh+skeleton+one baked clip) plus a
+walk/run-animation variant glb (not used — see below).
+
+**Investigation before coding** (via UnityMCP `import_model_file`/`execute_code`, not
+assumed): both glbs import through `GLTFast.Editor.GltfImporter`, which — unlike
+Unity's native FBX `ModelImporter` — does **not** auto-build a Humanoid Avatar; the
+imported `Animator` starts with `isHuman=false, avatar=null`. Both rigs use a standard
+Mixamo-style biped naming (`Hips → Spine02 → Spine01 → Spine → neck → Head`,
+`Left/RightShoulder → Arm → ForeArm → Hand`, `Left/RightUpLeg → Leg → Foot → ToeBase`),
+identical between the male and female exports — clean 1:1 mapping to Unity's 24-bone
+Humanoid set, no ambiguity, no finger bones needed. Scale: both carry a baked
+`Armature.localScale = (0.01,0.01,0.01)`, the same "baked scale on the armature"
+pattern the 2026-08-28 Crusader Knight rig-compatibility investigation already
+documented.
+
+**Implementation**:
+- New `Assets/Editor/HumanoidGltfRigImporter.cs` — a small reusable Editor utility
+  (`BuildAndSavePrefab(glbAssetPath, prefabDestPath, targetHeight)`) that builds a
+  Humanoid `Avatar` for a Mixamo-style-named glTF rig via `AvatarBuilder.
+  BuildHumanAvatar` + a hand-authored `HumanDescription` — critically, the
+  `SkeletonBone[]` array is built by walking the model's own actual instantiated
+  transform hierarchy in code (position/rotation/scale read directly off each
+  `Transform`), never hand-transcribed, avoiding exactly the kind of typo'd-quaternion
+  risk that would silently distort the rig. Also measures real rendered height via
+  `Renderer` bounds and applies a corrective uniform scale to a fixed target — reused
+  for both imports, not measured/guessed twice.
+- Both models imported to `Assets/Resources/human/FemaleVillager/` and
+  `Assets/Resources/human/MaleVillager/` (must live under Resources for
+  `HumanModelFactory`'s `Resources.Load` convention), each producing a
+  `<Name>.prefab` + `<Name>_Avatar.asset`. Target height: 1.902692 — the shared Human
+  Character Dummy's own measured height (re-measured live this session via
+  `Renderer` bounds on `HumanDummy_F White.prefab`, not recalled from memory), so
+  neither new body looks mismatched next to buildings/other units. Measured pre-scale
+  heights differed (Female 1.8168, Male 1.9711) — confirms this really was measured
+  per-asset, not assumed identical.
+- `WorkerFactory.cs`: each spawned Worker now randomly picks the female or male
+  villager body (`Random.value < 0.5f`, no gameplay difference either way — purely
+  AoE-style crowd variety) via `HumanModelFactory.Spawn(..., prefabPathOverride:
+  "human/FemaleVillager/FemaleVillager"` or `"human/MaleVillager/MaleVillager",
+  applyPaletteMaterial: false)`, mirroring the existing 3 Meshy-unique-unit convention
+  exactly (`MarathaMavlaRaiderFactory.cs`'s own pattern). `applyPaletteMaterial: false`
+  because each model carries its own painted identity texture matching its own concept
+  art (maroon/gold saree + green blouse; cream dhoti + green sash) — not a trim-sheet
+  to retint per civ, so (disclosed tradeoff) every civ's Worker now looks visually
+  identical to every other civ's except for existing stat/name deltas — same tradeoff
+  already accepted for the other single-sourced Meshy units. `HumanAnimationSet.
+  LoadFor(villagerGender)` picks the matching Male/Female clip set from the project's
+  existing shared library so retargeting keeps correct arm-swing proportions for
+  whichever body spawned.
+- The bundled walk/run-animation glbs (`Animation_Walking_withSkin.glb`,
+  `Animation_Running_withSkin.glb`) were **not wired into anything** — once a Humanoid
+  Avatar exists, Mecanim retargeting is Avatar-based, not skeleton-name-based, so the
+  project's existing 7-clip shared human library (Idle/Walk/Gather/Mine/Farm/Build/
+  Attack) retargets directly onto the new meshes with zero new animation authoring;
+  confirmed live (see below), so the bundled clips turned out to be unnecessary and
+  were left unimported.
+
+**Tests**: no new tests — pure asset-pipeline + a small factory-level change, the same
+convention every prior `HumanModelFactory`/building-model session has followed (no
+natural pure-logic surface to unit-test; verified live instead). All 289 pre-existing
+EditMode tests pass unmodified.
+
+**Live verification** (UnityMCP, real production path — real match via
+`CivilizationSetup.BeginMatch(Maurya)`, real spawned Workers, not test shortcuts):
+found 4 real Player-side Workers via `find_gameobjects` (`by_component
+Gatherer`), confirmed via reflection that 2 got the Female body and 2 got the Male
+body (`FemaleVillager(Clone)`/`MaleVillager(Clone)`), each with `Animator.isHuman=true`
+and a valid avatar. Screenshotted the real Game View: correct scale next to a real
+TownCenter and real Cow livestock, correct ground alignment (no floating/clipping
+feet), correct painted textures (no pink/missing-shader — glTFast's own imported
+material rendered correctly under URP with no extra material work needed), and — the
+real test of retargeting — one worker mid-`Walk` clip showed a genuinely bent/raised
+leg (not a T-pose or stretched limb), and a second worker's `AnimationDriver` was
+reflection-forced onto its `Gather` clip and screenshotted showing a correctly bent,
+reaching-forward pose. Both confirm the shared human clip library retargets cleanly
+onto both new rigs.
+
+**Cleanup**: this session's own scratch investigation import
+(`Assets/ImportedModels/FemaleVillager/`, used only to inspect the rig before deciding
+the Resources-path build) deleted once the real wired prefab was confirmed working —
+matches this project's own precedent of removing scratch/raw source folders after
+confirming the pipeline output.
+
+**Follow-on**: applies to Worker only; every combat unit (Soldier/Archer/Cavalry/
+Spearman/Siege/naval/unique units) still uses `HumanModelFactory.Gender.Male`, i.e.
+the original shared Human Character Dummy body, unchanged. The Crusader Knight body
+swap for those remains separately blocked (source files deleted, per the
+already-documented 2026-09-02 finding) — this session's `HumanoidGltfRigImporter.cs`
+utility is directly reusable for that or any other future glTF-rigged body swap once
+new source files exist.
+
+---
+
 ## 2026-09-04 — AoE-Parity Wave 3, item 12: Knight/Cavalry line (3 tiers)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 12, the next item after item 11

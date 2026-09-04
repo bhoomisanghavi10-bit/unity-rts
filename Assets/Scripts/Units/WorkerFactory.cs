@@ -18,10 +18,9 @@ namespace KingdomsOfBharat.Units
     // threaten them - AoE-style, unarmed villagers are vulnerable, not
     // invincible - but also a weak MeleeAttacker of their own (well below
     // a Soldier's damage) so they can fight back or hunt wild boars for
-    // Food, same as AoE villagers can. Milestone 19b: uses the shared
-    // Human Character Dummy body (Female) instead of a capsule - Soldiers
-    // use the Male variant, giving Workers and Soldiers distinct
-    // silhouettes for free.
+    // Food, same as AoE villagers can. Uses the sourced "Harvest Guardian"
+    // villager models (a male/female pair, randomly picked per worker) -
+    // see the comment at the spawn call below.
     public static class WorkerFactory
     {
         public static GameObject Spawn(Vector3 position, FactionId faction)
@@ -45,7 +44,28 @@ namespace KingdomsOfBharat.Units
                 Debug.LogWarning("WorkerFactory: no generated UnitDefinition for 'worker' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
-            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Female, position, civilization);
+            // Uses the sourced "Harvest Guardian" villager models instead of
+            // the shared Human Character Dummy body - real, bespoke rigged
+            // assets (a matched male/female pair, same concept-art family:
+            // sickle + basket) rather than the generic reskinned mannequin.
+            // Each worker randomly gets one body or the other, purely for
+            // crowd variety - AoE villager crowds mix genders, and there's
+            // no gameplay distinction between them (identical stats either
+            // way). Each one's own painted texture is kept as-is, same
+            // applyPaletteMaterial:false convention as the 3 Meshy-sourced
+            // unique units - these are single sourced assets shared across
+            // all civs, not a trim-sheet to retint per civ. Only Worker
+            // uses this random pick; every other human unit stays on the
+            // dummy body's fixed Gender.Male.
+            HumanModelFactory.Gender villagerGender = Random.value < 0.5f
+                ? HumanModelFactory.Gender.Female
+                : HumanModelFactory.Gender.Male;
+            string villagerPrefabPath = villagerGender == HumanModelFactory.Gender.Female
+                ? "human/FemaleVillager/FemaleVillager"
+                : "human/MaleVillager/MaleVillager";
+            GameObject go = HumanModelFactory.Spawn(
+                villagerGender, position, civilization,
+                prefabPathOverride: villagerPrefabPath, applyPaletteMaterial: false);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} Worker"
                 : $"Enemy {profile.DisplayName} Worker";
@@ -96,7 +116,7 @@ namespace KingdomsOfBharat.Units
             attacker.SetRange(def != null ? def.attackRange : 1f);
             attacker.SetUnitClass(UnitClass.Infantry);
             go.AddComponent<FactionMember>().Configure(faction);
-            go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Female), agent, unit);
+            go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(villagerGender), agent, unit);
 
             // Only the Player's own vision feeds FogOfWarManager; the AI
             // has full internal knowledge and never queries fog itself, so

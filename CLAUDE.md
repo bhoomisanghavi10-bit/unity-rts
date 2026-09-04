@@ -6,6 +6,47 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Female + male Worker body swap closed (2026-09-04)** — not a queued roadmap
+  item, picked up at the user's explicit direction (2 real rigged Meshy AI
+  "Harvest Guardian" villager glTF models supplied directly, one female one
+  male). `HumanModelFactory.Gender.Female` was used by exactly one factory
+  (`WorkerFactory.cs`), so this is a Worker-body swap across all 5 civs, not a
+  general asset drop — every combat unit still uses the original shared Human
+  Character Dummy body via `Gender.Male`, untouched. New reusable
+  `Assets/Editor/HumanoidGltfRigImporter.cs` builds a real Humanoid `Avatar`
+  for a Mixamo-style-named glTF rig (glTFast's own import doesn't auto-build
+  one, unlike native FBX) via `AvatarBuilder.BuildHumanAvatar` + a
+  hand-authored `HumanDescription`, with the skeleton bone array read directly
+  off the model's own instantiated transform hierarchy (never hand-
+  transcribed). Both models imported to `Assets/Resources/human/
+  FemaleVillager|MaleVillager/`, scaled to the same measured 1.902692 worker-
+  height convention every prior session has used. `WorkerFactory.cs` now
+  randomly picks the female or male body per spawn (`Random.value < 0.5f`, no
+  gameplay difference — pure crowd variety), `applyPaletteMaterial: false`
+  (each model keeps its own painted identity texture matching its own concept
+  art, same convention as the 3 existing Meshy-sourced unique units, not a
+  civ-palette trim sheet) with `HumanAnimationSet.LoadFor(villagerGender)`
+  picking the matching clip set. Confirmed live via UnityMCP that the
+  project's existing shared 7-clip human animation library (Idle/Walk/Gather/
+  Mine/Farm/Build/Attack) retargets cleanly onto both new rigs with zero new
+  animation authoring (Mecanim retargeting is Avatar-based, not
+  skeleton-name-based) — so the models' own bundled walk/run clips turned out
+  unnecessary and were left unwired. All 289 pre-existing EditMode tests pass
+  unmodified (no new tests — pure asset-pipeline + a small factory change,
+  matching every prior `HumanModelFactory` session's own convention).
+  Live-verified through the real production path: a real match
+  (`CivilizationSetup.BeginMatch(Maurya)`), 4 real spawned Workers (2 female
+  body, 2 male body, confirmed via reflection), correct scale/ground
+  alignment/texture next to a real TownCenter and livestock, a real Walk-clip
+  pose showing genuine leg articulation (not T-posed), and a real
+  reflection-forced Gather-clip pose showing a correctly bent reaching stance
+  — both proving retargeting actually works, not just that the Avatar
+  reports valid. This session's own scratch investigation import deleted once
+  the real Resources-path prefabs were confirmed working. The
+  `HumanoidGltfRigImporter.cs` utility is directly reusable for the still-
+  blocked Crusader Knight combat-unit body swap, or any other future
+  glTF-rigged body, once new source files exist. Next: back to
+  `docs/IMPLEMENTATION_ROADMAP.md`'s wave order, or whatever the user directs.
 - **Now working from `docs/IMPLEMENTATION_ROADMAP.md`'s wave order (the new
   AoE-parity execution plan), strictly in wave order, one item per session —
   see that file's own ground rules. `docs/ROADMAP.md` Section 5's priority
