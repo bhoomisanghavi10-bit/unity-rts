@@ -153,7 +153,13 @@ namespace KingdomsOfBharat.Buildings
             stockpile.Add(ResourceType.Wood, -profile.WoodCost);
             stockpile.Add(ResourceType.Stone, -profile.StoneCost);
             _ageUpTarget = next;
-            _ageUpRemaining = profile.ResearchTime;
+
+            // Maurya's Arthashastra Statecraft unique tech (UniqueTechDefinition):
+            // -25% Age-up research time, once researched.
+            float ageUpTimeMultiplier = UniqueTechProgress.HasResearched(Faction)
+                ? UniqueTechDefinition.For(CivilizationRegistry.For(Faction)).AgeUpResearchTimeMultiplier
+                : 1f;
+            _ageUpRemaining = profile.ResearchTime * ageUpTimeMultiplier;
         }
 
         private void TickAgeUp()

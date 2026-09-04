@@ -27,6 +27,19 @@ namespace KingdomsOfBharat.Core
     //    flat Cavalry damage on top of their existing general damage/HP
     //    bonus, since Cavalry is the unit most associated with Rajput
     //    warfare historically.
+    //  - Maurya: gilded/administrative identity (already Free Houses +
+    //    Skip-Age-I) deepened into Arthashastra Statecraft - Age-up
+    //    research times cut 25%, matching civ_bonus_template.csv's own
+    //    spec and the already-generated maurya_unique_tech TechNode.
+    //  - Maratha: guerrilla/hit-and-run identity (already cavalry move
+    //    speed + naval bonuses) deepened into the Ganimi Kava Doctrine -
+    //    Cavalry take 20% less damage while in Aggressive stance, matching
+    //    civ_bonus_template.csv's own spec and the already-generated
+    //    maratha_unique_tech TechNode. The CSV's full spec also gates this
+    //    on the defender not being the one who initiated the fight - that
+    //    nuance needs attack-initiation history this project doesn't track
+    //    anywhere yet, so it's deliberately dropped here (see
+    //    Attackable.TakeDamage's own comment at the call site).
     public readonly struct UniqueTechDefinition
     {
         public readonly string Name;
@@ -47,9 +60,17 @@ namespace KingdomsOfBharat.Core
         // CavalryFactory.
         public readonly float CavalryDamageBonus;
 
+        // Maurya: multiplies TownCenter.RequestAgeUp's research time.
+        public readonly float AgeUpResearchTimeMultiplier;
+
+        // Maratha: multiplies incoming damage against Cavalry-class
+        // defenders while in Aggressive stance.
+        public readonly float CavalryDamageTakenMultiplier;
+
         public UniqueTechDefinition(
             string name, string description, float goldCost, float researchTime,
-            float marketRateBonus, float fortificationHealthMultiplier, float cavalryDamageBonus)
+            float marketRateBonus, float fortificationHealthMultiplier, float cavalryDamageBonus,
+            float ageUpResearchTimeMultiplier, float cavalryDamageTakenMultiplier)
         {
             Name = name;
             Description = description;
@@ -58,6 +79,8 @@ namespace KingdomsOfBharat.Core
             MarketRateBonus = marketRateBonus;
             FortificationHealthMultiplier = fortificationHealthMultiplier;
             CavalryDamageBonus = cavalryDamageBonus;
+            AgeUpResearchTimeMultiplier = ageUpResearchTimeMultiplier;
+            CavalryDamageTakenMultiplier = cavalryDamageTakenMultiplier;
         }
 
         // Bespoke per-civ bonus values (MarketRateBonus/FortificationHealth
@@ -72,12 +95,14 @@ namespace KingdomsOfBharat.Core
         // (DataRegistry.GetTech) below; only the bonus values stay
         // hardcoded here, same "bespoke code hook" pattern this project
         // already uses for mechanics too specific for a generic schema.
-        private static readonly Dictionary<CivilizationId, (string unitId, string description, float marketRateBonus, float fortificationHealthMultiplier, float cavalryDamageBonus)> Bonuses =
-            new Dictionary<CivilizationId, (string, string, float, float, float)>
+        private static readonly Dictionary<CivilizationId, (string unitId, string description, float marketRateBonus, float fortificationHealthMultiplier, float cavalryDamageBonus, float ageUpResearchTimeMultiplier, float cavalryDamageTakenMultiplier)> Bonuses =
+            new Dictionary<CivilizationId, (string, string, float, float, float, float, float)>
             {
-                { CivilizationId.Chola, ("chola_unique_tech", "Market buy/sell spread narrowed by 15 points either way (70/30 -> 85/15).", 0.15f, 1f, 0f) },
-                { CivilizationId.Vijayanagara, ("vijayanagara_unique_tech", "Wall, Gate, and Tower max health increased by 30%.", 0f, 1.3f, 0f) },
-                { CivilizationId.Rajput, ("rajput_unique_tech", "Cavalry deal 3 additional damage per hit.", 0f, 1f, 3f) },
+                { CivilizationId.Chola, ("chola_unique_tech", "Market buy/sell spread narrowed by 15 points either way (70/30 -> 85/15).", 0.15f, 1f, 0f, 1f, 1f) },
+                { CivilizationId.Vijayanagara, ("vijayanagara_unique_tech", "Wall, Gate, and Tower max health increased by 30%.", 0f, 1.3f, 0f, 1f, 1f) },
+                { CivilizationId.Rajput, ("rajput_unique_tech", "Cavalry deal 3 additional damage per hit.", 0f, 1f, 3f, 1f, 1f) },
+                { CivilizationId.Maurya, ("maurya_unique_tech", "Age-up research time reduced by 25%.", 0f, 1f, 0f, 0.75f, 1f) },
+                { CivilizationId.Maratha, ("maratha_unique_tech", "Cavalry take 20% less damage while in Aggressive stance.", 0f, 1f, 0f, 1f, 0.8f) },
             };
 
         // Pre-migration hardcoded fallback for GoldCost/ResearchTime if the
@@ -89,13 +114,14 @@ namespace KingdomsOfBharat.Core
 
         public static UniqueTechDefinition For(CivilizationId id)
         {
-            (string unitId, string description, float marketRateBonus, float fortificationHealthMultiplier, float cavalryDamageBonus) bonus = Bonuses[id];
+            (string unitId, string description, float marketRateBonus, float fortificationHealthMultiplier, float cavalryDamageBonus, float ageUpResearchTimeMultiplier, float cavalryDamageTakenMultiplier) bonus = Bonuses[id];
             TechNode tech = DataRegistry.GetTech(bonus.unitId);
             if (tech != null)
             {
                 return new UniqueTechDefinition(
                     tech.displayName, bonus.description, tech.cost.gold, tech.researchTimeSeconds,
-                    bonus.marketRateBonus, bonus.fortificationHealthMultiplier, bonus.cavalryDamageBonus);
+                    bonus.marketRateBonus, bonus.fortificationHealthMultiplier, bonus.cavalryDamageBonus,
+                    bonus.ageUpResearchTimeMultiplier, bonus.cavalryDamageTakenMultiplier);
             }
 
             Debug.LogWarning($"UniqueTechDefinition: no generated TechNode for '{bonus.unitId}' - using fallback cost/time. Run BharatRTS/Generate Data Assets From CSV.");
@@ -103,11 +129,14 @@ namespace KingdomsOfBharat.Core
             {
                 CivilizationId.Chola => "Chola Trade Networks",
                 CivilizationId.Vijayanagara => "Hampi Fortifications",
-                _ => "Rajput Warrior Clans",
+                CivilizationId.Rajput => "Rajput Warrior Clans",
+                CivilizationId.Maurya => "Arthashastra Statecraft",
+                _ => "Ganimi Kava Doctrine",
             };
             return new UniqueTechDefinition(
                 fallbackName, bonus.description, FallbackGoldCost, FallbackResearchTime,
-                bonus.marketRateBonus, bonus.fortificationHealthMultiplier, bonus.cavalryDamageBonus);
+                bonus.marketRateBonus, bonus.fortificationHealthMultiplier, bonus.cavalryDamageBonus,
+                bonus.ageUpResearchTimeMultiplier, bonus.cavalryDamageTakenMultiplier);
         }
     }
 }

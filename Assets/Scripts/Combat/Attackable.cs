@@ -188,6 +188,21 @@ namespace KingdomsOfBharat.Combat
             {
                 armor += UpgradeProgress.ArmorBonus(Faction.Faction) + UpgradeProgress.ClassArmorBonus(Faction.Faction, unitClass);
             }
+
+            // Maratha's Ganimi Kava Doctrine unique tech (UniqueTechDefinition):
+            // Cavalry take 20% less damage while in Aggressive stance, once
+            // researched. The tech's full spec also excludes the defender
+            // having initiated the fight - dropped here, since this project
+            // doesn't track attack-initiation history anywhere (see
+            // UniqueTechDefinition's own comment).
+            if (unitClass == UnitClass.Cavalry && Faction != null
+                && UniqueTechProgress.HasResearched(Faction.Faction)
+                && CivilizationRegistry.For(Faction.Faction) == CivilizationId.Maratha
+                && TryGetComponent(out StanceController stance) && stance.Stance == UnitStance.Aggressive)
+            {
+                amount *= UniqueTechDefinition.For(CivilizationId.Maratha).CavalryDamageTakenMultiplier;
+            }
+
             float effective = Mathf.Max(1f, amount - armor);
 
             Health -= effective;
