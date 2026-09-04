@@ -109,6 +109,12 @@ namespace KingdomsOfBharat.UI
         // shape as archerTierButton - acts on a selected Barracks.
         [SerializeField] private Button cavalryTierButton;
         [SerializeField] private TMP_Text cavalryTierLabel;
+        // Wave 3 item 13: Elephant tier ladder research button - unlike
+        // every other tier button, acts on a selected Durg (War Elephants
+        // train there, not Barracks), and only shown when that civ's Durg
+        // actually trains a War Elephant (Durg.TrainsElephant).
+        [SerializeField] private Button elephantTierButton;
+        [SerializeField] private TMP_Text elephantTierLabel;
         [SerializeField] private Button ageButton;
         [SerializeField] private TMP_Text ageLabel;
         [SerializeField] private Button improvedToolsButton;
@@ -153,6 +159,7 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyResearchSpearmanTier;
         private KeyCode _keyResearchArcherTier;
         private KeyCode _keyResearchCavalryTier;
+        private KeyCode _keyResearchElephantTier;
         private KeyCode _keyTrainFishingBoat;
         private KeyCode _keyTrainWarGalley;
         private KeyCode _keyUngarrison;
@@ -205,6 +212,7 @@ namespace KingdomsOfBharat.UI
             spearmanTierButton.onClick.AddListener(ResearchSpearmanTierAtSelected);
             archerTierButton.onClick.AddListener(ResearchArcherTierAtSelected);
             cavalryTierButton.onClick.AddListener(ResearchCavalryTierAtSelected);
+            elephantTierButton.onClick.AddListener(ResearchElephantTierAtSelected);
             ageButton.onClick.AddListener(RequestAgeUpAtSelected);
             improvedToolsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.ImprovedTools));
             packMulesButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.PackMules));
@@ -235,6 +243,7 @@ namespace KingdomsOfBharat.UI
             _keyResearchSpearmanTier = GameSettings.GetKey("ResearchSpearmanTier", KeyCode.L);
             _keyResearchArcherTier = GameSettings.GetKey("ResearchArcherTier", KeyCode.H);
             _keyResearchCavalryTier = GameSettings.GetKey("ResearchCavalryTier", KeyCode.M);
+            _keyResearchElephantTier = GameSettings.GetKey("ResearchElephantTier", KeyCode.R);
             _keyTrainFishingBoat = GameSettings.GetKey("TrainDockUnit", KeyCode.B);
             _keyTrainWarGalley = GameSettings.GetKey("TrainWarGalley", KeyCode.W);
             _keyUngarrison = GameSettings.GetKey("Ungarrison", KeyCode.U);
@@ -263,7 +272,7 @@ namespace KingdomsOfBharat.UI
                 siegeButton, spearmanButton, uniqueUnitButton, uniqueUnitButton2, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
                 buyFoodButton, sellStoneButton, buyStoneButton, attackUpgradeButton, armorUpgradeButton,
-                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
+                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, elephantTierButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
             };
 
             foreach (Button button in buttons)
@@ -399,6 +408,7 @@ namespace KingdomsOfBharat.UI
             spearmanButton.gameObject.SetActive(barracks != null);
             uniqueUnitButton.gameObject.SetActive(durg != null);
             uniqueUnitButton2.gameObject.SetActive(durg != null && durg.UniqueUnitCount > 1);
+            elephantTierButton.gameObject.SetActive(durg != null && durg.TrainsElephant);
             ungarrisonButton.gameObject.SetActive(garrisonPoint != null && garrisonPoint.Count > 0);
             attackUpgradeButton.gameObject.SetActive(karmashala != null);
             armorUpgradeButton.gameObject.SetActive(karmashala != null);
@@ -514,6 +524,7 @@ namespace KingdomsOfBharat.UI
             {
                 if (Input.GetKeyDown(_keyTrainUniqueUnit)) TrainUniqueUnitAtSelected();
                 if (durg.UniqueUnitCount > 1 && Input.GetKeyDown(_keyTrainUniqueUnit2)) TrainUniqueUnit2AtSelected();
+                if (durg.TrainsElephant && Input.GetKeyDown(_keyResearchElephantTier)) ResearchElephantTierAtSelected();
             }
 
             // Wave 2 item 8: flat Attack/Armor research hotkeys now act on a
@@ -711,6 +722,46 @@ namespace KingdomsOfBharat.UI
                 uniqueUnitButton2.interactable = canTrain;
                 uniqueUnitLabel2.text = $"Train {unique2.Name} ({(int)unique2.FoodCost} Food, {(int)unique2.GoldCost} Gold)";
             }
+
+            if (durg.TrainsElephant)
+            {
+                UpdateElephantTierButton(durg);
+            }
+        }
+
+        // Wave 3 item 13: Elephant tier ladder research button state -
+        // identical shape to UpdateCavalryTierButton, except it acts on a
+        // selected Durg (where War Elephants train) instead of Barracks.
+        // Only ever called when durg.TrainsElephant is true (see
+        // UpdateDurgButtons), so no separate "this civ has no elephant"
+        // branch is needed here.
+        private void UpdateElephantTierButton(Durg durg)
+        {
+            if (durg.IsResearchingElephantTier)
+            {
+                elephantTierButton.interactable = false;
+                elephantTierLabel.text = $"Researching Elephant... {(int)(durg.ElephantTierResearchProgress * 100f)}%";
+                return;
+            }
+
+            FactionId faction = NetworkMatch.LocalFaction;
+            if (!ElephantLineProgress.HasNextTier(faction))
+            {
+                elephantTierButton.interactable = false;
+                elephantTierLabel.text = "Elephant (Max Tier)";
+                return;
+            }
+
+            ElephantTierData next = ElephantLineProgress.NextTierData(faction);
+            if (!ElephantLineProgress.NextTierAgeRequirementMet(faction))
+            {
+                elephantTierButton.interactable = false;
+                elephantTierLabel.text = $"Upgrade to {next.Name} (needs {next.RequiredAge} Age)";
+                return;
+            }
+
+            elephantTierButton.interactable = durg.IsComplete;
+            elephantTierLabel.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
         }
 
         private void UpdateDockButtons(Dock dock)
@@ -1059,6 +1110,16 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
                 barracks.RequestResearchCavalryTier();
+            }
+        }
+
+        // Wave 3 item 13: unlike every other tier button, acts on a
+        // selected Durg - War Elephants train there, not Barracks.
+        private void ResearchElephantTierAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Durg durg)
+            {
+                durg.RequestResearchElephantTier();
             }
         }
 

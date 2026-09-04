@@ -47,9 +47,13 @@ namespace KingdomsOfBharat.Combat
                 Debug.LogWarning("MauryaWarElephantFactory: no generated UnitDefinition for 'maurya_war_elephant' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
+            // Wave 3 item 13: Elephant tier ladder - baked in at spawn, not
+            // retroactive, same convention as every other tier line.
+            ElephantTierData tier = ElephantLineProgress.Current(faction);
+
             GameObject root = new GameObject(faction == FactionId.Player
-                ? $"{profile.DisplayName} War Elephant"
-                : $"Enemy {profile.DisplayName} War Elephant");
+                ? $"{profile.DisplayName} {tier.Name}"
+                : $"Enemy {profile.DisplayName} {tier.Name}");
             root.transform.position = position;
 
             GameObject prefab = Resources.Load<GameObject>("UniqueUnits/WarElephant/WarElephant");
@@ -75,7 +79,7 @@ namespace KingdomsOfBharat.Combat
             // GarrisonSeeker.
             root.AddComponent<GarrisonSeeker>();
             var attackable = root.AddComponent<Attackable>();
-            attackable.Configure((def != null ? def.maxHP : 100f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure(((def != null ? def.maxHP : 100f) + tier.HpBonus) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
                 meleeArmor: def != null ? def.meleeArmor : 2f,
                 pierceArmor: def != null ? def.pierceArmor : 2f);
@@ -84,7 +88,7 @@ namespace KingdomsOfBharat.Combat
             root.AddComponent<HealthBar>();
 
             var attacker = root.AddComponent<MeleeAttacker>();
-            attacker.SetBaseDamage(def != null ? def.attackDamage : 11f);
+            attacker.SetBaseDamage((def != null ? def.attackDamage : 11f) + tier.DamageBonus);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetRange(def != null ? def.attackRange : 2.5f);
             attacker.SetUnitClass(UnitClass.Siege);

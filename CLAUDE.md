@@ -6,6 +6,42 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 3 item 13 (Elephant line, 2 tiers) closed (2026-09-05).** Picked up right
+  after item 12's live-verification follow-up, per the user's "start wave 3 item 13"
+  request. Two design decisions resolved via AskUserQuestion before coding — item 13's
+  own text already flagged one (one shared ladder vs. two divergent), and re-reading
+  Wave 3 item 16 (Unique-unit Elite tier, not yet started) surfaced a second, real
+  overlap not previously caught: item 16 separately planned a Durg→Imperial "elite"
+  upgrade for the same two War Elephant factories item 13 also upgrades. Resolved:
+  (1) one shared `ElephantLineProgress.cs` table (Gajaroha → Maha Gajaroha,
+  Durg/Imperial) read by both `MauryaWarElephantFactory`/
+  `VijayanagaraWarElephantFactory` — matches every other tier line's own precedent;
+  (2) item 13 IS the elephant elite tier, so item 16's own roadmap text now excludes
+  both War Elephant factories from its 7-unit list (5 remain). Research lives on
+  **Durg**, not Barracks — the one tier line that deviates from every prior line's
+  convention, since War Elephants train from Durg
+  (`UniqueUnitDefinition.Spawn`/`Durg.RequestTrainUniqueUnit`), not Barracks: new
+  `Durg.RequestResearchElephantTier`/`IsResearchingElephantTier`/
+  `ElephantTierResearchProgress`/`TrainsElephant` (the last gates the new
+  `elephantTierButton` so Chola/Rajput/Maratha's Durg never shows a button that does
+  nothing — added a `UnitId` field to `UniqueUnitDefinition` for this, a data-driven
+  check rather than a hardcoded civ list). Single Imperial-gated tier reuses the same
+  +30 HP/+6 dmg/200 Gold/100 Wood/40s growth every other line's own first Imperial
+  step already uses, not independently balanced. 13 new EditMode tests
+  (`ElephantLineTests.cs`, 302 total, all pass). Hit and fixed the same recurring
+  "new `[SerializeField]` null in the scene" gotcha every Wave 2/3 session has hit
+  (duplicated `CavalryTierButton` into a real `ElephantTierButton` scene object).
+  Live-verified via UnityMCP through the real production path: a real match
+  (`CivilizationSetup.BeginMatch(Maurya)`), a real Durg confirmed
+  `TrainsElephant=true`, the age gate correctly refused research at both Classical and
+  Durg (this line's tier 1 gates on Imperial, not Durg) with zero deduction, then at
+  Imperial deducted exactly 200 Gold/100 Wood; a War Elephant trained through the real
+  slot-0 unique-unit path spawned as "Maurya Maha Gajaroha" at 156 HP; the real scene
+  button correctly showed "Elephant (Max Tier)" on the real selected Durg; a second
+  real Durg built for a Rajput-assigned faction confirmed the button correctly stays
+  hidden for a civ with no elephant. No AI-side research hook (future balance work,
+  same as every other tier line). Next: Wave 3 item 14 (Mangonel/Siege line, 3 tiers),
+  user's call.
 - **Age-aware building visuals + new asset import closed (2026-09-04)** —
   `docs/YOUR_ACTION_ITEMS.md` items 1-4. User supplied a fresh art delivery
   (`/Volumes/US/3D MODELS/`): TownCenter Ancient/Classical (2 shared) + 5 civ-specific

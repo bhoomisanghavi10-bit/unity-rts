@@ -38,10 +38,14 @@ namespace KingdomsOfBharat.Combat
                 Debug.LogWarning("VijayanagaraWarElephantFactory: no generated UnitDefinition for 'vijayanagara_war_elephant' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
+            // Wave 3 item 13: Elephant tier ladder - baked in at spawn, not
+            // retroactive, same convention as every other tier line.
+            ElephantTierData tier = ElephantLineProgress.Current(faction);
+
             GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
             go.name = faction == FactionId.Player
-                ? $"{profile.DisplayName} War Elephant"
-                : $"Enemy {profile.DisplayName} War Elephant";
+                ? $"{profile.DisplayName} {tier.Name}"
+                : $"Enemy {profile.DisplayName} {tier.Name}";
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.6f;
@@ -56,7 +60,7 @@ namespace KingdomsOfBharat.Combat
             // see GarrisonSeeker.
             go.AddComponent<GarrisonSeeker>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure((def != null ? def.maxHP : 90f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure(((def != null ? def.maxHP : 90f) + tier.HpBonus) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
                 meleeArmor: def != null ? def.meleeArmor : 2f,
                 pierceArmor: def != null ? def.pierceArmor : 2f);
@@ -65,7 +69,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
-            attacker.SetBaseDamage(def != null ? def.attackDamage : 10f);
+            attacker.SetBaseDamage((def != null ? def.attackDamage : 10f) + tier.DamageBonus);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetRange(def != null ? def.attackRange : 2.5f);
             attacker.SetUnitClass(UnitClass.Siege);

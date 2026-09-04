@@ -37,6 +37,12 @@ namespace KingdomsOfBharat.Buildings
         private float _remaining = -1f;
         private TrainingUnit _trainingUnit;
 
+        // Wave 3 item 13: Elephant tier research - independent of the
+        // unique-unit training queue above (_remaining/_trainingUnit),
+        // same "runs alongside, doesn't block" convention as every
+        // Barracks tier-research track.
+        private float _elephantTierResearchRemaining = -1f;
+
         private ConstructionSite Site
         {
             get
@@ -79,11 +85,75 @@ namespace KingdomsOfBharat.Buildings
         public int UniqueUnitCount => UniqueUnitDefinition.CountFor(CivilizationRegistry.For(Faction));
         public UniqueUnitDefinition UniqueUnitAt(int slot) => UniqueUnitDefinition.For(CivilizationRegistry.For(Faction), slot);
 
+        // Wave 3 item 13: whether this Durg's own civ actually trains a
+        // War Elephant at any slot - gates the Elephant-tier research
+        // button so Chola/Rajput/Maratha (no elephant) never see it do
+        // anything, without a hardcoded civ list.
+        public bool TrainsElephant
+        {
+            get
+            {
+                for (int slot = 0; slot < UniqueUnitCount; slot++)
+                {
+                    if (ElephantLineProgress.IsElephantUnitId(UniqueUnitAt(slot).UnitId))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+
+        public bool IsResearchingElephantTier => _elephantTierResearchRemaining >= 0f;
+        public float ElephantTierResearchProgress => IsResearchingElephantTier
+            ? 1f - (_elephantTierResearchRemaining / ElephantLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
             {
                 TickTraining();
+            }
+
+            if (IsResearchingElephantTier)
+            {
+                TickElephantTierResearch();
+            }
+        }
+
+        // Wave 3 item 13: Elephant tier ladder research - same shape as
+        // Barracks.RequestResearchCavalryTier/etc., just living here since
+        // this is where War Elephants train.
+        public void RequestResearchElephantTier()
+        {
+            if (!IsComplete || IsResearchingElephantTier
+                || !ElephantLineProgress.HasNextTier(Faction)
+                || !ElephantLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            ElephantTierData next = ElephantLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _elephantTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickElephantTierResearch()
+        {
+            _elephantTierResearchRemaining -= Time.deltaTime;
+            if (_elephantTierResearchRemaining <= 0f)
+            {
+                ElephantLineProgress.AdvanceTier(Faction);
+                _elephantTierResearchRemaining = -1f;
             }
         }
 

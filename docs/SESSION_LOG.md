@@ -5,6 +5,105 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-05 — AoE-Parity Wave 3, item 13: Elephant line (2 tiers)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 13, picked up right after item
+12's live-verification follow-up, at the user's "start wave 3 item 13" request.
+
+**Design decisions resolved via AskUserQuestion before coding**:
+1. Item 13's own roadmap text flagged this one: one shared `ElephantLineProgress`
+   ladder for both War Elephant civs (Maurya, Vijayanagara) vs. two independently-tuned
+   ones. Chose one shared ladder — matches every other tier line's own precedent (a
+   single table read by whichever faction trains that unit); each civ's own
+   CivilizationProfile/AgeProfile multipliers plus each factory's own already-distinct
+   base stats/model (Maurya's bespoke rigged model vs. Vijayanagara's Human Dummy body
+   + Kanabo weapon) still differentiate the two outcomes, same as today.
+2. A second overlap surfaced only by re-reading Wave 3 item 16 (Unique-unit Elite
+   tier, not yet started) closely: item 16 separately plans a Durg→Imperial "elite"
+   step for the same 7 unique units, including both War Elephant factories — which
+   would stack a second Durg→Imperial upgrade on the same two units item 13 also
+   upgrades. Flagged to the user rather than silently resolved either way. Chose: item
+   13 IS the elephant elite tier; item 16's own 7-unit list now excludes both War
+   Elephant factories (5 remain: Chola Naval Raider, Rajput Royal Guard, Pillar Edict
+   Scholar, Maratha Mavla Raider, Maratha Durg Garrison).
+
+**What changed**:
+- New `Assets/Scripts/Progression/ElephantLineProgress.cs`: `ElephantTierData`
+  struct, a 2-entry table (Gajaroha tier 0 = the existing flat War Elephant, no
+  research needed → Maha Gajaroha/Imperial), mirroring `CavalryLineProgress.cs`'s
+  shape. Tier bonus/cost reuses the same +30 HP/+6 dmg/200 Gold/100 Wood/40s growth
+  every other line's own first Imperial-gate step already uses. New
+  `IsElephantUnitId(string)` static helper — data-driven, not a hardcoded civ switch.
+- `Assets/Scripts/Core/UniqueUnitDefinition.cs`: added a `UnitId` field (the CSV unit
+  id backing a slot, e.g. `"maurya_war_elephant"`) so callers can identify what a slot
+  trains without a civ switch.
+- `Assets/Scripts/Buildings/Durg.cs`: new `TrainsElephant` property (checks both
+  unique-unit slots via `ElephantLineProgress.IsElephantUnitId`) and a new independent
+  research track (`RequestResearchElephantTier`/`IsResearchingElephantTier`/
+  `ElephantTierResearchProgress`/`TickElephantTierResearch`) — **the one tier line
+  that lives on Durg, not Barracks**, since War Elephants train from Durg
+  (`UniqueUnitDefinition.Spawn` via `Durg.RequestTrainUniqueUnit`), matching the
+  "research where the unit trains" logic Barracks' own four lines already follow.
+- `Assets/Scripts/Combat/MauryaWarElephantFactory.cs`/
+  `Assets/Scripts/Combat/VijayanagaraWarElephantFactory.cs`: both now read
+  `ElephantLineProgress.Current(faction)` at spawn, baking the tier's name/HP
+  bonus/damage bonus in — not retroactive, same convention as every other line.
+- `Assets/Scripts/UI/BuildMenu.cs`: new `elephantTierButton`/`elephantTierLabel`,
+  identical "Researching.../(Max Tier)/Upgrade to X (needs Y Age)/Upgrade to X (Gold,
+  Wood)" shape as every other tier button, but gated on a selected Durg AND
+  `durg.TrainsElephant` (so Chola/Rajput/Maratha's Durg never shows a button that
+  would do nothing) rather than a selected Barracks. Hotkey R, wired into
+  `SettingsMenu.Actions`/`HotkeyOverlay`'s `DurgGroup`.
+- Explicitly out of scope, not a regression: no AI-side research hook for the
+  Elephant tier (same as every other tier line before it) — future balance work.
+
+**Tests**: 13 new EditMode tests (`ElephantLineTests.cs`, mirroring
+`CavalryLineTests.cs`'s coverage shape but against `Durg` instead of `Barracks` —
+`ElephantLineProgress` gating/sequencing, `IsElephantUnitId`, `Durg.TrainsElephant`
+across 3 factions/civs, `Durg.RequestResearchElephantTier`'s cost/age-gate/already-
+researching/max-tier guards, both War Elephant factories baking the current tier in
+at spawn without retroactively changing an already-spawned unit). Full suite: 302
+total, all pass.
+
+**Environment gotcha**: hit the same one every Wave 2/3 session has hit —
+`elephantTierButton`/`elephantTierLabel` `[SerializeField]` fields were null in the
+scene. Fixed by duplicating `CavalryTierButton` into a real `ElephantTierButton`
+scene object via UnityMCP, renaming its child label to `ElephantTierLabel`,
+repositioning it below `CavalryTierButton`, and wiring both fields on `BuildMenu`'s
+component via `manage_components.set_property`.
+
+**Live verification** (UnityMCP, real production path, not test shortcuts): a real
+match via `CivilizationSetup.BeginMatch(Maurya)` (Maurya starts at Classical age). A
+real `DurgFactory.Place` + `ConstructionSite.CompleteImmediately()` Durg confirmed
+`TrainsElephant=true` live. The age gate correctly refused
+`RequestResearchElephantTier()` at both Classical and Durg (this line's single tier
+gates on Imperial, not Durg — confirmed against `ElephantLineProgress.cs`'s own
+table, not assumed) with zero Gold/Wood deducted either time; at Imperial it deducted
+exactly 200 Gold/100 Wood and started research, completed via a forced real tick. A
+War Elephant trained through the real slot-0 unique-unit path
+(`Durg.RequestTrainUniqueUnit()` → `TickTraining()`) spawned as "Maurya Maha
+Gajaroha" at 156 HP. Selected the real Durg through
+`SelectionManager.SelectBuilding` (reflected) so `BuildMenu`'s own `Update()`/label
+logic ran for real: the real `elephantTierButton` was active and correctly read
+"Elephant (Max Tier)" (tier already at max from the forced tick). A second real Durg
+built for an Enemy2 faction force-assigned to Rajput (a civ with no War Elephant)
+confirmed the real button correctly stays hidden (`elephantTierButton.gameObject.
+activeSelf == false`) when selected — proving the civ-gating works live, not just in
+the unit test.
+
+**Commit**: one scoped commit covering `Assets/Scripts/Progression/ElephantLineProgress.cs`
+(new), `Assets/Scripts/Core/UniqueUnitDefinition.cs`, `Assets/Scripts/Buildings/Durg.cs`,
+`Assets/Scripts/Combat/MauryaWarElephantFactory.cs`,
+`Assets/Scripts/Combat/VijayanagaraWarElephantFactory.cs`, `Assets/Scripts/UI/BuildMenu.cs`,
+`Assets/Scripts/UI/SettingsMenu.cs`, `Assets/Scripts/UI/HotkeyOverlay.cs`,
+`Assets/Tests/EditMode/ElephantLineTests.cs` (new), plus the scene change adding
+`ElephantTierButton`/`ElephantTierLabel`, plus this item's own updated roadmap text
+and item 16's now-corrected 5-unit scope.
+
+**Next**: Wave 3 item 14 (Mangonel/Siege line, 3 tiers), user's call.
+
+---
+
 ## 2026-09-04 — Age-aware building visuals + new asset import (`docs/YOUR_ACTION_ITEMS.md` items 1-4)
 
 **Scope**: User supplied a freshly-sourced art delivery at `/Volumes/US/3D MODELS/`

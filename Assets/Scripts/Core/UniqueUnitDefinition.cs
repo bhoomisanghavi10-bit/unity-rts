@@ -21,14 +21,21 @@ namespace KingdomsOfBharat.Core
         public readonly float GoldCost;
         public readonly float TrainTimeSeconds;
         public readonly Func<Vector3, FactionId, GameObject> Spawn;
+        // Wave 3 item 13: the CSV unit id backing this slot (e.g.
+        // "maurya_war_elephant") - lets a caller (Durg's own
+        // TrainsElephant check) identify what a slot trains without a
+        // hardcoded civ switch, matching this file's own "data-driven, not
+        // a civ switch" convention.
+        public readonly string UnitId;
 
-        public UniqueUnitDefinition(string name, float foodCost, float goldCost, float trainTimeSeconds, Func<Vector3, FactionId, GameObject> spawn)
+        public UniqueUnitDefinition(string name, float foodCost, float goldCost, float trainTimeSeconds, Func<Vector3, FactionId, GameObject> spawn, string unitId = null)
         {
             Name = name;
             FoodCost = foodCost;
             GoldCost = goldCost;
             TrainTimeSeconds = trainTimeSeconds;
             Spawn = spawn;
+            UnitId = unitId;
         }
 
         // civId keys into DataRegistry.GetUnit(...) so cost/train time come
@@ -99,12 +106,12 @@ namespace KingdomsOfBharat.Core
             UnitDefinition def = DataRegistry.GetUnit(unitId);
             if (def != null)
             {
-                return new UniqueUnitDefinition(name, def.cost.food, def.cost.gold, def.trainTimeSeconds, spawn);
+                return new UniqueUnitDefinition(name, def.cost.food, def.cost.gold, def.trainTimeSeconds, spawn, unitId);
             }
 
             Debug.LogWarning($"UniqueUnitDefinition: no generated UnitDefinition for '{unitId}' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             (float food, float gold, float trainTime) fallback = Fallback[(id, slot)];
-            return new UniqueUnitDefinition(name, fallback.food, fallback.gold, fallback.trainTime, spawn);
+            return new UniqueUnitDefinition(name, fallback.food, fallback.gold, fallback.trainTime, spawn, unitId);
         }
     }
 }

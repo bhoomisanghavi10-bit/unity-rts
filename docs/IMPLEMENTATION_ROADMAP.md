@@ -482,33 +482,73 @@ one-line-per-session.
     items 9-11: no AI-side research hook (future balance work, not a regression); Rajput
     Royal Guard (the civ-unique cavalry alternative) untouched, as the roadmap text
     specifies. 10 new EditMode tests (`CavalryLineTests.cs`, mirroring
-    `SpearmanLineTests.cs`). **Live UnityMCP verification could not be completed this
-    session**: both `unity` and `UnityMCP` MCP servers failed to connect (`ConnectionRefused`)
-    despite a real Unity Editor instance running and actively compiling the new files
-    throughout - checked `~/Library/Logs/Unity/Editor-prev.log`/the project's own `Logs/`
-    directory directly per this project's own "console bridge can miss real errors"
-    convention and found no compile errors for the new files, but could not drive a real
-    match/button/scene-wiring pass the way every one of items 9-11 did. The
-    `cavalryTierButton`/`cavalryTierLabel` `[SerializeField]` fields are almost certainly
-    null in the scene right now (the exact gotcha every Wave 2/3 session before this one
-    has hit) and need the same fix once UnityMCP is reachable: duplicate `ArcherTierButton`
-    into a real `CavalryTierButton` scene object and wire the component fields to it, then
-    live-verify through a real match the same way items 9-11 did. Flag this to the user as
-    an open follow-up, not a false "done." *Depends on: Wave 0, Wave 1.*
-13. **[S] Elephant line (2 tiers, our own invention — no AoE II line to import).** Gajaroha →
-    Maha Gajaroha, Durg/Imperial. Design decision first: one shared ladder for Maurya and
-    Vijayanagara, or two divergent ones — resolve before coding. *Depends on: Wave 0, Wave 1.*
+    `SpearmanLineTests.cs`). **Live UnityMCP verification follow-up closed (2026-09-04)**,
+    a separate session once UnityMCP reconnected: the predicted `cavalryTierButton`/
+    `cavalryTierLabel` `[SerializeField]` null-in-scene gotcha was confirmed and fixed
+    (duplicated `ArcherTierButton` into a real `CavalryTierButton` scene object, wired
+    the component fields). Full EditMode suite (289/289) passes. Live-verified via
+    UnityMCP through a real match (`CivilizationSetup.BeginMatch(Rajput)`): the age gate
+    correctly refused research at both Ancient and Durg (this line's tier 1 gates on
+    Imperial, not Durg), a real `RequestResearchCavalryTier()` deducted exactly 200
+    Gold/100 Wood at Imperial, a trained Cavalry came out "Rajput Maha Ashvarohi" at the
+    boosted HP, and the real scene button's label/`onClick.Invoke()` correctly paid tier
+    2's cost (Vir Ashvarohi, 250 Gold/125 Wood). *Depends on: Wave 0, Wave 1.*
+13. ~~**[S] Elephant line (2 tiers, our own invention — no AoE II line to import).**~~
+    **Closed (2026-09-05).** Gajaroha (tier 0, the existing flat War Elephant, no
+    research needed) → Maha Gajaroha, gated Durg/Imperial. Two design decisions
+    resolved via AskUserQuestion before coding: (1) ONE shared ladder for both War
+    Elephant civs (Maurya, Vijayanagara) rather than two independently-tuned ones —
+    matches every other tier line's own precedent (a single table read by whichever
+    faction trains that unit); each civ's own CivilizationProfile/AgeProfile
+    multipliers plus each factory's own already-distinct base stats/model still
+    differentiate the two outcomes, same as today; (2) this line doubles as item 16's
+    planned "Elite tier" for these same two factories rather than stacking a second
+    Durg→Imperial upgrade on top — item 16's own 7-unit list is now 5 (see below). New
+    `Progression/ElephantLineProgress.cs` mirrors `CavalryLineProgress.cs`'s shape
+    (single Imperial-gated step); tier bonus/cost reuses the same +30 HP/+6 dmg/200
+    Gold/100 Wood/40s growth every other line's own first Imperial-gate step already
+    uses, not independently balanced. Research lives on **Durg**, not Barracks — the
+    one line that deviates from every prior tier line's convention, because War
+    Elephants train from Durg (`UniqueUnitDefinition.Spawn` via
+    `Durg.RequestTrainUniqueUnit`), not Barracks: new `Durg.RequestResearchElephantTier`/
+    `IsResearchingElephantTier`/`ElephantTierResearchProgress`, and a new
+    `Durg.TrainsElephant` property (checks `UniqueUnitDefinition.UnitId` against
+    `ElephantLineProgress.IsElephantUnitId` — a new `UnitId` field added to
+    `UniqueUnitDefinition` for this — so Chola/Rajput/Maratha's Durg never shows a
+    button that would do nothing) gates the new `elephantTierButton`/
+    `elephantTierLabel` in `BuildMenu.cs` (hotkey R, wired into
+    `SettingsMenu`/`HotkeyOverlay`'s `DurgGroup`). `MauryaWarElephantFactory.cs`/
+    `VijayanagaraWarElephantFactory.cs` both read `ElephantLineProgress.Current(faction)`
+    at spawn, same "baked in at spawn, not retroactive" convention as every other line.
+    13 new EditMode tests (`ElephantLineTests.cs`, 302 total, all pass). Live-verified
+    via UnityMCP through the real production path: a real match
+    (`CivilizationSetup.BeginMatch(Maurya)`), a real `DurgFactory.Place` +
+    `ConstructionSite.CompleteImmediately()` Durg confirmed `TrainsElephant=true`, the
+    age gate correctly refused research at both Classical and Durg (this line's tier 1
+    gates on Imperial, not Durg) with zero deduction, then at Imperial deducted exactly
+    200 Gold/100 Wood and completed via a forced real tick; a War Elephant trained
+    through the real `Durg.RequestTrainUniqueUnit()` → `TickTraining()` path (slot 0)
+    spawned as "Maurya Maha Gajaroha" at 156 HP; the real scene button (duplicated from
+    `CavalryTierButton`, the same recurring null-in-scene gotcha, fixed the same way)
+    correctly showed "Elephant (Max Tier)" once selected on the real Durg via
+    `SelectionManager`; a second real Durg built for a Rajput-assigned faction
+    confirmed the button correctly stays hidden (`TrainsElephant=false`) for a civ with
+    no elephant. *Depends on: Wave 0, Wave 1.*
 14. **[S] Mangonel/Siege line (3 tiers).** Shilakshepaka → Maha Shilakshepaka → Vajra
     Shilakshepaka, Durg/Imperial/Imperial. `SiegeFactory.cs` becomes tier 1. *Depends on:
     Wave 0, Wave 1.*
 15. **[S] Galley/Naval line (3 tiers).** Rana Nauka → Maha Rana Nauka → Samrat Nauka,
     Classical/Durg/Imperial. `WarGalleyFactory.cs` becomes tier 1. *Depends on: Wave 0, Wave 1.*
-16. **[M] Unique-unit Elite tier (2 tiers × 7 units).** Every existing unique unit
-    (`CholaNavalRaiderFactory`, `VijayanagaraWarElephantFactory`, `RajputRoyalGuardFactory`,
-    `MauryaWarElephantFactory`, `PillarEdictScholarFactory`, `MarathaMavlaRaiderFactory`,
-    `MarathaDurgGarrisonFactory`) gets a Durg → Imperial elite step, matching AoE's rule that
-    *every* unique unit gets exactly one elite upgrade. Size this as one session covering all
-    7 — they share one mechanical pattern even though there are 7 of them. *Depends on:
+16. **[M] Unique-unit Elite tier (2 tiers × 5 units — was 7, see item 13).** Every
+    existing unique unit EXCEPT `MauryaWarElephantFactory`/`VijayanagaraWarElephantFactory`
+    (`CholaNavalRaiderFactory`, `RajputRoyalGuardFactory`, `PillarEdictScholarFactory`,
+    `MarathaMavlaRaiderFactory`, `MarathaDurgGarrisonFactory`) gets a Durg → Imperial
+    elite step, matching AoE's rule that *every* unique unit gets exactly one elite
+    upgrade. The two War Elephant factories are excluded — item 13's own
+    Gajaroha → Maha Gajaroha ladder (closed 2026-09-05) already IS their one
+    Durg→Imperial elite step; user-confirmed resolution, not stacking a second one.
+    Size this as one session covering all 5 — they share one mechanical pattern even
+    though there are 5 of them. *Depends on:
     Wave 0, Wave 1, Wave 2 item 7 (thematically the Durg building is where "you can now train
     the base-tier unique unit" makes sense, even if the elite upgrade itself researches
     elsewhere).*

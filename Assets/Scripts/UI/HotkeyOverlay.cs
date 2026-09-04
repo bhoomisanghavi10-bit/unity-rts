@@ -101,6 +101,7 @@ namespace KingdomsOfBharat.UI
         {
             new Entry("Unique Unit", "TrainUniqueUnit", KeyCode.Q),
             new Entry("2nd Unique Unit", "TrainUniqueUnit2", KeyCode.Z),
+            new Entry("Upgrade Elephant Tier", "ResearchElephantTier", KeyCode.R),
         });
 
         // Wave 2 item 8: flat Attack/Armor research moved off Barracks onto
