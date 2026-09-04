@@ -11,6 +11,47 @@ asset requirements, 5. Priority order).
   see that file's own ground rules. `docs/ROADMAP.md` Section 5's priority
   order is the prior plan; items already closed under it stay closed, but new
   work picks up from `IMPLEMENTATION_ROADMAP.md` instead.**
+- **Wave 3 item 9 (Infantry line, 5 tiers) closed (2026-09-04) — first Wave 3
+  item.** Picked up at the user's "start wave 3" request. Resolved 3 design
+  decisions via AskUserQuestion before coding: research lives on Barracks
+  (not Karmashala), each tier renames the unit and improves stats but reuses
+  the existing Human Character Dummy model (no new art needed), and progress
+  is NOT retroactive (matches every other progression system here). New
+  `Progression/InfantryLineProgress.cs` (hardcoded tier table: name/required
+  age/HP+damage bonus/gold+wood cost/research time), a new independent
+  research track on `Barracks.cs` (`RequestResearchInfantryTier`), and
+  `SoldierFactory.cs` now reads the current tier at spawn — genuinely "tier 1
+  of a ladder." No CommandBus/network wiring needed (Barracks' existing
+  `RequestTrain()` is untouched — only what's baked in at spawn changes). New
+  `infantryTierButton`/`infantryTierLabel` in `BuildMenu.cs` (hotkey I),
+  wired into `SettingsMenu`/`HotkeyOverlay`'s `BarracksGroup`. No AI-side
+  research hook added — not a regression (nothing existing broke), matches
+  the "never wired" status this project's own per-class Attack/Armor tracks
+  already have; flagged as future balance work, not fixed. 10 new EditMode
+  tests (`InfantryLineTests.cs`, 255 total, up from 245, all pass). Hit the
+  same "new SerializeField null in scene" gotcha Durg/Karmashala's sessions
+  already documented — fixed by duplicating `UniqueTechButton` into a real
+  `InfantryTierButton` scene object via UnityMCP. Live-verified via UnityMCP
+  through the real production path: a real match
+  (`CivilizationSetup.BeginMatch(Maurya)`), the age gate correctly blocked
+  research at Classical ("needs Durg Age") and unblocked after
+  `AgeProgress.Advance` to Durg, a real `RequestResearchInfantryTier()`
+  deducted the exact Gold/Wood cost and completed via the real `Update()`
+  tick (forced via reflection, not a test shortcut), a Soldier spawned
+  *before* completion stayed unchanged ("Maurya Padati", 33 HP) while one
+  spawned *after* came out "Maurya Senani" at 41.8 HP — not retroactive,
+  confirmed live — and the real button's `onClick.Invoke()` correctly routed
+  through to the same method. **Found, not fixed (real pre-existing bug,
+  unrelated to this item)**: selecting a real Maurya Barracks and driving
+  `BuildMenu.Update()` throws `KeyNotFoundException` inside
+  `UniqueTechDefinition.For` — its `Bonuses` dictionary only covers
+  Chola/Vijayanagara/Rajput, not Maurya/Maratha. Flagged via `spawn_task`
+  (`task_55dbb0cc`) for a dedicated follow-up rather than silently left
+  unnoticed; worked around it in this session's own verification by invoking
+  the new `UpdateInfantryTierButton` method directly via reflection instead
+  of through the crashing `Update()`. See `docs/SESSION_LOG.md`'s matching
+  entry for full detail. Next: Wave 3 item 10 (Spearman line, 3 tiers),
+  user's call — or the newly-flagged Maurya/Maratha UniqueTechDefinition bug.
 - **Wave 2 item 8 (Karmashala, the Blacksmith-equivalent building) closed
   (2026-09-04) — this closes Wave 2.** Picked up right after item 7 per the
   user's "start wave 2 item 8" request. Resolved the item's two design

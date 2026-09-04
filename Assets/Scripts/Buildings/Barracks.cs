@@ -97,6 +97,14 @@ namespace KingdomsOfBharat.Buildings
         // tech has exactly one level (see UniqueTechDefinition).
         private float _uniqueTechResearchRemaining = -1f;
 
+        // Wave 3 item 9: the Infantry tier ladder (Padati -> Senani ->
+        // Khandayata -> Maha Khandayata -> Vir Yodha) - same independent,
+        // non-blocking research-track shape as the tracks above. Lives on
+        // Barracks (not Karmashala) since it upgrades what Barracks itself
+        // trains, matching AoE II's own Barracks-researches-infantry-line
+        // convention.
+        private float _infantryTierResearchRemaining = -1f;
+
         private ConstructionSite Site
         {
             get
@@ -149,6 +157,11 @@ namespace KingdomsOfBharat.Buildings
             ? 1f - (_uniqueTechResearchRemaining / UniqueTech.ResearchTime)
             : 0f;
 
+        public bool IsResearchingInfantryTier => _infantryTierResearchRemaining >= 0f;
+        public float InfantryTierResearchProgress => IsResearchingInfantryTier
+            ? 1f - (_infantryTierResearchRemaining / InfantryLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -169,6 +182,11 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingUniqueTech)
             {
                 TickUniqueTechResearch();
+            }
+
+            if (IsResearchingInfantryTier)
+            {
+                TickInfantryTierResearch();
             }
         }
 
@@ -409,6 +427,42 @@ namespace KingdomsOfBharat.Buildings
             {
                 UniqueTechProgress.MarkResearched(Faction);
                 _uniqueTechResearchRemaining = -1f;
+            }
+        }
+
+        // Wave 3 item 9: Infantry tier ladder research - gated on both the
+        // next tier's own required age (InfantryLineProgress.
+        // NextTierAgeRequirementMet) and affordability, same shape as every
+        // other research track above.
+        public void RequestResearchInfantryTier()
+        {
+            if (!IsComplete || IsResearchingInfantryTier
+                || !InfantryLineProgress.HasNextTier(Faction)
+                || !InfantryLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            InfantryTierData next = InfantryLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _infantryTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickInfantryTierResearch()
+        {
+            _infantryTierResearchRemaining -= Time.deltaTime;
+            if (_infantryTierResearchRemaining <= 0f)
+            {
+                InfantryLineProgress.AdvanceTier(Faction);
+                _infantryTierResearchRemaining = -1f;
             }
         }
     }

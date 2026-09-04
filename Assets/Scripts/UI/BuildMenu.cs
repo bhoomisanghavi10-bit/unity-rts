@@ -93,6 +93,10 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private TMP_Text armorUpgradeLabel;
         [SerializeField] private Button uniqueTechButton;
         [SerializeField] private TMP_Text uniqueTechLabel;
+        // Wave 3 item 9: Infantry tier ladder research button, same gating
+        // shape as uniqueTechButton - acts on a selected Barracks.
+        [SerializeField] private Button infantryTierButton;
+        [SerializeField] private TMP_Text infantryTierLabel;
         [SerializeField] private Button ageButton;
         [SerializeField] private TMP_Text ageLabel;
         [SerializeField] private Button improvedToolsButton;
@@ -133,6 +137,7 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyResearchAttack;
         private KeyCode _keyResearchArmor;
         private KeyCode _keyResearchUniqueTech;
+        private KeyCode _keyResearchInfantryTier;
         private KeyCode _keyTrainFishingBoat;
         private KeyCode _keyTrainWarGalley;
         private KeyCode _keyUngarrison;
@@ -181,6 +186,7 @@ namespace KingdomsOfBharat.UI
             attackUpgradeButton.onClick.AddListener(ResearchAttackAtSelected);
             armorUpgradeButton.onClick.AddListener(ResearchArmorAtSelected);
             uniqueTechButton.onClick.AddListener(ResearchUniqueTechAtSelected);
+            infantryTierButton.onClick.AddListener(ResearchInfantryTierAtSelected);
             ageButton.onClick.AddListener(RequestAgeUpAtSelected);
             improvedToolsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.ImprovedTools));
             packMulesButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.PackMules));
@@ -207,6 +213,7 @@ namespace KingdomsOfBharat.UI
             _keyResearchAttack = GameSettings.GetKey("ResearchAttack", KeyCode.U);
             _keyResearchArmor = GameSettings.GetKey("ResearchArmor", KeyCode.K);
             _keyResearchUniqueTech = GameSettings.GetKey("ResearchUniqueTech", KeyCode.J);
+            _keyResearchInfantryTier = GameSettings.GetKey("ResearchInfantryTier", KeyCode.I);
             _keyTrainFishingBoat = GameSettings.GetKey("TrainDockUnit", KeyCode.B);
             _keyTrainWarGalley = GameSettings.GetKey("TrainWarGalley", KeyCode.W);
             _keyUngarrison = GameSettings.GetKey("Ungarrison", KeyCode.U);
@@ -235,7 +242,7 @@ namespace KingdomsOfBharat.UI
                 siegeButton, spearmanButton, uniqueUnitButton, uniqueUnitButton2, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
                 buyFoodButton, sellStoneButton, buyStoneButton, attackUpgradeButton, armorUpgradeButton,
-                uniqueTechButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
+                uniqueTechButton, infantryTierButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
             };
 
             foreach (Button button in buttons)
@@ -292,7 +299,7 @@ namespace KingdomsOfBharat.UI
             // tradeDiscountsButton, lumberCampButton, miningCampButton,
             // millButton, durgButton (Wave 2 item 7), karmashalaButton
             // (Wave 2 item 8 - no bespoke art yet, see KarmashalaFactory's
-            // own asset-gap note).
+            // own asset-gap note), infantryTierButton (Wave 3 item 9).
         }
 
         // Adds a small icon to the left edge of a command-card button and
@@ -373,6 +380,7 @@ namespace KingdomsOfBharat.UI
             attackUpgradeButton.gameObject.SetActive(karmashala != null);
             armorUpgradeButton.gameObject.SetActive(karmashala != null);
             uniqueTechButton.gameObject.SetActive(barracks != null);
+            infantryTierButton.gameObject.SetActive(barracks != null);
             fishingBoatButton.gameObject.SetActive(dock != null);
             warGalleyButton.gameObject.SetActive(dock != null);
             sellWoodButton.gameObject.SetActive(market != null);
@@ -468,6 +476,7 @@ namespace KingdomsOfBharat.UI
                 if (Input.GetKeyDown(_keyTrainSiege)) TrainSiegeAtSelected();
                 if (Input.GetKeyDown(_keyTrainSpearman)) TrainSpearmanAtSelected();
                 if (Input.GetKeyDown(_keyResearchUniqueTech)) ResearchUniqueTechAtSelected();
+                if (Input.GetKeyDown(_keyResearchInfantryTier)) ResearchInfantryTierAtSelected();
             }
 
             // Wave 2 item 7: unique-unit training hotkeys now act on a
@@ -508,6 +517,41 @@ namespace KingdomsOfBharat.UI
             spearmanButton.interactable = canTrain;
 
             UpdateUniqueTechButton(barracks);
+            UpdateInfantryTierButton(barracks);
+        }
+
+        // Wave 3 item 9: Infantry tier ladder research button state - same
+        // "Researching.../(Max)/Upgrade to X" shape as UpdateUpgradeButton,
+        // plus an age-gate branch (mirrors the Age-up button's own
+        // "(needs 2 buildings)" pattern) since the next tier can be
+        // unresearchable for a reason other than cost.
+        private void UpdateInfantryTierButton(Barracks barracks)
+        {
+            if (barracks.IsResearchingInfantryTier)
+            {
+                infantryTierButton.interactable = false;
+                infantryTierLabel.text = $"Researching Infantry... {(int)(barracks.InfantryTierResearchProgress * 100f)}%";
+                return;
+            }
+
+            FactionId faction = NetworkMatch.LocalFaction;
+            if (!InfantryLineProgress.HasNextTier(faction))
+            {
+                infantryTierButton.interactable = false;
+                infantryTierLabel.text = "Infantry (Max Tier)";
+                return;
+            }
+
+            InfantryTierData next = InfantryLineProgress.NextTierData(faction);
+            if (!InfantryLineProgress.NextTierAgeRequirementMet(faction))
+            {
+                infantryTierButton.interactable = false;
+                infantryTierLabel.text = $"Upgrade to {next.Name} (needs {next.RequiredAge} Age)";
+                return;
+            }
+
+            infantryTierButton.interactable = barracks.IsComplete;
+            infantryTierLabel.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
         }
 
         // Wave 2 item 8: flat Attack/Armor research button state, split out
@@ -857,6 +901,14 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
                 barracks.RequestResearchUniqueTech();
+            }
+        }
+
+        private void ResearchInfantryTierAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                barracks.RequestResearchInfantryTier();
             }
         }
 

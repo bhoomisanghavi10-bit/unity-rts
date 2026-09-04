@@ -323,9 +323,68 @@ exists specifically because each line is its own scoped decision (tier count, ag
 naming). Order below goes cheapest/most-valuable first; re-order freely, but keep it
 one-line-per-session.
 
-9. **[S] Infantry line (5 tiers).** Padati → Senani → Khandayata → Maha Khandayata → Vir
-   Yodha, across Ancient/Classical/Durg/Imperial/Imperial. `SoldierFactory.cs` becomes tier 1
-   of a ladder rather than a flat unit. *Depends on: Wave 0 items 1-2, Wave 1.*
+9. ~~**[S] Infantry line (5 tiers).**~~ **Closed (2026-09-04).** Padati (tier 0, the
+   existing flat Soldier, no research needed) → Senani → Khandayata → Maha Khandayata → Vir
+   Yodha, gated Ancient/Classical/Durg/Imperial/Imperial. Resolved 3 design decisions via
+   AskUserQuestion before coding: research happens on Barracks (not Karmashala - it upgrades
+   what Barracks itself trains, matching AoE II's own convention), each tier renames the
+   spawned unit and improves stats but reuses the existing Human Character Dummy model (no
+   new art), and progress is NOT retroactive - matches every other progression system in this
+   project (UpgradeProgress/AgeProfile/CivilizationProfile all "baked in at spawn"). New
+   `Progression/InfantryLineProgress.cs` (`InfantryTierData` struct table: name/required
+   age/HP bonus/damage bonus/gold+wood cost/research time per tier - hardcoded, same
+   "intentionally hardcoded" reasoning as `AgeProfile`/`UpgradeProgress`), a new independent
+   research track on `Barracks.cs` (`RequestResearchInfantryTier`/
+   `IsResearchingInfantryTier`/`InfantryTierResearchProgress`, same non-blocking shape as
+   every other Barracks research track), and `SoldierFactory.cs` now reads
+   `InfantryLineProgress.Current(faction)` at spawn to bake in the current tier's name/HP/
+   damage bonus - genuinely "tier 1 of a ladder," not a flat unit. **Deliberately did NOT
+   need any CommandBus/NetBuildKind/CommandSerializer wiring**: unlike Durg/Karmashala, this
+   item adds no new placeable building and no new trainable unit type - Barracks' existing
+   `RequestTrain()`/training queue slot is unchanged, so the same "Train Soldier" button and
+   network path already used continues to work untouched; only what gets baked in at spawn
+   changes. New `infantryTierButton`/`infantryTierLabel` in `BuildMenu.cs` (gated on a
+   selected Barracks, same "Researching.../(Max Tier)/Upgrade to X" shape as
+   `UpdateUpgradeButton`, plus an age-gate branch showing "(needs Durg Age)" when the next
+   tier's age requirement isn't met yet), hotkey I (`ResearchInfantryTier`), wired into
+   `SettingsMenu`/`HotkeyOverlay`'s existing `BarracksGroup`. **Explicitly out of scope, not
+   a regression**: no AI-side research hook was added (unlike Durg/Karmashala's sessions,
+   nothing existing broke by adding this - the AI simply won't research Infantry tiers yet,
+   same "never wired" status this project's own per-class Attack/Armor tracks already have -
+   a real future balance-work item, not a bug). 10 new EditMode tests
+   (`InfantryLineTests.cs`, 255 total, up from 245, all pass): `InfantryLineProgress` gating/
+   sequencing, `Barracks.RequestResearchInfantryTier`'s cost/age-gate/already-researching/
+   max-tier guards, and `SoldierFactory` baking the current tier in at spawn without
+   retroactively changing an already-spawned unit. **Hit the same environment gotcha Durg/
+   Karmashala's sessions already documented**: the new `infantryTierButton`/
+   `infantryTierLabel` `[SerializeField]` fields were null in the scene - fixed the same way,
+   duplicating `UniqueTechButton` into a real `InfantryTierButton` scene object via UnityMCP
+   and wiring the component fields to it (confirmed via reflection before live-testing).
+   Live-verified via UnityMCP through the real production path: a real match
+   (`CivilizationSetup.BeginMatch(Maurya)`, which starts at Classical per Maurya's own
+   bonus), the age gate correctly false for the Enemy faction (still Ancient) and true for
+   Player; a real `Barracks.RequestResearchInfantryTier()` deducted exactly 100 Gold/50 Wood
+   and started research; forcing the real `Update()` tick to complete it (reflection-set
+   `_infantryTierResearchRemaining` near zero, then invoked the real private `Update()`
+   method - not a test shortcut) advanced `InfantryLineProgress.Tier` to 1 and left the
+   research flag correctly cleared; a Soldier spawned via `SoldierFactory.Spawn` *before* that
+   completion stayed "Maurya Padati" at 33 HP throughout (not retroactive, confirmed by
+   re-reading the same GameObject's HP after the tier advanced), while one spawned *after*
+   came out "Maurya Senani" at 41.8 HP; the real `infantryTierButton`'s label correctly read
+   "Upgrade to Khandayata (needs Durg Age)" while Player was Classical, and after advancing
+   Player to Durg via `AgeProgress.Advance` the same button's real `onClick.Invoke()`
+   correctly called through to `RequestResearchInfantryTier` and deducted the real Khandayata
+   cost (150 Gold/75 Wood). **Found, not fixed (real pre-existing bug, unrelated to this
+   item's own diff)**: while live-testing, selecting a real Maurya Barracks and driving
+   `BuildMenu.Update()` threw `KeyNotFoundException` inside `UniqueTechDefinition.For` -
+   `UniqueTechDefinition.cs`'s `Bonuses` dictionary only has entries for Chola/Vijayanagara/
+   Rajput, not Maurya/Maratha, so `BuildMenu.UpdateUniqueTechButton` (called every frame for
+   any selected Barracks) throws for those 2 civs specifically. Not this item's bug to fix
+   (pre-existing, untouched by this session's diff) - flagged via `spawn_task`
+   (`task_55dbb0cc`) for a dedicated follow-up rather than left silently unnoticed; isolated
+   my own new `UpdateInfantryTierButton` logic by invoking it directly via reflection instead
+   of through the crashing `Update()` to keep this item's own verification clean. *Depends
+   on: Wave 0 items 1-2, Wave 1.*
 10. **[S] Spearman line (3 tiers).** Bhaladhari → Trishuladhari → Maha Trishuladhari,
     Classical/Durg/Imperial. `SpearmanFactory.cs` becomes tier 1. *Depends on: Wave 0, Wave 1.*
 11. **[S] Archer line (3 tiers).** Dhanurdhara → Yantra Dhanurdhara → Maha Dhanurdhara,

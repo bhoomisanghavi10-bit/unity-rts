@@ -5,6 +5,104 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-04 — AoE-Parity Wave 3, item 9: Infantry line (5 tiers)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 9, the first item of Wave 3, at
+the user's "start wave 3" request. Resolved 3 design decisions via AskUserQuestion
+before coding — the roadmap fixes tier count/names/ages, but not the mechanism:
+research lives on Barracks (not Karmashala — it upgrades what Barracks itself trains,
+matching AoE II's Barracks-researches-infantry-line convention), each tier renames the
+spawned unit and improves stats but reuses the existing Human Character Dummy model
+(no new art), and progress is NOT retroactive — matches every other progression system
+here (`UpgradeProgress`/`AgeProfile`/`CivilizationProfile` all bake in at spawn).
+
+**What changed**:
+- New `Assets/Scripts/Progression/InfantryLineProgress.cs`: `InfantryTierData` struct
+  (name/required age/HP bonus/damage bonus/gold+wood cost/research time), a hardcoded
+  5-entry table (Padati tier 0 = the existing flat Soldier, no research needed →
+  Senani/Classical → Khandayata/Durg → Maha Khandayata/Imperial → Vir Yodha/Imperial),
+  per-faction tier tracking (`Tier`/`HasNextTier`/`NextTierData`/
+  `NextTierAgeRequirementMet`/`AdvanceTier`) — same "intentionally hardcoded" reasoning
+  as `AgeProfile`/`UpgradeProgress` (pure formula tuning, no CSV shape yet).
+- `Buildings/Barracks.cs`: new independent research track
+  (`_infantryTierResearchRemaining`, `IsResearchingInfantryTier`,
+  `InfantryTierResearchProgress`, `RequestResearchInfantryTier`,
+  `TickInfantryTierResearch`) — same non-blocking shape as every other Barracks
+  research track (doesn't interrupt training or any other research). Gated on both
+  `InfantryLineProgress.NextTierAgeRequirementMet` and Gold/Wood affordability.
+- `Combat/SoldierFactory.cs`: reads `InfantryLineProgress.Current(faction)` at spawn,
+  adds its `HpBonus`/`DamageBonus` on top of the existing `def`/civ/age multipliers,
+  and uses its `Name` in the spawned GameObject's name (`"{civ} {tierName}"`) instead
+  of the hardcoded "Soldier" — genuinely "tier 1 of a ladder," not a flat unit.
+  **Deliberately no CommandBus/`NetBuildKind`/`CommandSerializer` changes** — unlike
+  Durg/Karmashala, this adds no new placeable building or trainable unit type;
+  Barracks' existing `RequestTrain()`/training queue is untouched, so the same "Train
+  Soldier" button and network path continue to work with zero wiring changes.
+- `UI/BuildMenu.cs`: new `infantryTierButton`/`infantryTierLabel` (gated on a selected
+  Barracks, same "Researching.../(Max Tier)/Upgrade to X" shape as the existing
+  `UpdateUpgradeButton` helper, plus a new age-gate branch showing e.g. "(needs Durg
+  Age)" when the next tier's age isn't reached yet — mirrors the Age-up button's own
+  "(needs 2 buildings)" pattern). Hotkey I (`ResearchInfantryTier`), added to
+  `SettingsMenu.Actions` and `HotkeyOverlay`'s existing `BarracksGroup`.
+- **Deliberately not added**: an AI-side research hook. Unlike Durg/Karmashala's
+  sessions (where moving existing functionality off Barracks would have silently
+  broken the AI), this is wholly new content — nothing existing regresses by leaving
+  it un-researched by the AI. Matches this project's own "never wired" status for the
+  per-class Attack/Armor tracks (item 40) — a real future balance-work item, not a bug
+  introduced here.
+
+**Tests**: 10 new EditMode tests (`Assets/Tests/EditMode/InfantryLineTests.cs`, 255
+total, up from 245, all pass) — `InfantryLineProgress`'s default/sequencing/age-gate
+logic, `Barracks.RequestResearchInfantryTier`'s cost-deduction/age-gate/
+already-researching/max-tier guards (component-level, same reason
+`BarracksFactory.Place` isn't exercised here — building factories NRE outside Play
+mode), and `SoldierFactory` baking the current tier's name/HP bonus in at spawn
+without retroactively changing an already-spawned instance.
+
+**Environment gotcha (same class as Durg/Karmashala's sessions)**: the new
+`infantryTierButton`/`infantryTierLabel` `[SerializeField]` fields were null in the
+scene (added to the C# class, never wired to a GameObject). Fixed by duplicating
+`UniqueTechButton` into a real `InfantryTierButton` scene object via UnityMCP
+(`manage_gameobject` duplicate + `manage_components` set_property), repositioning it
+to an unused row slot, and confirming both fields resolved via reflection before
+live-testing.
+
+**Live verification** (UnityMCP, real production path): `CivilizationSetup.BeginMatch
+(Maurya)` (starts at Classical per Maurya's own bonus) — confirmed
+`InfantryLineProgress.NextTierAgeRequirementMet` false for Enemy (still Ancient) and
+true for Player; a real `Barracks.RequestResearchInfantryTier()` deducted exactly 100
+Gold/50 Wood and set `IsResearchingInfantryTier` true; forcing the real private
+`Update()` method to fire (reflection-set `_infantryTierResearchRemaining` to a small
+positive value, then invoked `Update()` directly — not a test shortcut) advanced
+`InfantryLineProgress.Tier` to 1 and cleared the research flag; a Soldier spawned
+*before* that completion stayed "Maurya Padati" at 33 HP even after the tier advanced
+(re-read the same GameObject, not a fresh spawn — proves not-retroactive live, not just
+in a unit test), while one spawned *after* came out "Maurya Senani" at 41.8 HP; the
+real `infantryTierButton`'s label correctly read "Upgrade to Khandayata (needs Durg
+Age)" while Player was at Classical, and after `AgeProgress.Advance` to Durg the same
+button's real `onClick.Invoke()` routed through to `RequestResearchInfantryTier` and
+deducted the real Khandayata cost (150 Gold/75 Wood).
+
+**Found, not fixed (real pre-existing bug, unrelated to this item's diff)**: selecting
+a real Maurya Barracks and driving the real `BuildMenu.Update()` throws
+`KeyNotFoundException` inside `UniqueTechDefinition.For` — its `Bonuses` dictionary
+(`Assets/Scripts/Core/UniqueTechDefinition.cs`) only has entries for
+Chola/Vijayanagara/Rajput, not Maurya/Maratha, so `UpdateUniqueTechButton` (called
+every frame whenever any Barracks is selected) throws for those 2 civs specifically —
+meaning `BuildMenu` has been silently broken for any Maurya or Maratha match whenever a
+Barracks is selected, since before this session. Confirmed pre-existing (untouched by
+this session's diff) and out of scope for an Infantry-line item — flagged via
+`spawn_task` (`task_55dbb0cc`) for a dedicated follow-up rather than left silently
+unnoticed. Worked around it in this session's own live verification by invoking the new
+`UpdateInfantryTierButton` method directly via reflection instead of through the
+crashing `Update()`, keeping this item's own verification clean.
+
+**Roadmap**: Wave 3 item 9 marked closed in `docs/IMPLEMENTATION_ROADMAP.md`;
+`CLAUDE.md`'s "Current status" updated. Next: Wave 3 item 10 (Spearman line, 3 tiers),
+user's call — or the newly-flagged Maurya/Maratha `UniqueTechDefinition` bug.
+
+---
+
 ## 2026-09-04 — AoE-Parity Wave 2, item 8: Karmashala (closes Wave 2)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 2 item 8, picked up right after item 7
