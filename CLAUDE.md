@@ -6,6 +6,66 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 4 item 22 (Camel Rider, 2-tier mounted anti-cavalry specialist)
+  closed (2026-09-05) — code and tests only, Unity-side steps blocked
+  this session, see below.** Item 22 is flagged in the roadmap as "design
+  decision first": whether it ships at all. Asked the user directly via
+  AskUserQuestion before writing any code — confirmed "build it." A second
+  design call was then made explicitly (the roadmap fixes tier
+  names/ages, not what class this counts as for combat purposes): new
+  `UnitClass.Camel`, a genuinely new class rather than folded into
+  Spearman or Cavalry, since it needs both traits at once — Spearman's
+  hard-counter-vs-Cavalry combat role plus Cavalry's own mounted move
+  speed. New `CombatBonus` pairings (Camel→Cavalry 2x, Infantry→Camel
+  1.25x) reuse Spearman's own pairing values directly — the closest
+  existing precedent for "a unit built to counter Cavalry," not
+  independently balanced. New `Progression/CamelRiderLineProgress.cs`
+  mirrors `CavalryArcherLineProgress.cs`'s 2-tier Durg/Imperial shape
+  exactly (Ushtrarohi → Maha Ushtrarohi); tier 1 reuses every other
+  line's own established Imperial-gate growth (+30 HP/+6 dmg/200
+  Gold/100 Wood/40s). New `Combat/CamelRiderFactory.cs` combines
+  `CavalryFactory`'s mount/speed/melee setup with `SpearmanFactory`'s
+  Food+Wood-only cost model and Spear weapon prop — reuses the same Male
+  Human Character Dummy body plus both the Spear (RightHand) and Horse
+  (AttachBeside) props, no dedicated camel mount exists yet —
+  **flagging directly per the flag-asset-needs convention: a Camel
+  Rider currently looks identical to a Cavalry/Spearman hybrid using
+  existing props, no distinct silhouette.** New
+  `Barracks.RequestTrainCamelRider`/`RequestResearchCamelRiderTier`
+  (independent research track alongside every other Barracks tier
+  line), new `camelRiderButton`/`camelRiderTierButton`/
+  `camelRiderTierLabel` in `BuildMenu.cs`, hotkeys U/B (both otherwise
+  unused within the Barracks context specifically — U is bound to
+  Ungarrison/ResearchAttack in the mutually-exclusive GarrisonPoint/
+  Karmashala contexts, B to TrainDockUnit on Dock — this file's own
+  established convention), wired into `SettingsMenu`/`HotkeyOverlay`'s
+  `BarracksGroup`. Full `NetTrainKind.CamelRider`/`CommandSerializer`
+  wiring. Added a `unit_roster_template.csv` "camel_rider" row (35
+  Food/15 Wood/40 HP/6 dmg/Melee/6.5 speed). 12 new EditMode tests
+  (`CamelRiderLineTests.cs`, mirroring `CavalryArcherLineTests.cs`).
+  **Could not run `BharatRTS/Generate Data Assets From CSV`, run the
+  EditMode suite, wire the new scene buttons, or live-verify via
+  UnityMCP this session**: both the `unity`/`UnityMCP` MCP servers
+  failed to connect all session (`ConnectionRefused`) despite a real
+  Unity Editor GUI instance actively running on this exact project
+  (confirmed via `ps`/the held `Temp/UnityLockfile`) — a batchmode
+  second-instance attempt against the same locked project path was
+  deliberately not forced through (correctly refused/no-opped rather
+  than risking project corruption). **Flagging directly, not glossing
+  over it**: the new `camel_rider` CSV row has not yet been baked into
+  a generated `UnitDefinition` asset (so `CamelRiderFactory` will log
+  its fallback-stats warning and use the hardcoded fallback values
+  until regenerated), the new `camelRiderButton`/`camelRiderTierButton`/
+  `camelRiderTierLabel` `[SerializeField]` fields are almost certainly
+  null in the scene right now (the exact recurring gotcha every
+  Wave 2/3/4 session has hit — needs duplicating
+  `CavalryArcherButton`/`CavalryArcherTierButton` into real scene
+  objects), and the full EditMode suite has not been re-run to confirm
+  411/411 (399 + 12 new). Next: run `BharatRTS/Generate Data Assets
+  From CSV`, wire the 3 new scene fields, run the EditMode suite, and
+  live-verify via UnityMCP through the real production path once
+  Unity/UnityMCP is reachable again — then Wave 4 item 23 (Scorpion,
+  2 tiers) or any other Wave 4 item, user's call.
 - **Wave 4 item 21 (Cavalry Archer, 2-tier mobile ranged raider) closed
   (2026-09-05).** Picked up after being offered a choice between this and item
   22 (Camel Rider, which needs a ship-or-not design decision first) — user

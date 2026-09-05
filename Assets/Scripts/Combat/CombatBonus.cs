@@ -153,6 +153,24 @@ namespace KingdomsOfBharat.Combat
                 return 4f;
             }
 
+            // Camel Rider (Wave 4 item 22, unit_roster_template.csv
+            // "camel_rider"): a second anti-cavalry specialist alongside
+            // Spearman, this one mounted (Cavalry's own move speed) rather
+            // than a footman - see CamelRiderFactory. Values reuse
+            // Spearman's own pairing exactly (2x hard-counter vs its
+            // target, 1.25x received from Infantry), the closest existing
+            // precedent for "a unit built specifically to counter Cavalry,"
+            // not independently balanced.
+            if (attacker == UnitClass.Camel && target == UnitClass.Cavalry)
+            {
+                return 2f;
+            }
+
+            if (attacker == UnitClass.Infantry && target == UnitClass.Camel)
+            {
+                return 1.25f;
+            }
+
             return 1f;
         }
     }

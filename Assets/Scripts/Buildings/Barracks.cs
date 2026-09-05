@@ -59,6 +59,7 @@ namespace KingdomsOfBharat.Buildings
             Skirmisher,
             BatteringRam,
             CavalryArcher,
+            CamelRider,
         }
 
         [SerializeField] private float soldierFoodCost = 50f;
@@ -162,6 +163,12 @@ namespace KingdomsOfBharat.Buildings
         // on Barracks since it upgrades what Barracks itself trains.
         private float _cavalryArcherTierResearchRemaining = -1f;
 
+        // Wave 4 item 22: the Camel Rider tier ladder (Ushtrarohi -> Maha
+        // Ushtrarohi) - same independent, non-blocking research-track
+        // shape as every other tier line above, also living on Barracks
+        // since it upgrades what Barracks itself trains.
+        private float _camelRiderTierResearchRemaining = -1f;
+
         private ConstructionSite Site
         {
             get
@@ -259,6 +266,11 @@ namespace KingdomsOfBharat.Buildings
             ? 1f - (_cavalryArcherTierResearchRemaining / CavalryArcherLineProgress.NextTierData(Faction).ResearchTime)
             : 0f;
 
+        public bool IsResearchingCamelRiderTier => _camelRiderTierResearchRemaining >= 0f;
+        public float CamelRiderTierResearchProgress => IsResearchingCamelRiderTier
+            ? 1f - (_camelRiderTierResearchRemaining / CamelRiderLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -324,6 +336,11 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingCavalryArcherTier)
             {
                 TickCavalryArcherTierResearch();
+            }
+
+            if (IsResearchingCamelRiderTier)
+            {
+                TickCamelRiderTierResearch();
             }
         }
 
@@ -568,6 +585,40 @@ namespace KingdomsOfBharat.Buildings
             _remaining = ScaledTrainTime();
         }
 
+        // Wave 4 item 22: Camel Rider - the fifth wholly-new Wave 4 unit,
+        // read straight from DataRegistry rather than fixed Inspector
+        // fields, same reasoning as RequestTrainSpearman/RequestTrainChara/
+        // RequestTrainSkirmisher/RequestTrainBatteringRam/
+        // RequestTrainCavalryArcher above. Falls back to
+        // unit_roster_template.csv's known values (35 Food, 15 Wood, no
+        // Gold - reuses Spearman's own Food+Wood-only cost model) if the
+        // generated asset is ever missing. No age gate of its own - tier
+        // 0's Durg RequiredAge is descriptive only, same convention
+        // RequestTrainCavalryArcher already established.
+        public void RequestTrainCamelRider()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            UnitDefinition def = DataRegistry.GetUnit("camel_rider");
+            float foodCost = def != null ? def.cost.food : 35f;
+            float woodCost = def != null ? def.cost.wood : 15f;
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Food) < foodCost
+                || stockpile.GetTotal(ResourceType.Wood) < woodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Food, -foodCost);
+            stockpile.Add(ResourceType.Wood, -woodCost);
+            _trainingUnit = TrainingUnit.CamelRider;
+            _remaining = ScaledTrainTime();
+        }
+
         private float ScaledTrainTime(float baseTrainTime = -1f)
         {
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
@@ -590,6 +641,7 @@ namespace KingdomsOfBharat.Buildings
                     TrainingUnit.Skirmisher => SkirmisherFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.BatteringRam => BatteringRamFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.CavalryArcher => CavalryArcherFactory.Spawn(transform.position + rallyOffset, Faction),
+                    TrainingUnit.CamelRider => CamelRiderFactory.Spawn(transform.position + rallyOffset, Faction),
                     _ => SoldierFactory.Spawn(transform.position + rallyOffset, Faction),
                 };
                 _rally.ApplyTo(spawned);
@@ -1006,6 +1058,40 @@ namespace KingdomsOfBharat.Buildings
             {
                 CavalryArcherLineProgress.AdvanceTier(Faction);
                 _cavalryArcherTierResearchRemaining = -1f;
+            }
+        }
+
+        // Wave 4 item 22: Camel Rider tier ladder research - same shape as
+        // every other tier line above.
+        public void RequestResearchCamelRiderTier()
+        {
+            if (!IsComplete || IsResearchingCamelRiderTier
+                || !CamelRiderLineProgress.HasNextTier(Faction)
+                || !CamelRiderLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            CamelRiderTierData next = CamelRiderLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _camelRiderTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickCamelRiderTierResearch()
+        {
+            _camelRiderTierResearchRemaining -= Time.deltaTime;
+            if (_camelRiderTierResearchRemaining <= 0f)
+            {
+                CamelRiderLineProgress.AdvanceTier(Faction);
+                _camelRiderTierResearchRemaining = -1f;
             }
         }
     }

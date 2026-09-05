@@ -45,5 +45,16 @@ namespace KingdomsOfBharat.Combat
         // buildings, at a steeper CombatBonus than Siege's own 3x since
         // that's its entire job.
         BatteringRam,
+        // Wave 4 item 22: the Camel Rider - a mounted anti-cavalry
+        // specialist (unit_roster_template.csv "camel_rider"). Design call
+        // made explicitly (the roadmap fixes tier names/ages, not what
+        // class this counts as for combat purposes): a genuinely new class
+        // rather than folded into Cavalry or Spearman, since it needs both
+        // Spearman's hard-counter-vs-Cavalry trait AND Cavalry's own move
+        // speed at once - see CombatBonus for its 2 matchups, values reused
+        // directly from Spearman's own pairing (closest existing
+        // precedent for "a unit built to counter Cavalry"), not
+        // independently balanced.
+        Camel,
     }
 }

@@ -5,6 +5,72 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-05 — AoE-Parity Wave 4, item 22: Camel Rider (2-tier mounted anti-cavalry specialist)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 22, picked up per the user's
+"start item 22 wave 4" request, right after item 21 (Cavalry Archer) closed.
+
+**Design decisions made explicitly**: (1) Item 22 is flagged in the roadmap as "design
+decision first" — whether Camel Rider ships at all. Asked via AskUserQuestion before
+writing any code; user confirmed "build it." (2) The roadmap fixes tier names/ages, not
+what class this counts as for combat purposes — resolved as a genuinely new
+`UnitClass.Camel` rather than folding it into Spearman or Cavalry, since it needs both
+traits at once: Spearman's hard-counter-vs-Cavalry combat role and Cavalry's own mounted
+move speed/melee-charge damage type.
+
+**Implementation**: new `CombatBonus` pairings (`Camel`→`Cavalry` 2x, `Infantry`→`Camel`
+1.25x) reuse Spearman's own pairing values directly — the closest existing precedent for
+"a unit built to counter Cavalry," not independently balanced. New
+`Progression/CamelRiderLineProgress.cs` mirrors `CavalryArcherLineProgress.cs`'s 2-tier
+Durg/Imperial shape exactly (Ushtrarohi → Maha Ushtrarohi); tier 1's bonus/cost reuses
+every other line's own established Imperial-gate growth (+30 HP/+6 dmg/200 Gold/100
+Wood/40s). New `Combat/CamelRiderFactory.cs` combines `CavalryFactory`'s mount/speed/melee
+setup with `SpearmanFactory`'s Food+Wood-only cost model and Spear weapon prop — no camel
+mount model exists yet, so it reuses the same Male Human Character Dummy body plus both
+the Spear (RightHand) and Horse (AttachBeside) props (flagged per the flag-asset-needs
+convention: currently looks identical to a Cavalry/Spearman hybrid, no distinct
+silhouette). New `Barracks.RequestTrainCamelRider`/`RequestResearchCamelRiderTier`
+(independent research track), new `camelRiderButton`/`camelRiderTierButton`/
+`camelRiderTierLabel` in `BuildMenu.cs`, hotkeys U (train) and B (tier research) — both
+confirmed unused within the Barracks-selected context specifically (U is bound to
+Ungarrison/ResearchAttack only in the mutually-exclusive GarrisonPoint/Karmashala
+contexts, B to TrainDockUnit only on Dock), wired into `SettingsMenu`/`HotkeyOverlay`'s
+`BarracksGroup`. Full `NetTrainKind.CamelRider`/`CommandSerializer` wiring. Added a
+`unit_roster_template.csv` "camel_rider" row (35 Food/15 Wood/0 Gold/40 HP/6 dmg/Melee/1
+melee armor/6.5 speed/1 range). 12 new EditMode tests (`CamelRiderLineTests.cs`,
+mirroring `CavalryArcherLineTests.cs`'s coverage shape exactly).
+
+**Blocked this session, not glossed over**: both the `unity` and `UnityMCP` MCP servers
+failed to connect for the entire session (`ConnectionRefused`), despite a real Unity
+Editor GUI instance actively running against this exact project (confirmed via `ps aux`
+and the held `Temp/UnityLockfile`, PID 26624). A batchmode attempt to run
+`CsvToScriptableObject.GenerateAll` headlessly against the same project path was tried
+once, found to be silently refused by Unity's own single-instance project lock (no
+generation log output, no new asset file), and deliberately not forced further — running
+a second Editor instance against an already-open, locked project risks real project
+corruption. As a result, three real follow-up steps are outstanding and explicitly not
+done: (1) `BharatRTS/Generate Data Assets From CSV` has not been run, so
+`CamelRiderFactory` will log its "no generated UnitDefinition" warning and use its
+hardcoded fallback stats until regenerated; (2) the new `camelRiderButton`/
+`camelRiderTierButton`/`camelRiderTierLabel` `[SerializeField]` fields are almost
+certainly null in the scene (the exact recurring "new SerializeField null in the scene"
+gotcha every Wave 2/3/4 session has hit — needs duplicating
+`CavalryArcherButton`/`CavalryArcherTierButton` into real scene objects via UnityMCP);
+(3) the EditMode suite has not been re-run to confirm 411/411 (399 existing + 12 new),
+and no live UnityMCP verification through the real production path was possible. All
+code was written by mirroring the closest existing precedent file-for-file
+(`CavalryArcherLineProgress.cs`/`CavalryArcherFactory.cs`/`CavalryArcherLineTests.cs` and
+their exact wiring call sites across `Barracks.cs`/`BuildMenu.cs`/`NetMessage.cs`/
+`CommandSerializer.cs`/`SettingsMenu.cs`/`HotkeyOverlay.cs`), so risk of a real compile
+error is low, but this has NOT been confirmed by an actual compile/test run this session.
+
+**Roadmap**: Section 5/Wave 4 item 22 checked off as closed (code+tests only, Unity-side
+steps outstanding, documented in the checkoff itself). Next: run the 3 outstanding Unity-
+side steps above once Unity/UnityMCP is reachable again, then Wave 4 item 23 (Scorpion,
+2 tiers) or any other Wave 4 item, user's call.
+
+---
+
 ## 2026-09-05 — AoE-Parity Wave 4, item 21: Cavalry Archer (2-tier mobile ranged raider)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 21, picked up per the user's

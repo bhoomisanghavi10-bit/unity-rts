@@ -747,10 +747,11 @@ the others — genuinely parallel-safe once Waves 0-1 are done.
     Durg/Imperial. Mobile ranged raider, fits Rajput/Maratha horse-archer tradition.
     *Depends on: Wave 0, Wave 1.*~~ **Closed (2026-09-05).** See `CLAUDE.md`'s
     "Current status" for full detail.
-22. **[S] Camel Rider, 2 tiers (design decision first).** Ushtrarohi → Maha Ushtrarohi,
+22. ~~**[S] Camel Rider, 2 tiers (design decision first).** Ushtrarohi → Maha Ushtrarohi,
     Durg/Imperial. Resolve in Plan Mode whether this ships at all before coding — it's listed
     as a design decision, not a confirmed build, in the spec workbook. *Depends on: Wave 0,
-    Wave 1, and an explicit yes/no from you.*
+    Wave 1, and an explicit yes/no from you.*~~ **Closed (2026-09-05, code+tests only — Unity-side
+    steps blocked this session, see below).** See `CLAUDE.md`'s "Current status" for full detail.
 23. **[S] Scorpion, 2 tiers.** Bana Yantra → Maha Bana Yantra, Durg/Imperial. `DamageType.Pierce`
     already exists — this needs a raycast-through code path for pass-through damage, not a new
     mechanic type. *Depends on: Wave 0, Wave 1.*

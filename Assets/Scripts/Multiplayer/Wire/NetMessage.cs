@@ -49,6 +49,7 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         Skirmisher,
         BatteringRam,
         CavalryArcher,
+        CamelRider,
         UniqueUnit,
         UniqueUnitSlot0,
         UniqueUnitSlot1,
