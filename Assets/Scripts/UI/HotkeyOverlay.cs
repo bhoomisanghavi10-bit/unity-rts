@@ -104,6 +104,8 @@ namespace KingdomsOfBharat.UI
             new Entry("Upgrade Battering Ram Tier", "ResearchBatteringRamTier", KeyCode.R),
             new Entry("Upgrade Cavalry Archer Tier", "ResearchCavalryArcherTier", KeyCode.P),
             new Entry("Upgrade Camel Rider Tier", "ResearchCamelRiderTier", KeyCode.B),
+            new Entry("Train Scorpion", "TrainScorpion", KeyCode.W),
+            new Entry("Upgrade Scorpion Tier", "ResearchScorpionTier", KeyCode.X),
         });
 
         // Wave 2 item 7: unique-unit training moved off Barracks onto the

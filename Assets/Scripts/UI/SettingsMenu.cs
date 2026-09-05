@@ -85,6 +85,12 @@ namespace KingdomsOfBharat.UI
             new RebindableAction("ResearchBatteringRamTier", "Upgrade Battering Ram Tier (Barracks)", KeyCode.R),
             new RebindableAction("ResearchCavalryArcherTier", "Upgrade Cavalry Archer Tier (Barracks)", KeyCode.P),
             new RebindableAction("ResearchCamelRiderTier", "Upgrade Camel Rider Tier (Barracks)", KeyCode.B),
+            // Wave 4 item 23: W/X are unused within the Barracks context
+            // specifically (both already claimed elsewhere - TrainWarGalley/
+            // ResearchNavalTier on Dock - a mutually-exclusive selection
+            // context, this file's own established convention).
+            new RebindableAction("TrainScorpion", "Train Scorpion (Barracks)", KeyCode.W),
+            new RebindableAction("ResearchScorpionTier", "Upgrade Scorpion Tier (Barracks)", KeyCode.X),
             new RebindableAction("TrainDockUnit", "Train Fishing Boat (Dock)", KeyCode.B),
             new RebindableAction("TrainWarGalley", "Train War Galley (Dock)", KeyCode.W),
             new RebindableAction("ResearchNavalTier", "Upgrade Naval Tier (Dock)", KeyCode.X),

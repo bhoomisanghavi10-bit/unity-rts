@@ -60,6 +60,7 @@ namespace KingdomsOfBharat.Buildings
             BatteringRam,
             CavalryArcher,
             CamelRider,
+            Scorpion,
         }
 
         [SerializeField] private float soldierFoodCost = 50f;
@@ -169,6 +170,12 @@ namespace KingdomsOfBharat.Buildings
         // since it upgrades what Barracks itself trains.
         private float _camelRiderTierResearchRemaining = -1f;
 
+        // Wave 4 item 23: the Scorpion tier ladder (Bana Yantra -> Maha
+        // Bana Yantra) - same independent, non-blocking research-track
+        // shape as every other tier line above, also living on Barracks
+        // since it upgrades what Barracks itself trains.
+        private float _scorpionTierResearchRemaining = -1f;
+
         private ConstructionSite Site
         {
             get
@@ -271,6 +278,11 @@ namespace KingdomsOfBharat.Buildings
             ? 1f - (_camelRiderTierResearchRemaining / CamelRiderLineProgress.NextTierData(Faction).ResearchTime)
             : 0f;
 
+        public bool IsResearchingScorpionTier => _scorpionTierResearchRemaining >= 0f;
+        public float ScorpionTierResearchProgress => IsResearchingScorpionTier
+            ? 1f - (_scorpionTierResearchRemaining / ScorpionLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -341,6 +353,11 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingCamelRiderTier)
             {
                 TickCamelRiderTierResearch();
+            }
+
+            if (IsResearchingScorpionTier)
+            {
+                TickScorpionTierResearch();
             }
         }
 
@@ -619,6 +636,39 @@ namespace KingdomsOfBharat.Buildings
             _remaining = ScaledTrainTime();
         }
 
+        // Wave 4 item 23: same "read cost from the generated UnitDefinition,
+        // fall back to unit_roster_template.csv's known values" convention
+        // as every other RequestTrain* above. Falls back to 100 Wood/60
+        // Gold if the generated asset is ever missing. No Food cost - a
+        // machine, not a person, matching Siege's own no-Wood/Food+Gold
+        // convention loosely but with Wood+Gold instead (a crafted engine,
+        // not a fed crew). No age gate of its own - tier 0's Durg
+        // RequiredAge is descriptive only, same convention every other
+        // line already established.
+        public void RequestTrainScorpion()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            UnitDefinition def = DataRegistry.GetUnit("scorpion");
+            float woodCost = def != null ? def.cost.wood : 100f;
+            float goldCost = def != null ? def.cost.gold : 60f;
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Wood) < woodCost
+                || stockpile.GetTotal(ResourceType.Gold) < goldCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Wood, -woodCost);
+            stockpile.Add(ResourceType.Gold, -goldCost);
+            _trainingUnit = TrainingUnit.Scorpion;
+            _remaining = ScaledTrainTime();
+        }
+
         private float ScaledTrainTime(float baseTrainTime = -1f)
         {
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
@@ -642,6 +692,7 @@ namespace KingdomsOfBharat.Buildings
                     TrainingUnit.BatteringRam => BatteringRamFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.CavalryArcher => CavalryArcherFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.CamelRider => CamelRiderFactory.Spawn(transform.position + rallyOffset, Faction),
+                    TrainingUnit.Scorpion => ScorpionFactory.Spawn(transform.position + rallyOffset, Faction),
                     _ => SoldierFactory.Spawn(transform.position + rallyOffset, Faction),
                 };
                 _rally.ApplyTo(spawned);
@@ -1092,6 +1143,40 @@ namespace KingdomsOfBharat.Buildings
             {
                 CamelRiderLineProgress.AdvanceTier(Faction);
                 _camelRiderTierResearchRemaining = -1f;
+            }
+        }
+
+        // Wave 4 item 23: Scorpion tier ladder research - same shape as
+        // every other tier line above.
+        public void RequestResearchScorpionTier()
+        {
+            if (!IsComplete || IsResearchingScorpionTier
+                || !ScorpionLineProgress.HasNextTier(Faction)
+                || !ScorpionLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            ScorpionTierData next = ScorpionLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _scorpionTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickScorpionTierResearch()
+        {
+            _scorpionTierResearchRemaining -= Time.deltaTime;
+            if (_scorpionTierResearchRemaining <= 0f)
+            {
+                ScorpionLineProgress.AdvanceTier(Faction);
+                _scorpionTierResearchRemaining = -1f;
             }
         }
     }

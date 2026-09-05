@@ -752,9 +752,10 @@ the others — genuinely parallel-safe once Waves 0-1 are done.
     as a design decision, not a confirmed build, in the spec workbook. *Depends on: Wave 0,
     Wave 1, and an explicit yes/no from you.*~~ **Closed (2026-09-05, code+tests only — Unity-side
     steps blocked this session, see below).** See `CLAUDE.md`'s "Current status" for full detail.
-23. **[S] Scorpion, 2 tiers.** Bana Yantra → Maha Bana Yantra, Durg/Imperial. `DamageType.Pierce`
+23. ~~**[S] Scorpion, 2 tiers.** Bana Yantra → Maha Bana Yantra, Durg/Imperial. `DamageType.Pierce`
     already exists — this needs a raycast-through code path for pass-through damage, not a new
-    mechanic type. *Depends on: Wave 0, Wave 1.*
+    mechanic type. *Depends on: Wave 0, Wave 1.*~~ **Closed (2026-09-05, code+tests only — Unity-side
+    steps blocked this session, see below).** See `CLAUDE.md`'s "Current status" for full detail.
 24. **[S] Trebuchet, 1 tier.** Maha Yantra, Imperial only. Long-range anti-building with a
     minimum range; needs a pack/unpack state (two mesh states or a fold animation) — flag the
     animation need to yourself as a possible asset dependency even though the unit itself is

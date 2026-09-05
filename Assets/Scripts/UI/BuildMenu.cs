@@ -83,6 +83,11 @@ namespace KingdomsOfBharat.UI
         // (see charaButton/skirmisherButton/batteringRamButton/
         // cavalryArcherButton for the prior precedent of this shape).
         [SerializeField] private Button camelRiderButton;
+        // Wave 4 item 23: Scorpion - the sixth wholly-new Wave 4 unit (see
+        // charaButton/skirmisherButton/batteringRamButton/
+        // cavalryArcherButton/camelRiderButton for the prior precedent of
+        // this shape).
+        [SerializeField] private Button scorpionButton;
         [SerializeField] private Button uniqueUnitButton;
         [SerializeField] private TMP_Text uniqueUnitLabel;
         // Roadmap Section 5 item 3: Maurya/Maratha each have a 2nd unique
@@ -176,6 +181,11 @@ namespace KingdomsOfBharat.UI
         // Barracks.
         [SerializeField] private Button camelRiderTierButton;
         [SerializeField] private TMP_Text camelRiderTierLabel;
+        // Wave 4 item 23: Scorpion tier ladder research button, same
+        // gating shape as camelRiderTierButton - acts on a selected
+        // Barracks.
+        [SerializeField] private Button scorpionTierButton;
+        [SerializeField] private TMP_Text scorpionTierLabel;
         [SerializeField] private Button ageButton;
         [SerializeField] private TMP_Text ageLabel;
         [SerializeField] private Button improvedToolsButton;
@@ -216,6 +226,7 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyTrainBatteringRam;
         private KeyCode _keyTrainCavalryArcher;
         private KeyCode _keyTrainCamelRider;
+        private KeyCode _keyTrainScorpion;
         private KeyCode _keyTrainUniqueUnit;
         private KeyCode _keyTrainUniqueUnit2;
         private KeyCode _keyResearchAttack;
@@ -234,6 +245,7 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyResearchBatteringRamTier;
         private KeyCode _keyResearchCavalryArcherTier;
         private KeyCode _keyResearchCamelRiderTier;
+        private KeyCode _keyResearchScorpionTier;
         private KeyCode _keyTrainFishingBoat;
         private KeyCode _keyTrainWarGalley;
         private KeyCode _keyResearchNavalTier;
@@ -274,6 +286,7 @@ namespace KingdomsOfBharat.UI
             batteringRamButton.onClick.AddListener(TrainBatteringRamAtSelected);
             cavalryArcherButton.onClick.AddListener(TrainCavalryArcherAtSelected);
             camelRiderButton.onClick.AddListener(TrainCamelRiderAtSelected);
+            scorpionButton.onClick.AddListener(TrainScorpionAtSelected);
             uniqueUnitButton.onClick.AddListener(TrainUniqueUnitAtSelected);
             uniqueUnitButton2.onClick.AddListener(TrainUniqueUnit2AtSelected);
             ungarrisonButton.onClick.AddListener(UngarrisonAtSelected);
@@ -302,6 +315,7 @@ namespace KingdomsOfBharat.UI
             batteringRamTierButton.onClick.AddListener(ResearchBatteringRamTierAtSelected);
             cavalryArcherTierButton.onClick.AddListener(ResearchCavalryArcherTierAtSelected);
             camelRiderTierButton.onClick.AddListener(ResearchCamelRiderTierAtSelected);
+            scorpionTierButton.onClick.AddListener(ResearchScorpionTierAtSelected);
             ageButton.onClick.AddListener(RequestAgeUpAtSelected);
             improvedToolsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.ImprovedTools));
             packMulesButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.PackMules));
@@ -338,6 +352,7 @@ namespace KingdomsOfBharat.UI
             // convention (see HandleHotkeys' header comment).
             _keyTrainCavalryArcher = GameSettings.GetKey("TrainCavalryArcher", KeyCode.K);
             _keyTrainCamelRider = GameSettings.GetKey("TrainCamelRider", KeyCode.U);
+            _keyTrainScorpion = GameSettings.GetKey("TrainScorpion", KeyCode.W);
             _keyTrainUniqueUnit = GameSettings.GetKey("TrainUniqueUnit", KeyCode.Q);
             _keyTrainUniqueUnit2 = GameSettings.GetKey("TrainUniqueUnit2", KeyCode.Z);
             _keyResearchAttack = GameSettings.GetKey("ResearchAttack", KeyCode.U);
@@ -356,6 +371,7 @@ namespace KingdomsOfBharat.UI
             _keyResearchBatteringRamTier = GameSettings.GetKey("ResearchBatteringRamTier", KeyCode.R);
             _keyResearchCavalryArcherTier = GameSettings.GetKey("ResearchCavalryArcherTier", KeyCode.P);
             _keyResearchCamelRiderTier = GameSettings.GetKey("ResearchCamelRiderTier", KeyCode.B);
+            _keyResearchScorpionTier = GameSettings.GetKey("ResearchScorpionTier", KeyCode.X);
             _keyTrainFishingBoat = GameSettings.GetKey("TrainDockUnit", KeyCode.B);
             _keyTrainWarGalley = GameSettings.GetKey("TrainWarGalley", KeyCode.W);
             _keyResearchNavalTier = GameSettings.GetKey("ResearchNavalTier", KeyCode.X);
@@ -534,6 +550,18 @@ namespace KingdomsOfBharat.UI
             charaButton.gameObject.SetActive(barracks != null);
             skirmisherButton.gameObject.SetActive(barracks != null);
             batteringRamButton.gameObject.SetActive(barracks != null);
+            // Found while wiring scorpionButton (Wave 4 item 23): these 2
+            // were never added here by their own sessions, so a
+            // Cavalry Archer/Camel Rider button (and its own tier button)
+            // could stay visible even with no Barracks selected at all -
+            // real pre-existing gap, fixed alongside this item's own
+            // wiring rather than left in place.
+            cavalryArcherButton.gameObject.SetActive(barracks != null);
+            camelRiderButton.gameObject.SetActive(barracks != null);
+            cavalryArcherTierButton.gameObject.SetActive(barracks != null);
+            camelRiderTierButton.gameObject.SetActive(barracks != null);
+            scorpionButton.gameObject.SetActive(barracks != null);
+            scorpionTierButton.gameObject.SetActive(barracks != null);
             uniqueUnitButton.gameObject.SetActive(durg != null);
             uniqueUnitButton2.gameObject.SetActive(durg != null && durg.UniqueUnitCount > 1);
             elephantTierButton.gameObject.SetActive(durg != null && durg.TrainsElephant);
@@ -656,6 +684,8 @@ namespace KingdomsOfBharat.UI
                 if (Input.GetKeyDown(_keyResearchCavalryArcherTier)) ResearchCavalryArcherTierAtSelected();
                 if (Input.GetKeyDown(_keyTrainCamelRider)) TrainCamelRiderAtSelected();
                 if (Input.GetKeyDown(_keyResearchCamelRiderTier)) ResearchCamelRiderTierAtSelected();
+                if (Input.GetKeyDown(_keyTrainScorpion)) TrainScorpionAtSelected();
+                if (Input.GetKeyDown(_keyResearchScorpionTier)) ResearchScorpionTierAtSelected();
                 if (Input.GetKeyDown(_keyResearchUniqueTech)) ResearchUniqueTechAtSelected();
                 if (Input.GetKeyDown(_keyResearchInfantryTier)) ResearchInfantryTierAtSelected();
                 if (Input.GetKeyDown(_keyResearchSpearmanTier)) ResearchSpearmanTierAtSelected();
@@ -709,6 +739,7 @@ namespace KingdomsOfBharat.UI
             batteringRamButton.interactable = canTrain;
             cavalryArcherButton.interactable = canTrain;
             camelRiderButton.interactable = canTrain;
+            scorpionButton.interactable = canTrain;
 
             UpdateUniqueTechButton(barracks);
             UpdateInfantryTierButton(barracks);
@@ -721,6 +752,7 @@ namespace KingdomsOfBharat.UI
             UpdateBatteringRamTierButton(barracks);
             UpdateCavalryArcherTierButton(barracks);
             UpdateCamelRiderTierButton(barracks);
+            UpdateScorpionTierButton(barracks);
         }
 
         // Wave 3 item 9: Infantry tier ladder research button state - same
@@ -1036,6 +1068,37 @@ namespace KingdomsOfBharat.UI
 
             camelRiderTierButton.interactable = barracks.IsComplete;
             camelRiderTierLabel.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
+        }
+
+        // Wave 4 item 23: Scorpion tier ladder research button state -
+        // identical shape to UpdateCamelRiderTierButton/UpdateCavalryArcherTierButton.
+        private void UpdateScorpionTierButton(Barracks barracks)
+        {
+            if (barracks.IsResearchingScorpionTier)
+            {
+                scorpionTierButton.interactable = false;
+                scorpionTierLabel.text = $"Researching Scorpion... {(int)(barracks.ScorpionTierResearchProgress * 100f)}%";
+                return;
+            }
+
+            FactionId faction = NetworkMatch.LocalFaction;
+            if (!ScorpionLineProgress.HasNextTier(faction))
+            {
+                scorpionTierButton.interactable = false;
+                scorpionTierLabel.text = "Scorpion (Max Tier)";
+                return;
+            }
+
+            ScorpionTierData next = ScorpionLineProgress.NextTierData(faction);
+            if (!ScorpionLineProgress.NextTierAgeRequirementMet(faction))
+            {
+                scorpionTierButton.interactable = false;
+                scorpionTierLabel.text = $"Upgrade to {next.Name} (needs {next.RequiredAge} Age)";
+                return;
+            }
+
+            scorpionTierButton.interactable = barracks.IsComplete;
+            scorpionTierLabel.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
         }
 
         // Wave 2 item 8: flat Attack/Armor research button state, split out
@@ -1459,6 +1522,14 @@ namespace KingdomsOfBharat.UI
             }
         }
 
+        private void TrainScorpionAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                EnqueueTrain(barracks, barracks.RequestTrainScorpion, NetTrainKind.Scorpion);
+            }
+        }
+
         private void TrainUniqueUnitAtSelected()
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Durg durg)
@@ -1643,6 +1714,14 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
                 barracks.RequestResearchCamelRiderTier();
+            }
+        }
+
+        private void ResearchScorpionTierAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                barracks.RequestResearchScorpionTier();
             }
         }
 

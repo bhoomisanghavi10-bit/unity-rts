@@ -27,6 +27,18 @@ namespace KingdomsOfBharat.Combat
         // full primary-hit damage, byte-for-byte unchanged. Cavalry's
         // trample uses a reduced value here instead - see CavalryFactory.
         [SerializeField] private float splashDamageMultiplier = 1f;
+        // Wave 4 item 23 (Scorpion): defaults to 0 (disabled) - every
+        // existing MeleeAttacker user unaffected. When > 0, a hit also
+        // continues past the primary target in the same straight line for
+        // this much further distance, hitting any other hostile in that
+        // narrow line at FULL damage (not splash's reduced multiplier - a
+        // bolt keeps its force as it passes through). Only ScorpionFactory
+        // sets this.
+        [SerializeField] private float pierceThroughDepth;
+        // Half-width of the pierce-through line, in world units - a bolt
+        // is narrow, so this stays well under any of the splash radii used
+        // elsewhere (Siege 2.25, Cavalry trample 1.25).
+        private const float PierceLineHalfWidth = 0.6f;
         // Wave 4 item 20 (Battering Ram): defaults to false, so every
         // existing MeleeAttacker user is unaffected. When true, AttackMove
         // refuses any target whose Class isn't Building outright - not
@@ -158,6 +170,13 @@ namespace KingdomsOfBharat.Combat
             buildingOnly = value;
         }
 
+        // Applied by ScorpionFactory only (Wave 4 item 23) - see
+        // pierceThroughDepth's own field comment.
+        public void SetPierceThrough(float depth)
+        {
+            pierceThroughDepth = depth;
+        }
+
         public void AttackMove(Attackable target)
         {
             if (buildingOnly && target.Class != UnitClass.Building)
@@ -209,6 +228,10 @@ namespace KingdomsOfBharat.Combat
                 if (splashRadius > 0f)
                 {
                     ResolveSplash(_target);
+                }
+                if (pierceThroughDepth > 0f)
+                {
+                    ResolvePierceThrough(_target);
                 }
                 _cooldown = attackInterval;
             }
@@ -276,6 +299,82 @@ namespace KingdomsOfBharat.Combat
             {
                 ResolveHit(victim, splashDamageMultiplier);
             }
+        }
+
+        // Wave 4 item 23 (Scorpion): the bolt keeps travelling past the
+        // primary target in the same straight line, hitting anything else
+        // hostile it passes through at full damage (extraMultiplier 1f,
+        // unlike splash's reduced multiplier - a piercing bolt doesn't
+        // lose force the way a fragmentation blast does). Scans the same
+        // Unit.All/Building.All registries as ResolveSplash, but tests a
+        // line-segment geometry instead of a radius around the impact
+        // point - "did the bolt's path pass through this", not "is this
+        // near where it landed".
+        private void ResolvePierceThrough(Attackable primaryTarget)
+        {
+            Vector3 origin = transform.position;
+            Vector3 toPrimary = primaryTarget.transform.position - origin;
+            toPrimary.y = 0f;
+            float primaryDistance = toPrimary.magnitude;
+            if (primaryDistance <= 0.01f)
+            {
+                // Degenerate case (attacker standing exactly on the target)
+                // - no well-defined line direction to pierce along.
+                return;
+            }
+            Vector3 direction = toPrimary / primaryDistance;
+
+            _splashBuffer.Clear();
+
+            foreach (Unit unit in Unit.All)
+            {
+                if (!unit.TryGetComponent(out Attackable candidate) || candidate == primaryTarget || candidate.IsDead)
+                {
+                    continue;
+                }
+
+                if (HostileFilter.IsHostile(candidate, Faction) && IsBehindTargetInLine(origin, direction, primaryDistance, unit.transform.position))
+                {
+                    _splashBuffer.Add(candidate);
+                }
+            }
+
+            foreach (Building building in Building.All)
+            {
+                if (!building.TryGetComponent(out Attackable candidate) || candidate == primaryTarget || candidate.IsDead)
+                {
+                    continue;
+                }
+
+                if (HostileFilter.IsHostile(candidate, Faction) && IsBehindTargetInLine(origin, direction, primaryDistance, building.transform.position))
+                {
+                    _splashBuffer.Add(candidate);
+                }
+            }
+
+            foreach (Attackable victim in _splashBuffer)
+            {
+                ResolveHit(victim, extraMultiplier: 1f);
+            }
+        }
+
+        // True if candidatePosition lies within PierceLineHalfWidth of the
+        // ray from origin in direction, at a forward distance between the
+        // primary target's own distance and pierceThroughDepth beyond it -
+        // i.e. "the bolt kept going in a straight line and hit this too",
+        // not anything to the side or short of the primary target.
+        private bool IsBehindTargetInLine(Vector3 origin, Vector3 direction, float primaryDistance, Vector3 candidatePosition)
+        {
+            Vector3 toCandidate = candidatePosition - origin;
+            toCandidate.y = 0f;
+            float forward = Vector3.Dot(toCandidate, direction);
+            if (forward < primaryDistance || forward > primaryDistance + pierceThroughDepth)
+            {
+                return false;
+            }
+
+            float lateral = (toCandidate - direction * forward).magnitude;
+            return lateral <= PierceLineHalfWidth;
         }
 
         // Distance to the target's collider SURFACE, not its transform

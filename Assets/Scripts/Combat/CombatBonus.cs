@@ -171,6 +171,28 @@ namespace KingdomsOfBharat.Combat
                 return 1.25f;
             }
 
+            // Scorpion (Wave 4 item 23, unit_roster_template.csv
+            // "scorpion"): the dedicated anti-infantry siege weapon - its
+            // pierce-through bolt (see MeleeAttacker.SetPierceThrough)
+            // shreds massed infantry lined up behind its primary target,
+            // matching AoE's own Scorpion identity. Reuses the closest
+            // existing "hard counter vs one class" precedent value (2x,
+            // same as Archer->Cavalry/Skirmisher->Archer/Camel->Cavalry),
+            // not independently balanced. The matching weakness reuses
+            // Cavalry->Infantry's own 1.5x - a fast unit closes the gap on
+            // an unarmored, immobile siege engine before it can fire twice,
+            // the same vulnerability real AoE Scorpions have to cavalry
+            // raids.
+            if (attacker == UnitClass.Scorpion && target == UnitClass.Infantry)
+            {
+                return 2f;
+            }
+
+            if (attacker == UnitClass.Cavalry && target == UnitClass.Scorpion)
+            {
+                return 1.5f;
+            }
+
             return 1f;
         }
     }

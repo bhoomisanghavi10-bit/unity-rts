@@ -56,5 +56,13 @@ namespace KingdomsOfBharat.Combat
         // precedent for "a unit built to counter Cavalry"), not
         // independently balanced.
         Camel,
+        // Wave 4 item 23: the Scorpion - a dedicated anti-infantry siege
+        // weapon (unit_roster_template.csv "scorpion"). Its whole point is
+        // a pierce-through bolt that hits whatever stands behind its
+        // primary target too (see MeleeAttacker.SetPierceThrough), so it
+        // gets its own class rather than folding into Siege (which is
+        // anti-building via CombatBonus's 3x, not anti-infantry) - see
+        // CombatBonus for its 2 matchups.
+        Scorpion,
     }
 }
