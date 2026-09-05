@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: KingdomsOfBharat.Runtime::UnitDefinition
   unitId: skirmisher
   displayName: Skirmisher
-  category: 0
+  category: 9
   ageRequirement: 2
   cost:
     food: 35

@@ -730,9 +730,19 @@ the others — genuinely parallel-safe once Waves 0-1 are done.
     model/animation, no dedicated Skirmisher model exists yet, flagged directly),
     `Barracks.RequestTrainSkirmisher`/`RequestResearchSkirmisherTier`, full `BuildMenu`/hotkey
     (C/V)/`NetTrainKind` wiring, 13 new EditMode tests. *Depends on: Wave 0, Wave 1.*
-20. **[S] Battering Ram, 3 tiers.** Dwarabhanjaka → Maha Dwarabhanjaka → Vajra Dwarabhanjaka,
-    Classical/Durg/Imperial. Anti-building only, no splash, garrisonable — distinct role from
-    the existing Mangonel-like Siege unit. *Depends on: Wave 0, Wave 1.*
+20. ✅ **[S] Battering Ram, 3 tiers — closed 2026-09-05.** Dwarabhanjaka → Maha Dwarabhanjaka →
+    Vajra Dwarabhanjaka, Classical/Durg/Imperial. Anti-building only, no splash, garrisonable —
+    distinct role from the existing Mangonel-like Siege unit. See `CLAUDE.md`'s "Current status"
+    for full detail: new `MeleeAttacker.SetBuildingOnly` (a real hard block, not just a weak
+    multiplier - an AttackMove order against a non-Building target is flatly refused),
+    `Progression/BatteringRamLineProgress.cs` (mirrors `ArcherLineProgress`'s 3-tier
+    Classical/Durg/Imperial shape exactly), `Combat/BatteringRamFactory.cs` (never calls
+    `SetSplashRadius` - no splash; adds a `GarrisonPoint` to itself, capacity 4 - the
+    "garrisonable" trait, since a Ram hosts friendly units for protection rather than
+    garrisoning into a building itself), new `CombatBonus.Multiplier(BatteringRam, Building)`
+    at 4x (steeper than Siege's own 3x), `Barracks.RequestTrainBatteringRam`/
+    `RequestResearchBatteringRamTier`, full `BuildMenu`/hotkey (D/R)/`NetTrainKind` wiring, 16
+    new EditMode tests. *Depends on: Wave 0, Wave 1.*
 21. **[S] Cavalry Archer, 2 tiers.** Ashva Dhanurdhara → Maha Ashva Dhanurdhara,
     Durg/Imperial. Mobile ranged raider, fits Rajput/Maratha horse-archer tradition.
     *Depends on: Wave 0, Wave 1.*

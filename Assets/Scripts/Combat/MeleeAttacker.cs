@@ -27,6 +27,14 @@ namespace KingdomsOfBharat.Combat
         // full primary-hit damage, byte-for-byte unchanged. Cavalry's
         // trample uses a reduced value here instead - see CavalryFactory.
         [SerializeField] private float splashDamageMultiplier = 1f;
+        // Wave 4 item 20 (Battering Ram): defaults to false, so every
+        // existing MeleeAttacker user is unaffected. When true, AttackMove
+        // refuses any target whose Class isn't Building outright - not
+        // just a low CombatBonus multiplier, a real inability to be
+        // ordered to fight units at all (matches AoE's own ram, which
+        // can't even be given an attack-move onto a unit). Only
+        // BatteringRamFactory sets this.
+        [SerializeField] private bool buildingOnly;
 
         private UnitMover _mover;
         private Attackable _self;
@@ -143,8 +151,20 @@ namespace KingdomsOfBharat.Combat
             splashDamageMultiplier = damageMultiplier;
         }
 
+        // Applied by BatteringRamFactory only (Wave 4 item 20) - see
+        // buildingOnly's own field comment.
+        public void SetBuildingOnly(bool value)
+        {
+            buildingOnly = value;
+        }
+
         public void AttackMove(Attackable target)
         {
+            if (buildingOnly && target.Class != UnitClass.Building)
+            {
+                return;
+            }
+
             _target = target;
             _cooldown = 0f;
             Mover.MoveTo(target.transform.position);

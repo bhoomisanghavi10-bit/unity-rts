@@ -90,6 +90,7 @@ namespace KingdomsOfBharat.UI
             new Entry("Train Spearman", "TrainSpearman", KeyCode.E),
             new Entry("Train Scout", "TrainChara", KeyCode.F),
             new Entry("Train Skirmisher", "TrainSkirmisher", KeyCode.C),
+            new Entry("Train Battering Ram", "TrainBatteringRam", KeyCode.D),
             new Entry("Unique Tech", "ResearchUniqueTech", KeyCode.J),
             new Entry("Upgrade Infantry Tier", "ResearchInfantryTier", KeyCode.I),
             new Entry("Upgrade Spearman Tier", "ResearchSpearmanTier", KeyCode.L),
@@ -98,6 +99,7 @@ namespace KingdomsOfBharat.UI
             new Entry("Upgrade Siege Tier", "ResearchSiegeTier", KeyCode.O),
             new Entry("Upgrade Scout Tier", "ResearchCharaTier", KeyCode.G),
             new Entry("Upgrade Skirmisher Tier", "ResearchSkirmisherTier", KeyCode.V),
+            new Entry("Upgrade Battering Ram Tier", "ResearchBatteringRamTier", KeyCode.R),
         });
 
         // Wave 2 item 7: unique-unit training moved off Barracks onto the

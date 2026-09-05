@@ -47,6 +47,7 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         Spearman,
         Chara,
         Skirmisher,
+        BatteringRam,
         UniqueUnit,
         UniqueUnitSlot0,
         UniqueUnitSlot1,

@@ -57,6 +57,7 @@ namespace KingdomsOfBharat.Buildings
             Spearman,
             Chara,
             Skirmisher,
+            BatteringRam,
         }
 
         [SerializeField] private float soldierFoodCost = 50f;
@@ -147,6 +148,13 @@ namespace KingdomsOfBharat.Buildings
         // since it upgrades what Barracks itself trains.
         private float _skirmisherTierResearchRemaining = -1f;
 
+        // Wave 4 item 20: the Battering Ram tier ladder (Dwarabhanjaka ->
+        // Maha Dwarabhanjaka -> Vajra Dwarabhanjaka) - same independent,
+        // non-blocking research-track shape as every other tier line above,
+        // also living on Barracks since it upgrades what Barracks itself
+        // trains.
+        private float _batteringRamTierResearchRemaining = -1f;
+
         private ConstructionSite Site
         {
             get
@@ -234,6 +242,11 @@ namespace KingdomsOfBharat.Buildings
             ? 1f - (_skirmisherTierResearchRemaining / SkirmisherLineProgress.NextTierData(Faction).ResearchTime)
             : 0f;
 
+        public bool IsResearchingBatteringRamTier => _batteringRamTierResearchRemaining >= 0f;
+        public float BatteringRamTierResearchProgress => IsResearchingBatteringRamTier
+            ? 1f - (_batteringRamTierResearchRemaining / BatteringRamLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -289,6 +302,11 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingSkirmisherTier)
             {
                 TickSkirmisherTierResearch();
+            }
+
+            if (IsResearchingBatteringRamTier)
+            {
+                TickBatteringRamTierResearch();
             }
         }
 
@@ -470,6 +488,37 @@ namespace KingdomsOfBharat.Buildings
             _remaining = ScaledTrainTime();
         }
 
+        // Wave 4 item 20: Battering Ram - the third wholly-new Wave 4 unit,
+        // read straight from DataRegistry rather than fixed Inspector
+        // fields, same reasoning as RequestTrainSpearman/RequestTrainChara/
+        // RequestTrainSkirmisher above. Falls back to
+        // unit_roster_template.csv's known values (60 Food, 120 Wood, no
+        // Gold - a wood-heavy siege engine) if the generated asset is ever
+        // missing.
+        public void RequestTrainBatteringRam()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            UnitDefinition def = DataRegistry.GetUnit("battering_ram");
+            float foodCost = def != null ? def.cost.food : 60f;
+            float woodCost = def != null ? def.cost.wood : 120f;
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Food) < foodCost
+                || stockpile.GetTotal(ResourceType.Wood) < woodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Food, -foodCost);
+            stockpile.Add(ResourceType.Wood, -woodCost);
+            _trainingUnit = TrainingUnit.BatteringRam;
+            _remaining = ScaledTrainTime();
+        }
+
         private float ScaledTrainTime(float baseTrainTime = -1f)
         {
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
@@ -490,6 +539,7 @@ namespace KingdomsOfBharat.Buildings
                     TrainingUnit.Spearman => SpearmanFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.Chara => ScoutFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.Skirmisher => SkirmisherFactory.Spawn(transform.position + rallyOffset, Faction),
+                    TrainingUnit.BatteringRam => BatteringRamFactory.Spawn(transform.position + rallyOffset, Faction),
                     _ => SoldierFactory.Spawn(transform.position + rallyOffset, Faction),
                 };
                 _rally.ApplyTo(spawned);
@@ -835,6 +885,43 @@ namespace KingdomsOfBharat.Buildings
             {
                 SkirmisherLineProgress.AdvanceTier(Faction);
                 _skirmisherTierResearchRemaining = -1f;
+            }
+        }
+
+        // Wave 4 item 20: Battering Ram tier ladder research - same shape as
+        // RequestResearchInfantryTier/RequestResearchSpearmanTier/
+        // RequestResearchArcherTier/RequestResearchCavalryTier/
+        // RequestResearchSiegeTier/RequestResearchCharaTier/
+        // RequestResearchSkirmisherTier above.
+        public void RequestResearchBatteringRamTier()
+        {
+            if (!IsComplete || IsResearchingBatteringRamTier
+                || !BatteringRamLineProgress.HasNextTier(Faction)
+                || !BatteringRamLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            BatteringRamTierData next = BatteringRamLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _batteringRamTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickBatteringRamTierResearch()
+        {
+            _batteringRamTierResearchRemaining -= Time.deltaTime;
+            if (_batteringRamTierResearchRemaining <= 0f)
+            {
+                BatteringRamLineProgress.AdvanceTier(Faction);
+                _batteringRamTierResearchRemaining = -1f;
             }
         }
     }

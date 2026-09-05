@@ -137,6 +137,22 @@ namespace KingdomsOfBharat.Combat
                 return 1.25f;
             }
 
+            // Battering Ram (Wave 4 item 20, unit_roster_template.csv
+            // "battering_ram"): the dedicated anti-building specialist -
+            // steeper than Siege's own 3x since a Ram's entire kit is
+            // "hit buildings" (MeleeAttacker.SetBuildingOnly enforces it
+            // literally cannot target a unit at all, unlike Siege which
+            // still can, just unremarkably) - no splash either
+            // (BatteringRamFactory never calls SetSplashRadius), so this
+            // single-target bonus is the whole point of building one.
+            // Not independently balanced - picked to sit clearly above
+            // Siege's 3x while still resolvable against a Wall/Tower's
+            // real HP/armor in a reasonable number of hits.
+            if (attacker == UnitClass.BatteringRam && target == UnitClass.Building)
+            {
+                return 4f;
+            }
+
             return 1f;
         }
     }

@@ -37,5 +37,13 @@ namespace KingdomsOfBharat.Combat
         // same way Spearman's own pairing was: reuse the closest existing
         // precedent, not independently balanced.
         Skirmisher,
+        // Wave 4 item 20: the dedicated anti-building specialist
+        // (unit_roster_template.csv "battering_ram") - distinct from Siege
+        // (which can still hit units, just unremarkably) in that a
+        // Battering Ram literally cannot be ordered to attack a unit at
+        // all (see MeleeAttacker.SetBuildingOnly) - it only ever fights
+        // buildings, at a steeper CombatBonus than Siege's own 3x since
+        // that's its entire job.
+        BatteringRam,
     }
 }

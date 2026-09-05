@@ -5,6 +5,136 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-05 — AoE-Parity Wave 4, item 20: Battering Ram (3-tier anti-building specialist)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 20, picked up per the user's "start
+wave 4 item 20" request, right after item 19 (Skirmisher) closed.
+
+**The real gap**: this project already had one anti-building specialist (Siege/Mangonel,
+`CombatBonus.Multiplier(Siege, Building) = 3x`), but it can still fight units (unremarkably,
+flat 1x) and has splash. Item 20's own roadmap text specs a second, genuinely distinct siege
+unit: anti-building ONLY (not just weak against units — structurally unable to target them),
+no splash, and garrisonable.
+
+**Design choices** (the roadmap fixes tier names/ages/count, so numeric values were resolved
+the same way every other Wave 3/4 line has — reuse the closest existing precedent):
+- **"Anti-building only" read literally, not as a low multiplier**: new
+  `MeleeAttacker.SetBuildingOnly(bool)` — when set, `AttackMove` flatly refuses any target
+  whose `Attackable.Class` isn't `Building`, the same way AoE II's own ram can't even be given
+  an attack-move onto a unit. This is a real behavioral gate, not a CombatBonus tweak — every
+  other `MeleeAttacker` user is completely unaffected (defaults to `false`).
+- **Tier ladder growth**: reuses `ArcherLineProgress`'s own Classical/Durg/Imperial 3-tier
+  growth exactly (+18 HP/+4 dmg/120 Gold/60 Wood/25s at Durg, +30 HP/+6 dmg/200 Gold/100
+  Wood/40s at Imperial) — the closest existing precedent for a 3-tier Classical-base line, not
+  independently balanced.
+- **CombatBonus value**: `BatteringRam` → `Building` = 4x, deliberately steeper than Siege's
+  3x since a Ram's entire kit is "hit buildings" (no splash, can't fight units at all) — picked
+  to sit clearly above Siege's value while still resolving in a reasonable number of hits
+  against real Wall/Tower HP+armor, not independently audited.
+- **"Garrisonable" resolved as "hosts units," not "enters a building"**: re-read
+  `GarrisonPoint`/`GarrisonSeeker` (the General Garrisoning system from Wave 1) before coding —
+  a Battering Ram doesn't walk into a building, it hosts friendly land units inside itself for
+  protection while closing on a wall, the real AoE II mechanic. `GarrisonPoint`/`GarrisonSeeker`
+  already generalize to a non-Building host with **zero code changes needed**:
+  `GarrisonSeeker.ComputeApproachPoint` already falls back to the target's raw
+  `transform.position` when it has no `BuildingFootprintTag` (exactly this case), and
+  `GarrisonPoint.OnDestroy` already ungarrisons everyone if the host dies with occupants
+  aboard. `BatteringRamFactory` just adds a `GarrisonPoint` to itself (capacity 4, matching
+  Tower's own capacity — a reasonable "small escort" size, not independently balanced).
+- **No `StanceController`**: unlike Siege, a `buildingOnly` attacker with Aggressive/Defensive
+  auto-engage would scan for and "target" nearby hostile units it can structurally never hit
+  (the `AttackMove` guard would just no-op every scan) — worse than requiring an explicit
+  player order onto a specific building every time, matching real AoE II's own ram (never
+  auto-engages). A deliberate omission, not an oversight.
+- **No dedicated model**: reuses the same Human Character Dummy body + `Weapons/Kanabo/scene`
+  weapon as `SiegeFactory` (whose own comment already flagged "a real siege engine, e.g. a
+  battering ram, would be a better fit" for that exact prop) — **flagged directly per the
+  flag-asset-needs convention: a Battering Ram currently looks identical to a Siege unit in
+  the field.**
+
+**Implementation**:
+- `Combat/UnitClass.cs`: new `BatteringRam` value.
+- `Combat/CombatBonus.cs`: the new `BatteringRam` → `Building` = 4x pairing.
+- `Combat/MeleeAttacker.cs`: new `buildingOnly` field + `SetBuildingOnly(bool)`, guarded at the
+  top of `AttackMove`.
+- `Assets/Design/Data/unit_roster_template.csv`: new "battering_ram" row (Classical age, 60
+  Food/120 Wood/0 Gold, 6s train, 80 HP/18 dmg/Melee/3 melee armor/0 pierce armor/1.3
+  speed/1.5 range) — regenerated via `BharatRTS/Generate Data Assets From CSV`, zero parse
+  warnings.
+- New `Progression/BatteringRamLineProgress.cs` mirrors `ArcherLineProgress.cs`'s shape
+  exactly (same 3-tier Classical/Durg/Imperial gate pattern, same "baked in at spawn, not
+  retroactive" convention).
+- New `Combat/BatteringRamFactory.cs`: `SetBuildingOnly(true)`, never calls `SetSplashRadius`
+  (no splash, stays at the default 0/disabled), adds a `GarrisonPoint` (capacity 4) to itself,
+  deliberately no `StanceController`. `EnableUpgradeArmorScaling()`/`EnableUpgradeDamageScaling()`
+  opted in same as every other combat-unit factory.
+- `Buildings/Barracks.cs`: new `TrainingUnit.BatteringRam` case, `RequestTrainBatteringRam`
+  (reads cost from `DataRegistry`, same pattern as `RequestTrainSpearman`/`RequestTrainChara`/
+  `RequestTrainSkirmisher`), a new independent `_batteringRamTierResearchRemaining` research
+  track (`RequestResearchBatteringRamTier`/`TickBatteringRamTierResearch`/
+  `IsResearchingBatteringRamTier`/`BatteringRamTierResearchProgress`), ticked alongside every
+  other tier track in `Update()`.
+- `Multiplayer/Wire/NetMessage.cs`/`CommandSerializer.cs`: new `NetTrainKind.BatteringRam`
+  wired to `Barracks.RequestTrainBatteringRam`.
+- `UI/BuildMenu.cs`: new `batteringRamButton`/`batteringRamTierButton`/`batteringRamTierLabel`
+  fields, `TrainBatteringRamAtSelected`/`ResearchBatteringRamTierAtSelected`,
+  `UpdateBatteringRamTierButton` (identical "Researching.../(Max Tier)/Upgrade to X (needs Y
+  Age)/Upgrade to X (cost)" shape every other tier button uses), wired into
+  `UpdateBarracksButtons`/`HandleHotkeys`/`SetActive`/`ApplyTheme`'s button array (text-only, no
+  icon asset yet). New hotkeys D (Train Battering Ram) and R (Upgrade Battering Ram Tier) —
+  unused within the Barracks context specifically (both are already reused across the
+  mutually-exclusive TownCenter/Durg contexts, same convention this file's own hotkey map
+  already follows).
+- `UI/SettingsMenu.cs`/`UI/HotkeyOverlay.cs`: matching `RebindableAction`/`Entry` rows in
+  `BarracksGroup`.
+
+**Tests**: 16 new EditMode tests (`BatteringRamLineTests.cs`, mirroring `SkirmisherLineTests.cs`'s
+shape) covering `BatteringRamLineProgress` gating/sequencing, `Barracks.
+RequestResearchBatteringRamTier`'s cost/gate/no-double-deduct/max-tier behavior,
+`BatteringRamFactory` baking the current tier in at spawn (not retroactive) plus its
+`GarrisonPoint`/no-splash traits, `MeleeAttacker.SetBuildingOnly` refusing a unit target while
+accepting a building target, and the new `CombatBonus` pairing. Full suite: 387/387 pass (371
+pre-existing + 16 new). Hit the same recurring "console bridge reports zero errors while new
+code fails to compile" gotcha this project has hit many times before — the new test file's
+first draft was missing `using KingdomsOfBharat.Units;` (needed for `Unit`), which silently
+left the whole test run at the old 371-test count with zero errors surfaced by
+`read_console`; only `~/Library/Logs/Unity/Editor.log` directly showed the real `CS0246`/
+`CS0103` errors. Fixed, then 387/387 passed.
+
+**Scene wiring gotcha (same recurring one every Wave 2/3/4 session has hit)**: the new
+`batteringRamButton`/`batteringRamTierButton`/`batteringRamTierLabel` `[SerializeField]` fields
+have no matching scene GameObjects by default. Fixed via UnityMCP: duplicated the real
+`SkirmisherButton`/`SkirmisherTierButton` scene objects into `BatteringRamButton`/
+`BatteringRamTierButton` (the tier button's child label duplicated along with it, renamed to
+`BatteringRamTierLabel`), then wired all 3 fields onto `BuildMenu`'s component via
+`manage_components`/`set_property` and saved the scene.
+
+**Live verification via UnityMCP**, through the real production path (not test shortcuts): a
+real match (`CivilizationSetup.BeginMatch(Maurya)`), a real `BarracksFactory.Place`-spawned
+Barracks. Directly via the factory/component API: `RequestTrainBatteringRam()` deducted
+exactly 60 Food/120 Wood and, once the training tick was forced, spawned a real "Maurya
+Dwarabhanjaka" (`Attackable.Class == BatteringRam`, HP 88 = 80 base × Maurya's 1.1 civ
+multiplier, a real `GarrisonPoint` with `Capacity == 4`). A real `MeleeAttacker.AttackMove`
+call against a real hostile `SoldierFactory`-spawned unit was refused (`IsAttacking` stayed
+false) while the identical call against a real hostile `TowerFactory`-spawned building was
+accepted (`IsAttacking` became true) — the "anti-building only" trait confirmed live, not just
+in the isolated unit test. A real `WorkerFactory`-spawned Worker was garrisoned into the Ram
+via `GarrisonPoint.TryGarrison` (deactivated on entry) and correctly reactivated via
+`UngarrisonAll`. Then through the real scene UI path specifically (selected the Barracks via
+`SelectionManager`'s private `_selectedBuilding` field, forced `BuildMenu.Update()` via
+reflection): the real `BatteringRamButton`'s own `onClick.Invoke()` deducted the exact 60
+Food/120 Wood and spawned a real Battering Ram through `CommandBus`'s lockstep queue (not
+synchronously — confirmed the delayed-execution behavior directly, matching this project's own
+documented `BuildCommand`/`TrainCommand` convention); the real `BatteringRamTierButton`'s label
+correctly read "Upgrade to Maha Dwarabhanjaka (120 Gold, 60 Wood)" at Durg, and its own
+`onClick.Invoke()` deducted exactly that and started research.
+
+No AI-side training hook, same explicitly-out-of-scope call as every other Wave 3/4 item. Next:
+any other Wave 4 item (Cavalry Archer, Scorpion, Trebuchet, Fire Ship, or the design-decision
+items — Camel Rider, Trader), user's call — all are parallel-safe once Wave 0/1 are done.
+
+---
+
 ## 2026-09-05 — AoE-Parity Wave 4, item 19: Skirmisher (anti-archer counter-archer, 2 tiers)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 19, picked up per the user's "start
