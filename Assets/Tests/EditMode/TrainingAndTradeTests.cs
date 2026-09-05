@@ -159,6 +159,20 @@ namespace KingdomsOfBharat.Tests
         }
 
         [Test]
+        public void Dock_RequestTrainFireShip_DeductsWoodOnlyAndStartsTraining()
+        {
+            ResourceStockpile stockpile = CreateStockpile(FactionId.Player);
+            Dock dock = CreateDock(FactionId.Player);
+
+            dock.RequestTrainFireShip();
+
+            Assert.IsTrue(dock.IsTraining);
+            Assert.AreEqual(1000f - 70f, stockpile.GetTotal(ResourceType.Wood));
+            Assert.AreEqual(1000f, stockpile.GetTotal(ResourceType.Food));
+            Assert.AreEqual(1000f, stockpile.GetTotal(ResourceType.Gold));
+        }
+
+        [Test]
         public void Market_Sell_ConvertsResourceToGoldAtSellRate()
         {
             ResourceStockpile stockpile = CreateStockpile(FactionId.Player, wood: 200f, gold: 0f);

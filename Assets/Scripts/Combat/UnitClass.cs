@@ -64,5 +64,14 @@ namespace KingdomsOfBharat.Combat
         // anti-building via CombatBonus's 3x, not anti-infantry) - see
         // CombatBonus for its 2 matchups.
         Scorpion,
+        // Wave 4 item 25: the Fire Ship - a dedicated anti-naval
+        // specialist (unit_roster_template.csv "fire_ship"), the first
+        // real consumer of DamageType.Fire (declared in Wave 0 item 4,
+        // unused by any live attacker until this item). Gets its own class
+        // rather than folding into Naval, since it needs a genuinely
+        // asymmetric matchup with War Galley: a hard counter when it
+        // closes to range, but fragile if a Galley reaches it first - see
+        // CombatBonus for its 2 matchups.
+        FireShip,
     }
 }

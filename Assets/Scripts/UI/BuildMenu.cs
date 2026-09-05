@@ -104,6 +104,14 @@ namespace KingdomsOfBharat.UI
         // trains there, not Barracks).
         [SerializeField] private Button navalTierButton;
         [SerializeField] private TMP_Text navalTierLabel;
+        // Wave 4 item 25: Fire Ship - a wholly-new trainable unit, not a
+        // tier upgrade to an existing one (see charaButton for the first
+        // precedent of this shape) - and its own tier ladder button, same
+        // gating shape as navalTierButton, an independent research track
+        // on the same Dock.
+        [SerializeField] private Button fireShipButton;
+        [SerializeField] private Button fireShipTierButton;
+        [SerializeField] private TMP_Text fireShipTierLabel;
         [SerializeField] private Button sellWoodButton;
         [SerializeField] private TMP_Text sellWoodLabel;
         [SerializeField] private Button buyWoodButton;
@@ -249,6 +257,8 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyTrainFishingBoat;
         private KeyCode _keyTrainWarGalley;
         private KeyCode _keyResearchNavalTier;
+        private KeyCode _keyTrainFireShip;
+        private KeyCode _keyResearchFireShipTier;
         private KeyCode _keyUngarrison;
 
         private BuildingPlacer _placer;
@@ -293,6 +303,8 @@ namespace KingdomsOfBharat.UI
             fishingBoatButton.onClick.AddListener(TrainFishingBoatAtSelected);
             warGalleyButton.onClick.AddListener(TrainWarGalleyAtSelected);
             navalTierButton.onClick.AddListener(ResearchNavalTierAtSelected);
+            fireShipButton.onClick.AddListener(TrainFireShipAtSelected);
+            fireShipTierButton.onClick.AddListener(ResearchFireShipTierAtSelected);
             sellWoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Wood, sell: true));
             buyWoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Wood, sell: false));
             sellFoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Food, sell: true));
@@ -375,6 +387,13 @@ namespace KingdomsOfBharat.UI
             _keyTrainFishingBoat = GameSettings.GetKey("TrainDockUnit", KeyCode.B);
             _keyTrainWarGalley = GameSettings.GetKey("TrainWarGalley", KeyCode.W);
             _keyResearchNavalTier = GameSettings.GetKey("ResearchNavalTier", KeyCode.X);
+            // Wave 4 item 25: Y/Z aren't used anywhere in the Dock context
+            // yet (Y = AdvanceAge on TownCenter, Z = TrainUniqueUnit2 on
+            // Durg - both mutually exclusive with a selected Dock) -
+            // reused freely per this file's own established convention
+            // (see HandleHotkeys' header comment).
+            _keyTrainFireShip = GameSettings.GetKey("TrainFireShip", KeyCode.Y);
+            _keyResearchFireShipTier = GameSettings.GetKey("ResearchFireShipTier", KeyCode.Z);
             _keyUngarrison = GameSettings.GetKey("Ungarrison", KeyCode.U);
         }
 
@@ -401,7 +420,7 @@ namespace KingdomsOfBharat.UI
                 siegeButton, spearmanButton, charaButton, skirmisherButton, batteringRamButton, uniqueUnitButton, uniqueUnitButton2, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
                 buyFoodButton, sellStoneButton, buyStoneButton, attackUpgradeButton, armorUpgradeButton,
-                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2, charaTierButton, skirmisherTierButton, batteringRamTierButton, navalTierButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
+                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2, charaTierButton, skirmisherTierButton, batteringRamTierButton, navalTierButton, fireShipButton, fireShipTierButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
             };
 
             foreach (Button button in buttons)
@@ -472,7 +491,9 @@ namespace KingdomsOfBharat.UI
             // skirmisherButton/skirmisherTierButton (Wave 4 item 19) - no
             // "train_skirmisher" icon asset exists either. Same for
             // batteringRamButton/batteringRamTierButton (Wave 4 item 20) -
-            // no "train_battering_ram" icon asset exists either.
+            // no "train_battering_ram" icon asset exists either. Same for
+            // fireShipButton/fireShipTierButton (Wave 4 item 25) - no
+            // "train_fire_ship" icon asset exists either.
         }
 
         // Adds a small icon to the left edge of a command-card button and
@@ -582,6 +603,8 @@ namespace KingdomsOfBharat.UI
             fishingBoatButton.gameObject.SetActive(dock != null);
             warGalleyButton.gameObject.SetActive(dock != null);
             navalTierButton.gameObject.SetActive(dock != null);
+            fireShipButton.gameObject.SetActive(dock != null);
+            fireShipTierButton.gameObject.SetActive(dock != null);
             sellWoodButton.gameObject.SetActive(market != null);
             buyWoodButton.gameObject.SetActive(market != null);
             sellFoodButton.gameObject.SetActive(market != null);
@@ -718,6 +741,8 @@ namespace KingdomsOfBharat.UI
                 if (Input.GetKeyDown(_keyTrainFishingBoat)) TrainFishingBoatAtSelected();
                 if (Input.GetKeyDown(_keyTrainWarGalley)) TrainWarGalleyAtSelected();
                 if (Input.GetKeyDown(_keyResearchNavalTier)) ResearchNavalTierAtSelected();
+                if (Input.GetKeyDown(_keyTrainFireShip)) TrainFireShipAtSelected();
+                if (Input.GetKeyDown(_keyResearchFireShipTier)) ResearchFireShipTierAtSelected();
             }
 
             if (garrisonPoint != null && garrisonPoint.Count > 0 && Input.GetKeyDown(_keyUngarrison))
@@ -1231,8 +1256,10 @@ namespace KingdomsOfBharat.UI
             bool canTrain = dock.IsComplete && !dock.IsTraining;
             fishingBoatButton.interactable = canTrain;
             warGalleyButton.interactable = canTrain;
+            fireShipButton.interactable = canTrain;
 
             UpdateNavalTierButton(dock);
+            UpdateFireShipTierButton(dock);
         }
 
         // Wave 3 item 15: Naval tier ladder research button state -
@@ -1266,6 +1293,38 @@ namespace KingdomsOfBharat.UI
 
             navalTierButton.interactable = dock.IsComplete;
             navalTierLabel.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
+        }
+
+        // Wave 4 item 25: Fire Ship tier ladder research button state -
+        // identical shape to UpdateNavalTierButton, an independent track
+        // on the same selected Dock.
+        private void UpdateFireShipTierButton(Dock dock)
+        {
+            if (dock.IsResearchingFireShipTier)
+            {
+                fireShipTierButton.interactable = false;
+                fireShipTierLabel.text = $"Researching Fire Ship... {(int)(dock.FireShipTierResearchProgress * 100f)}%";
+                return;
+            }
+
+            FactionId faction = NetworkMatch.LocalFaction;
+            if (!FireShipLineProgress.HasNextTier(faction))
+            {
+                fireShipTierButton.interactable = false;
+                fireShipTierLabel.text = "Fire Ship (Max Tier)";
+                return;
+            }
+
+            FireShipTierData next = FireShipLineProgress.NextTierData(faction);
+            if (!FireShipLineProgress.NextTierAgeRequirementMet(faction))
+            {
+                fireShipTierButton.interactable = false;
+                fireShipTierLabel.text = $"Upgrade to {next.Name} (needs {next.RequiredAge} Age)";
+                return;
+            }
+
+            fireShipTierButton.interactable = dock.IsComplete;
+            fireShipTierLabel.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
         }
 
         // Market trade panel: gating reads the owning faction's stockpile
@@ -1575,6 +1634,14 @@ namespace KingdomsOfBharat.UI
             }
         }
 
+        private void TrainFireShipAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Dock dock)
+            {
+                EnqueueTrain(dock, dock.RequestTrainFireShip, NetTrainKind.FireShip);
+            }
+        }
+
         // Phase 5 LAN transport MVP: every Train button funnels through
         // here instead of calling CommandBus.Enqueue directly, so the
         // matching NetTrainCommand only needs writing once. No-op network
@@ -1733,6 +1800,16 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Dock dock)
             {
                 dock.RequestResearchNavalTier();
+            }
+        }
+
+        // Wave 4 item 25: Fire Ship tier ladder - also acts on a selected
+        // Dock, an independent track from ResearchNavalTierAtSelected.
+        private void ResearchFireShipTierAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Dock dock)
+            {
+                dock.RequestResearchFireShipTier();
             }
         }
 

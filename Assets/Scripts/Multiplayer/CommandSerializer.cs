@@ -173,6 +173,7 @@ namespace KingdomsOfBharat.Multiplayer
                 {
                     NetTrainKind.FishingBoat => dock.RequestTrainFishingBoat,
                     NetTrainKind.WarGalley => dock.RequestTrainWarGalley,
+                    NetTrainKind.FireShip => dock.RequestTrainFireShip,
                     _ => null,
                 };
                 return requestTrain == null ? null : new TrainCommand(faction, dock, requestTrain);

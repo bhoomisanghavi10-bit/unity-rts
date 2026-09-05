@@ -79,6 +79,23 @@ namespace KingdomsOfBharat.Combat
             attackRange = newRange;
         }
 
+        // Applied by FireShipFactory only (Wave 4 item 25) - every other
+        // BoatAttacker user (WarGalleyFactory) keeps the default Pierce,
+        // so War Galley behavior is unchanged. Mirrors
+        // MeleeAttacker.SetDamageType's identical shape.
+        public void SetDamageType(DamageType newDamageType)
+        {
+            damageType = newDamageType;
+        }
+
+        // Applied by FireShipFactory only (Wave 4 item 25) - WarGalleyFactory
+        // never calls this, so it keeps the field's default UnitClass.Naval.
+        // Mirrors MeleeAttacker.SetUnitClass's identical shape.
+        public void SetUnitClass(UnitClass newUnitClass)
+        {
+            unitClass = newUnitClass;
+        }
+
         public void SetDamageBonus(float bonus)
         {
             _damageBonus = bonus;

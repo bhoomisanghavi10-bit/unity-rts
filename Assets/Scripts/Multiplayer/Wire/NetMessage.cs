@@ -56,6 +56,7 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         UniqueUnitSlot1,
         FishingBoat,
         WarGalley,
+        FireShip,
     }
 
     // Mirrors BuildingPlacer.BuildingKind (internal enum nested in that

@@ -7687,3 +7687,111 @@ this session.
 This closes Wave 4 item 22 end to end — code, tests, scene wiring, and live
 verification all done. Next: Wave 4 item 23 (Scorpion, 2 tiers) or any other
 Wave 4 item, user's call.
+
+## 2026-09-05 — Wave 4 item 25 (Fire Ship, 3-tier naval anti-ship specialist)
+
+Picked up per the user's "start wave 4 item 25" request, right after item 23
+(Scorpion) closed. First real consumer of `DamageType.Fire` (declared in
+Wave 0 item 4, never used by any live attacker until now — `Attackable.
+TakeDamage` already resolved Fire against pierceArmor since that item).
+
+**Design choices** (the roadmap fixes tier names/ages, not combat classification
+or mechanism): new `UnitClass.FireShip`, a genuinely new class rather than
+folded into `Naval` — needs an asymmetric matchup with War Galley (a hard
+counter when it closes to range, but the class real AoE Fire Ships are
+vulnerable to once a regular warship reaches them). New `CombatBonus` pair
+(FireShip→Naval 2x, reusing the project's own repeated "hard counter vs one
+class" precedent value; Naval→FireShip 1.5x, reusing Cavalry→Scorpion's own
+"counter-specialist is vulnerable to the class it counters" precedent) — not
+independently balanced. New `Progression/FireShipLineProgress.cs` mirrors
+`NavalLineProgress.cs`'s exact 3-tier Classical/Durg/Imperial shape (Agni
+Nauka → Maha Agni Nauka → Vega Agni Nauka), reusing its own tier growth
+values at matching gates. Research lives on Dock (alongside Naval's own
+track) as a fully independent track — `Dock` gained a second
+`_fireShipTierResearchRemaining` timer, ticked in the same `Update()`
+alongside `_navalTierResearchRemaining` without either blocking the other.
+`RequestTrainFireShip()` is Wood-only (70 Wood, no Food/Gold — a crafted
+vessel, matching Scorpion's "not a fed crew" cost-model precedent, not
+independently priced).
+
+**Code**: `Combat/UnitClass.cs` (+FireShip), `Combat/CombatBonus.cs` (+2
+pairings), `Combat/BoatAttacker.cs` gained `SetDamageType`/`SetUnitClass`
+setters (previously hardcoded to Pierce/Naval — only WarGalleyFactory used
+this component before, so both were dead fields until now), new
+`Progression/FireShipLineProgress.cs`, new `Combat/FireShipFactory.cs`
+(mirrors `WarGalleyFactory.cs`'s shape exactly — `BoatModelFactory`/
+`WaterMover`/`BoatAttacker`, not `MeleeAttacker`). `Buildings/Dock.cs` gained
+`TrainingUnit.FireShip`, `RequestTrainFireShip`/`RequestResearchFireShipTier`/
+`IsResearchingFireShipTier`/`FireShipTierResearchProgress`. Full
+`NetTrainKind.FireShip`/`CommandSerializer` wiring. New
+`fireShipButton`/`fireShipTierButton`/`fireShipTierLabel` in `BuildMenu.cs`,
+hotkeys Y/X→ **Y/Z** (both unused within the Dock context specifically —
+already claimed elsewhere in the mutually-exclusive TownCenter/Durg
+contexts), wired into `SettingsMenu`/`HotkeyOverlay`'s `DockGroup`. New
+`unit_roster_template.csv` "fire_ship" row (0 Food/70 Wood/0 Gold/30 HP/14
+dmg/Fire/3 range/3.5 speed). **No dedicated Fire Ship model exists yet** —
+reuses the same "CombatShip" hull `WarGalleyFactory` uses (no other ship
+model sourced), given a deliberate fire-orange tint (`FireTint`, blended at
+the same fixed 0.35 lerp weight every other boat's civ-color tint uses) in
+place of the civ's own primary color, so it at least reads as visually
+distinct from a same-civ War Galley despite the shared mesh — flagging
+directly per the flag-asset-needs convention, a partial/cheap differentiator,
+not a substitute for real art. 16 new EditMode tests
+(`FireShipLineTests.cs` mirroring `NavalLineTests.cs`'s own split — tier
+progress, Dock research gating including a dedicated
+independent-from-Naval-tier test, factory tier-bake, and 2 direct
+`CombatBonus` assertions — plus 1 in `TrainingAndTradeTests.cs` mirroring
+its own War Galley train test). 445/445 EditMode tests pass (430 + 15).
+
+**Found and fixed a real, serious pre-existing regression while live-verifying,
+not caused by this session's own changes**: `scorpionButton`/
+`scorpionTierButton`/`scorpionTierLabel` were still `null` in the scene —
+item 23's own session had flagged this exact gap and it was never closed by
+a follow-up (unlike Camel Rider's, which got one). Because `BuildMenu.Awake()`
+wires every command-card button's `onClick.AddListener` in one long
+sequential block, and `scorpionButton.onClick.AddListener(...)` sat partway
+through that block, a null `scorpionButton` threw a `NullReferenceException`
+that silently aborted the *rest* of `Awake()` — meaning **every button wired
+after it** (including this item's own new `fireShipButton`/
+`fireShipTierButton`, plus `uniqueUnitButton`, `ungarrisonButton`,
+`fishingBoatButton`, `warGalleyButton`, `navalTierButton`, all 6 Market trade
+buttons, `attackUpgradeButton`/`armorUpgradeButton`, `uniqueTechButton`, and
+every tier-research button from `infantryTierButton` onward) never got a
+runtime click listener at all, project-wide, in every match. This was caught
+directly, not assumed: `FireShipButton.onClick.Invoke()` first showed zero
+effect on a real Dock's stockpile — traced via reflection into
+`UnityEventBase.m_Calls.m_RuntimeCalls` (`Button.onClick` exposes no public
+runtime-listener count) to confirm the listener count was genuinely 0, not a
+selection/wiring mismatch. Fixed by duplicating `CamelRiderButton`/
+`CamelRiderTierButton` (+ its label child) into real `ScorpionButton`/
+`ScorpionTierButton`/`ScorpionTierLabel` scene objects — the same recurring
+gotcha every Wave 2/3/4 session has hit, this time compounding into a much
+larger blast radius than usual — and wiring all 3 onto `BuildMenu`'s
+previously-null fields. Re-verified live post-fix: `fireShipButton`'s runtime
+listener count went from 0 to 1, and the full click→lockstep-delay→deduct→
+spawn chain then worked end to end.
+
+**Live-verified via UnityMCP through the real production path**, after the
+Scorpion fix: a real match (`CivilizationSetup.BeginMatch(Rajput)`), a real
+`DockFactory.Place`-spawned Dock, a real hostile `WarGalleyFactory`-spawned
+target — `MeleeAttacker`-equivalent `BoatAttacker.AttackMove`/`Update`
+resolved a live Fire Ship hit for exactly 28 damage (14 base × 2x
+`CombatBonus` FireShip→Naval, 0 pierce armor) against a real War Galley, and
+the reverse hit (a real War Galley attacking a real Fire Ship) resolved for
+exactly 12 damage (8 base × 1.5x `CombatBonus` Naval→FireShip) — both
+`CombatBonus` directions confirmed live, not just in the isolated unit test.
+Then through the real scene UI path specifically: the real `FireShipButton`'s
+own `onClick.Invoke()` left the stockpile unchanged immediately (confirming
+it goes through `CommandBus`'s lockstep queue, not a synchronous deduction)
+and deducted exactly 70 Wood (no Food/Gold) about a second later, spawning a
+real "Rajput Agni Nauka" (`Attackable.Class == FireShip`, a real
+`BoatAttacker` present); the real `FireShipTierButton`'s own `onClick.
+Invoke()` (after advancing to Durg age with funds on hand) deducted exactly
+120 Gold/60 Wood and started research, confirmed independent of that same
+Dock's own Naval tier track (which stayed unresearched). Full EditMode suite
+re-run after the Scorpion scene fix: still 445/445.
+
+**Roadmap/CLAUDE.md**: Wave 4 item 25 checked off in
+`docs/IMPLEMENTATION_ROADMAP.md`; `CLAUDE.md`'s "Current status" updated.
+Next: Wave 4 item 24 (Trebuchet, 1 tier) or any other Wave 4 item, user's
+call.

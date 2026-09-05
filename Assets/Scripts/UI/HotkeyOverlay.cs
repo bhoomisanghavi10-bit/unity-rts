@@ -133,6 +133,8 @@ namespace KingdomsOfBharat.UI
             new Entry("Train Fishing Boat", "TrainDockUnit", KeyCode.B),
             new Entry("Train War Galley", "TrainWarGalley", KeyCode.W),
             new Entry("Upgrade Naval Tier", "ResearchNavalTier", KeyCode.X),
+            new Entry("Train Fire Ship", "TrainFireShip", KeyCode.Y),
+            new Entry("Upgrade Fire Ship Tier", "ResearchFireShipTier", KeyCode.Z),
         });
 
         private static readonly Group GarrisonGroup = new Group("Garrisoned Building Selected", new[]

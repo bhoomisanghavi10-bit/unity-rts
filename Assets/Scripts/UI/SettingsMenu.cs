@@ -94,6 +94,12 @@ namespace KingdomsOfBharat.UI
             new RebindableAction("TrainDockUnit", "Train Fishing Boat (Dock)", KeyCode.B),
             new RebindableAction("TrainWarGalley", "Train War Galley (Dock)", KeyCode.W),
             new RebindableAction("ResearchNavalTier", "Upgrade Naval Tier (Dock)", KeyCode.X),
+            // Wave 4 item 25: Y/Z aren't used anywhere in the Dock context
+            // specifically (both already claimed elsewhere - AdvanceAge on
+            // TownCenter, TrainUniqueUnit2 on Durg - a mutually-exclusive
+            // selection context, this file's own established convention).
+            new RebindableAction("TrainFireShip", "Train Fire Ship (Dock)", KeyCode.Y),
+            new RebindableAction("ResearchFireShipTier", "Upgrade Fire Ship Tier (Dock)", KeyCode.Z),
             new RebindableAction("Ungarrison", "Ungarrison", KeyCode.U),
             new RebindableAction("ToggleHotkeyOverlay", "Toggle Hotkey Reference (Overlay)", KeyCode.F1),
             new RebindableAction("SaveGame", "Quicksave", KeyCode.F5),

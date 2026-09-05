@@ -760,9 +760,10 @@ the others — genuinely parallel-safe once Waves 0-1 are done.
     minimum range; needs a pack/unpack state (two mesh states or a fold animation) — flag the
     animation need to yourself as a possible asset dependency even though the unit itself is
     code-buildable now with a placeholder model. *Depends on: Wave 0, Wave 1.*
-25. **[S] Fire Ship, 3 tiers.** Agni Nauka → Maha Agni Nauka → Vega Agni Nauka,
+25. ~~**[S] Fire Ship, 3 tiers.** Agni Nauka → Maha Agni Nauka → Vega Agni Nauka,
     Classical/Durg/Imperial. First real consumer of `DamageType.Fire` (wired in Wave 0 item 4).
-    *Depends on: Wave 0 item 4, Wave 1.*
+    *Depends on: Wave 0 item 4, Wave 1.*~~ **Closed (2026-09-05).** See `CLAUDE.md`'s
+    "Current status" for full detail.
 26. **[M] Trader (land + naval), design decision first.** Vanik (land) / Trade Ship (naval).
     Needs a Market-to-Market (and Dock-to-Dock) route system — this is genuinely new economic
     machinery, not just a new unit, so size it as Medium and expect it to touch

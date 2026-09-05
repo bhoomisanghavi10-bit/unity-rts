@@ -19,12 +19,17 @@ namespace KingdomsOfBharat.Buildings
         {
             FishingBoat,
             WarGalley,
+            FireShip,
         }
 
         [SerializeField] private float fishingBoatFoodCost = 40f;
         [SerializeField] private float fishingBoatWoodCost = 30f;
         [SerializeField] private float warGalleyFoodCost = 60f;
         [SerializeField] private float warGalleyGoldCost = 60f;
+        // Wave 4 item 25: Wood-only, no Food/Gold - matches
+        // unit_roster_template.csv's "fire_ship" row and Scorpion's own
+        // "a crafted vessel, not a fed crew" cost-model precedent.
+        [SerializeField] private float fireShipWoodCost = 70f;
         [SerializeField] private float trainTime = 6f;
         // Was a fixed Vector3(0,0,3) - always spawned/rallied boats 3
         // units north regardless of which shore the Dock was actually
@@ -48,6 +53,12 @@ namespace KingdomsOfBharat.Buildings
         // doesn't block normal training" convention as Barracks' own
         // Infantry/Spearman/Archer/Cavalry/Siege tracks.
         private float _navalTierResearchRemaining = -1f;
+        // Wave 4 item 25: Fire Ship tier ladder research track - an
+        // independent track alongside NavalLineProgress's own (both live
+        // on Dock, since Fire Ship trains here too), same "one building,
+        // several independent tier tracks" convention Barracks already
+        // established.
+        private float _fireShipTierResearchRemaining = -1f;
 
         private ConstructionSite Site
         {
@@ -90,6 +101,11 @@ namespace KingdomsOfBharat.Buildings
             ? 1f - (_navalTierResearchRemaining / NavalLineProgress.NextTierData(Faction).ResearchTime)
             : 0f;
 
+        public bool IsResearchingFireShipTier => _fireShipTierResearchRemaining >= 0f;
+        public float FireShipTierResearchProgress => IsResearchingFireShipTier
+            ? 1f - (_fireShipTierResearchRemaining / FireShipLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -100,6 +116,11 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingNavalTier)
             {
                 TickNavalTierResearch();
+            }
+
+            if (IsResearchingFireShipTier)
+            {
+                TickFireShipTierResearch();
             }
         }
 
@@ -143,6 +164,28 @@ namespace KingdomsOfBharat.Buildings
             _remaining = ScaledTrainTime();
         }
 
+        // Wave 4 item 25: no Food/Gold, matching unit_roster_template.csv's
+        // "fire_ship" row. No age gate of its own - tier 0's Classical
+        // RequiredAge is descriptive only, same convention every other
+        // line's own RequestTrain* already established.
+        public void RequestTrainFireShip()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Wood) < fireShipWoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Wood, -fireShipWoodCost);
+            _trainingUnit = TrainingUnit.FireShip;
+            _remaining = ScaledTrainTime();
+        }
+
         private float ScaledTrainTime()
         {
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
@@ -164,6 +207,7 @@ namespace KingdomsOfBharat.Buildings
                 GameObject spawned = _trainingUnit switch
                 {
                     TrainingUnit.WarGalley => WarGalleyFactory.Spawn(transform.position + _rallyOffset, Faction),
+                    TrainingUnit.FireShip => FireShipFactory.Spawn(transform.position + _rallyOffset, Faction),
                     _ => FishingBoatFactory.Spawn(transform.position + _rallyOffset, Faction),
                 };
                 _rally.ApplyTo(spawned);
@@ -200,6 +244,41 @@ namespace KingdomsOfBharat.Buildings
             {
                 NavalLineProgress.AdvanceTier(Faction);
                 _navalTierResearchRemaining = -1f;
+            }
+        }
+
+        // Wave 4 item 25: Fire Ship tier ladder research - same shape as
+        // RequestResearchNavalTier above, an independent track on the same
+        // building.
+        public void RequestResearchFireShipTier()
+        {
+            if (!IsComplete || IsResearchingFireShipTier
+                || !FireShipLineProgress.HasNextTier(Faction)
+                || !FireShipLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            FireShipTierData next = FireShipLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _fireShipTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickFireShipTierResearch()
+        {
+            _fireShipTierResearchRemaining -= Time.deltaTime;
+            if (_fireShipTierResearchRemaining <= 0f)
+            {
+                FireShipLineProgress.AdvanceTier(Faction);
+                _fireShipTierResearchRemaining = -1f;
             }
         }
     }

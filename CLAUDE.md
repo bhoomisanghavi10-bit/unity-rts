@@ -6,6 +6,76 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 4 item 25 (Fire Ship, 3-tier naval anti-ship specialist) fully closed
+  (2026-09-05) — code, tests, scene wiring, and live verification all done.**
+  Picked up per the user's "start wave 4 item 25" request, right after item 23
+  (Scorpion) closed. First real consumer of `DamageType.Fire` (declared Wave 0
+  item 4, unused by any live attacker until now — `Attackable.TakeDamage`
+  already resolved Fire against pierceArmor since that item). New
+  `UnitClass.FireShip` (a genuinely new class, not folded into `Naval` — needs
+  an asymmetric matchup: FireShip→Naval 2x hard counter reusing the project's
+  repeated "hard counter vs one class" precedent, Naval→FireShip 1.5x reusing
+  Cavalry→Scorpion's "counter-specialist vulnerable to what it counters"
+  precedent). New `Progression/FireShipLineProgress.cs` mirrors
+  `NavalLineProgress.cs`'s exact 3-tier Classical/Durg/Imperial shape (Agni
+  Nauka → Maha Agni Nauka → Vega Agni Nauka), reusing its own growth values at
+  matching gates. Research lives on Dock as a fully independent second track
+  alongside `NavalLineProgress`'s own (`Dock` now ticks two separate
+  research timers in the same `Update()`). New `Combat/FireShipFactory.cs`
+  mirrors `WarGalleyFactory.cs`'s shape (`BoatModelFactory`/`WaterMover`/
+  `BoatAttacker`, not `MeleeAttacker` — a boat, not a land unit);
+  `BoatAttacker` gained `SetDamageType`/`SetUnitClass` setters that
+  WarGalleyFactory never needed (previously hardcoded to Pierce/Naval).
+  `Dock.RequestTrainFireShip` is Wood-only (70 Wood, no Food/Gold — reuses
+  Scorpion's own "crafted vessel, not a fed crew" cost-model precedent). No
+  dedicated Fire Ship model exists yet — reuses the same "CombatShip" hull
+  War Galley uses, given a deliberate fire-orange tint in place of the civ's
+  own color so it at least reads as visually distinct from a same-civ War
+  Galley despite the shared mesh — **flagging directly per the
+  flag-asset-needs convention: a partial/cheap differentiator, not a
+  substitute for real art.** Full `NetTrainKind.FireShip`/`CommandSerializer`
+  wiring, new `fireShipButton`/`fireShipTierButton`/`fireShipTierLabel` in
+  `BuildMenu.cs`, hotkeys Y/Z (unused within the Dock context specifically),
+  wired into `SettingsMenu`/`HotkeyOverlay`'s `DockGroup`. New
+  `unit_roster_template.csv` "fire_ship" row. 16 new EditMode tests
+  (`FireShipLineTests.cs` mirroring `NavalLineTests.cs`, plus 1 in
+  `TrainingAndTradeTests.cs`; 445 total, all pass). **Found and fixed a real,
+  serious pre-existing regression while live-verifying, not caused by this
+  session's own changes**: `scorpionButton`/`scorpionTierButton`/
+  `scorpionTierLabel` were still `null` in the scene (item 23's own session
+  flagged this gap; it was never closed by a follow-up, unlike Camel Rider's
+  equivalent gap). Because `BuildMenu.Awake()` wires every command-card
+  button's `onClick.AddListener` in one long sequential block and
+  `scorpionButton`'s call sat partway through it, the resulting
+  `NullReferenceException` silently aborted the *rest* of `Awake()` —
+  meaning **every button wired after it, project-wide, in every match** never
+  got a runtime click listener at all: `uniqueUnitButton`, `ungarrisonButton`,
+  `fishingBoatButton`, `warGalleyButton`, `navalTierButton`, all 6 Market
+  trade buttons, `attackUpgradeButton`/`armorUpgradeButton`,
+  `uniqueTechButton`, every tier-research button from `infantryTierButton`
+  onward, and this item's own new `fireShipButton`/`fireShipTierButton`.
+  Caught directly (not assumed) by reflecting into
+  `UnityEventBase.m_Calls.m_RuntimeCalls` after a real button click produced
+  zero effect, confirming 0 listeners rather than a selection mismatch.
+  Fixed the same way every prior session's version of this gotcha was fixed —
+  duplicated `CamelRiderButton`/`CamelRiderTierButton` (+ label child) into
+  real `ScorpionButton`/`ScorpionTierButton`/`ScorpionTierLabel` scene
+  objects and wired them onto `BuildMenu`'s previously-null fields — then
+  re-verified the listener count went 0→1 and the full click chain started
+  working project-wide. Live-verified via UnityMCP through the real
+  production path, after that fix: a real match
+  (`CivilizationSetup.BeginMatch(Rajput)`), a real Dock, a real hostile War
+  Galley — a live Fire Ship hit resolved for exactly 28 damage (14 base × 2x
+  `CombatBonus`) and the reverse hit for exactly 12 damage (8 base × 1.5x),
+  both `CombatBonus` directions confirmed live; the real `FireShipButton`'s
+  own `onClick.Invoke()` left the stockpile unchanged immediately (confirming
+  the `CommandBus` lockstep queue) and deducted exactly 70 Wood about a
+  second later, spawning a real "Rajput Agni Nauka"; the real
+  `FireShipTierButton`'s own `onClick.Invoke()` deducted exactly 120 Gold/60
+  Wood and started research, confirmed independent of that same Dock's Naval
+  tier track. Full EditMode suite re-run after the Scorpion fix: still
+  445/445. Next: Wave 4 item 24 (Trebuchet, 1 tier) or any other Wave 4 item,
+  user's call.
 - **Wave 4 item 23 (Scorpion, 2-tier anti-infantry siege weapon) closed
   (2026-09-05) — code and tests only, Unity-side steps blocked this
   session, see below.** Picked up per the user's "start item 23 wave 4"

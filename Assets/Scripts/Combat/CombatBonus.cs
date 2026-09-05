@@ -193,6 +193,28 @@ namespace KingdomsOfBharat.Combat
                 return 1.5f;
             }
 
+            // Fire Ship (Wave 4 item 25, unit_roster_template.csv
+            // "fire_ship"): the dedicated anti-naval specialist - a fast,
+            // fragile ship whose Fire damage (see FireShipFactory,
+            // DamageType.Fire's first real consumer) is built to burn out
+            // an enemy hull quickly. Reuses the closest existing "hard
+            // counter vs one class" precedent value (2x, same as
+            // Archer->Cavalry/Skirmisher->Archer/Camel->Cavalry/
+            // Scorpion->Infantry), not independently balanced. The
+            // matching weakness reuses Cavalry->Scorpion's own 1.5x - a
+            // regular War Galley punishes this glass-cannon specialist if
+            // it closes the distance first, the same vulnerability real
+            // AoE Fire Ships have to a defended battle line.
+            if (attacker == UnitClass.FireShip && target == UnitClass.Naval)
+            {
+                return 2f;
+            }
+
+            if (attacker == UnitClass.Naval && target == UnitClass.FireShip)
+            {
+                return 1.5f;
+            }
+
             return 1f;
         }
     }
