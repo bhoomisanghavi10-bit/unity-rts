@@ -12,9 +12,12 @@ using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.UI
 {
-    // Context-sensitive build/train menu, bottom-right, AoE-style: which
-    // buttons are even visible depends on what's currently selected, not
-    // just whether they're enabled.
+    // Context-sensitive build/train menu, AoE-style: which buttons are even
+    // visible depends on what's currently selected, not just whether they're
+    // enabled. The command panel (leftmost) of the shared bottom-docked bar
+    // (Roadmap item 30) - the info panel (SelectedUnitPanel + MatchStatus)
+    // sits center, the minimap right. Still the same tall vertical button
+    // column it always was; only where it docks changed.
     //  - A Builder-capable unit selected (and no building selected): shows
     //    Build Barracks/Farm/House/Wall/Gate/Tower/Dock - placement still
     //    needs that worker to walk over and build it afterward. Dock is

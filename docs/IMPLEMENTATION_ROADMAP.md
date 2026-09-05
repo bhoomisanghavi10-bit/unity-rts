@@ -801,15 +801,55 @@ wave rather than being retrofitted piecemeal afterward.
     Wave 4 should get its team-colour material slot from the start rather than retrofitted.
     *Depends on: nothing structurally, but sequenced here deliberately so it lands before any
     more new unit art is finalized.*
-30. **[L] UI layout re-anchor — bottom bar.** From the UI Layout sheet: re-anchor
-    `BuildMenu.cs`, `SelectedUnitPanel.cs`, and a slice of `ResourceHUD.cs` into one shared
-    bottom-docked root (command panel / info panel / minimap, left to right), matching AoE's
-    convention, instead of the current build-menu-right / resource-panel-top-left split. The
-    content and icon language mostly already exist — this is a genuine layout change, sized
-    Large mainly because it touches 3+ UI classes' anchor code and needs full visual
-    re-verification via screenshot, not because the logic is complex. *Depends on: nothing —
-    fully parallel-safe with Waves 0-4 if you want a second track running.*
-31. **[S] Age/research always-visible readout.** Top-center per AoE's convention: current
+30. **[L] UI layout re-anchor — bottom bar. Closed (2026-09-05).** From the UI Layout sheet:
+    re-anchor `BuildMenu.cs`, `SelectedUnitPanel.cs`, and a slice of `ResourceHUD.cs` into one
+    shared bottom-docked root (command panel / info panel / minimap, left to right), matching
+    AoE's convention, instead of the prior build-menu-right / resource-panel-top-left split.
+    User-confirmed design decisions before implementing (both via AskUserQuestion, resolving
+    the item's own two open questions): the "slice" of `ResourceHUD` that moves down is
+    Civilization + Population + Age (Wood/Food/Gold/Stone stay as the top-left ticker,
+    unchanged); `BuildMenu`'s own internal ~56-button vertical stack stays exactly as-is this
+    session — only where it docks changed, per the item's own scope note ("mainly anchor
+    code, not because the logic is complex") — see item 32 below for the follow-up that was
+    explicitly deferred out of this session. None of the 3 scripts set their own root anchor
+    in code (all Inspector/scene data, matching this project's established convention), so
+    this was primarily a scene edit via UnityMCP: new `InfoPanel` root (anchor/pivot
+    (0.5,0)/(0.5,0), bottom-center) holding `SelectedUnitPanel` (reparented, untouched
+    internal layout) with a new `MatchStatus` child stacked above it (holds
+    `civLabel`/`populationLabel`/`ageLabel`, reparented out of `ResourceHUD`, repacked to
+    sequential rows); `ResourceHUD` itself shrunk to just its 4 remaining rows/repacked;
+    `BuildMenu` re-anchored from floating mid-right to bottom-left. `MinimapController` needed
+    no change — already bottom-right, already satisfied the target. One small code addition:
+    `ResourceHUD.cs` gained a `matchStatusBackground` `[SerializeField] Image` field, wired in
+    `Awake()` the same way its existing `background` field already is (reuses
+    `panel_resource_bar` art, no new asset needed) — `MatchStatus` lives under a different
+    root (`InfoPanel`) so it needs its own background wiring rather than inheriting
+    `ResourceHUD`'s. `SelectedUnitPanel.cs`/`BuildMenu.cs` got doc-comment updates only (no
+    functional change) describing their new position in the shared bar. No new EditMode tests
+    (pure layout change, matching this project's own precedent for prior UI-wiring-only
+    sessions — e.g. items 7-9's cursor/skin-wiring sessions); full suite (445/445) confirmed
+    unchanged. Live-verified via UnityMCP through the real production path: a real match
+    (`CivilizationSetup.BeginMatch(Maurya)`), screenshotted the live HUD confirming the exact
+    left-to-right order (BuildMenu / InfoPanel / Minimap) with no overlap, a real selected
+    TownCenter showed `SelectedUnitPanel`'s name/status/HP bar correctly stacked directly
+    below `MatchStatus`'s Civilization/Population/Age with no clipping, `ResourceHUD.Update()`
+    correctly live-updated Food (0→150) at its new tighter top-left ticker and Population
+    (4→5) inside `MatchStatus`, and the real `WorkerButton`'s own `onClick.Invoke()` at its
+    new bottom-left position correctly routed through `CommandBus`'s lockstep queue (Food
+    stockpile unchanged immediately, deducted exactly 50 ~2s later) — hit-testing/raycasting
+    unaffected by the re-anchor. Next: item 31 (Age/research readout, explicitly designed to
+    bundle with this one) or item 32 (newly flagged below), user's call.
+31. **[M] BuildMenu command-panel grid redesign (new, flagged during item 30).** Item 30's
+    own re-anchor kept `BuildMenu`'s internal content exactly as it was — a single tall
+    vertical column of ~56 stacked text-row buttons (currently 220x490, floating well past a
+    typical AoE command-card footprint). The user explicitly asked (when confirming item 30's
+    scope) that redesigning this into a proper horizontal/grid icon layout, paged or
+    scrollable, be tracked as its own item rather than bundled in — it's materially bigger
+    than an anchor change (real UI-flow work across `BuildMenu.cs`'s ~56 button wiring call
+    sites, plus new icon-grid layout code) and deserves its own session. *Depends on: item 30
+    (done) — the panel now docks in a sensible place for a grid redesign to land in without a
+    second re-anchor pass.*
+32. **[S] Age/research always-visible readout.** Top-center per AoE's convention: current
     age name + research-in-progress meter, always on screen. Cheap, and answers the most
     common new-player question. Natural to bundle with item 30 since both touch the top bar
     region. *Depends on: item 30 (do them in the same pass — same screen region, same
@@ -825,28 +865,28 @@ reads as one coherent AoE-style bottom-bar layout rather than two disconnected c
 None of these block each other. Treat this as a backlog to draw from once Waves 0-5 are
 stable, not a strict sequence.
 
-32. **[S] Town Bell.** One-click garrison-all-workers. Cheap, high perceived value during a
+33. **[S] Town Bell.** One-click garrison-all-workers. Cheap, high perceived value during a
     raid. *Depends on: nothing.*
-33. **[S] Idle-worker indicator.** Small UI addition near the minimap. *Depends on: item 30
+34. **[S] Idle-worker indicator.** Small UI addition near the minimap. *Depends on: item 30
     if you want it inside the new bottom bar; otherwise independent.*
-34. **[M] Relics + Monastery-equivalent, if wanted.** AoE II relics pay 0.5 gold/sec and can
+35. **[M] Relics + Monastery-equivalent, if wanted.** AoE II relics pay 0.5 gold/sec and can
     trigger a victory countdown — needs a carrier unit (Vaidya/Purohita from Wave 4 item 27,
     or a dedicated Relic-carrier) and a building to store them in. *Depends on: a yes/no
     design decision, and Wave 4 item 27 if the carrier is Vaidya/Purohita.*
-35. **[M] Score system.** Four weighted categories (Military/Economy/Technology/Society),
+36. **[M] Score system.** Four weighted categories (Military/Economy/Technology/Society),
     modeled on AoE II's own weighting from the Meta & UI sheet. *Depends on: nothing, but
     higher value once Wave 3/4 give it more to actually score.*
-36. **[M] Victory conditions beyond Conquest.** `Match/MatchManager.cs` and
+37. **[M] Victory conditions beyond Conquest.** `Match/MatchManager.cs` and
     `UI/GameOverScreen.cs` already exist — verify which conditions are wired before adding
     more. Wonder, Relic, Regicide (needs Wave 4 item 28's hero), Time Limit. *Depends on: a
     design decision on which conditions you actually want, since building all of AoE's is not
     automatically the right scope for this project.*
-37. **[M] Game modes.** Selectable Skirmish/Deathmatch/Regicide-style/Empire-Wars-style modes
-    on top of the scenario system that already exists. *Depends on: item 36 if modes are
+38. **[M] Game modes.** Selectable Skirmish/Deathmatch/Regicide-style/Empire-Wars-style modes
+    on top of the scenario system that already exists. *Depends on: item 37 if modes are
     tied to specific victory conditions.*
-38. **[S] Cheat codes.** Low priority, genuinely useful for testing your own scenarios.
+39. **[S] Cheat codes.** Low priority, genuinely useful for testing your own scenarios.
     *Depends on: nothing.*
-39. **[S] Tutorial content.** Rides the existing `MissionObjective`/`MissionTrigger` system —
+40. **[S] Tutorial content.** Rides the existing `MissionObjective`/`MissionTrigger` system —
     pure content authoring, no new system needed. *Depends on: nothing, but higher value once
     more of the roster exists to teach.*
 40. **(asset-blocked) Soundtrack.** Already scoped in a prior session: self-serve CC0 tracks

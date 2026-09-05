@@ -8,9 +8,12 @@ using KingdomsOfBharat.Buildings;
 
 namespace KingdomsOfBharat.UI
 {
-    // Bottom-left info panel for whatever SelectionManager currently has
+    // Bottom-center info panel for whatever SelectionManager currently has
     // selected: a single unit's name/status/HP, a building's name/HP/build
-    // progress, or a headcount for a group of units.
+    // progress, or a headcount for a group of units. The middle section of
+    // the shared bottom-docked bar (Roadmap item 30) - BuildMenu (command
+    // panel) on the left, this plus MatchStatus (civ/population/age, from
+    // ResourceHUD) stacked above it in the middle, the minimap on the right.
     // uGUI/TMP replacement for the original OnGUI version - the panel
     // background and labels are real Canvas children wired up in the
     // Inspector; this just toggles which ones are active and pushes text

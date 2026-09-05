@@ -7795,3 +7795,114 @@ re-run after the Scorpion scene fix: still 445/445.
 `docs/IMPLEMENTATION_ROADMAP.md`; `CLAUDE.md`'s "Current status" updated.
 Next: Wave 4 item 24 (Trebuchet, 1 tier) or any other Wave 4 item, user's
 call.
+
+## 2026-09-05 — `IMPLEMENTATION_ROADMAP.md` item 30 (UI layout re-anchor — bottom bar)
+
+Picked up per the user's explicit request to work this item. It's marked
+parallel-safe with Waves 0-4 in the roadmap's own text, and the roadmap's own
+organizing principle (Section "How this roadmap is organized") calls out this
+exact item as the example of "cross-cutting systems before the content that
+will need to have been built with them in mind" — cheap now, more expensive
+after more waves of unit/building content land on top of today's layout.
+
+**Investigation first**: read `BuildMenu.cs`/`SelectedUnitPanel.cs`/
+`ResourceHUD.cs` directly rather than assuming from the item's own phrasing
+("re-anchor `BuildMenu.cs`...") that this meant C# code changes — none of the
+3 scripts sets its own root anchor in code; every root's position is
+Inspector/scene data, consistent with this project's established "panel
+background and labels are Canvas children wired in the Inspector" convention.
+Pulled the live scene's actual RectTransform values via UnityMCP rather than
+guessing: `ResourceHUD` (top-left, 7 stacked rows every 24px: civ/wood/food/
+gold/stone/population/age), `SelectedUnitPanel` (bottom-left, 220x70),
+`BuildMenu` (floating mid-right, 220x490, not touching the bottom edge),
+`MinimapController` (bottom-right, 220x220 — already satisfied the target
+layout's "minimap, bottom-docked" requirement, so needed zero changes).
+
+**Two design decisions confirmed via AskUserQuestion before touching
+anything** (both explicitly left open by the item's own text): which
+`ResourceHUD` rows count as the "slice" that relocates into the bottom info
+panel (confirmed: Civilization + Population + Age move down; Wood/Food/Gold/
+Stone stay as the top-left economy ticker, unchanged), and whether to also
+redesign `BuildMenu`'s internal ~56-button vertical stack into a horizontal
+icon grid while re-anchoring it (confirmed: no — flag it as a new, separate
+follow-up item instead, since it's materially bigger than an anchor change
+and the item's own scope note says "mainly anchor code, not because the
+logic is complex").
+
+**Implementation**, via UnityMCP scene edits (`manage_gameobject`/
+`manage_components`), plus one small code addition:
+- New `InfoPanel` GameObject under `UICanvas`: anchor/pivot (0.5,0)/(0.5,0),
+  bottom-center, `anchoredPosition (0,8)`, size 220x162.
+- `SelectedUnitPanel` reparented under `InfoPanel`, re-anchored to (0,0)/(0,0)
+  at local (0,0) — its own internal name/status/HP-bar layout (a nested
+  `Panel` child) untouched.
+- New `MatchStatus` GameObject under `InfoPanel` (anchor/pivot (0,0)/(0,0),
+  `anchoredPosition (0,78)`, size 220x84, with its own `Image` background) —
+  holds `civLabel`/`populationLabel`/`ageLabel` reparented out of
+  `ResourceHUD`, repacked to sequential rows (10,-6)/(10,-30)/(10,-54)
+  (anchor/pivot (0,1)/(0,1), matching `ResourceHUD`'s own existing per-row
+  convention).
+- `ResourceHUD`'s remaining 4 rows (wood/food/gold/stone) repacked to
+  (-6)/(-30)/(-54)/(-78) to close the gap left by `civLabel`'s removal; its
+  own RectTransform shrunk from 200x190 to 200x120. Its own anchor/pivot/
+  position (top-left, (8,-8)) is unchanged.
+- `BuildMenu` re-anchored from (1,0)/(1,0) floating mid-right
+  (`anchoredPosition (-8,236)`) to (0,0)/(0,0) bottom-left
+  (`anchoredPosition (8,8)`) — same 220x490 size, same internal button stack,
+  just a new dock point.
+- `MinimapController` — no change (already correct).
+- `Assets/Scripts/UI/ResourceHUD.cs`: new `[SerializeField] private Image
+  matchStatusBackground` field, wired in `Awake()` the same way the existing
+  `background` field already is (`Resources.Load<Sprite>
+  ("UI/Panels/panel_resource_bar")`, `Sliced`, `pixelsPerUnitMultiplier =
+  12f`) — reuses existing art, no new asset needed. `MatchStatus` lives under
+  a different root (`InfoPanel`) than `ResourceHUD` itself, so it needs its
+  own background wiring rather than inheriting the block above. Class-level
+  doc comment updated to describe the split.
+- `Assets/Scripts/UI/SelectedUnitPanel.cs`/`Assets/Scripts/UI/BuildMenu.cs`:
+  doc-comment updates only, describing each panel's new position in the
+  shared bottom bar. No functional change to either — confirmed during
+  investigation that neither file has anchor code to touch.
+
+No new EditMode tests — pure layout/scene-data change with one small,
+non-branching code addition, matching this project's own precedent for prior
+UI-wiring-only sessions (e.g. the cursor-states and UI-skin-display-wiring
+items). Full suite re-run after the scene/code changes: 445/445 pass,
+unchanged from before this session.
+
+**Live-verified via UnityMCP** through the real production path, not just
+the isolated scene edits: started a real match
+(`CivilizationSetup.BeginMatch(Maurya)`, bypassing `MissionSelectMenu`/
+`CivPicker`'s own UI by deactivating them directly via reflection-free
+`FindFirstObjectByType`+`SetActive(false)`, the same technique many prior
+sessions have used for this exact bypass). Screenshotted the live Game View
+and confirmed the exact target layout: `ResourceHUD`'s 4-row ticker at
+top-left with no stale rows and no clipping; `MatchStatus`
+(Civilization/Population/Age) rendering correctly at bottom-center with its
+own background; `MinimapController` still correctly bottom-right. Forced a
+real building selection (`SelectionManager`'s private `_selectedBuilding`
+field, set via reflection - the selection API has no public setter) onto a
+real spawned `TownCenter` and confirmed `SelectedUnitPanel` rendered its
+name/status/HP bar correctly stacked directly below `MatchStatus` with zero
+overlap or clipping, and `BuildMenu`'s real "Train Worker"/"Advance to Durg
+Age" buttons rendered correctly at the new bottom-left dock. Granted the
+Player faction 200 Food directly (`ResourceStockpile.Add`, since the
+`BeginMatch` bypass above skips the normal starting-stockpile flow) and
+invoked the real `WorkerButton`'s own `onClick.Invoke()`: Food stayed
+unchanged immediately after the click (confirming it still routes through
+`CommandBus`'s lockstep queue, not a synchronous deduction, at its new
+screen position), then deducted exactly 50 Food ~2 real seconds later — the
+re-anchor didn't affect hit-testing/raycasting. `ResourceHUD.Update()`
+confirmed live-updating both halves correctly: Food 0→150 in the top-left
+ticker, Population 4→5 inside `MatchStatus`.
+
+**Roadmap/CLAUDE.md**: Item 30 marked closed in
+`docs/IMPLEMENTATION_ROADMAP.md`. New item 31 added there (BuildMenu
+command-panel grid redesign — flagged per the user's own instruction not to
+bundle it into this item's scope), with the old items 31-39 cascade-renumbered
+to 32-40 to make room; one stale internal cross-reference (old item 38's
+"Depends on: item 36" note, which meant Victory Conditions) fixed to point at
+its new number (37). `CLAUDE.md`'s "Current status" updated. Next: item 31
+(BuildMenu grid redesign, flagged this session) or item 32 (Age/research
+readout, explicitly designed by the roadmap's own text to bundle with item
+30's work), user's call.

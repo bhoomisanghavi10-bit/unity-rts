@@ -6,6 +6,48 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **`docs/IMPLEMENTATION_ROADMAP.md` item 30 (UI layout re-anchor — bottom bar)
+  closed (2026-09-05).** Picked up per the user's explicit item request. Re-anchored
+  `BuildMenu`, `SelectedUnitPanel`, and a slice of `ResourceHUD` into one shared
+  bottom-docked bar (command panel / info panel / minimap, left to right), replacing
+  the prior split (BuildMenu floating mid-right, resource ticker top-left, selection
+  info bottom-left, minimap bottom-right). Two design decisions confirmed with the
+  user via AskUserQuestion before touching anything: which `ResourceHUD` rows move
+  down (Civilization + Population + Age relocate into the new bottom info panel;
+  Wood/Food/Gold/Stone stay put as the top-left ticker), and whether to also redesign
+  `BuildMenu`'s internal ~56-button vertical stack into a grid while re-anchoring it
+  (no — flagged as a new, separate item 31 instead, per the user's own instruction not
+  to bundle bigger work into this item's stated scope). None of the 3 scripts set
+  their own root anchor in code (all Inspector/scene data, this project's established
+  convention), so this was primarily a scene edit via UnityMCP: new `InfoPanel` root
+  (bottom-center) holding `SelectedUnitPanel` (reparented, internal layout untouched)
+  with a new `MatchStatus` child stacked above it holding the 3 relocated labels
+  (reparented out of `ResourceHUD`, repacked to sequential rows); `ResourceHUD`
+  shrunk to its remaining 4 rows and repacked; `BuildMenu` re-anchored from floating
+  mid-right to bottom-left; `MinimapController` needed no change (already
+  bottom-right, already correct). One small code addition:
+  `ResourceHUD.matchStatusBackground` (new `[SerializeField] Image` field, wired in
+  `Awake()` the same way the existing `background` field already is, reusing
+  `panel_resource_bar` art — `MatchStatus` lives under a different root than
+  `ResourceHUD` so needs its own background wiring). `SelectedUnitPanel.cs`/
+  `BuildMenu.cs` got doc-comment updates only, no functional change. No new EditMode
+  tests (pure layout change, matching this project's precedent for prior UI-wiring
+  sessions); full suite confirmed 445/445 unchanged. Live-verified via UnityMCP
+  through the real production path: a real match
+  (`CivilizationSetup.BeginMatch(Maurya)`), screenshotted the live HUD confirming the
+  exact left-to-right order with no overlap, a real selected TownCenter showed
+  `SelectedUnitPanel`'s name/status/HP bar correctly stacked below `MatchStatus` with
+  no clipping, `ResourceHUD.Update()` correctly live-updated Food (0→150, top-left)
+  and Population (4→5, inside `MatchStatus`), and the real `WorkerButton`'s own
+  `onClick.Invoke()` at its new bottom-left position correctly routed through
+  `CommandBus`'s lockstep queue (stockpile unchanged immediately, deducted exactly 50
+  Food ~2s later) — hit-testing unaffected by the re-anchor. New item 31 added to
+  `docs/IMPLEMENTATION_ROADMAP.md` (BuildMenu command-panel grid redesign), flagged
+  rather than implemented this session as item 31 (bumping the old items 31-39 to
+  32-40 to make room; one stale internal cross-reference, item 38's own "Depends on"
+  note, fixed to match). Next: item 31 (BuildMenu grid redesign, flagged this
+  session) or item 32 (Age/research readout, explicitly designed to bundle with item
+  30), user's call.
 - **Wave 4 item 25 (Fire Ship, 3-tier naval anti-ship specialist) fully closed
   (2026-09-05) — code, tests, scene wiring, and live verification all done.**
   Picked up per the user's "start wave 4 item 25" request, right after item 23
