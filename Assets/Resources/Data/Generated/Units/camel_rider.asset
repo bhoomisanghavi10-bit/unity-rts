@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7eb99104ee614065ac1a988bfa29bc6, type: 3}
+  m_Name: camel_rider
+  m_EditorClassIdentifier: KingdomsOfBharat.Runtime::UnitDefinition
+  unitId: camel_rider
+  displayName: Camel Rider
+  category: 11
+  ageRequirement: 2
+  cost:
+    food: 35
+    wood: 15
+    gold: 0
+    stone: 0
+  trainTimeSeconds: 5
+  maxHP: 40
+  attackDamage: 6
+  attackType: 0
+  meleeArmor: 1
+  pierceArmor: 0
+  attackRange: 1
+  attackSpeed: 0
+  moveSpeed: 6.5
+  isUniqueUnit: 0
+  civOwnerId: 
+  counterNotes: 'Wave 4 item 22: dedicated anti-cavalry specialist (see CombatBonus
+    Camel->Cavalry 2.0x, Infantry->Camel 1.25x) mounted at Cavalry''s own move speed
+    - NEW category/unit, a second answer to Cavalry alongside the foot Spearman'
+  historicalBasis: Camel-mounted desert cavalry historically fielded as a hard counter
+    to horse cavalry
+  prefab: {fileID: 0}

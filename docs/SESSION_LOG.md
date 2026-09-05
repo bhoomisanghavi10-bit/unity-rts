@@ -5,6 +5,95 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-05 — AoE-Parity Wave 4, item 23: Scorpion (2-tier anti-infantry siege weapon)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 23, picked up per the user's
+"start item 23 wave 4" request, right after item 22 (Camel Rider) closed.
+
+**Design decisions**: none needed — the roadmap already fixed tier names/ages
+(Bana Yantra → Maha Bana Yantra, Durg/Imperial) and flagged the one real technical gap
+directly: "`DamageType.Pierce` already exists — this needs a raycast-through code path for
+pass-through damage, not a new mechanic type." Two judgment calls made while implementing,
+both reusing existing precedent rather than inventing new numbers: (1) `UnitClass.Scorpion`
+is a genuinely new class, not folded into `Siege` — Siege's identity is anti-BUILDING (its
+existing 3x `CombatBonus`), Scorpion's is anti-INFANTRY, a different target category
+entirely, so folding them would blur both. (2) The pass-through mechanic is implemented as
+a deterministic line-segment distance test over the same `Unit.All`/`Building.All`
+registries `MeleeAttacker.ResolveSplash` already scans, not a real `Physics` raycast — this
+project's combat resolution has never used PhysX for hit detection (splash doesn't either),
+and the lockstep-lane sim wants determinism, so a pure-math test over existing registries
+matches the established convention instead of introducing a new one.
+
+**Implementation**: new `MeleeAttacker.SetPierceThrough(depth)` — a hit continues past the
+primary target in the same straight line for `depth` further, hitting anything else
+hostile standing within `PierceLineHalfWidth` (0.6) of that line at FULL damage
+(`extraMultiplier: 1f`), deliberately not reduced like `SetSplashRadius`'s own multiplier —
+a piercing bolt doesn't lose force the way a fragmentation blast does. New `ResolvePierceThrough`/
+`IsBehindTargetInLine` mirror `ResolveSplash`'s own registry-scanning shape exactly, just
+with a line-segment geometry test (forward projection + lateral distance via dot product)
+instead of a radius-from-impact-point test. New `CombatBonus` pairings: Scorpion→Infantry 2x
+(reusing the closest existing "hard counter vs one class" precedent value, same as
+Archer→Cavalry/Skirmisher→Archer/Camel→Cavalry) and Cavalry→Scorpion 1.5x (reusing
+Cavalry→Infantry's own value directly — a fast unit closes the gap on this unarmored,
+slow-moving engine before it fires twice, the same vulnerability real AoE Scorpions have to
+cavalry raids). New `Progression/ScorpionLineProgress.cs` mirrors
+`CamelRiderLineProgress.cs`'s 2-tier Durg/Imperial shape exactly; tier 1's bonus/cost reuses
+every other line's own established Imperial-gate growth (+30 HP/+6 dmg/200 Gold/100
+Wood/40s). New `Combat/ScorpionFactory.cs` mirrors `SiegeFactory.cs`'s shape (slow, no
+`GarrisonSeeker` — siege units don't garrison, same exclusion Siege itself already has) but
+with `DamageType.Pierce` and Archer-style range instead, plus a fresh Wood+Gold-only cost
+model (no Food, a craft-built machine doesn't need feeding) — calls `SetPierceThrough(3f)`,
+chosen so the bolt reaches a second rank standing directly behind the primary target in a
+default Line formation (`FormationDefinition`'s default `unitSpacing` 1.5) without reaching
+a third. No dedicated siege-engine model exists yet ("machine only, no crew" per
+`docs/YOUR_ACTION_ITEMS.md` item 23) — reuses the same Male Human Character Dummy body plus
+the Bow prop like Archer (flagged per the flag-asset-needs convention: currently looks
+identical to an Archer, no wheeled/tripod silhouette). New
+`Barracks.RequestTrainScorpion`/`RequestResearchScorpionTier` (independent research track),
+new `scorpionButton`/`scorpionTierButton`/`scorpionTierLabel` in `BuildMenu.cs`, hotkeys W
+(train) and X (tier research) — both confirmed unused within the Barracks-selected context
+specifically (already claimed elsewhere — TrainWarGalley/ResearchNavalTier on Dock, a
+mutually-exclusive selection context), wired into `SettingsMenu`/`HotkeyOverlay`'s
+`BarracksGroup`. Full `NetTrainKind.Scorpion`/`CommandSerializer` wiring. Added a
+`unit_roster_template.csv` "scorpion" row (0 Food/100 Wood/60 Gold/35 HP/12 dmg/Pierce/0
+melee armor/0 pierce armor/1.6 speed/6 range). 19 new EditMode tests
+(`ScorpionLineTests.cs` mirroring `CamelRiderLineTests.cs`'s coverage shape, plus a
+dedicated `ScorpionPierceThroughTests.cs` mirroring `SiegeSplashTests.cs`'s own split
+between line-progress coverage and combat-mechanic coverage).
+
+**Found and fixed one real adjacent bug**: while wiring `scorpionButton`'s own visibility
+into `BuildMenu.Update()`'s `SetActive(barracks != null)` block, found that
+`cavalryArcherButton`/`camelRiderButton` and their own tier buttons were never added to
+that block by their own sessions — only `.interactable` was gated, not visibility, so
+either button (and its tier-research counterpart) could stay visible with no Barracks
+selected at all. Fixed alongside this item's own wiring, in the same file, rather than left
+in place or expanded into a separate session.
+
+**Blocked this session, not glossed over**: both the `unity` and `UnityMCP` MCP servers
+failed to connect for the entire session (`ConnectionRefused`) — the identical blocker item
+22's own first session hit. As a result, three real follow-up steps are outstanding and
+explicitly not done: (1) `BharatRTS/Generate Data Assets From CSV` has not been run, so
+`ScorpionFactory` will log its "no generated UnitDefinition" warning and use its hardcoded
+fallback stats until regenerated; (2) the new `scorpionButton`/`scorpionTierButton`/
+`scorpionTierLabel` `[SerializeField]` fields are almost certainly null in the scene (the
+exact recurring "new SerializeField null in the scene" gotcha every Wave 2/3/4 session has
+hit — needs duplicating `CamelRiderButton`/`CamelRiderTierButton` into real scene objects
+via UnityMCP); (3) the EditMode suite has not been re-run to confirm a new total (411
+existing + 19 new = 430 expected), and no live UnityMCP verification through the real
+production path was possible. All code was written by mirroring the closest existing
+precedent file-for-file (`CamelRiderLineProgress.cs`/`CamelRiderFactory.cs`/
+`CamelRiderLineTests.cs` and `SiegeSplashTests.cs` for the new pierce-through mechanic, plus
+their exact wiring call sites across `Barracks.cs`/`BuildMenu.cs`/`NetMessage.cs`/
+`CommandSerializer.cs`/`SettingsMenu.cs`/`HotkeyOverlay.cs`), so risk of a real compile
+error is low, but this has NOT been confirmed by an actual compile/test run this session.
+
+**Roadmap**: Section 5/Wave 4 item 23 checked off as closed (code+tests only, Unity-side
+steps outstanding, documented in the checkoff itself). Next: run the 3 outstanding Unity-
+side steps above once Unity/UnityMCP is reachable again, then Wave 4 item 24 (Trebuchet, 1
+tier) or any other Wave 4 item, user's call.
+
+---
+
 ## 2026-09-05 — AoE-Parity Wave 4, item 22: Camel Rider (2-tier mounted anti-cavalry specialist)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 22, picked up per the user's
@@ -7541,3 +7630,60 @@ without going through the normal match-start flow.
 **Roadmap**: Section 1 items 1–2 checked off; Section 5 item 1 marked done; Section 2
 gained a note about the new asmdef structure being a deliberate keeper, not a target
 for "cleanup."
+
+## 2026-09-05 — Wave 4 item 22 (Camel Rider) outstanding steps closed
+
+Picked up exactly where the prior Camel Rider session left off (code/tests
+shipped but Unity/UnityMCP was unreachable that entire session, so none of
+the 4 outstanding steps CLAUDE.md flagged could be done). UnityMCP reachable
+this session.
+
+1. **`BharatRTS/Generate Data Assets From CSV`** — ran via `execute_menu_item`.
+   Console showed "BharatRTS: data asset generation complete." with zero
+   errors/warnings. Confirmed the `camel_rider` `UnitDefinition` now exists
+   under `Resources/Data/Generated` (`Resources.LoadAll("Data/Generated")`
+   lists it alongside every other unit) — `CamelRiderFactory` reads real
+   baked stats now, not its hardcoded fallback.
+2. **Scene wiring** — duplicated `CavalryArcherButton`/`CavalryArcherTierButton`
+   (+ its child `CavalryArcherTierLabel`) via UnityMCP, renamed to
+   `CamelRiderButton`/`CamelRiderTierButton`/`CamelRiderTierLabel`,
+   repositioned to a new row below the existing Cavalry Archer row, and wired
+   all 3 onto `BuildMenu`'s previously-null `camelRiderButton`/
+   `camelRiderTierButton`/`camelRiderTierLabel` `[SerializeField]` fields via
+   `manage_components.set_property` (targeting the `Button`/`Button`/
+   `TextMeshProUGUI` component instances, not the GameObjects). Verified via
+   the component resource that all 3 fields now resolve correctly. Scene
+   saved.
+3. **EditMode suite** — 411/411 pass (399 pre-existing + 12 new
+   `CamelRiderLineTests.cs`), confirming the exact count CLAUDE.md predicted.
+4. **Live verification** via UnityMCP through the real production path:
+   real match (`CivilizationSetup.BeginMatch(Maurya)`), a real
+   `BarracksFactory.Place` Barracks, `RequestTrainCamelRider()` deducted
+   exactly 35 Food/15 Wood and spawned a real "Maurya Ushtrarohi"
+   (`Attackable.Class == Camel`, HP 44, a real `MeleeAttacker` and
+   `GarrisonSeeker` both present — confirming the new `UnitClass.Camel` is
+   live, not just compiled). `CombatBonus.Multiplier(Camel, Cavalry)` = 2x
+   and `Multiplier(Infantry, Camel)` = 1.25x both confirmed live.
+   `RequestResearchCamelRiderTier()` correctly refused at Classical age with
+   zero deduction, then (after advancing to Imperial) deducted exactly 200
+   Gold/100 Wood and completed via a forced tick; a Camel Rider trained
+   afterward came out "Maurya Maha Ushtrarohi" at 84 HP while
+   already-spawned Ushtrarohi units stayed at 44 HP — not retroactive,
+   confirmed live. Then through the real scene UI path specifically: the
+   real `CamelRiderButton`'s own `onClick.Invoke()` left the stockpile
+   unchanged immediately (confirming it goes through `CommandBus`'s
+   lockstep queue, not a synchronous deduction) and deducted the exact cost
+   (35 Food/15 Wood) ~2.5 real seconds later; the real
+   `CamelRiderTierButton`'s label correctly read "Camel Rider (Max Tier)"
+   with `interactable=false` once that faction's tier was already maxed.
+   One benign artifact noted but not chased: a live headcount briefly showed
+   3 "Ushtra"-named units instead of the 2 directly attributable to this
+   session's own explicit train calls (likely a scene AiController incidental
+   to this sandbox, not a Camel Rider code path — the tier-not-retroactive
+   proof holds regardless, since both un-upgraded instances stayed at base
+   HP). No AI-side training hook for Camel Rider, same explicitly-out-of-scope
+   call as every other Wave 3/4 item.
+
+This closes Wave 4 item 22 end to end — code, tests, scene wiring, and live
+verification all done. Next: Wave 4 item 23 (Scorpion, 2 tiers) or any other
+Wave 4 item, user's call.
