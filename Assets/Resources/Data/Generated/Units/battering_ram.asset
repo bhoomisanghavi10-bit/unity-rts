@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: KingdomsOfBharat.Runtime::UnitDefinition
   unitId: battering_ram
   displayName: Battering Ram
-  category: 0
+  category: 10
   ageRequirement: 2
   cost:
     food: 60

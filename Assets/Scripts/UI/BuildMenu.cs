@@ -75,6 +75,10 @@ namespace KingdomsOfBharat.UI
         // (see charaButton/skirmisherButton for the prior precedent of this
         // shape).
         [SerializeField] private Button batteringRamButton;
+        // Wave 4 item: Cavalry Archer - the fourth wholly-new Wave 4 unit
+        // (see charaButton/skirmisherButton/batteringRamButton for the
+        // prior precedent of this shape).
+        [SerializeField] private Button cavalryArcherButton;
         [SerializeField] private Button uniqueUnitButton;
         [SerializeField] private TMP_Text uniqueUnitLabel;
         // Roadmap Section 5 item 3: Maurya/Maratha each have a 2nd unique
@@ -158,6 +162,11 @@ namespace KingdomsOfBharat.UI
         // Barracks.
         [SerializeField] private Button batteringRamTierButton;
         [SerializeField] private TMP_Text batteringRamTierLabel;
+        // Wave 4 item: Cavalry Archer tier ladder research button, same
+        // gating shape as batteringRamTierButton - acts on a selected
+        // Barracks.
+        [SerializeField] private Button cavalryArcherTierButton;
+        [SerializeField] private TMP_Text cavalryArcherTierLabel;
         [SerializeField] private Button ageButton;
         [SerializeField] private TMP_Text ageLabel;
         [SerializeField] private Button improvedToolsButton;
@@ -196,6 +205,7 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyTrainChara;
         private KeyCode _keyTrainSkirmisher;
         private KeyCode _keyTrainBatteringRam;
+        private KeyCode _keyTrainCavalryArcher;
         private KeyCode _keyTrainUniqueUnit;
         private KeyCode _keyTrainUniqueUnit2;
         private KeyCode _keyResearchAttack;
@@ -212,6 +222,7 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyResearchCharaTier;
         private KeyCode _keyResearchSkirmisherTier;
         private KeyCode _keyResearchBatteringRamTier;
+        private KeyCode _keyResearchCavalryArcherTier;
         private KeyCode _keyTrainFishingBoat;
         private KeyCode _keyTrainWarGalley;
         private KeyCode _keyResearchNavalTier;
@@ -250,6 +261,7 @@ namespace KingdomsOfBharat.UI
             charaButton.onClick.AddListener(TrainCharaAtSelected);
             skirmisherButton.onClick.AddListener(TrainSkirmisherAtSelected);
             batteringRamButton.onClick.AddListener(TrainBatteringRamAtSelected);
+            cavalryArcherButton.onClick.AddListener(TrainCavalryArcherAtSelected);
             uniqueUnitButton.onClick.AddListener(TrainUniqueUnitAtSelected);
             uniqueUnitButton2.onClick.AddListener(TrainUniqueUnit2AtSelected);
             ungarrisonButton.onClick.AddListener(UngarrisonAtSelected);
@@ -276,6 +288,7 @@ namespace KingdomsOfBharat.UI
             charaTierButton.onClick.AddListener(ResearchCharaTierAtSelected);
             skirmisherTierButton.onClick.AddListener(ResearchSkirmisherTierAtSelected);
             batteringRamTierButton.onClick.AddListener(ResearchBatteringRamTierAtSelected);
+            cavalryArcherTierButton.onClick.AddListener(ResearchCavalryArcherTierAtSelected);
             ageButton.onClick.AddListener(RequestAgeUpAtSelected);
             improvedToolsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.ImprovedTools));
             packMulesButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.PackMules));
@@ -305,6 +318,12 @@ namespace KingdomsOfBharat.UI
             // contexts) - reused freely per this file's own established
             // convention (see HandleHotkeys' header comment).
             _keyTrainBatteringRam = GameSettings.GetKey("TrainBatteringRam", KeyCode.D);
+            // Wave 4 item: K/P aren't used anywhere in the Barracks context
+            // yet (K = ResearchArmor on Karmashala, P = ResearchPackMules
+            // on TownCenter - both mutually exclusive with a selected
+            // Barracks) - reused freely per this file's own established
+            // convention (see HandleHotkeys' header comment).
+            _keyTrainCavalryArcher = GameSettings.GetKey("TrainCavalryArcher", KeyCode.K);
             _keyTrainUniqueUnit = GameSettings.GetKey("TrainUniqueUnit", KeyCode.Q);
             _keyTrainUniqueUnit2 = GameSettings.GetKey("TrainUniqueUnit2", KeyCode.Z);
             _keyResearchAttack = GameSettings.GetKey("ResearchAttack", KeyCode.U);
@@ -321,6 +340,7 @@ namespace KingdomsOfBharat.UI
             _keyResearchCharaTier = GameSettings.GetKey("ResearchCharaTier", KeyCode.G);
             _keyResearchSkirmisherTier = GameSettings.GetKey("ResearchSkirmisherTier", KeyCode.V);
             _keyResearchBatteringRamTier = GameSettings.GetKey("ResearchBatteringRamTier", KeyCode.R);
+            _keyResearchCavalryArcherTier = GameSettings.GetKey("ResearchCavalryArcherTier", KeyCode.P);
             _keyTrainFishingBoat = GameSettings.GetKey("TrainDockUnit", KeyCode.B);
             _keyTrainWarGalley = GameSettings.GetKey("TrainWarGalley", KeyCode.W);
             _keyResearchNavalTier = GameSettings.GetKey("ResearchNavalTier", KeyCode.X);
@@ -617,6 +637,8 @@ namespace KingdomsOfBharat.UI
                 if (Input.GetKeyDown(_keyResearchSkirmisherTier)) ResearchSkirmisherTierAtSelected();
                 if (Input.GetKeyDown(_keyTrainBatteringRam)) TrainBatteringRamAtSelected();
                 if (Input.GetKeyDown(_keyResearchBatteringRamTier)) ResearchBatteringRamTierAtSelected();
+                if (Input.GetKeyDown(_keyTrainCavalryArcher)) TrainCavalryArcherAtSelected();
+                if (Input.GetKeyDown(_keyResearchCavalryArcherTier)) ResearchCavalryArcherTierAtSelected();
                 if (Input.GetKeyDown(_keyResearchUniqueTech)) ResearchUniqueTechAtSelected();
                 if (Input.GetKeyDown(_keyResearchInfantryTier)) ResearchInfantryTierAtSelected();
                 if (Input.GetKeyDown(_keyResearchSpearmanTier)) ResearchSpearmanTierAtSelected();
@@ -668,6 +690,7 @@ namespace KingdomsOfBharat.UI
             charaButton.interactable = canTrain;
             skirmisherButton.interactable = canTrain;
             batteringRamButton.interactable = canTrain;
+            cavalryArcherButton.interactable = canTrain;
 
             UpdateUniqueTechButton(barracks);
             UpdateInfantryTierButton(barracks);
@@ -678,6 +701,7 @@ namespace KingdomsOfBharat.UI
             UpdateCharaTierButton(barracks);
             UpdateSkirmisherTierButton(barracks);
             UpdateBatteringRamTierButton(barracks);
+            UpdateCavalryArcherTierButton(barracks);
         }
 
         // Wave 3 item 9: Infantry tier ladder research button state - same
@@ -931,6 +955,37 @@ namespace KingdomsOfBharat.UI
 
             batteringRamTierButton.interactable = barracks.IsComplete;
             batteringRamTierLabel.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
+        }
+
+        // Wave 4 item: Cavalry Archer tier ladder research button state -
+        // identical shape to UpdateBatteringRamTierButton/UpdateSkirmisherTierButton.
+        private void UpdateCavalryArcherTierButton(Barracks barracks)
+        {
+            if (barracks.IsResearchingCavalryArcherTier)
+            {
+                cavalryArcherTierButton.interactable = false;
+                cavalryArcherTierLabel.text = $"Researching Cavalry Archer... {(int)(barracks.CavalryArcherTierResearchProgress * 100f)}%";
+                return;
+            }
+
+            FactionId faction = NetworkMatch.LocalFaction;
+            if (!CavalryArcherLineProgress.HasNextTier(faction))
+            {
+                cavalryArcherTierButton.interactable = false;
+                cavalryArcherTierLabel.text = "Cavalry Archer (Max Tier)";
+                return;
+            }
+
+            CavalryArcherTierData next = CavalryArcherLineProgress.NextTierData(faction);
+            if (!CavalryArcherLineProgress.NextTierAgeRequirementMet(faction))
+            {
+                cavalryArcherTierButton.interactable = false;
+                cavalryArcherTierLabel.text = $"Upgrade to {next.Name} (needs {next.RequiredAge} Age)";
+                return;
+            }
+
+            cavalryArcherTierButton.interactable = barracks.IsComplete;
+            cavalryArcherTierLabel.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
         }
 
         // Wave 2 item 8: flat Attack/Armor research button state, split out
@@ -1338,6 +1393,14 @@ namespace KingdomsOfBharat.UI
             }
         }
 
+        private void TrainCavalryArcherAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                EnqueueTrain(barracks, barracks.RequestTrainCavalryArcher, NetTrainKind.CavalryArcher);
+            }
+        }
+
         private void TrainUniqueUnitAtSelected()
         {
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Durg durg)
@@ -1506,6 +1569,14 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
                 barracks.RequestResearchBatteringRamTier();
+            }
+        }
+
+        private void ResearchCavalryArcherTierAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                barracks.RequestResearchCavalryArcherTier();
             }
         }
 

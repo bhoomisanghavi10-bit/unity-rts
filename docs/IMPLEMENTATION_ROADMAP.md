@@ -743,9 +743,10 @@ the others — genuinely parallel-safe once Waves 0-1 are done.
     at 4x (steeper than Siege's own 3x), `Barracks.RequestTrainBatteringRam`/
     `RequestResearchBatteringRamTier`, full `BuildMenu`/hotkey (D/R)/`NetTrainKind` wiring, 16
     new EditMode tests. *Depends on: Wave 0, Wave 1.*
-21. **[S] Cavalry Archer, 2 tiers.** Ashva Dhanurdhara → Maha Ashva Dhanurdhara,
+21. ~~**[S] Cavalry Archer, 2 tiers.** Ashva Dhanurdhara → Maha Ashva Dhanurdhara,
     Durg/Imperial. Mobile ranged raider, fits Rajput/Maratha horse-archer tradition.
-    *Depends on: Wave 0, Wave 1.*
+    *Depends on: Wave 0, Wave 1.*~~ **Closed (2026-09-05).** See `CLAUDE.md`'s
+    "Current status" for full detail.
 22. **[S] Camel Rider, 2 tiers (design decision first).** Ushtrarohi → Maha Ushtrarohi,
     Durg/Imperial. Resolve in Plan Mode whether this ships at all before coding — it's listed
     as a design decision, not a confirmed build, in the spec workbook. *Depends on: Wave 0,

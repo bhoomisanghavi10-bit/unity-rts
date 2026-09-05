@@ -58,6 +58,7 @@ namespace KingdomsOfBharat.Buildings
             Chara,
             Skirmisher,
             BatteringRam,
+            CavalryArcher,
         }
 
         [SerializeField] private float soldierFoodCost = 50f;
@@ -155,6 +156,12 @@ namespace KingdomsOfBharat.Buildings
         // trains.
         private float _batteringRamTierResearchRemaining = -1f;
 
+        // Wave 4 item: the Cavalry Archer tier ladder (Ashva Dhanurdhara ->
+        // Maha Ashva Dhanurdhara) - same independent, non-blocking
+        // research-track shape as every other tier line above, also living
+        // on Barracks since it upgrades what Barracks itself trains.
+        private float _cavalryArcherTierResearchRemaining = -1f;
+
         private ConstructionSite Site
         {
             get
@@ -247,6 +254,11 @@ namespace KingdomsOfBharat.Buildings
             ? 1f - (_batteringRamTierResearchRemaining / BatteringRamLineProgress.NextTierData(Faction).ResearchTime)
             : 0f;
 
+        public bool IsResearchingCavalryArcherTier => _cavalryArcherTierResearchRemaining >= 0f;
+        public float CavalryArcherTierResearchProgress => IsResearchingCavalryArcherTier
+            ? 1f - (_cavalryArcherTierResearchRemaining / CavalryArcherLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -307,6 +319,11 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingBatteringRamTier)
             {
                 TickBatteringRamTierResearch();
+            }
+
+            if (IsResearchingCavalryArcherTier)
+            {
+                TickCavalryArcherTierResearch();
             }
         }
 
@@ -519,6 +536,38 @@ namespace KingdomsOfBharat.Buildings
             _remaining = ScaledTrainTime();
         }
 
+        // Wave 4 item: Cavalry Archer - the fourth wholly-new Wave 4 unit,
+        // read straight from DataRegistry rather than fixed Inspector
+        // fields, same reasoning as RequestTrainSpearman/RequestTrainChara/
+        // RequestTrainSkirmisher/RequestTrainBatteringRam above. Falls back
+        // to unit_roster_template.csv's known values (60 Food, 40 Gold) if
+        // the generated asset is ever missing. No age gate of its own -
+        // tier 0's Durg RequiredAge is descriptive only, same convention
+        // RequestTrainCavalry already established.
+        public void RequestTrainCavalryArcher()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            UnitDefinition def = DataRegistry.GetUnit("cavalry_archer");
+            float foodCost = def != null ? def.cost.food : 60f;
+            float goldCost = def != null ? def.cost.gold : 40f;
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Food) < foodCost
+                || stockpile.GetTotal(ResourceType.Gold) < goldCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Food, -foodCost);
+            stockpile.Add(ResourceType.Gold, -goldCost);
+            _trainingUnit = TrainingUnit.CavalryArcher;
+            _remaining = ScaledTrainTime();
+        }
+
         private float ScaledTrainTime(float baseTrainTime = -1f)
         {
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
@@ -540,6 +589,7 @@ namespace KingdomsOfBharat.Buildings
                     TrainingUnit.Chara => ScoutFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.Skirmisher => SkirmisherFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.BatteringRam => BatteringRamFactory.Spawn(transform.position + rallyOffset, Faction),
+                    TrainingUnit.CavalryArcher => CavalryArcherFactory.Spawn(transform.position + rallyOffset, Faction),
                     _ => SoldierFactory.Spawn(transform.position + rallyOffset, Faction),
                 };
                 _rally.ApplyTo(spawned);
@@ -922,6 +972,40 @@ namespace KingdomsOfBharat.Buildings
             {
                 BatteringRamLineProgress.AdvanceTier(Faction);
                 _batteringRamTierResearchRemaining = -1f;
+            }
+        }
+
+        // Wave 4 item: Cavalry Archer tier ladder research - same shape as
+        // every other tier line above.
+        public void RequestResearchCavalryArcherTier()
+        {
+            if (!IsComplete || IsResearchingCavalryArcherTier
+                || !CavalryArcherLineProgress.HasNextTier(Faction)
+                || !CavalryArcherLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            CavalryArcherTierData next = CavalryArcherLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _cavalryArcherTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickCavalryArcherTierResearch()
+        {
+            _cavalryArcherTierResearchRemaining -= Time.deltaTime;
+            if (_cavalryArcherTierResearchRemaining <= 0f)
+            {
+                CavalryArcherLineProgress.AdvanceTier(Faction);
+                _cavalryArcherTierResearchRemaining = -1f;
             }
         }
     }

@@ -5,6 +5,78 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-05 — AoE-Parity Wave 4, item 21: Cavalry Archer (2-tier mobile ranged raider)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 21, picked up per the user's
+explicit choice (offered a choice between this and item 22/Camel Rider, which needs a
+ship-or-not design decision first; user picked Cavalry Archer as the no-open-questions
+option), right after item 20 (Battering Ram) closed.
+
+**Design choice made explicitly** (the roadmap fixes tier names/ages/count, not what
+class this counts as for combat purposes): classified `CavalryArcherFactory` as
+`UnitClass.Archer`, not a new class. A mounted Archer, not a new counter archetype -
+this keeps it inside the existing counter web for free (`CombatBonus`): it still
+hard-counters Cavalry (Archer→Cavalry 2x) and is still hard-countered by Skirmisher
+(Skirmisher→Archer 2x), taking the Infantry→Archer 1.5x penalty too, exactly like a
+foot Archer - only its move speed (borrowed from Cavalry's own value, 6.0) and cost
+differ. Deliberately does NOT read `CivilizationProfile.FindCategoryMultiplier` with
+`UnitClass.Cavalry` (the Maratha cavalry-speed/Rajput cavalry-damage civ bonuses) -
+those are scoped to units whose actual combat class is Cavalry, and this unit's is
+Archer, so it correctly falls outside them; it just happens to ride a horse.
+
+**Implementation**: new `Progression/CavalryArcherLineProgress.cs` mirrors
+`SkirmisherLineProgress.cs`'s 2-tier shape exactly, but gated at Durg/Imperial (not
+Classical/Durg) per the roadmap's own item text - tier 0's Durg `RequiredAge` is
+descriptive only, never enforced (`RequestTrainCavalryArcher` has no age gate of its
+own, same convention `CavalryLineProgress`/`ArcherLineProgress` already established).
+Tier 1 (Maha Ashva Dhanurdhara) reuses every other line's own established Imperial-gate
+growth exactly (+30 HP/+6 dmg/200 Gold/100 Wood/40s), not independently balanced. New
+`Combat/CavalryArcherFactory.cs` combines `ArcherFactory`'s ranged-attack setup with
+`CavalryFactory`'s mount/speed setup - reuses the same Male Human Character Dummy body
+plus both the Bow (`LeftHand`) and Horse (`AttachBeside`) props, no dedicated
+mounted-archer model exists yet (same "primitive/placeholder until a real pack lands"
+convention used everywhere else in this project) - **flagging directly per the
+flag-asset-needs convention: a Cavalry Archer currently looks identical to a mounted
+Archer/Cavalry hybrid using existing props, no distinct silhouette.** New
+`Barracks.RequestTrainCavalryArcher`/`RequestResearchCavalryArcherTier` (independent
+research track alongside every other Barracks tier line), new `cavalryArcherButton`/
+`cavalryArcherTierButton`/`cavalryArcherTierLabel` in `BuildMenu.cs`, hotkeys K/P
+(unused within the Barracks context specifically - both already reused across
+mutually-exclusive TownCenter/Karmashala contexts, this file's own established
+convention), wired into `SettingsMenu`/`HotkeyOverlay`'s `BarracksGroup`. Full
+`NetTrainKind.CavalryArcher`/`CommandSerializer` wiring. Added a
+`unit_roster_template.csv` "cavalry_archer" row (60 Food/40 Gold/30 HP/5 dmg/Pierce/6
+range/6.0 speed) and regenerated data assets via `BharatRTS/Generate Data Assets From
+CSV`. 12 new EditMode tests (`CavalryArcherLineTests.cs`, 399 total, all pass).
+
+**Scene wiring**: hit the same recurring "new `[SerializeField]` null in the scene"
+gotcha every Wave 2/3/4 session has hit (duplicated `BatteringRamButton`/
+`BatteringRamTierButton` into real `CavalryArcherButton`/`CavalryArcherTierButton`
+scene objects via UnityMCP, renamed their child label objects, and set their text).
+
+**Live verification** via UnityMCP through the real production path: a real match
+(`CivilizationSetup.BeginMatch(Rajput)`), a real `BarracksFactory.Place` Barracks -
+`RequestTrainCavalryArcher()` correctly trained even at Ancient Age (confirming tier
+0's Durg `RequiredAge` is descriptive only, same as Cavalry's own base) and deducted
+exactly 60 Food/40 Gold; a forced tick spawned a real "Rajput Ashva Dhanurdhara"
+(`Attackable.Class == Archer`, HP 34.5, move speed 6, a real `GarrisonSeeker` and
+`VisionSource` both present); `RequestResearchCavalryArcherTier()` correctly refused
+at Durg with zero deduction, then deducted exactly 200 Gold/100 Wood at Imperial;
+after a forced tick completed it, the two already-spawned Ashva Dhanurdhara units
+stayed at 34.5 HP while a new one trained afterward came out "Rajput Maha Ashva
+Dhanurdhara" at 82.8 HP - not retroactive, confirmed live. Then through the real
+scene UI path specifically: the real `CavalryArcherButton`'s own `onClick.Invoke()`
+left the stockpile unchanged immediately (confirming it goes through `CommandBus`'s
+lockstep queue, not a synchronous deduction) and deducted the exact cost ~2 real
+seconds later; the real `CavalryArcherTierButton`'s label correctly read "Cavalry
+Archer (Max Tier)" once that faction's tier was already maxed from the earlier test.
+No AI-side training hook, same explicitly-out-of-scope call as every other Wave 3/4
+item. Next: Wave 4 item 22 (Camel Rider - needs a design-decision Plan Mode session
+first per its own roadmap text) or any other Wave 4 item, user's call - all are
+parallel-safe once Wave 0/1 are done.
+
+---
+
 ## 2026-09-05 — AoE-Parity Wave 4, item 20: Battering Ram (3-tier anti-building specialist)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 20, picked up per the user's "start

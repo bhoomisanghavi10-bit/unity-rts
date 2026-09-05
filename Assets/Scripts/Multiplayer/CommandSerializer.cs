@@ -139,6 +139,7 @@ namespace KingdomsOfBharat.Multiplayer
                     NetTrainKind.Chara => barracks.RequestTrainChara,
                     NetTrainKind.Skirmisher => barracks.RequestTrainSkirmisher,
                     NetTrainKind.BatteringRam => barracks.RequestTrainBatteringRam,
+                    NetTrainKind.CavalryArcher => barracks.RequestTrainCavalryArcher,
                     _ => null,
                 };
                 return requestTrain == null ? null : new TrainCommand(faction, barracks, requestTrain);
