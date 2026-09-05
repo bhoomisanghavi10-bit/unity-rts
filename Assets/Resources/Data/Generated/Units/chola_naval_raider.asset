@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
   unitId: chola_naval_raider
   displayName: Chola Naval Raider
-  category: 3
+  category: 1
   ageRequirement: 2
   cost:
     food: 55

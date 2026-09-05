@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
+using KingdomsOfBharat.Combat;
 
 // Phase 6 architecture migration, step 1: reads the 4 CSVs under
 // Assets/Design/Data/ (civ_bonus_template, tech_tree_template,
@@ -138,7 +139,7 @@ public static class CsvToScriptableObject
             UnitDefinition unit = LoadOrCreate<UnitDefinition>(UnitFolder, unitId);
             unit.unitId = unitId;
             unit.displayName = row["DisplayName"];
-            unit.category = ParseEnum(row["Category"], UnitCategory.Infantry);
+            unit.category = ParseEnum(row["Category"], UnitClass.Infantry);
             unit.ageRequirement = ParseInt(row["Age"], 1);
             unit.cost = new ResourceCost
             {
@@ -297,7 +298,7 @@ public static class CsvToScriptableObject
     private static readonly Regex FlatAddPattern = new Regex(@"([+-]?\d+(?:\.\d+)?)\s*flat", RegexOptions.IgnoreCase);
 
     // Not every civ_bonus_template row is representable as a StatModifier:
-    // UnitCategory has no "Building" entry, so per-building costs (Houses/
+    // UnitClass has no "Building" entry, so per-building costs (Houses/
     // Docks/fortifications/Market spread) and flat building stats (Tower
     // range) have no home here; probabilistic/structural mechanics
     // (dismount-survival chance, Age-skip, permanent scouted-position
@@ -355,7 +356,7 @@ public static class CsvToScriptableObject
 
             // Building-specific phrasing ("Wood cost on Houses", "Dock
             // cost", "Towers get +15% HP") has no representable target (no
-            // Building entry in UnitCategory) for ANY stat, not just cost/
+            // Building entry in UnitClass) for ANY stat, not just cost/
             // time - excluded before stat detection runs. Deliberately
             // checked against this split PART's own text only, not the
             // shared description: a row like "Docks cost 25% less Wood and
@@ -396,26 +397,26 @@ public static class CsvToScriptableObject
             }
 
             string combined = partLower + " " + descLower;
-            UnitCategory category = UnitCategory.Infantry;
+            UnitClass category = UnitClass.Infantry;
             bool allCategories = true;
             if (combined.Contains("cavalry"))
             {
-                category = UnitCategory.Cavalry;
+                category = UnitClass.Cavalry;
                 allCategories = false;
             }
             else if (combined.Contains("naval") || combined.Contains("ship") || combined.Contains("boat"))
             {
-                category = UnitCategory.Naval;
+                category = UnitClass.Naval;
                 allCategories = false;
             }
             else if (combined.Contains("worker"))
             {
-                category = UnitCategory.Support;
+                category = UnitClass.Support;
                 allCategories = false;
             }
             else if (combined.Contains("archer"))
             {
-                category = UnitCategory.Archer;
+                category = UnitClass.Archer;
                 allCategories = false;
             }
 
@@ -504,19 +505,19 @@ public static class CsvToScriptableObject
         foreach (Dictionary<string, string> row in ReadCsv(CounterMatrixCsvPath))
         {
             // ParseEnum silently falls back to Infantry on an unparseable
-            // value - previously let a "Building" cell (before UnitCategory
+            // value - previously let a "Building" cell (before UnitClass
             // had that entry) silently collide with a real Infantry row
             // instead of erroring, which went undetected through Phase 1's
             // count-only verification. Explicit warnings now, so a future
             // schema/CSV mismatch surfaces immediately instead of silently
             // mis-keying an entry.
-            if (!Enum.TryParse(row["Attacker"].Replace("-", "").Trim(), true, out UnitCategory attacker))
+            if (!Enum.TryParse(row["Attacker"].Replace("-", "").Trim(), true, out UnitClass attacker))
             {
-                Debug.LogWarning($"BharatRTS CSV import: counter_matrix_template.csv Attacker '{row["Attacker"]}' didn't parse as a UnitCategory - defaulting to Infantry.");
+                Debug.LogWarning($"BharatRTS CSV import: counter_matrix_template.csv Attacker '{row["Attacker"]}' didn't parse as a UnitClass - defaulting to Infantry.");
             }
-            if (!Enum.TryParse(row["Defender"].Replace("-", "").Trim(), true, out UnitCategory defender))
+            if (!Enum.TryParse(row["Defender"].Replace("-", "").Trim(), true, out UnitClass defender))
             {
-                Debug.LogWarning($"BharatRTS CSV import: counter_matrix_template.csv Defender '{row["Defender"]}' didn't parse as a UnitCategory - defaulting to Infantry.");
+                Debug.LogWarning($"BharatRTS CSV import: counter_matrix_template.csv Defender '{row["Defender"]}' didn't parse as a UnitClass - defaulting to Infantry.");
             }
             matrix.entries.Add(new CounterMatrix.CounterEntry
             {
@@ -562,7 +563,7 @@ public static class CsvToScriptableObject
 
         float value = ParseFirstNumber(magnitudeRaw);
         bool isPercent = magnitudeRaw.Contains("%");
-        bool hasCategory = TryFindCategoryMention(description, out UnitCategory category);
+        bool hasCategory = TryFindCategoryMention(description, out UnitClass category);
 
         effects.Add(new StatModifier
         {
@@ -584,9 +585,9 @@ public static class CsvToScriptableObject
         return Enum.TryParse(raw, ignoreCase: true, out statType);
     }
 
-    private static bool TryFindCategoryMention(string description, out UnitCategory category)
+    private static bool TryFindCategoryMention(string description, out UnitClass category)
     {
-        foreach (UnitCategory candidate in Enum.GetValues(typeof(UnitCategory)))
+        foreach (UnitClass candidate in Enum.GetValues(typeof(UnitClass)))
         {
             if (description.IndexOf(candidate.ToString(), StringComparison.OrdinalIgnoreCase) >= 0)
             {

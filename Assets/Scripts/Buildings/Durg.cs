@@ -43,6 +43,12 @@ namespace KingdomsOfBharat.Buildings
         // Barracks tier-research track.
         private float _elephantTierResearchRemaining = -1f;
 
+        // Wave 3 item 16: Elite tier research, one independent track per
+        // unique-unit slot (Maurya/Maratha each have 2 slots, and either or
+        // both can be mid-research at once) - same "runs alongside, doesn't
+        // block" convention as the elephant track above.
+        private readonly float[] _eliteTierResearchRemaining = { -1f, -1f };
+
         private ConstructionSite Site
         {
             get
@@ -109,6 +115,21 @@ namespace KingdomsOfBharat.Buildings
             ? 1f - (_elephantTierResearchRemaining / ElephantLineProgress.NextTierData(Faction).ResearchTime)
             : 0f;
 
+        // Wave 3 item 16: whether the unique unit trained at this slot is
+        // eligible for the Elite tier (data-driven via
+        // UniqueUnitEliteProgress.IsEligible, e.g. Maurya's slot 0 - War
+        // Elephant - is NOT eligible since item 13 already covers it, but
+        // slot 1 - Pillar Edict Scholar - is) - gates the matching
+        // eliteTierButton/eliteTierButton2 in BuildMenu so a slot that
+        // isn't elite-eligible never shows a button that would do nothing.
+        public bool TrainsEliteEligible(int slot) =>
+            slot < UniqueUnitCount && UniqueUnitEliteProgress.IsEligible(UniqueUnitAt(slot).UnitId);
+
+        public bool IsResearchingEliteTier(int slot) => _eliteTierResearchRemaining[slot] >= 0f;
+        public float EliteTierResearchProgress(int slot) => IsResearchingEliteTier(slot)
+            ? 1f - (_eliteTierResearchRemaining[slot] / UniqueUnitEliteProgress.DataFor(UniqueUnitAt(slot).UnitId).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -119,6 +140,16 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingElephantTier)
             {
                 TickElephantTierResearch();
+            }
+
+            if (IsResearchingEliteTier(0))
+            {
+                TickEliteTierResearch(0);
+            }
+
+            if (IsResearchingEliteTier(1))
+            {
+                TickEliteTierResearch(1);
             }
         }
 
@@ -154,6 +185,47 @@ namespace KingdomsOfBharat.Buildings
             {
                 ElephantLineProgress.AdvanceTier(Faction);
                 _elephantTierResearchRemaining = -1f;
+            }
+        }
+
+        // Wave 3 item 16: Elite tier research for a given unique-unit slot -
+        // same shape as RequestResearchElephantTier, just parameterized by
+        // slot since a Durg can have up to 2 independently-researchable
+        // elite tracks.
+        public void RequestResearchEliteTier(int slot)
+        {
+            if (!IsComplete || IsResearchingEliteTier(slot) || !TrainsEliteEligible(slot))
+            {
+                return;
+            }
+
+            string unitId = UniqueUnitAt(slot).UnitId;
+            if (!UniqueUnitEliteProgress.HasNextTier(Faction, unitId)
+                || !UniqueUnitEliteProgress.NextTierAgeRequirementMet(Faction, unitId))
+            {
+                return;
+            }
+
+            EliteTierData next = UniqueUnitEliteProgress.DataFor(unitId);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _eliteTierResearchRemaining[slot] = next.ResearchTime;
+        }
+
+        private void TickEliteTierResearch(int slot)
+        {
+            _eliteTierResearchRemaining[slot] -= Time.deltaTime;
+            if (_eliteTierResearchRemaining[slot] <= 0f)
+            {
+                UniqueUnitEliteProgress.AdvanceTier(Faction, UniqueUnitAt(slot).UnitId);
+                _eliteTierResearchRemaining[slot] = -1f;
             }
         }
 

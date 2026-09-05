@@ -39,7 +39,7 @@ namespace KingdomsOfBharat.Combat
         // Phase 6 gap-close: lets TowerFactory apply Vijayanagara's
         // "Towers get +1 attack range" bonus at spawn time - not
         // representable as a passiveBonuses StatModifier (no Building
-        // entry in UnitCategory), so a hand-picked civ check at the
+        // entry in UnitClass), so a hand-picked civ check at the
         // factory call site, same shape as Attackable.Configure. Kept as
         // its own method (rather than folded into ConfigureStats below)
         // since Tower only ever needs to override range, never

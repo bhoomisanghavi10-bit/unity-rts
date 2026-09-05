@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
   unitId: spearman
   displayName: Spearman
-  category: 1
+  category: 6
   ageRequirement: 1
   cost:
     food: 35

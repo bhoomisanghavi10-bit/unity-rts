@@ -43,9 +43,12 @@ namespace KingdomsOfBharat.Combat
                 HumanModelFactory.Gender.Male, position, civilization,
                 prefabPathOverride: "UniqueUnits/DurgGarrison/DurgGarrison", applyPaletteMaterial: false);
             HumanModelFactory.ApplyCustomTexture(go, "UniqueUnits/DurgGarrison/DurgGarrison_albedo");
+            // Wave 3 item 16: Elite tier (Maha Durg Garrison), Durg->Imperial,
+            // baked in at spawn like every other tier line - not retroactive.
+            string tierName = UniqueUnitEliteProgress.DisplayName(faction, "maratha_durg_garrison", "Durg Garrison");
             go.name = faction == FactionId.Player
-                ? $"{profile.DisplayName} Durg Garrison"
-                : $"Enemy {profile.DisplayName} Durg Garrison";
+                ? $"{profile.DisplayName} {tierName}"
+                : $"Enemy {profile.DisplayName} {tierName}";
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f;
@@ -56,7 +59,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure((def != null ? def.maxHP : 35f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure(((def != null ? def.maxHP : 35f) + UniqueUnitEliteProgress.HpBonus(faction, "maratha_durg_garrison")) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
                 meleeArmor: def != null ? def.meleeArmor : 1f,
                 pierceArmor: def != null ? def.pierceArmor : 0f);
@@ -65,7 +68,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
-            attacker.SetBaseDamage(def != null ? def.attackDamage : 5f);
+            attacker.SetBaseDamage((def != null ? def.attackDamage : 5f) + UniqueUnitEliteProgress.DamageBonus(faction, "maratha_durg_garrison"));
             attacker.SetRange(def != null ? def.attackRange : 1f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetUnitClass(UnitClass.Infantry);

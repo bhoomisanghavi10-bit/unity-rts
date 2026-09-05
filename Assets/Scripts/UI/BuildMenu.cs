@@ -64,6 +64,13 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button cavalryButton;
         [SerializeField] private Button siegeButton;
         [SerializeField] private Button spearmanButton;
+        // Wave 4 item 18: Scout (Chara) - the first Wave 4 item, a
+        // wholly-new trainable unit, not a tier upgrade to an existing one
+        // (see spearmanButton for the last precedent of this shape).
+        [SerializeField] private Button charaButton;
+        // Wave 4 item 19: Skirmisher - the second wholly-new Wave 4 unit
+        // (see charaButton for the prior precedent of this shape).
+        [SerializeField] private Button skirmisherButton;
         [SerializeField] private Button uniqueUnitButton;
         [SerializeField] private TMP_Text uniqueUnitLabel;
         // Roadmap Section 5 item 3: Maurya/Maratha each have a 2nd unique
@@ -124,6 +131,24 @@ namespace KingdomsOfBharat.UI
         // actually trains a War Elephant (Durg.TrainsElephant).
         [SerializeField] private Button elephantTierButton;
         [SerializeField] private TMP_Text elephantTierLabel;
+        // Wave 3 item 16: Unique-unit Elite tier research buttons - acts on
+        // a selected Durg like elephantTierButton, but gated per-slot via
+        // Durg.TrainsEliteEligible (data-driven, not a civ switch) since
+        // eligibility depends on which unitId trains at that slot, not the
+        // slot index itself (e.g. Maurya's slot 0 - War Elephant - is NOT
+        // eligible, only slot 1 - Pillar Edict Scholar - is).
+        [SerializeField] private Button eliteTierButton;
+        [SerializeField] private TMP_Text eliteTierLabel;
+        [SerializeField] private Button eliteTierButton2;
+        [SerializeField] private TMP_Text eliteTierLabel2;
+        // Wave 4 item 18: Scout tier ladder research button, same gating
+        // shape as siegeTierButton - acts on a selected Barracks.
+        [SerializeField] private Button charaTierButton;
+        [SerializeField] private TMP_Text charaTierLabel;
+        // Wave 4 item 19: Skirmisher tier ladder research button, same
+        // gating shape as charaTierButton - acts on a selected Barracks.
+        [SerializeField] private Button skirmisherTierButton;
+        [SerializeField] private TMP_Text skirmisherTierLabel;
         [SerializeField] private Button ageButton;
         [SerializeField] private TMP_Text ageLabel;
         [SerializeField] private Button improvedToolsButton;
@@ -159,6 +184,8 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyTrainCavalry;
         private KeyCode _keyTrainSiege;
         private KeyCode _keyTrainSpearman;
+        private KeyCode _keyTrainChara;
+        private KeyCode _keyTrainSkirmisher;
         private KeyCode _keyTrainUniqueUnit;
         private KeyCode _keyTrainUniqueUnit2;
         private KeyCode _keyResearchAttack;
@@ -170,6 +197,10 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyResearchCavalryTier;
         private KeyCode _keyResearchSiegeTier;
         private KeyCode _keyResearchElephantTier;
+        private KeyCode _keyResearchEliteTier;
+        private KeyCode _keyResearchEliteTier2;
+        private KeyCode _keyResearchCharaTier;
+        private KeyCode _keyResearchSkirmisherTier;
         private KeyCode _keyTrainFishingBoat;
         private KeyCode _keyTrainWarGalley;
         private KeyCode _keyResearchNavalTier;
@@ -205,6 +236,8 @@ namespace KingdomsOfBharat.UI
             cavalryButton.onClick.AddListener(TrainCavalryAtSelected);
             siegeButton.onClick.AddListener(TrainSiegeAtSelected);
             spearmanButton.onClick.AddListener(TrainSpearmanAtSelected);
+            charaButton.onClick.AddListener(TrainCharaAtSelected);
+            skirmisherButton.onClick.AddListener(TrainSkirmisherAtSelected);
             uniqueUnitButton.onClick.AddListener(TrainUniqueUnitAtSelected);
             uniqueUnitButton2.onClick.AddListener(TrainUniqueUnit2AtSelected);
             ungarrisonButton.onClick.AddListener(UngarrisonAtSelected);
@@ -226,6 +259,10 @@ namespace KingdomsOfBharat.UI
             cavalryTierButton.onClick.AddListener(ResearchCavalryTierAtSelected);
             siegeTierButton.onClick.AddListener(ResearchSiegeTierAtSelected);
             elephantTierButton.onClick.AddListener(ResearchElephantTierAtSelected);
+            eliteTierButton.onClick.AddListener(ResearchEliteTierAtSelected);
+            eliteTierButton2.onClick.AddListener(ResearchEliteTier2AtSelected);
+            charaTierButton.onClick.AddListener(ResearchCharaTierAtSelected);
+            skirmisherTierButton.onClick.AddListener(ResearchSkirmisherTierAtSelected);
             ageButton.onClick.AddListener(RequestAgeUpAtSelected);
             improvedToolsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.ImprovedTools));
             packMulesButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.PackMules));
@@ -247,6 +284,8 @@ namespace KingdomsOfBharat.UI
             _keyTrainCavalry = GameSettings.GetKey("TrainCavalry", KeyCode.N);
             _keyTrainSiege = GameSettings.GetKey("TrainSiege", KeyCode.S);
             _keyTrainSpearman = GameSettings.GetKey("TrainSpearman", KeyCode.E);
+            _keyTrainChara = GameSettings.GetKey("TrainChara", KeyCode.F);
+            _keyTrainSkirmisher = GameSettings.GetKey("TrainSkirmisher", KeyCode.C);
             _keyTrainUniqueUnit = GameSettings.GetKey("TrainUniqueUnit", KeyCode.Q);
             _keyTrainUniqueUnit2 = GameSettings.GetKey("TrainUniqueUnit2", KeyCode.Z);
             _keyResearchAttack = GameSettings.GetKey("ResearchAttack", KeyCode.U);
@@ -258,6 +297,10 @@ namespace KingdomsOfBharat.UI
             _keyResearchCavalryTier = GameSettings.GetKey("ResearchCavalryTier", KeyCode.M);
             _keyResearchSiegeTier = GameSettings.GetKey("ResearchSiegeTier", KeyCode.O);
             _keyResearchElephantTier = GameSettings.GetKey("ResearchElephantTier", KeyCode.R);
+            _keyResearchEliteTier = GameSettings.GetKey("ResearchEliteTier", KeyCode.F);
+            _keyResearchEliteTier2 = GameSettings.GetKey("ResearchEliteTier2", KeyCode.G);
+            _keyResearchCharaTier = GameSettings.GetKey("ResearchCharaTier", KeyCode.G);
+            _keyResearchSkirmisherTier = GameSettings.GetKey("ResearchSkirmisherTier", KeyCode.V);
             _keyTrainFishingBoat = GameSettings.GetKey("TrainDockUnit", KeyCode.B);
             _keyTrainWarGalley = GameSettings.GetKey("TrainWarGalley", KeyCode.W);
             _keyResearchNavalTier = GameSettings.GetKey("ResearchNavalTier", KeyCode.X);
@@ -284,10 +327,10 @@ namespace KingdomsOfBharat.UI
                 marketButton, dockButton, lumberCampButton, miningCampButton, millButton, durgButton,
                 karmashalaButton,
                 workerButton, soldierButton, archerButton, cavalryButton,
-                siegeButton, spearmanButton, uniqueUnitButton, uniqueUnitButton2, ungarrisonButton,
+                siegeButton, spearmanButton, charaButton, skirmisherButton, uniqueUnitButton, uniqueUnitButton2, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
                 buyFoodButton, sellStoneButton, buyStoneButton, attackUpgradeButton, armorUpgradeButton,
-                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, navalTierButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
+                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2, charaTierButton, skirmisherTierButton, navalTierButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
             };
 
             foreach (Button button in buttons)
@@ -327,6 +370,7 @@ namespace KingdomsOfBharat.UI
             AddCommandIcon(cavalryButton, "train_cavalry");
             AddCommandIcon(siegeButton, "train_siege");
             AddCommandIcon(spearmanButton, "train_spearman");
+            AddCommandIcon(charaButton, "train_chara");
             AddCommandIcon(uniqueUnitButton, "train_unique_1");
             AddCommandIcon(uniqueUnitButton2, "train_unique_2");
             AddCommandIcon(attackUpgradeButton, "upgrade_attack");
@@ -348,7 +392,14 @@ namespace KingdomsOfBharat.UI
             // spearmanTierButton (Wave 3 item 10), archerTierButton
             // (Wave 3 item 11), cavalryTierButton (Wave 3 item 12),
             // siegeTierButton (Wave 3 item 14), navalTierButton
-            // (Wave 3 item 15).
+            // (Wave 3 item 15), eliteTierButton/eliteTierButton2
+            // (Wave 3 item 16), charaTierButton (Wave 4 item 18).
+            // No "train_chara" icon asset exists either (Wave 4 item 18) -
+            // charaButton stays text-only too, same "no matching art yet"
+            // fallback as the buttons above (AddCommandIcon no-ops
+            // harmlessly when the sprite is missing). Same for
+            // skirmisherButton/skirmisherTierButton (Wave 4 item 19) - no
+            // "train_skirmisher" icon asset exists either.
         }
 
         // Adds a small icon to the left edge of a command-card button and
@@ -423,9 +474,13 @@ namespace KingdomsOfBharat.UI
             cavalryButton.gameObject.SetActive(barracks != null);
             siegeButton.gameObject.SetActive(barracks != null);
             spearmanButton.gameObject.SetActive(barracks != null);
+            charaButton.gameObject.SetActive(barracks != null);
+            skirmisherButton.gameObject.SetActive(barracks != null);
             uniqueUnitButton.gameObject.SetActive(durg != null);
             uniqueUnitButton2.gameObject.SetActive(durg != null && durg.UniqueUnitCount > 1);
             elephantTierButton.gameObject.SetActive(durg != null && durg.TrainsElephant);
+            eliteTierButton.gameObject.SetActive(durg != null && durg.TrainsEliteEligible(0));
+            eliteTierButton2.gameObject.SetActive(durg != null && durg.TrainsEliteEligible(1));
             ungarrisonButton.gameObject.SetActive(garrisonPoint != null && garrisonPoint.Count > 0);
             attackUpgradeButton.gameObject.SetActive(karmashala != null);
             armorUpgradeButton.gameObject.SetActive(karmashala != null);
@@ -435,6 +490,8 @@ namespace KingdomsOfBharat.UI
             archerTierButton.gameObject.SetActive(barracks != null);
             cavalryTierButton.gameObject.SetActive(barracks != null);
             siegeTierButton.gameObject.SetActive(barracks != null);
+            charaTierButton.gameObject.SetActive(barracks != null);
+            skirmisherTierButton.gameObject.SetActive(barracks != null);
             fishingBoatButton.gameObject.SetActive(dock != null);
             warGalleyButton.gameObject.SetActive(dock != null);
             navalTierButton.gameObject.SetActive(dock != null);
@@ -530,6 +587,10 @@ namespace KingdomsOfBharat.UI
                 if (Input.GetKeyDown(_keyTrainCavalry)) TrainCavalryAtSelected();
                 if (Input.GetKeyDown(_keyTrainSiege)) TrainSiegeAtSelected();
                 if (Input.GetKeyDown(_keyTrainSpearman)) TrainSpearmanAtSelected();
+                if (Input.GetKeyDown(_keyTrainChara)) TrainCharaAtSelected();
+                if (Input.GetKeyDown(_keyResearchCharaTier)) ResearchCharaTierAtSelected();
+                if (Input.GetKeyDown(_keyTrainSkirmisher)) TrainSkirmisherAtSelected();
+                if (Input.GetKeyDown(_keyResearchSkirmisherTier)) ResearchSkirmisherTierAtSelected();
                 if (Input.GetKeyDown(_keyResearchUniqueTech)) ResearchUniqueTechAtSelected();
                 if (Input.GetKeyDown(_keyResearchInfantryTier)) ResearchInfantryTierAtSelected();
                 if (Input.GetKeyDown(_keyResearchSpearmanTier)) ResearchSpearmanTierAtSelected();
@@ -545,6 +606,8 @@ namespace KingdomsOfBharat.UI
                 if (Input.GetKeyDown(_keyTrainUniqueUnit)) TrainUniqueUnitAtSelected();
                 if (durg.UniqueUnitCount > 1 && Input.GetKeyDown(_keyTrainUniqueUnit2)) TrainUniqueUnit2AtSelected();
                 if (durg.TrainsElephant && Input.GetKeyDown(_keyResearchElephantTier)) ResearchElephantTierAtSelected();
+                if (durg.TrainsEliteEligible(0) && Input.GetKeyDown(_keyResearchEliteTier)) ResearchEliteTierAtSelected();
+                if (durg.TrainsEliteEligible(1) && Input.GetKeyDown(_keyResearchEliteTier2)) ResearchEliteTier2AtSelected();
             }
 
             // Wave 2 item 8: flat Attack/Armor research hotkeys now act on a
@@ -576,6 +639,8 @@ namespace KingdomsOfBharat.UI
             cavalryButton.interactable = canTrain;
             siegeButton.interactable = canTrain;
             spearmanButton.interactable = canTrain;
+            charaButton.interactable = canTrain;
+            skirmisherButton.interactable = canTrain;
 
             UpdateUniqueTechButton(barracks);
             UpdateInfantryTierButton(barracks);
@@ -583,6 +648,8 @@ namespace KingdomsOfBharat.UI
             UpdateArcherTierButton(barracks);
             UpdateCavalryTierButton(barracks);
             UpdateSiegeTierButton(barracks);
+            UpdateCharaTierButton(barracks);
+            UpdateSkirmisherTierButton(barracks);
         }
 
         // Wave 3 item 9: Infantry tier ladder research button state - same
@@ -745,21 +812,87 @@ namespace KingdomsOfBharat.UI
             siegeTierLabel.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
         }
 
+        // Wave 4 item 18: Scout tier ladder research button state -
+        // identical shape to UpdateSiegeTierButton/UpdateCavalryTierButton.
+        private void UpdateCharaTierButton(Barracks barracks)
+        {
+            if (barracks.IsResearchingCharaTier)
+            {
+                charaTierButton.interactable = false;
+                charaTierLabel.text = $"Researching Scout... {(int)(barracks.CharaTierResearchProgress * 100f)}%";
+                return;
+            }
+
+            FactionId faction = NetworkMatch.LocalFaction;
+            if (!ScoutLineProgress.HasNextTier(faction))
+            {
+                charaTierButton.interactable = false;
+                charaTierLabel.text = "Scout (Max Tier)";
+                return;
+            }
+
+            ScoutTierData next = ScoutLineProgress.NextTierData(faction);
+            if (!ScoutLineProgress.NextTierAgeRequirementMet(faction))
+            {
+                charaTierButton.interactable = false;
+                charaTierLabel.text = $"Upgrade to {next.Name} (needs {next.RequiredAge} Age)";
+                return;
+            }
+
+            charaTierButton.interactable = barracks.IsComplete;
+            charaTierLabel.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
+        }
+
+        // Wave 4 item 19: Skirmisher tier ladder research button state -
+        // identical shape to UpdateCharaTierButton/UpdateSiegeTierButton.
+        private void UpdateSkirmisherTierButton(Barracks barracks)
+        {
+            if (barracks.IsResearchingSkirmisherTier)
+            {
+                skirmisherTierButton.interactable = false;
+                skirmisherTierLabel.text = $"Researching Skirmisher... {(int)(barracks.SkirmisherTierResearchProgress * 100f)}%";
+                return;
+            }
+
+            FactionId faction = NetworkMatch.LocalFaction;
+            if (!SkirmisherLineProgress.HasNextTier(faction))
+            {
+                skirmisherTierButton.interactable = false;
+                skirmisherTierLabel.text = "Skirmisher (Max Tier)";
+                return;
+            }
+
+            SkirmisherTierData next = SkirmisherLineProgress.NextTierData(faction);
+            if (!SkirmisherLineProgress.NextTierAgeRequirementMet(faction))
+            {
+                skirmisherTierButton.interactable = false;
+                skirmisherTierLabel.text = $"Upgrade to {next.Name} (needs {next.RequiredAge} Age)";
+                return;
+            }
+
+            skirmisherTierButton.interactable = barracks.IsComplete;
+            skirmisherTierLabel.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
+        }
+
         // Wave 2 item 8: flat Attack/Armor research button state, split out
         // of UpdateBarracksButtons now that it lives on Karmashala instead.
         private void UpdateKarmashalaButtons(Karmashala karmashala)
         {
+            FactionId faction = NetworkMatch.LocalFaction;
+
             UpdateUpgradeButton(
                 attackUpgradeButton, attackUpgradeLabel, "Attack",
                 karmashala.IsComplete, karmashala.IsResearchingAttack, karmashala.AttackResearchProgress,
-                UpgradeProgress.AttackTier(NetworkMatch.LocalFaction), UpgradeProgress.HasNextAttackTier(NetworkMatch.LocalFaction),
-                karmashala.NextAttackUpgradeCost);
+                UpgradeProgress.AttackTier(faction), UpgradeProgress.HasNextAttackTier(faction),
+                karmashala.NextAttackUpgradeCost,
+                UpgradeProgress.NextAttackTierAgeRequirementMet(faction), UpgradeProgress.NextAttackTierRequiredAge(faction));
 
             UpdateUpgradeButton(
                 armorUpgradeButton, armorUpgradeLabel, "Armor",
                 karmashala.IsComplete, karmashala.IsResearchingArmor, karmashala.ArmorResearchProgress,
-                UpgradeProgress.ArmorTier(NetworkMatch.LocalFaction), UpgradeProgress.HasNextArmorTier(NetworkMatch.LocalFaction),
-                karmashala.NextArmorUpgradeCost);
+                UpgradeProgress.ArmorTier(faction), UpgradeProgress.HasNextArmorTier(faction),
+                karmashala.NextArmorUpgradeCost,
+                UpgradeProgress.NextArmorTierAgeRequirementMet(faction), UpgradeProgress.NextArmorTierRequiredAge(faction));
         }
 
         // Wave 2 item 7: unique-unit training button state, split out of
@@ -780,6 +913,16 @@ namespace KingdomsOfBharat.UI
             if (durg.TrainsElephant)
             {
                 UpdateElephantTierButton(durg);
+            }
+
+            if (durg.TrainsEliteEligible(0))
+            {
+                UpdateEliteTierButton(durg, 0, eliteTierButton, eliteTierLabel);
+            }
+
+            if (durg.TrainsEliteEligible(1))
+            {
+                UpdateEliteTierButton(durg, 1, eliteTierButton2, eliteTierLabel2);
             }
         }
 
@@ -816,6 +959,44 @@ namespace KingdomsOfBharat.UI
 
             elephantTierButton.interactable = durg.IsComplete;
             elephantTierLabel.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
+        }
+
+        // Wave 3 item 16: Elite tier button state for a given unique-unit
+        // slot - identical shape to UpdateElephantTierButton, parameterized
+        // by slot/button/label since a Durg can have up to 2 independent
+        // elite tracks (e.g. Maratha's Mavla Raider and Durg Garrison).
+        // Only ever called when durg.TrainsEliteEligible(slot) is true (see
+        // UpdateDurgButtons), so no separate "not eligible" branch is
+        // needed here.
+        private void UpdateEliteTierButton(Durg durg, int slot, Button button, TMP_Text label)
+        {
+            string unitId = durg.UniqueUnitAt(slot).UnitId;
+
+            if (durg.IsResearchingEliteTier(slot))
+            {
+                button.interactable = false;
+                label.text = $"Researching Elite... {(int)(durg.EliteTierResearchProgress(slot) * 100f)}%";
+                return;
+            }
+
+            FactionId faction = NetworkMatch.LocalFaction;
+            if (!UniqueUnitEliteProgress.HasNextTier(faction, unitId))
+            {
+                button.interactable = false;
+                label.text = "Elite (Max Tier)";
+                return;
+            }
+
+            EliteTierData next = UniqueUnitEliteProgress.DataFor(unitId);
+            if (!UniqueUnitEliteProgress.NextTierAgeRequirementMet(faction, unitId))
+            {
+                button.interactable = false;
+                label.text = $"Upgrade to {next.Name} (needs {next.RequiredAge} Age)";
+                return;
+            }
+
+            button.interactable = durg.IsComplete;
+            label.text = $"Upgrade to {next.Name} ({(int)next.GoldCost} Gold, {(int)next.WoodCost} Wood)";
         }
 
         private void UpdateDockButtons(Dock dock)
@@ -915,7 +1096,8 @@ namespace KingdomsOfBharat.UI
 
         private static void UpdateUpgradeButton(
             Button button, TMP_Text label, string trackName,
-            bool barracksComplete, bool isResearching, float progress, int tier, bool hasNextTier, float goldCost)
+            bool barracksComplete, bool isResearching, float progress, int tier, bool hasNextTier, float goldCost,
+            bool ageRequirementMet, AgeId requiredAge)
         {
             if (isResearching)
             {
@@ -928,6 +1110,16 @@ namespace KingdomsOfBharat.UI
             {
                 button.interactable = false;
                 label.text = $"{trackName} (Max)";
+                return;
+            }
+
+            // Wave 3 item 17: each of the 3 tiers now needs its own age
+            // (Classical/Durg/Imperial) - same age-gate branch shape every
+            // other tier button's own Update*TierButton method already has.
+            if (!ageRequirementMet)
+            {
+                button.interactable = false;
+                label.text = $"Upgrade {trackName} (needs {requiredAge} Age)";
                 return;
             }
 
@@ -1060,6 +1252,22 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
                 EnqueueTrain(barracks, barracks.RequestTrainSpearman, NetTrainKind.Spearman);
+            }
+        }
+
+        private void TrainCharaAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                EnqueueTrain(barracks, barracks.RequestTrainChara, NetTrainKind.Chara);
+            }
+        }
+
+        private void TrainSkirmisherAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                EnqueueTrain(barracks, barracks.RequestTrainSkirmisher, NetTrainKind.Skirmisher);
             }
         }
 
@@ -1210,6 +1418,22 @@ namespace KingdomsOfBharat.UI
             }
         }
 
+        private void ResearchCharaTierAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                barracks.RequestResearchCharaTier();
+            }
+        }
+
+        private void ResearchSkirmisherTierAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                barracks.RequestResearchSkirmisherTier();
+            }
+        }
+
         // Wave 3 item 15: unlike most tier buttons, acts on a selected
         // Dock - War Galleys train there, not Barracks (same deviation
         // item 13's Elephant line already established for Durg).
@@ -1228,6 +1452,24 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Durg durg)
             {
                 durg.RequestResearchElephantTier();
+            }
+        }
+
+        // Wave 3 item 16: Elite tier research for slot 0 - like
+        // ResearchElephantTierAtSelected, acts on a selected Durg.
+        private void ResearchEliteTierAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Durg durg)
+            {
+                durg.RequestResearchEliteTier(0);
+            }
+        }
+
+        private void ResearchEliteTier2AtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Durg durg)
+            {
+                durg.RequestResearchEliteTier(1);
             }
         }
 

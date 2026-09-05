@@ -5,6 +5,449 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-05 — AoE-Parity Wave 4, item 19: Skirmisher (anti-archer counter-archer, 2 tiers)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 19, picked up per the user's "start
+wave 4 item 19" request, right after item 18 (Scout) closed as the first Wave 4 item.
+
+**The real gap**: this project's `CombatBonus` already resolves Infantry→Archer (1.5x),
+Archer→Cavalry (2x), Cavalry→Infantry (1.5x), and Spearman's own Cavalry/Infantry pair — but
+nothing hard-countered Archer's own counter-pick. Skirmisher is the dedicated anti-archer
+specialist that closes that gap, matching this item's own roadmap text.
+
+**Design choices** (not flagged as needing a user decision — the roadmap fixes tier
+names/ages/count, so these were resolved the same way Spearman's own addition was: reuse the
+closest existing precedent rather than invent new numbers):
+- **Counter values**: `UnitClass.Skirmisher` → `UnitClass.Archer` = 2x, `UnitClass.Infantry` →
+  `UnitClass.Skirmisher` = 1.25x. Both reuse Spearman's own pairing exactly (2x vs its hard
+  counter target, 1.25x received from Infantry closing the gap on a lightly-armored
+  specialist) — the closest existing precedent for "a unit built to counter one other class."
+- **Tier ladder shape**: only 2 tiers total (Pratirodhi Dhanurdhara at Classical, Maha
+  Pratirodhi Dhanurdhara at Durg), not 3 like every Wave 3 line — the roadmap's own item text
+  fixes this. Tier 1's bonus/cost reuses `ArcherLineProgress`'s own Durg-gate growth exactly
+  (+18 HP/+4 dmg/120 Gold/60 Wood/25s research).
+- **Base-tier age gate**: confirmed against `Barracks.RequestTrainSpearman`/`RequestTrainChara`
+  that tier 0's `RequiredAge` is descriptive only, never enforced at training time (same
+  established convention every prior Wave 3/4 line already follows) — `RequestTrainSkirmisher`
+  has no age check, only the tier-1 research step does.
+
+**Implementation**:
+- `Combat/UnitClass.cs`: new `Skirmisher` value.
+- `Combat/CombatBonus.cs`: the 2 new pairings above.
+- `Assets/Design/Data/unit_roster_template.csv`: new "skirmisher" row (Classical age, 35
+  Food/25 Gold, 5s train, 20 HP/3 dmg/Pierce/0 melee armor/0 pierce armor/3.8 speed/5 range) —
+  regenerated via `BharatRTS/Generate Data Assets From CSV`.
+- New `Progression/SkirmisherLineProgress.cs` mirrors `SpearmanLineProgress.cs`'s shape (same
+  "baked in at spawn, not retroactive" convention), just 2 tiers instead of 3.
+- New `Combat/SkirmisherFactory.cs` mirrors `ArcherFactory.cs`'s shape almost exactly — ranged/
+  Pierce attack, `UnitClass.Skirmisher` classification, `EnableUpgradeArmorScaling(melee: false,
+  pierce: true)`/`EnableUpgradeDamageScaling()` opted in same as Archer. Reuses the shared
+  `Weapons/Bow/scene` model/animation since no dedicated Skirmisher model exists yet
+  (`docs/YOUR_ACTION_ITEMS.md` item 19 specs a quilted-armor archer with a forearm buckler, not
+  delivered) — **flagged directly per the flag-asset-needs convention: a Skirmisher currently
+  looks identical to an Archer in the field.**
+- `Buildings/Barracks.cs`: new `TrainingUnit.Skirmisher` case, `RequestTrainSkirmisher` (reads
+  cost from `DataRegistry`, same pattern as `RequestTrainSpearman`/`RequestTrainChara`), a new
+  independent `_skirmisherTierResearchRemaining` research track (`RequestResearchSkirmisherTier`/
+  `TickSkirmisherTierResearch`/`IsResearchingSkirmisherTier`/`SkirmisherTierResearchProgress`),
+  ticked alongside every other tier track in `Update()`.
+- `Multiplayer/Wire/NetMessage.cs`/`CommandSerializer.cs`: new `NetTrainKind.Skirmisher` wired
+  to `Barracks.RequestTrainSkirmisher`.
+- `UI/BuildMenu.cs`: new `skirmisherButton`/`skirmisherTierButton`/`skirmisherTierLabel` fields,
+  `TrainSkirmisherAtSelected`/`ResearchSkirmisherTierAtSelected`, `UpdateSkirmisherTierButton`
+  (identical "Researching.../(Max Tier)/Upgrade to X (needs Y Age)/Upgrade to X (cost)" shape
+  every other tier button uses), wired into `UpdateBarracksButtons`/`HandleHotkeys`/
+  `SetActive`/`ApplyTheme`'s button array (text-only, no icon asset yet). New hotkeys C (Train
+  Skirmisher) and V (Upgrade Skirmisher Tier) — the last two unused letters in `BuildMenu`'s
+  Barracks-context hotkey map (checked every existing `GameSettings.GetKey` call site first).
+- `UI/SettingsMenu.cs`/`UI/HotkeyOverlay.cs`: matching `RebindableAction`/`Entry` rows in
+  `BarracksGroup`.
+
+**Tests**: 13 new EditMode tests (`SkirmisherLineTests.cs`, mirroring `ScoutLineTests.cs`'s
+shape) covering `SkirmisherLineProgress` gating/sequencing, `Barracks.
+RequestResearchSkirmisherTier`'s cost/gate/no-double-deduct/max-tier behavior,
+`SkirmisherFactory` baking the current tier in at spawn (not retroactive), and the 2 new
+`CombatBonus` pairings. Full suite: 371/371 pass (358 pre-existing + 13 new).
+
+**Scene wiring gotcha (same recurring one every Wave 2/3/4 session has hit)**: the new
+`skirmisherButton`/`skirmisherTierButton`/`skirmisherTierLabel` `[SerializeField]` fields have
+no matching scene GameObjects by default. Fixed via UnityMCP: duplicated the real
+`CharaButton`/`CharaTierButton` scene objects into `SkirmisherButton`/`SkirmisherTierButton`
+(repositioned below the existing Barracks-context button column, labels retitled "Train
+Skirmisher"/"Upgrade Skirmisher Tier"), then wired all 3 fields onto `BuildMenu`'s component via
+`SerializedObject` and saved the scene.
+
+**Live verification via UnityMCP**, through the real production path (not test shortcuts): a
+real match (`CivilizationSetup.BeginMatch(Maurya)`, Player forced to Durg age via
+`AgeProgress.Initialize` so the tier-1 research gate could be exercised in the same session), a
+real `BarracksFactory.Place`-spawned Barracks selected via `SelectionManager`'s private
+`_selectedBuilding` field. The real scene button's own `onClick.Invoke()` deducted exactly 35
+Food/25 Gold and (via `CommandBus`, resolved same-frame in this single-player session) trained a
+real "Maurya Pratirodhi Dhanurdhara" at 23 HP with `Attackable.Class == Skirmisher`. The real
+tier button's label correctly read "Upgrade to Maha Pratirodhi Dhanurdhara (120 Gold, 60 Wood)"
+and its own `onClick.Invoke()` deducted exactly that. A forced tick (private
+`_skirmisherTierResearchRemaining` field set near-zero, then a short real wait for `Update()` to
+finish it off — not a bypass of the real countdown, just skipping the 25s wall-clock wait)
+advanced the tier; the real button settled on "Skirmisher (Max Tier)". A second Skirmisher
+trained afterward through the same real button came out "Maurya Maha Pratirodhi Dhanurdhara" at
+43.7 HP, while the first, already-spawned Skirmisher stayed at 23 HP — not retroactive, confirmed
+live on the same running instances. `CombatBonus.Multiplier(Skirmisher, Archer)` and
+`CombatBonus.Multiplier(Infantry, Skirmisher)` both confirmed live at 2x/1.25x via reflection.
+
+**Explicitly out of scope, same as every other Wave 3/4 item**: no AI-side training hook (the
+AI's own training rotation doesn't know Skirmisher exists yet — future balance work, not a
+regression, matching the same call made for every prior new unit/tier line).
+
+**Files touched**: `Assets/Scripts/Combat/UnitClass.cs`, `Assets/Scripts/Combat/CombatBonus.cs`,
+`Assets/Scripts/Combat/SkirmisherFactory.cs` (new),
+`Assets/Scripts/Progression/SkirmisherLineProgress.cs` (new),
+`Assets/Scripts/Buildings/Barracks.cs`, `Assets/Scripts/Multiplayer/Wire/NetMessage.cs`,
+`Assets/Scripts/Multiplayer/CommandSerializer.cs`, `Assets/Scripts/UI/BuildMenu.cs`,
+`Assets/Scripts/UI/SettingsMenu.cs`, `Assets/Scripts/UI/HotkeyOverlay.cs`,
+`Assets/Design/Data/unit_roster_template.csv`, generated data assets (CSV regen),
+`Assets/Scenes/Main.unity` (scene wiring), `Assets/Tests/EditMode/SkirmisherLineTests.cs` (new),
+`docs/IMPLEMENTATION_ROADMAP.md`, `CLAUDE.md`.
+
+**Next**: Wave 4 item 20 (Battering Ram, 3 tiers) or any other Wave 4 item, user's call — all
+are parallel-safe once Wave 0/1 are done.
+
+---
+
+## 2026-09-05 — AoE-Parity Wave 3, item 17: Blacksmith-style stat upgrade steps (Karmashala)
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 17, picked up per the user's
+explicit "item 17 (Karmashala stat-upgrade steps) start now" request right after item
+16 closed Wave 3's own exit criteria — item 17 doesn't gate Wave 3's exit criteria, but
+is the last item left in Wave 3's own numbered list.
+
+**Investigated first, not assumed**: read `UpgradeProgress.cs` and `Karmashala.cs`
+directly rather than trusting the roadmap text's literal framing ("extend from 2
+research steps to 3"). Found `UpgradeProgress.MaxTier` was already 3 (set by a prior
+session, undocumented in this item's own text) — but the real gap was that **none of
+the 3 tiers were age-gated at all**. A Karmashala only needs Classical Age to exist
+(its own build gate); once built, all 3 Attack/Armor tiers were researchable
+back-to-back in the same Age, purely gold-limited. This item's real work is adding the
+Classical/Durg/Imperial per-tier age gate every other Wave 3 tier line already has.
+
+**Implementation**: New `UpgradeProgress.TierRequiredAges` (`{AgeId.Classical,
+AgeId.Durg, AgeId.Imperial}`, indexed by current tier — index 0 is the requirement to
+advance FROM tier 0 TO tier 1, etc.) plus 4 new accessors:
+`NextAttackTierRequiredAge`/`NextArmorTierRequiredAge` (the age gate for whichever
+tier is next) and `NextAttackTierAgeRequirementMet`/`NextArmorTierAgeRequirementMet`
+(`HasNextTier && CurrentAge >= RequiredAge`, same ordinal `AgeId` comparison every
+other tier line's own `NextTierAgeRequirementMet` already relies on — `AgeId`'s
+declared order is Ancient < Classical < Durg < Imperial).
+
+`Karmashala.RequestResearchAttack`/`RequestResearchArmor` both gained the age check
+alongside their existing `IsComplete`/`IsResearching`/`HasNextTier` guards.
+
+`BuildMenu.cs`'s `UpdateUpgradeButton` is shared by both Attack and Armor tracks
+(unlike every other tier line, which has its own dedicated `Update*TierButton`
+method) — gained the same "Upgrade to X (needs Y Age)" branch every other tier button
+already has, via 2 new parameters (`ageRequirementMet`, `requiredAge`) threaded
+through both `UpdateKarmashalaButtons` call sites, rather than duplicating the whole
+method into two Attack/Armor-specific copies.
+
+**Found and fixed a real edge-case bug before it shipped, not after**: C# evaluates
+all of a method call's arguments before the call itself runs, so
+`UpdateKarmashalaButtons`'s calls to `UpdateUpgradeButton(..., UpgradeProgress.
+NextAttackTierRequiredAge(faction))` evaluate `NextAttackTierRequiredAge` *before*
+`UpdateUpgradeButton`'s own internal `!hasNextTier` early-return has any chance to
+short-circuit it. At max tier (`AttackTier == MaxTier == 3`), the unclamped version
+would index `TierRequiredAges[3]` on a 3-element array (valid indices 0-2) and throw
+`IndexOutOfRangeException` — not a rare edge case, but literally every single frame
+`BuildMenu.Update()` runs once any faction's Attack or Armor track reaches max tier.
+Fixed by clamping the index (`System.Math.Min(tier, TierRequiredAges.Length - 1)`);
+added a dedicated regression test (`NextAttackTierRequiredAge_DoesNotThrowOnceMaxed`)
+so this can't silently regress.
+
+**Tests**: 7 new/updated EditMode tests in `Assets/Tests/EditMode/KarmashalaTests.cs`.
+The 6 pre-existing tests (`RequestResearchAttack_DeductsGoldOnceAtTierZeroCost`, etc.)
+needed `AgeProgress.Initialize(FactionId.Player, AgeId.Classical)` added — they had
+implicitly relied on the previously-ungated behavior (Player defaults to `AgeId.
+Ancient` when never initialized, which would now correctly block tier 1 research and
+break those tests' own assertions about gold deduction). 5 new tests cover the
+age-gate itself: blocked below Classical even with funds (both Attack and Armor),
+tier 2 requiring Durg (both tracks), tier 3 requiring Imperial, plus the 2 direct
+`UpgradeProgress` tests (`NextAttackTierRequiredAge_MatchesClassicalDurgImperialPerTier`,
+`NextAttackTierRequiredAge_DoesNotThrowOnceMaxed`). Full suite: 358/358 pass (up from
+351 after item 16's own session).
+
+**Live verification (UnityMCP, Play mode, real production path)**:
+- A real match (`CivilizationSetup.BeginMatch(Maurya)`), a real
+  `KarmashalaFactory.Place` + `ConstructionSite.CompleteImmediately()` Karmashala.
+- At Ancient age with 1000 Gold on hand, `RequestResearchAttack()` correctly refused
+  with zero deduction (tier 1 needs Classical).
+- At Classical, the same call correctly deducted 80 Gold (tier 1's cost,
+  `upgradeGoldCostPerTier * (tier+1)` = 80×1) and started research.
+- Forced a real tick (reflection-invoked `TickAttackResearch`, same technique every
+  prior tier-line session has used) completed tier 1; at Classical again, tier 2 was
+  correctly refused with zero deduction (needs Durg); at Durg it correctly deducted
+  160 Gold (80×2) and started.
+- After tier 2 completed, the **real scene `attackUpgradeButton`** (driven through a
+  real `BuildMenu.Update()` reflection call, not a test shortcut) correctly showed
+  "Upgrade Attack (needs Imperial Age)" with `interactable=false` while still at Durg,
+  and its real `onClick.Invoke()` — not a direct method call — correctly no-op'd (zero
+  Gold deducted).
+- At Imperial, the same real button's label correctly updated to "Upgrade Attack
+  (Tier 3, 240 Gold)" and its real `onClick.Invoke()` deducted exactly 240 Gold (80×3)
+  and started tier 3.
+- After tier 3 completed, the real button settled on "Attack (Max)"/
+  `interactable=false`, confirming the full 3-tier ladder end to end through the
+  actual scene UI, not just the underlying `Karmashala`/`UpgradeProgress` API.
+- No scene-wiring gotcha this session — `attackUpgradeButton`/`armorUpgradeButton`
+  were already wired to `BuildMenu` from Wave 2 item 8's own session; only their
+  underlying gating logic and label text changed, no new `[SerializeField]` fields
+  were added.
+
+**Roadmap**: `docs/IMPLEMENTATION_ROADMAP.md` item 17 checked off with full detail;
+CLAUDE.md's "Current status" gained a matching entry at the top. **This closes the
+last remaining item in Wave 3's own numbered list** (items 9-17 are all now done,
+mirroring item 16's own session which already closed Wave 3's broader exit criteria).
+Next: Wave 4 (new units), user's call — item 18 (Scout) is already closed by a
+concurrent session, per the entries below.
+
+---
+
+## 2026-09-05 — AoE-Parity Wave 3, item 16: Unique-unit Elite tier (2 tiers × 5 units) — closes Wave 3
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 16, picked up right after item
+15 per the user's "your call" hand-off. Every existing unique unit EXCEPT
+`MauryaWarElephantFactory`/`VijayanagaraWarElephantFactory` (`CholaNavalRaiderFactory`,
+`RajputRoyalGuardFactory`, `PillarEdictScholarFactory`, `MarathaMavlaRaiderFactory`,
+`MarathaDurgGarrisonFactory`) gets a single Durg → Imperial elite step, matching AoE's
+rule that every unique unit gets exactly one elite upgrade. The two War Elephant
+factories are excluded — item 13's own Gajaroha → Maha Gajaroha ladder (closed
+2026-09-05) already IS their one elite step; user-confirmed resolution from item 13's
+own session, not stacking a second upgrade on top.
+
+**No new design decisions needed** — item 16's own roadmap text fixes scope, and the
+mechanism (research on Durg, baked in at spawn, not retroactive) mirrors item 13's own
+"research where the unit trains" deviation exactly.
+
+**Implementation**: New `Progression/UniqueUnitEliteProgress.cs`, keyed by `unitId`
+rather than `CivilizationId` — the one real structural difference from every other
+Wave 3 line, since these 5 units are genuinely civ-exclusive rather than one shared
+table read by whichever faction trains a common unit type. Single Imperial-gated step
+per unitId, reusing the same +30 HP/+6 dmg/200 Gold/100 Wood/40s growth every other
+line's own first Imperial-gate step already uses (Archer's Maha Dhanurdhara,
+Spearman's Maha Trishuladhari, Cavalry's Maha Ashvarohi, Elephant's Maha Gajaroha),
+not independently balanced.
+
+`Durg.cs` gained `RequestResearchEliteTier(slot)`/`TrainsEliteEligible(slot)`/
+`IsResearchingEliteTier(slot)`/`EliteTierResearchProgress(slot)` — two independent
+per-slot research tracks (`_eliteTierResearchRemaining` as a `float[2]`), since Maurya
+and Maratha each have 2 unique-unit slots and either or both can be mid-research at
+once, same "runs alongside, doesn't block" convention as the Elephant tier's own
+research track. Eligibility is gated by which unitId trains at that slot
+(`UniqueUnitEliteProgress.IsEligible`), not the slot index itself — Maurya's slot 0
+(War Elephant) is NOT eligible, only slot 1 (Pillar Edict Scholar) is; Maratha's both
+slots (Mavla Raider, Durg Garrison) are eligible; Chola/Rajput's single slot 0 each is
+eligible; Vijayanagara's single slot (War Elephant) is not.
+
+All 5 factories now read `UniqueUnitEliteProgress.DisplayName`/`HpBonus`/`DamageBonus`
+at spawn, mirroring every other tier line's "baked in at spawn, not retroactive"
+convention — e.g. `CholaNavalRaiderFactory.Spawn` now names the unit
+`"{civ} {tier}"` where tier is "Naval Raider" or "Maha Naval Raider" once elite.
+
+New `eliteTierButton`/`eliteTierLabel`/`eliteTierButton2`/`eliteTierLabel2` in
+`BuildMenu.cs`, gated per-slot on `Durg.TrainsEliteEligible(slot)` (mirrors
+`elephantTierButton`'s own gating shape, generalized to 2 independent slots via a new
+`UpdateEliteTierButton(durg, slot, button, label)` helper rather than duplicating the
+whole method twice). Hotkeys F and G — reused from other mutually-exclusive contexts
+(TrainChara/ResearchCharaTier on Barracks) per this file's own established "letters
+are reused freely across mutually exclusive contexts" convention, since Durg is never
+selected at the same time as Barracks. Wired into `SettingsMenu.cs`'s `Actions` list
+and `HotkeyOverlay.cs`'s `DurgGroup`.
+
+**Real concurrent-session collision, handled per protocol, not silently worked
+around**: mid-session, `BuildMenu.cs` was found to be actively modified on disk by
+what turned out to be a separate session building Wave 4 item 18 (Scout/Chara) —
+`git diff` showed `charaButton`/`charaTierButton`/`ScoutLineProgress` additions
+appearing in real time, unrelated to this item. Per CLAUDE.md's own documented
+"single-session discipline" gotcha, stopped immediately, flagged it to the user via
+AskUserQuestion rather than guessing, and per their "stop and wait" answer reverted the
+one field-declaration edit already made to `BuildMenu.cs` (the safe files —
+`UniqueUnitEliteProgress.cs`, `Durg.cs`, the 5 factory files — were left in place,
+since they don't overlap with the other session's changes at all). Resumed once the
+user confirmed and the other session's changes had stabilized (`Barracks.cs`/
+`SettingsMenu.cs`/`HotkeyOverlay.cs` were also concurrently dirty from that session,
+now also stable) — re-read `BuildMenu.cs` fresh before making any further edits, and
+picked hotkeys (F/G) that don't collide with the other session's own newly-claimed
+letters within the same selection context.
+
+**Tests**: 16 new EditMode tests (`Assets/Tests/EditMode/UniqueUnitEliteTests.cs`,
+mirroring `ElephantLineTests.cs`'s coverage shape) — `UniqueUnitEliteProgress`
+eligibility/gating, `Durg.TrainsEliteEligible`'s per-slot civ detection (including the
+Maurya slot 0/slot 1 split), `Durg.RequestResearchEliteTier`'s cost/gate/independent-
+per-slot behavior, and 2 of the 5 factories (Chola Naval Raider, Maratha Durg
+Garrison) baking the current tier's name/bonus in at spawn, not retroactively. Full
+suite: 351/351 pass (up from 335 before this session — the concurrent Wave 4 item 18
+session's own 16 new tests plus this session's 16 landed the same day).
+
+**Live verification (UnityMCP, Play mode, real production path)**:
+- A real match (`CivilizationSetup.BeginMatch(Maratha)`), a real `DurgFactory.Place` +
+  `ConstructionSite.CompleteImmediately()` Durg confirmed `TrainsEliteEligible(0)` and
+  `(1)` both true.
+- At Imperial age, `RequestResearchEliteTier(0)` and `(1)` both deducted exactly 200
+  Gold/100 Wood each (1000 → 600 Gold, 1000 → 800 Wood) and started independently —
+  confirmed both `IsResearchingEliteTier` flags true simultaneously.
+- Forced real ticks (reflection-invoked `TickEliteTierResearch`, same technique every
+  prior tier-line session has used) completed both tracks; a Mavla Raider trained
+  afterward through the real `MarathaMavlaRaiderFactory.Spawn` path came out "Maratha
+  Maha Mavla Raider" at 74.4 HP, a Durg Garrison came out "Maratha Maha Durg Garrison"
+  at 78 HP — both correctly elevated over their base stats.
+- The real scene `eliteTierButton`/`eliteTierButton2` (driven through a real
+  `BuildMenu.Update()` reflection call, not a test shortcut) correctly showed "Elite
+  (Max Tier)" and `interactable=false` on both once maxed.
+- A second real Durg (Maurya, `CivilizationRegistry.Assign`) confirmed
+  `TrainsEliteEligible(0)=false` (War Elephant slot)/`(1)=true` (Pillar Edict Scholar
+  slot) exactly as designed — not a hardcoded civ switch, a live data-driven check.
+- A third real Durg (Rajput) confirmed the real scene button's own
+  `eliteTierButton.onClick.Invoke()` — not a direct method call — deducted exactly 200
+  Gold (1000 → 800) and started research for its single eligible slot, with
+  `TrainsEliteEligible(1)=false` correctly hiding the 2nd-slot button for a civ with
+  only 1 unique unit.
+- Hit and worked around the project's own documented Enemy2-stockpile gotcha (a
+  `ResourceStockpile.For(FactionId.Enemy2)` call returned null mid-verification since
+  the third faction isn't active by default — not a regression, the same pre-existing
+  gap `SaveManager.Capture()` hit before; switched the Rajput verification to
+  `FactionId.Enemy` instead, which always has a real stockpile).
+
+**This closes Wave 3** — every currently-flat unit type now has a real tier ladder,
+and the retroactive-promotion rule has been exercised across all 8 tier lines (7 from
+items 9-15 plus this session's elite tier) without incident, satisfying Wave 3's own
+exit criteria.
+
+**Roadmap**: `docs/IMPLEMENTATION_ROADMAP.md` item 16 checked off with full detail;
+CLAUDE.md's "Current status" gained a matching entry at the top (inserted above item
+18's own entry, which the concurrent session had already placed at the top — no
+content from that entry was touched or reordered). Item 17 (Blacksmith-style stat
+upgrade steps, Karmashala) remains open within Wave 3's own numbering but does not
+block Wave 3's exit criteria; Wave 4 (new units) is the recommended next wave, and
+item 18 (Scout) is already closed by the concurrent session.
+
+---
+
+## 2026-09-05 — AoE-Parity Wave 4, item 18: Scout (Chara), 3-tier line
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 18, picked up per the user's
+"start wave 4 item 18" request — it depends only on Wave 0 (unit taxonomy/retroactive-
+upgrade rule) and Wave 1 (Durg age), both closed, not on Wave 2/3. The item's own text
+recommends doing it first in Wave 4 as the highest player-facing value per session.
+
+**Not a tier upgrade — a wholly new unit**, unlike every Wave 3 item. The closest
+precedent is Spearman's addition (Phase 2), the last unit added wholesale to
+Barracks' roster, mirrored directly for the training-cost/CSV-driven pattern.
+
+**Two design calls made explicitly** (the roadmap fixes tier names/ages, not what
+each tier improves):
+- Tier names literally translate "Vega" = speed, so `Progression/ScoutLineProgress.cs`
+  grows **vision radius and move speed** per tier (`VisionBonus`/`SpeedBonus` fields
+  in place of every other line's `DamageBonus`), not combat stats — Chara → Vega
+  Ashvarohi → Maha Vega Ashvarohi at Ancient/Classical/Durg. Tier 1/2 costs reuse
+  `InfantryLineProgress`'s own Padati→Senani (Classical gate, 100 Gold/50 Wood/20s)
+  and Senani→Khandayata (Durg gate, 150 Gold/75 Wood/30s) values exactly — the
+  closest existing curve at a matching gate, not independently balanced.
+- `Combat/ScoutFactory.cs` deliberately does **not** opt into
+  `EnableUpgradeArmorScaling`/`EnableUpgradeDamageScaling`, and skips
+  `StanceController` entirely — mirrors `WorkerFactory.cs`'s own "utility unit, not
+  a combat unit" choice (also carries `Attackable` + a weak `MeleeAttacker` but
+  chose not to opt in) rather than the 13 combat factories that do. Uses
+  `UnitClass.Support` for `Attackable.ConfigureClass`/`MeleeAttacker.SetUnitClass`
+  — the first live unit to use `Support` for real combat classification (Worker
+  uses `Infantry` there, `Support` only for its own move-speed multiplier lookup),
+  safe since `CombatBonus`/`CounterMatrix` have zero `Support` entries yet (added
+  in Wave 0 item 1 with no live consumer until now).
+
+**Implementation**:
+- `Assets/Design/Data/unit_roster_template.csv`: new `chara` row (Support category,
+  Age 1/Ancient, 50 Food/0 Wood/0 Gold, 4s train, 20 HP, 2 Attack/Melee, 0/0 armor,
+  7.5 move speed) — regenerated via `BharatRTS/Generate Data Assets From CSV`.
+- New `Assets/Scripts/Progression/ScoutLineProgress.cs` — mirrors
+  `SpearmanLineProgress.cs`'s shape exactly (`Tiers[]`, `FactionTiers` dict, the
+  same `Tier`/`Current`/`HasNextTier`/`NextTierData`/`NextTierAgeRequirementMet`/
+  `AdvanceTier`/`ResetForTests` surface), substituting `VisionBonus`/`SpeedBonus`
+  for `DamageBonus`.
+- New `Assets/Scripts/Combat/ScoutFactory.cs` — mirrors `CavalryFactory.cs`
+  closely (same `HumanModelFactory`/`NavMeshAgent`/`Unit`/`GarrisonSeeker`/
+  `Attackable`/`HealthBar`/`MeleeAttacker`/`FactionMember`/`AnimationDriver`
+  shape), with the deviations above plus `VisionSource.Configure(12f +
+  tier.VisionBonus)` (Player-only) and `agent.speed = (def?.moveSpeed ?? 7.5f) +
+  tier.SpeedBonus`, still passed through
+  `CivilizationProfile.FindCategoryMultiplier(..., UnitClass.Support)`. Reuses
+  `CavalryFactory`'s own "Mounts/Horse/scene" placeholder mount via
+  `WeaponAttachment.AttachBeside` — no dedicated Scout-horse model exists yet
+  (`docs/YOUR_ACTION_ITEMS.md` item 18 specs one, not delivered). **Flagging
+  directly**: Scout currently looks identical to Cavalry in the field; needs a
+  real, visually distinct mount eventually.
+- `Assets/Scripts/Buildings/Barracks.cs`: `Chara` added to the private
+  `TrainingUnit` enum; `RequestTrainChara()` (reads cost from
+  `DataRegistry.GetUnit("chara")`, same DataRegistry-driven pattern
+  `RequestTrainSpearman` established rather than fixed Inspector fields);
+  `TickTraining()`'s switch gained a `Chara => ScoutFactory.Spawn(...)` arm; a new
+  independent, non-blocking research track
+  (`_charaTierResearchRemaining`/`IsResearchingCharaTier`/
+  `CharaTierResearchProgress`/`RequestResearchCharaTier()`/
+  `TickCharaTierResearch()`) copied from `RequestResearchCavalryTier`'s exact
+  shape, wired into `Update()` alongside every other tier tick.
+- `Assets/Scripts/UI/BuildMenu.cs`: new `charaButton`/`charaTierButton`/
+  `charaTierLabel` fields, `Awake()` listeners, `ApplyKeySettings()` entries
+  (`TrainChara` → F, `ResearchCharaTier` → G — both otherwise-unused within the
+  Barracks-selected hotkey context), `ApplyTheme()` array + text-only fallback
+  note (no `train_chara` icon asset exists), `Update()` `SetActive` calls,
+  `UpdateBarracksButtons()`/`UpdateCharaTierButton()` (copied from
+  `UpdateCavalryTierButton`'s exact Researching/Max-Tier/age-gated/ready shape),
+  `HandleHotkeys()` dispatch, `TrainCharaAtSelected()`/`ResearchCharaTierAtSelected()`.
+- Network wiring: `NetTrainKind.Chara` added to
+  `Assets/Scripts/Multiplayer/Wire/NetMessage.cs`; `CommandSerializer.cs`'s
+  Barracks switch gained `NetTrainKind.Chara => barracks.RequestTrainChara`. Every
+  other trainable unit has this — skipping it would silently no-op the train
+  command for a LAN peer.
+- `Assets/Scripts/UI/SettingsMenu.cs`/`Assets/Scripts/UI/HotkeyOverlay.cs`: matching
+  `RebindableAction`/`Entry` rows added to the existing Barracks group in both.
+- No AI-side training hook — same explicitly-out-of-scope call as every Wave 3
+  item (9-15): future balance work, not a regression.
+
+**Tests**: new `Assets/Tests/EditMode/ScoutLineTests.cs` (11 tests) mirroring
+`SpearmanLineTests.cs`'s coverage shape — tier gating/sequencing, an added
+vision/speed-grows-per-tier assertion (this line's own deviation), `Barracks.
+RequestResearchCharaTier`'s cost/gate/already-researching/max-tier behavior, and
+`ScoutFactory` baking the current tier's name/vision/HP in at spawn (not
+retroactive) plus its `UnitClass.Support` classification. Plus one
+`RequestTrainChara_DeductsCostAndStartsTraining` test added to
+`TrainingAndTradeTests.cs`. 335 EditMode tests total, all pass.
+
+**Scene wiring gotcha (same one every Wave 2/3/4 session has hit)**: the new
+`charaButton`/`charaTierButton`/`charaTierLabel` `[SerializeField]` fields were
+null in the scene until fixed directly via UnityMCP — duplicated `SpearmanButton`
+into a real `CharaButton` scene object (repositioned into the training-button
+column, extending past `SpearmanButton`) and `SiegeTierButton` into a real
+`CharaTierButton` (reusing that column, extending past the existing bottom slot),
+wired all three fields on the `BuildMenu` component, saved the scene.
+
+**Live-verified via UnityMCP** through the real production path: a real match
+(`CivilizationSetup.BeginMatch(Maurya)`), a real `BarracksFactory.Place`-spawned
+Barracks selected via `SelectionManager`, the real scene button's own
+`onClick.Invoke()` deducted exactly 50 Food and trained a real "Maurya Chara"
+through the real `Barracks`→`CommandBus`→`ScoutFactory.Spawn` path with
+`VisionSource` radius 12 and `NavMeshAgent.speed` 8.625 (7.5 base × Maurya's 1.15
+civ move-speed multiplier), `UnitClass.Support`, `GarrisonSeeker` present, no
+`StanceController`; the real tier button correctly showed "Upgrade to Vega
+Ashvarohi (100 Gold, 50 Wood)" and its own `onClick.Invoke()` deducted exactly
+that and started research; a forced tick (reflection, same convention every prior
+session uses) advanced the tier and a second Chara trained afterward through the
+real button came out "Maurya Vega Ashvarohi" with vision 14, speed 9.775, HP
+30.8, while the first, already-spawned Chara stayed unchanged at vision 12/speed
+8.625 — not retroactive, confirmed live, not just asserted in a test fixture.
+
+**Roadmap**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 18 checked off;
+`CLAUDE.md`'s "Current status" updated. Next: Wave 4 item 19 (Skirmisher, 2
+tiers) or any other Wave 4 item — all are parallel-safe once Wave 0/1 are done,
+user's call.
+
+---
+
 ## 2026-09-05 — AoE-Parity Wave 3, item 15: Galley/Naval line (3 tiers)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 3 item 15, picked up right after item

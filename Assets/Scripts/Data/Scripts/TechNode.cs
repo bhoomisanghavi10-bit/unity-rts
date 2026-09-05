@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using KingdomsOfBharat.Combat;
 
 // AoE2-style tech tree node: age-gated, prerequisite-chained, applies StatModifiers
 // when researched. One asset per technology.
@@ -36,7 +37,7 @@ public struct ResourceCost
 public struct StatModifier
 {
     [Tooltip("Which unit category this applies to, or \"All\"")]
-    public UnitCategory targetCategory;
+    public UnitClass targetCategory;
     public bool applyToAllCategories;
     public StatType stat;
     public ModifierOp operation;

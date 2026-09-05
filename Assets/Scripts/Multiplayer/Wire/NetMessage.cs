@@ -45,6 +45,8 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         Cavalry,
         Siege,
         Spearman,
+        Chara,
+        Skirmisher,
         UniqueUnit,
         UniqueUnitSlot0,
         UniqueUnitSlot1,

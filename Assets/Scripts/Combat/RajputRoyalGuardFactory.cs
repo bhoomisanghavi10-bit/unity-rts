@@ -39,9 +39,12 @@ namespace KingdomsOfBharat.Combat
             }
 
             GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
+            // Wave 3 item 16: Elite tier (Maha Royal Guard), Durg->Imperial,
+            // baked in at spawn like every other tier line - not retroactive.
+            string tierName = UniqueUnitEliteProgress.DisplayName(faction, "rajput_royal_guard", "Royal Guard");
             go.name = faction == FactionId.Player
-                ? $"{profile.DisplayName} Royal Guard"
-                : $"Enemy {profile.DisplayName} Royal Guard";
+                ? $"{profile.DisplayName} {tierName}"
+                : $"Enemy {profile.DisplayName} {tierName}";
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.45f;
@@ -56,7 +59,7 @@ namespace KingdomsOfBharat.Combat
             // see GarrisonSeeker.
             go.AddComponent<GarrisonSeeker>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure((def != null ? def.maxHP : 55f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure(((def != null ? def.maxHP : 55f) + UniqueUnitEliteProgress.HpBonus(faction, "rajput_royal_guard")) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
                 meleeArmor: def != null ? def.meleeArmor : 2f,
                 pierceArmor: def != null ? def.pierceArmor : 1f);
@@ -65,7 +68,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
-            attacker.SetBaseDamage(def != null ? def.attackDamage : 9f);
+            attacker.SetBaseDamage((def != null ? def.attackDamage : 9f) + UniqueUnitEliteProgress.DamageBonus(faction, "rajput_royal_guard"));
             attacker.SetRange(def != null ? def.attackRange : 1f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetUnitClass(UnitClass.Cavalry);

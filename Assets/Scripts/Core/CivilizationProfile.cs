@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using KingdomsOfBharat.Combat;
 
 namespace KingdomsOfBharat.Core
 {
@@ -111,7 +112,7 @@ namespace KingdomsOfBharat.Core
                 // parser correctly scoped to just Support (e.g. Chola's
                 // "Workers gather 15% faster") is functionally identical
                 // to a civ-wide one here and must count as a match too.
-                gatherRateMultiplier: FindMultiplier(def, StatType.ResourceRate, allowCategory: UnitCategory.Support, fallback: 1f),
+                gatherRateMultiplier: FindMultiplier(def, StatType.ResourceRate, allowCategory: UnitClass.Support, fallback: 1f),
                 buildCostMultiplier: FindMultiplier(def, StatType.ResourceCost, allowCategory: null, fallback: 1f),
                 soldierDamageMultiplier: FindMultiplier(def, StatType.Attack, allowCategory: null, fallback: 1f),
                 maxHealthMultiplier: FindMultiplier(def, StatType.HP, allowCategory: null, fallback: 1f),
@@ -125,7 +126,7 @@ namespace KingdomsOfBharat.Core
         // would misrepresent every other unit type if picked up here; it
         // stays unrepresented in this struct, same as any other narrower
         // bonus (see the class-level comment).
-        private static float FindMultiplier(CivilizationDefinition def, StatType stat, UnitCategory? allowCategory, float fallback)
+        private static float FindMultiplier(CivilizationDefinition def, StatType stat, UnitClass? allowCategory, float fallback)
         {
             foreach (StatModifier modifier in def.passiveBonuses)
             {
@@ -150,7 +151,7 @@ namespace KingdomsOfBharat.Core
         // bonus already surfaced through one of the 5 named fields is never
         // picked up here too and double-applied at some category-specific
         // call site.
-        public static float FindCategoryMultiplier(CivilizationId id, StatType stat, UnitCategory category, float fallback = 1f)
+        public static float FindCategoryMultiplier(CivilizationId id, StatType stat, UnitClass category, float fallback = 1f)
         {
             CivilizationDefinition def = DataRegistry.GetCivilization(CivIds[id]);
             if (def == null)

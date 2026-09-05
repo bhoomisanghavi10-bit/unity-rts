@@ -42,9 +42,13 @@ namespace KingdomsOfBharat.Combat
                 HumanModelFactory.Gender.Male, position, civilization,
                 prefabPathOverride: "UniqueUnits/PillarEdictScholar/PillarEdictScholar", applyPaletteMaterial: false);
             HumanModelFactory.ApplyCustomTexture(go, "UniqueUnits/PillarEdictScholar/PillarEdictScholar_albedo");
+            // Wave 3 item 16: Elite tier (Maha Pillar Edict Scholar),
+            // Durg->Imperial, baked in at spawn like every other tier line -
+            // not retroactive.
+            string tierName = UniqueUnitEliteProgress.DisplayName(faction, "pillar_edict_scholar", "Pillar Edict Scholar");
             go.name = faction == FactionId.Player
-                ? $"{profile.DisplayName} Pillar Edict Scholar"
-                : $"Enemy {profile.DisplayName} Pillar Edict Scholar";
+                ? $"{profile.DisplayName} {tierName}"
+                : $"Enemy {profile.DisplayName} {tierName}";
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f;
@@ -59,7 +63,7 @@ namespace KingdomsOfBharat.Combat
             // see GarrisonSeeker.
             go.AddComponent<GarrisonSeeker>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure((def != null ? def.maxHP : 30f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure(((def != null ? def.maxHP : 30f) + UniqueUnitEliteProgress.HpBonus(faction, "pillar_edict_scholar")) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
                 meleeArmor: def != null ? def.meleeArmor : 0f,
                 pierceArmor: def != null ? def.pierceArmor : 0f);
@@ -68,7 +72,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
-            attacker.SetBaseDamage(def != null ? def.attackDamage : 4f);
+            attacker.SetBaseDamage((def != null ? def.attackDamage : 4f) + UniqueUnitEliteProgress.DamageBonus(faction, "pillar_edict_scholar"));
             attacker.SetRange(def != null ? def.attackRange : 1f);
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetUnitClass(UnitClass.Infantry);

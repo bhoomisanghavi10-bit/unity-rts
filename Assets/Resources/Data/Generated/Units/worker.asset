@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
   unitId: worker
   displayName: Worker
-  category: 6
+  category: 7
   ageRequirement: 1
   cost:
     food: 50

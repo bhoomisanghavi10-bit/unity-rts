@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
   unitId: siege
   displayName: Siege
-  category: 4
+  category: 3
   ageRequirement: 2
   cost:
     food: 90

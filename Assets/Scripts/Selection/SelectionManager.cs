@@ -38,7 +38,7 @@ namespace KingdomsOfBharat.Selection
         private const string DefaultComposedFormationPath = "Formations/MeleeFrontRangedBack";
 
         // Optional: when assigned, a plain-ground move order is composed
-        // via FormationController (front/back rows by UnitCategory) using
+        // via FormationController (front/back rows by UnitClass) using
         // THIS asset's own FormationType/spacing/unitsPerRow instead of the
         // hotkey-cycled _currentFormation/formationSpacing above - a
         // FormationDefinition represents a specific composed formation
@@ -88,7 +88,7 @@ namespace KingdomsOfBharat.Selection
         public Units.FormationType CurrentFormation => _currentFormation;
 
         // For FormationIndicator to show whether a composed formation
-        // (front/back rows by UnitCategory) is currently active on top of
+        // (front/back rows by UnitClass) is currently active on top of
         // the plain Grid/Line/Box spread above, and which one.
         public bool IsComposedFormationActive => composedFormation != null;
         public string ComposedFormationName => composedFormation != null ? composedFormation.displayName : null;

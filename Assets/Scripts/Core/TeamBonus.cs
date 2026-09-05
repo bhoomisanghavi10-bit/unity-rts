@@ -6,7 +6,7 @@ namespace KingdomsOfBharat.Core
     // civ_bonus_template.csv already spells out all 5 (its "TeamBonus"
     // column), and CivilizationDefinition.teamBonus even parses them into a
     // StatModifier at CSV-import time - but that parse is unreliable for
-    // most of them (UnitCategory has no "Building" entry, so Houses/
+    // most of them (UnitClass has no "Building" entry, so Houses/
     // fortifications/Markets can't be represented that way) and is never
     // actually read anywhere at runtime. Hand-written hooks instead, same
     // bespoke-per-civ-mechanic convention as UniqueTechDefinition/

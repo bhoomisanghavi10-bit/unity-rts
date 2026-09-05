@@ -116,6 +116,27 @@ namespace KingdomsOfBharat.Combat
                 return 1.25f;
             }
 
+            // Skirmisher (Wave 4 item 19, unit_roster_template.csv/
+            // docs/IMPLEMENTATION_ROADMAP.md): the dedicated anti-archer
+            // specialist, closing the last gap in the counter web (Infantry
+            // > Archer, Archer > Cavalry, Cavalry > Infantry/Spearman >
+            // Cavalry all already existed; nothing hard-countered Archer's
+            // own counter-pick before this). Values reuse Spearman's own
+            // pairing exactly (2x hard-counter vs its target, 1.25x
+            // received from Infantry closing the gap on a lightly-armored
+            // specialist) - the closest existing precedent for "a unit
+            // built specifically to counter one other class," not
+            // independently balanced.
+            if (attacker == UnitClass.Skirmisher && target == UnitClass.Archer)
+            {
+                return 2f;
+            }
+
+            if (attacker == UnitClass.Infantry && target == UnitClass.Skirmisher)
+            {
+                return 1.25f;
+            }
+
             return 1f;
         }
     }

@@ -26,6 +26,18 @@ namespace KingdomsOfBharat.Progression
         private const float DamagePerTier = 2f;
         private const float ArmorPerTier = 1f;
 
+        // Wave 3 item 17: each of the 3 tiers now requires its own age,
+        // Blacksmith-style (AoE's own Attack/Armor lines gate tier 2 on
+        // Feudal and tier 3 on Castle) - previously ungated, any tier was
+        // researchable back-to-back the instant a Karmashala existed.
+        // Index 0 is the requirement to advance FROM tier 0 TO tier 1, etc -
+        // same "array indexed by current tier" shape every other tier
+        // line's own RequiredAge field already uses. Tier 1 requires
+        // Classical (matching Karmashala's own build-age gate, so this is
+        // never a stricter requirement than "the building exists at all"),
+        // tier 2 Durg, tier 3 Imperial.
+        private static readonly AgeId[] TierRequiredAges = { AgeId.Classical, AgeId.Durg, AgeId.Imperial };
+
         // Per-class tracks use half the flat tracks' per-tier value -
         // additive on top of an already-active flat bonus, not a
         // replacement, so the combined total at max tiers in both stays
@@ -50,6 +62,26 @@ namespace KingdomsOfBharat.Progression
 
         public static bool HasNextAttackTier(FactionId faction) => AttackTier(faction) < MaxTier;
         public static bool HasNextArmorTier(FactionId faction) => ArmorTier(faction) < MaxTier;
+
+        // Wave 3 item 17: the age gate for whichever tier is next - same
+        // "HasNextTier && CurrentAge >= RequiredAge" ordinal comparison
+        // every other tier line's own NextTierAgeRequirementMet already
+        // relies on (AgeId's declared order is Ancient < Classical < Durg <
+        // Imperial).
+        // Callers (BuildMenu's UpdateUpgradeButton) evaluate this
+        // unconditionally alongside HasNextTier, even once maxed - clamp
+        // rather than index out of TierRequiredAges' bounds; the returned
+        // value is simply unused once HasNextTier is false.
+        public static AgeId NextAttackTierRequiredAge(FactionId faction) =>
+            TierRequiredAges[System.Math.Min(AttackTier(faction), TierRequiredAges.Length - 1)];
+        public static AgeId NextArmorTierRequiredAge(FactionId faction) =>
+            TierRequiredAges[System.Math.Min(ArmorTier(faction), TierRequiredAges.Length - 1)];
+
+        public static bool NextAttackTierAgeRequirementMet(FactionId faction) =>
+            HasNextAttackTier(faction) && AgeProgress.CurrentAge(faction) >= NextAttackTierRequiredAge(faction);
+
+        public static bool NextArmorTierAgeRequirementMet(FactionId faction) =>
+            HasNextArmorTier(faction) && AgeProgress.CurrentAge(faction) >= NextArmorTierRequiredAge(faction);
 
         public static void AdvanceAttack(FactionId faction)
         {

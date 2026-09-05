@@ -77,7 +77,7 @@ namespace KingdomsOfBharat.Units
             // Phase 6 gap-close: Maurya's Worker-only move-speed bonus - see
             // CivilizationProfile.FindCategoryMultiplier for why this isn't
             // one of CivilizationProfile's named fields.
-            agent.speed *= CivilizationProfile.FindCategoryMultiplier(civilization, StatType.MoveSpeed, UnitCategory.Support);
+            agent.speed *= CivilizationProfile.FindCategoryMultiplier(civilization, StatType.MoveSpeed, UnitClass.Support);
 
             var unit = go.AddComponent<Unit>();
             go.AddComponent<UnitMover>();

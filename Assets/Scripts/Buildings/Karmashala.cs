@@ -87,7 +87,8 @@ namespace KingdomsOfBharat.Buildings
 
         public void RequestResearchAttack()
         {
-            if (!IsComplete || IsResearchingAttack || !UpgradeProgress.HasNextAttackTier(Faction))
+            if (!IsComplete || IsResearchingAttack || !UpgradeProgress.HasNextAttackTier(Faction)
+                || !UpgradeProgress.NextAttackTierAgeRequirementMet(Faction))
             {
                 return;
             }
@@ -106,7 +107,8 @@ namespace KingdomsOfBharat.Buildings
 
         public void RequestResearchArmor()
         {
-            if (!IsComplete || IsResearchingArmor || !UpgradeProgress.HasNextArmorTier(Faction))
+            if (!IsComplete || IsResearchingArmor || !UpgradeProgress.HasNextArmorTier(Faction)
+                || !UpgradeProgress.NextArmorTierAgeRequirementMet(Faction))
             {
                 return;
             }

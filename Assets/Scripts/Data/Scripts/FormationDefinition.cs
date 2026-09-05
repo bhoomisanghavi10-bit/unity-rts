@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.Units;
 
 // Squad/group movement + facing rules. Paired with a runtime
@@ -22,10 +23,10 @@ public class FormationDefinition : ScriptableObject
     public float unitSpacing = 1.5f;
 
     [Tooltip("High-armor/melee units placed at the front row facing the enemy")]
-    public List<UnitCategory> preferredFrontRow = new List<UnitCategory> { UnitCategory.Infantry, UnitCategory.Spearman };
+    public List<UnitClass> preferredFrontRow = new List<UnitClass> { UnitClass.Infantry, UnitClass.Spearman };
 
     [Tooltip("Ranged/fragile units placed at the back, protected by the front row")]
-    public List<UnitCategory> preferredBackRow = new List<UnitCategory> { UnitCategory.Archer, UnitCategory.Siege };
+    public List<UnitClass> preferredBackRow = new List<UnitClass> { UnitClass.Archer, UnitClass.Siege };
 
     [Tooltip("Max units per row before wrapping to a new row")]
     public int unitsPerRow = 8;

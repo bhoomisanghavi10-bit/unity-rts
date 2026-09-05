@@ -55,6 +55,8 @@ namespace KingdomsOfBharat.Buildings
             Cavalry,
             Siege,
             Spearman,
+            Chara,
+            Skirmisher,
         }
 
         [SerializeField] private float soldierFoodCost = 50f;
@@ -130,6 +132,20 @@ namespace KingdomsOfBharat.Buildings
         // ArcherTier/CavalryTier above, also living on Barracks since it
         // upgrades what Barracks itself trains.
         private float _siegeTierResearchRemaining = -1f;
+
+        // Wave 4 item 18: the Scout tier ladder (Chara -> Vega Ashvarohi ->
+        // Maha Vega Ashvarohi) - same independent, non-blocking
+        // research-track shape as InfantryTier/SpearmanTier/ArcherTier/
+        // CavalryTier/SiegeTier above, also living on Barracks since it
+        // upgrades what Barracks itself trains.
+        private float _charaTierResearchRemaining = -1f;
+
+        // Wave 4 item 19: the Skirmisher tier ladder (Pratirodhi Dhanurdhara
+        // -> Maha Pratirodhi Dhanurdhara) - same independent, non-blocking
+        // research-track shape as InfantryTier/SpearmanTier/ArcherTier/
+        // CavalryTier/SiegeTier/CharaTier above, also living on Barracks
+        // since it upgrades what Barracks itself trains.
+        private float _skirmisherTierResearchRemaining = -1f;
 
         private ConstructionSite Site
         {
@@ -208,6 +224,16 @@ namespace KingdomsOfBharat.Buildings
             ? 1f - (_siegeTierResearchRemaining / SiegeLineProgress.NextTierData(Faction).ResearchTime)
             : 0f;
 
+        public bool IsResearchingCharaTier => _charaTierResearchRemaining >= 0f;
+        public float CharaTierResearchProgress => IsResearchingCharaTier
+            ? 1f - (_charaTierResearchRemaining / ScoutLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
+        public bool IsResearchingSkirmisherTier => _skirmisherTierResearchRemaining >= 0f;
+        public float SkirmisherTierResearchProgress => IsResearchingSkirmisherTier
+            ? 1f - (_skirmisherTierResearchRemaining / SkirmisherLineProgress.NextTierData(Faction).ResearchTime)
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -253,6 +279,16 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingSiegeTier)
             {
                 TickSiegeTierResearch();
+            }
+
+            if (IsResearchingCharaTier)
+            {
+                TickCharaTierResearch();
+            }
+
+            if (IsResearchingSkirmisherTier)
+            {
+                TickSkirmisherTierResearch();
             }
         }
 
@@ -376,6 +412,64 @@ namespace KingdomsOfBharat.Buildings
             _remaining = ScaledTrainTime();
         }
 
+        // Wave 4 item 18: Scout (Chara) - the second Barracks-trained unit
+        // read straight from DataRegistry rather than fixed Inspector
+        // fields, same reasoning as RequestTrainSpearman above. Falls back
+        // to unit_roster_template.csv's known values (50 Food, 0 Gold) if
+        // the generated asset is ever missing.
+        public void RequestTrainChara()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            UnitDefinition def = DataRegistry.GetUnit("chara");
+            float foodCost = def != null ? def.cost.food : 50f;
+            float goldCost = def != null ? def.cost.gold : 0f;
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Food) < foodCost
+                || stockpile.GetTotal(ResourceType.Gold) < goldCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Food, -foodCost);
+            stockpile.Add(ResourceType.Gold, -goldCost);
+            _trainingUnit = TrainingUnit.Chara;
+            _remaining = ScaledTrainTime();
+        }
+
+        // Wave 4 item 19: Skirmisher - the second wholly-new Wave 4 unit,
+        // read straight from DataRegistry rather than fixed Inspector
+        // fields, same reasoning as RequestTrainSpearman/RequestTrainChara
+        // above. Falls back to unit_roster_template.csv's known values (35
+        // Food, 25 Gold) if the generated asset is ever missing.
+        public void RequestTrainSkirmisher()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            UnitDefinition def = DataRegistry.GetUnit("skirmisher");
+            float foodCost = def != null ? def.cost.food : 35f;
+            float goldCost = def != null ? def.cost.gold : 25f;
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Food) < foodCost
+                || stockpile.GetTotal(ResourceType.Gold) < goldCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Food, -foodCost);
+            stockpile.Add(ResourceType.Gold, -goldCost);
+            _trainingUnit = TrainingUnit.Skirmisher;
+            _remaining = ScaledTrainTime();
+        }
+
         private float ScaledTrainTime(float baseTrainTime = -1f)
         {
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
@@ -394,6 +488,8 @@ namespace KingdomsOfBharat.Buildings
                     TrainingUnit.Cavalry => CavalryFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.Siege => SiegeFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.Spearman => SpearmanFactory.Spawn(transform.position + rallyOffset, Faction),
+                    TrainingUnit.Chara => ScoutFactory.Spawn(transform.position + rallyOffset, Faction),
+                    TrainingUnit.Skirmisher => SkirmisherFactory.Spawn(transform.position + rallyOffset, Faction),
                     _ => SoldierFactory.Spawn(transform.position + rallyOffset, Faction),
                 };
                 _rally.ApplyTo(spawned);
@@ -667,6 +763,78 @@ namespace KingdomsOfBharat.Buildings
             {
                 SiegeLineProgress.AdvanceTier(Faction);
                 _siegeTierResearchRemaining = -1f;
+            }
+        }
+
+        // Wave 4 item 18: Scout tier ladder research - same shape as
+        // RequestResearchInfantryTier/RequestResearchSpearmanTier/
+        // RequestResearchArcherTier/RequestResearchCavalryTier/
+        // RequestResearchSiegeTier above.
+        public void RequestResearchCharaTier()
+        {
+            if (!IsComplete || IsResearchingCharaTier
+                || !ScoutLineProgress.HasNextTier(Faction)
+                || !ScoutLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            ScoutTierData next = ScoutLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _charaTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickCharaTierResearch()
+        {
+            _charaTierResearchRemaining -= Time.deltaTime;
+            if (_charaTierResearchRemaining <= 0f)
+            {
+                ScoutLineProgress.AdvanceTier(Faction);
+                _charaTierResearchRemaining = -1f;
+            }
+        }
+
+        // Wave 4 item 19: Skirmisher tier ladder research - same shape as
+        // RequestResearchInfantryTier/RequestResearchSpearmanTier/
+        // RequestResearchArcherTier/RequestResearchCavalryTier/
+        // RequestResearchSiegeTier/RequestResearchCharaTier above.
+        public void RequestResearchSkirmisherTier()
+        {
+            if (!IsComplete || IsResearchingSkirmisherTier
+                || !SkirmisherLineProgress.HasNextTier(Faction)
+                || !SkirmisherLineProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            SkirmisherTierData next = SkirmisherLineProgress.NextTierData(Faction);
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < next.GoldCost
+                || stockpile.GetTotal(ResourceType.Wood) < next.WoodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -next.GoldCost);
+            stockpile.Add(ResourceType.Wood, -next.WoodCost);
+            _skirmisherTierResearchRemaining = next.ResearchTime;
+        }
+
+        private void TickSkirmisherTierResearch()
+        {
+            _skirmisherTierResearchRemaining -= Time.deltaTime;
+            if (_skirmisherTierResearchRemaining <= 0f)
+            {
+                SkirmisherLineProgress.AdvanceTier(Faction);
+                _skirmisherTierResearchRemaining = -1f;
             }
         }
     }

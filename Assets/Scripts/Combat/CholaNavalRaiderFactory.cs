@@ -38,9 +38,12 @@ namespace KingdomsOfBharat.Combat
             }
 
             GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
+            // Wave 3 item 16: Elite tier (Maha Naval Raider), Durg->Imperial,
+            // baked in at spawn like every other tier line - not retroactive.
+            string tierName = UniqueUnitEliteProgress.DisplayName(faction, "chola_naval_raider", "Naval Raider");
             go.name = faction == FactionId.Player
-                ? $"{profile.DisplayName} Naval Raider"
-                : $"Enemy {profile.DisplayName} Naval Raider";
+                ? $"{profile.DisplayName} {tierName}"
+                : $"Enemy {profile.DisplayName} {tierName}";
 
             var agent = go.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f;
@@ -55,7 +58,7 @@ namespace KingdomsOfBharat.Combat
             // see GarrisonSeeker.
             go.AddComponent<GarrisonSeeker>();
             var attackable = go.AddComponent<Attackable>();
-            attackable.Configure((def != null ? def.maxHP : 22f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
+            attackable.Configure(((def != null ? def.maxHP : 22f) + UniqueUnitEliteProgress.HpBonus(faction, "chola_naval_raider")) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(
                 meleeArmor: def != null ? def.meleeArmor : 0f,
                 pierceArmor: def != null ? def.pierceArmor : 1f);
@@ -64,7 +67,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<HealthBar>();
 
             var attacker = go.AddComponent<MeleeAttacker>();
-            attacker.SetBaseDamage(def != null ? def.attackDamage : 6f);
+            attacker.SetBaseDamage((def != null ? def.attackDamage : 6f) + UniqueUnitEliteProgress.DamageBonus(faction, "chola_naval_raider"));
             attacker.SetDamageMultiplier(profile.SoldierDamageMultiplier);
             attacker.SetRange(def != null ? def.attackRange : 7f);
             attacker.SetDamageType(DamageType.Pierce);

@@ -26,7 +26,7 @@ MonoBehaviour:
     stone: 0
   researchTimeSeconds: 60
   effects:
-  - targetCategory: 4
+  - targetCategory: 3
     applyToAllCategories: 0
     stat: 1
     operation: 1

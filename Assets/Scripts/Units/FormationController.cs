@@ -89,7 +89,7 @@ namespace KingdomsOfBharat.Units
         {
             foreach (GameObject go in units)
             {
-                UnitCategory? category = CategoryOf(go);
+                UnitClass? category = CategoryOf(go);
                 if (def != null && category.HasValue && def.preferredFrontRow.Contains(category.Value))
                 {
                     front.Add(go);
@@ -118,31 +118,16 @@ namespace KingdomsOfBharat.Units
             }
         }
 
-        private static UnitCategory? CategoryOf(GameObject go)
+        // AoE-Parity Wave 0 item 1: UnitClass (Combat) and UnitCategory (the
+        // former CSV-generated data schema) used to be two separate enums,
+        // reconciled via a lossy translation map here (UnitCategory's extra
+        // Support/Hero values had no UnitClass equivalent, so a Support or
+        // Hero unit could never report a real front/back-row category).
+        // Now that they're one shared enum, this is a direct read.
+        private static UnitClass? CategoryOf(GameObject go)
         {
             Attackable attackable = go.GetComponent<Attackable>();
-            return attackable == null ? null : (UnitCategory?)MapUnitClass(attackable.Class);
+            return attackable == null ? null : attackable.Class;
         }
-
-        // UnitClass (Combat) and UnitCategory (the CSV-generated data
-        // schema) are two separate enums for two separate reasons - see
-        // CombatBonus's own note on why they were deliberately NOT unified
-        // (CounterMatrix's untested RPS values would have silently
-        // overridden a playtested balance pass). No such conflict here:
-        // this is a plain lookup, not competing design data, so a simple
-        // name-matching map is all that's needed. UnitCategory's extra
-        // Support/Hero values have no UnitClass equivalent (no live unit
-        // reports either today) and are simply never produced by this map.
-        private static UnitCategory MapUnitClass(UnitClass unitClass) => unitClass switch
-        {
-            UnitClass.Infantry => UnitCategory.Infantry,
-            UnitClass.Archer => UnitCategory.Archer,
-            UnitClass.Cavalry => UnitCategory.Cavalry,
-            UnitClass.Siege => UnitCategory.Siege,
-            UnitClass.Building => UnitCategory.Building,
-            UnitClass.Naval => UnitCategory.Naval,
-            UnitClass.Spearman => UnitCategory.Spearman,
-            _ => UnitCategory.Infantry,
-        };
     }
 }

@@ -81,6 +81,7 @@ namespace KingdomsOfBharat.Tests
         [Test]
         public void RequestResearchAttack_DeductsGoldOnceAtTierZeroCost()
         {
+            AgeProgress.Initialize(FactionId.Player, AgeId.Classical);
             ResourceStockpile stockpile = CreateStockpile();
             Karmashala karmashala = CreateKarmashala(FactionId.Player);
             float expectedCost = karmashala.NextAttackUpgradeCost;
@@ -94,6 +95,7 @@ namespace KingdomsOfBharat.Tests
         [Test]
         public void RequestResearchAttack_WhileAlreadyResearching_DoesNotDeductTwice()
         {
+            AgeProgress.Initialize(FactionId.Player, AgeId.Classical);
             ResourceStockpile stockpile = CreateStockpile();
             Karmashala karmashala = CreateKarmashala(FactionId.Player);
 
@@ -107,6 +109,7 @@ namespace KingdomsOfBharat.Tests
         [Test]
         public void RequestResearchArmor_DeductsGoldOnceAtTierZeroCost()
         {
+            AgeProgress.Initialize(FactionId.Player, AgeId.Classical);
             ResourceStockpile stockpile = CreateStockpile();
             Karmashala karmashala = CreateKarmashala(FactionId.Player);
             float expectedCost = karmashala.NextArmorUpgradeCost;
@@ -120,6 +123,7 @@ namespace KingdomsOfBharat.Tests
         [Test]
         public void RequestResearchArmor_WhileAlreadyResearching_DoesNotDeductTwice()
         {
+            AgeProgress.Initialize(FactionId.Player, AgeId.Classical);
             ResourceStockpile stockpile = CreateStockpile();
             Karmashala karmashala = CreateKarmashala(FactionId.Player);
 
@@ -133,6 +137,7 @@ namespace KingdomsOfBharat.Tests
         [Test]
         public void RequestResearchAttack_AtMaxTier_DoesNotDeduct()
         {
+            AgeProgress.Initialize(FactionId.Player, AgeId.Imperial);
             ResourceStockpile stockpile = CreateStockpile();
             Karmashala karmashala = CreateKarmashala(FactionId.Player);
 
@@ -150,6 +155,7 @@ namespace KingdomsOfBharat.Tests
         [Test]
         public void RequestResearchAttack_InsufficientGold_DoesNotDeductOrStart()
         {
+            AgeProgress.Initialize(FactionId.Player, AgeId.Classical);
             ResourceStockpile stockpile = CreateStockpile(gold: 0f);
             Karmashala karmashala = CreateKarmashala(FactionId.Player);
 
@@ -157,6 +163,108 @@ namespace KingdomsOfBharat.Tests
 
             Assert.AreEqual(0f, stockpile.GetTotal(ResourceType.Gold));
             Assert.IsFalse(karmashala.IsResearchingAttack);
+        }
+
+        // --- Wave 3 item 17: per-tier age gate (Classical/Durg/Imperial) ---
+
+        [Test]
+        public void RequestResearchAttack_BlockedBelowClassical_EvenWithFunds()
+        {
+            AgeProgress.Initialize(FactionId.Player, AgeId.Ancient);
+            ResourceStockpile stockpile = CreateStockpile();
+            Karmashala karmashala = CreateKarmashala(FactionId.Player);
+
+            karmashala.RequestResearchAttack();
+
+            Assert.IsFalse(karmashala.IsResearchingAttack);
+            Assert.AreEqual(1000f, stockpile.GetTotal(ResourceType.Gold));
+        }
+
+        [Test]
+        public void RequestResearchAttack_TierTwo_RequiresDurg()
+        {
+            AgeProgress.Initialize(FactionId.Player, AgeId.Classical);
+            UpgradeProgress.AdvanceAttack(FactionId.Player);
+            ResourceStockpile stockpile = CreateStockpile();
+            Karmashala karmashala = CreateKarmashala(FactionId.Player);
+
+            karmashala.RequestResearchAttack();
+            Assert.IsFalse(karmashala.IsResearchingAttack);
+            Assert.AreEqual(1000f, stockpile.GetTotal(ResourceType.Gold));
+
+            AgeProgress.Initialize(FactionId.Player, AgeId.Durg);
+            karmashala.RequestResearchAttack();
+            Assert.IsTrue(karmashala.IsResearchingAttack);
+        }
+
+        [Test]
+        public void RequestResearchAttack_TierThree_RequiresImperial()
+        {
+            AgeProgress.Initialize(FactionId.Player, AgeId.Durg);
+            UpgradeProgress.AdvanceAttack(FactionId.Player);
+            UpgradeProgress.AdvanceAttack(FactionId.Player);
+            ResourceStockpile stockpile = CreateStockpile();
+            Karmashala karmashala = CreateKarmashala(FactionId.Player);
+
+            karmashala.RequestResearchAttack();
+            Assert.IsFalse(karmashala.IsResearchingAttack);
+
+            AgeProgress.Initialize(FactionId.Player, AgeId.Imperial);
+            karmashala.RequestResearchAttack();
+            Assert.IsTrue(karmashala.IsResearchingAttack);
+        }
+
+        [Test]
+        public void RequestResearchArmor_BlockedBelowClassical_EvenWithFunds()
+        {
+            AgeProgress.Initialize(FactionId.Player, AgeId.Ancient);
+            ResourceStockpile stockpile = CreateStockpile();
+            Karmashala karmashala = CreateKarmashala(FactionId.Player);
+
+            karmashala.RequestResearchArmor();
+
+            Assert.IsFalse(karmashala.IsResearchingArmor);
+            Assert.AreEqual(1000f, stockpile.GetTotal(ResourceType.Gold));
+        }
+
+        [Test]
+        public void RequestResearchArmor_TierTwo_RequiresDurg()
+        {
+            AgeProgress.Initialize(FactionId.Player, AgeId.Classical);
+            UpgradeProgress.AdvanceArmor(FactionId.Player);
+            ResourceStockpile stockpile = CreateStockpile();
+            Karmashala karmashala = CreateKarmashala(FactionId.Player);
+
+            karmashala.RequestResearchArmor();
+            Assert.IsFalse(karmashala.IsResearchingArmor);
+
+            AgeProgress.Initialize(FactionId.Player, AgeId.Durg);
+            karmashala.RequestResearchArmor();
+            Assert.IsTrue(karmashala.IsResearchingArmor);
+        }
+
+        [Test]
+        public void NextAttackTierRequiredAge_MatchesClassicalDurgImperialPerTier()
+        {
+            Assert.AreEqual(AgeId.Classical, UpgradeProgress.NextAttackTierRequiredAge(FactionId.Player));
+
+            UpgradeProgress.AdvanceAttack(FactionId.Player);
+            Assert.AreEqual(AgeId.Durg, UpgradeProgress.NextAttackTierRequiredAge(FactionId.Player));
+
+            UpgradeProgress.AdvanceAttack(FactionId.Player);
+            Assert.AreEqual(AgeId.Imperial, UpgradeProgress.NextAttackTierRequiredAge(FactionId.Player));
+        }
+
+        [Test]
+        public void NextAttackTierRequiredAge_DoesNotThrowOnceMaxed()
+        {
+            for (int i = 0; i < UpgradeProgress.MaxTier; i++)
+            {
+                UpgradeProgress.AdvanceAttack(FactionId.Player);
+            }
+
+            Assert.DoesNotThrow(() => UpgradeProgress.NextAttackTierRequiredAge(FactionId.Player));
+            Assert.IsFalse(UpgradeProgress.NextAttackTierAgeRequirementMet(FactionId.Player));
         }
     }
 }

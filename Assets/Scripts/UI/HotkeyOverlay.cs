@@ -88,12 +88,16 @@ namespace KingdomsOfBharat.UI
             new Entry("Train Cavalry", "TrainCavalry", KeyCode.N),
             new Entry("Train Siege", "TrainSiege", KeyCode.S),
             new Entry("Train Spearman", "TrainSpearman", KeyCode.E),
+            new Entry("Train Scout", "TrainChara", KeyCode.F),
+            new Entry("Train Skirmisher", "TrainSkirmisher", KeyCode.C),
             new Entry("Unique Tech", "ResearchUniqueTech", KeyCode.J),
             new Entry("Upgrade Infantry Tier", "ResearchInfantryTier", KeyCode.I),
             new Entry("Upgrade Spearman Tier", "ResearchSpearmanTier", KeyCode.L),
             new Entry("Upgrade Archer Tier", "ResearchArcherTier", KeyCode.H),
             new Entry("Upgrade Cavalry Tier", "ResearchCavalryTier", KeyCode.M),
             new Entry("Upgrade Siege Tier", "ResearchSiegeTier", KeyCode.O),
+            new Entry("Upgrade Scout Tier", "ResearchCharaTier", KeyCode.G),
+            new Entry("Upgrade Skirmisher Tier", "ResearchSkirmisherTier", KeyCode.V),
         });
 
         // Wave 2 item 7: unique-unit training moved off Barracks onto the
@@ -103,6 +107,8 @@ namespace KingdomsOfBharat.UI
             new Entry("Unique Unit", "TrainUniqueUnit", KeyCode.Q),
             new Entry("2nd Unique Unit", "TrainUniqueUnit2", KeyCode.Z),
             new Entry("Upgrade Elephant Tier", "ResearchElephantTier", KeyCode.R),
+            new Entry("Upgrade Elite Tier", "ResearchEliteTier", KeyCode.F),
+            new Entry("Upgrade 2nd Elite Tier", "ResearchEliteTier2", KeyCode.G),
         });
 
         // Wave 2 item 8: flat Attack/Armor research moved off Barracks onto

@@ -108,6 +108,18 @@ namespace KingdomsOfBharat.Tests
         }
 
         [Test]
+        public void RequestTrainChara_DeductsCostAndStartsTraining()
+        {
+            ResourceStockpile stockpile = CreateStockpile(FactionId.Player);
+            Barracks barracks = CreateBarracks(FactionId.Player);
+
+            barracks.RequestTrainChara();
+
+            Assert.IsTrue(barracks.IsTraining);
+            Assert.Less(stockpile.GetTotal(ResourceType.Food), 1000f);
+        }
+
+        [Test]
         public void Barracks_WhileTraining_RejectsAnotherTrainRequest()
         {
             ResourceStockpile stockpile = CreateStockpile(FactionId.Player);

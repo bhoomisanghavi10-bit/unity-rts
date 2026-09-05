@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7eb99104ee614065ac1a988bfa29bc6, type: 3}
+  m_Name: skirmisher
+  m_EditorClassIdentifier: KingdomsOfBharat.Runtime::UnitDefinition
+  unitId: skirmisher
+  displayName: Skirmisher
+  category: 0
+  ageRequirement: 2
+  cost:
+    food: 35
+    wood: 0
+    gold: 25
+    stone: 0
+  trainTimeSeconds: 5
+  maxHP: 20
+  attackDamage: 3
+  attackType: 1
+  meleeArmor: 0
+  pierceArmor: 0
+  attackRange: 5
+  attackSpeed: 0
+  moveSpeed: 3.8
+  isUniqueUnit: 0
+  civOwnerId: 
+  counterNotes: 'Wave 4 item 19: dedicated anti-archer specialist (see CombatBonus
+    Skirmisher->Archer 2.0x, Infantry->Skirmisher 1.25x) - NEW category/unit, completes
+    the counter web''s last gap'
+  historicalBasis: Light skirmishing archers historically fielded to harass and outrange
+    other archer lines
+  prefab: {fileID: 0}

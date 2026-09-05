@@ -31,7 +31,7 @@ MonoBehaviour:
   uniqueTechs:
   - {fileID: 11400000, guid: 9cc6a332503644464b9a9cd73f7b6595, type: 2}
   passiveBonuses:
-  - targetCategory: 6
+  - targetCategory: 7
     applyToAllCategories: 0
     stat: 9
     operation: 1

@@ -603,22 +603,93 @@ one-line-per-session.
     tier, and after that tier completed a War Galley spawned "Chola Samrat Nauka" at
     90 HP with the real button's label settling on "Naval (Max Tier)" and
     `interactable=false`. *Depends on: Wave 0, Wave 1.*
-16. **[M] Unique-unit Elite tier (2 tiers × 5 units — was 7, see item 13).** Every
-    existing unique unit EXCEPT `MauryaWarElephantFactory`/`VijayanagaraWarElephantFactory`
+16. ~~**[M] Unique-unit Elite tier (2 tiers × 5 units — was 7, see item 13).**~~
+    **Closed (2026-09-05).** Every existing unique unit EXCEPT
+    `MauryaWarElephantFactory`/`VijayanagaraWarElephantFactory`
     (`CholaNavalRaiderFactory`, `RajputRoyalGuardFactory`, `PillarEdictScholarFactory`,
     `MarathaMavlaRaiderFactory`, `MarathaDurgGarrisonFactory`) gets a Durg → Imperial
     elite step, matching AoE's rule that *every* unique unit gets exactly one elite
     upgrade. The two War Elephant factories are excluded — item 13's own
     Gajaroha → Maha Gajaroha ladder (closed 2026-09-05) already IS their one
     Durg→Imperial elite step; user-confirmed resolution, not stacking a second one.
-    Size this as one session covering all 5 — they share one mechanical pattern even
-    though there are 5 of them. *Depends on:
+    New `Progression/UniqueUnitEliteProgress.cs` keyed by unitId (not CivilizationId,
+    since these 5 units are genuinely civ-exclusive, unlike the shared ladders every
+    other Wave 3 item reads) - single Imperial-gated step per unitId reusing the same
+    +30 HP/+6 dmg/200 Gold/100 Wood/40s growth every other line's own first
+    Imperial-gate step already uses. Research lives on **Durg**, not Barracks - same
+    "research where the unit trains" deviation item 13 already established, since
+    every one of these 5 units trains from Durg. New
+    `Durg.RequestResearchEliteTier(slot)`/`TrainsEliteEligible(slot)`/
+    `IsResearchingEliteTier(slot)`/`EliteTierResearchProgress(slot)` - two independent
+    per-slot tracks (Maurya and Maratha each have 2 unique-unit slots) gated by
+    `UniqueUnitEliteProgress.IsEligible(unitId)` at that slot, not the slot index
+    itself - Maurya's slot 0 (War Elephant) is NOT eligible, only slot 1 (Pillar
+    Edict Scholar) is; Maratha's both slots are. New `eliteTierButton`/
+    `eliteTierButton2` in `BuildMenu.cs` (hotkeys F/G, reused from other mutually-
+    exclusive contexts per this file's own established convention), wired into
+    `SettingsMenu`/`HotkeyOverlay`'s `DurgGroup`. Same explicitly-out-of-scope call
+    as every other tier line: no AI-side research hook. 16 new EditMode tests
+    (`UniqueUnitEliteTests.cs`, 351 total, all pass). **Hit a real concurrent-session
+    file collision mid-session, not silently worked around**: `BuildMenu.cs` was
+    being actively edited by a separate session building Wave 4 item 18 (Scout) at
+    the same time - per this project's own "single-session discipline" gotcha,
+    stopped and asked the user before touching that file further, reverted the one
+    edit already made, and waited until the other session's changes stabilized
+    before resuming (`Barracks.cs`/`SettingsMenu.cs`/`HotkeyOverlay.cs` were also
+    concurrently dirty). Live-verified via UnityMCP through the real production
+    path: a real match (`CivilizationSetup.BeginMatch(Maratha)`), a real
+    `DurgFactory.Place`-spawned Durg confirmed both slots elite-eligible, the age
+    gate correctly deducted exactly 200 Gold/100 Wood per slot at Imperial for both
+    tracks running concurrently, forced real ticks completed both and a Mavla
+    Raider/Durg Garrison trained afterward through the real factory paths came out
+    "Maratha Maha Mavla Raider"/"Maratha Maha Durg Garrison" at correctly boosted
+    HP, the real scene buttons correctly showed "Elite (Max Tier)"/non-interactable
+    once maxed; a second real Durg (Maurya) confirmed slot 0 (War Elephant)
+    ineligible/slot 1 (Pillar Edict Scholar) eligible exactly as designed; a third
+    real Durg (Rajput) confirmed the real scene button's own `onClick.Invoke()`
+    deducted the exact cost and started research for its single eligible slot,
+    with slot 2 correctly hidden/ineligible. *Depends on:
     Wave 0, Wave 1, Wave 2 item 7 (thematically the Durg building is where "you can now train
     the base-tier unique unit" makes sense, even if the elite upgrade itself researches
     elsewhere).*
-17. **[S] Blacksmith-style stat upgrade steps.** Extend `UpgradeProgress.cs` from 2 research
-    steps to 3 (Classical/Durg/Imperial), and wire it to the new Karmashala building.
-    *Depends on: Wave 1, Wave 2 item 8.*
+17. ~~**[S] Blacksmith-style stat upgrade steps.**~~ **Closed (2026-09-05).** Extend
+    `UpgradeProgress.cs` from 2 research steps to 3 (Classical/Durg/Imperial), and
+    wire it to the new Karmashala building. Investigation first: `UpgradeProgress.MaxTier`
+    was already 3 (a prior session's own value), but NONE of the 3 tiers were age-gated
+    at all — a Karmashala existing (Classical Age minimum, per its own build gate) was
+    enough to research all 3 tiers back-to-back in the same Age, purely gold-limited.
+    New `UpgradeProgress.TierRequiredAges` (`{Classical, Durg, Imperial}`, indexed by
+    current tier) plus `NextAttackTierRequiredAge`/`NextArmorTierRequiredAge`/
+    `NextAttackTierAgeRequirementMet`/`NextArmorTierAgeRequirementMet` — same
+    "array indexed by current tier" + ordinal `AgeId` comparison shape every other
+    tier line's own `NextTierAgeRequirementMet` already uses. `Karmashala.
+    RequestResearchAttack`/`RequestResearchArmor` both gained the age check alongside
+    their existing cost/already-researching guards. `BuildMenu.cs`'s shared
+    `UpdateUpgradeButton` (used by both Attack/Armor, unlike every other tier line's
+    own dedicated `Update*TierButton` method) gained the same "Upgrade to X (needs Y
+    Age)" branch every other tier button already has, via 2 new parameters
+    (`ageRequirementMet`/`requiredAge`) rather than a rewrite. **Found and fixed one
+    real edge-case bug before it shipped**: `NextAttackTierRequiredAge`/
+    `NextArmorTierRequiredAge` are evaluated unconditionally by `BuildMenu`'s call
+    site (C# evaluates all arguments before a method call, and `UpdateUpgradeButton`'s
+    own early-return on `!hasNextTier` happens too late to matter) — at max tier this
+    would index `TierRequiredAges[3]` on a 3-element array and throw
+    `IndexOutOfRangeException` every frame once any track was maxed; fixed by clamping
+    the index to the array's last valid tier, with a dedicated regression test
+    (`NextAttackTierRequiredAge_DoesNotThrowOnceMaxed`). 7 new/updated EditMode tests
+    in `KarmashalaTests.cs` (the 6 pre-existing tests needed `AgeProgress.Initialize`
+    added, since they previously relied on the ungated behavior implicitly — 358 total,
+    all pass). Live-verified via UnityMCP through the real production path: a real
+    match (`CivilizationSetup.BeginMatch(Maurya)`), a real `KarmashalaFactory.Place`
+    Karmashala correctly refused tier 1 research at Ancient with zero deduction even
+    with 1000 Gold on hand, started tier 1 at Classical (80 Gold), correctly refused
+    tier 2 at Classical with zero deduction, started tier 2 at Durg (160 Gold), the
+    real scene button's own label correctly showed "Upgrade Attack (needs Imperial
+    Age)" with `interactable=false` at Durg for tier 3 and the real
+    `onClick.Invoke()` correctly no-op'd (zero deduction), then at Imperial the same
+    real button's `onClick.Invoke()` deducted exactly 240 Gold and started tier 3,
+    and after tier 3 completed the real button settled on "Attack (Max)" /
+    `interactable=false`. *Depends on: Wave 1, Wave 2 item 8.*
 
 **Not in Wave 3 — deferred to Wave 4 because they are NEW units, not upgrades to existing
 ones:** Skirmisher, Cavalry Archer, Scout, Camel Rider, Battering Ram, Scorpion, Trebuchet,
@@ -636,16 +707,29 @@ retroactive-promotion rule (verified in Wave 0) has been exercised 7 times witho
 Ordered by a mix of value and dependency, not alphabetically. Each is fully independent of
 the others — genuinely parallel-safe once Waves 0-1 are done.
 
-18. **[M] Scout (Chara), 3-tier line.** Chara → Vega Ashvarohi → Maha Vega Ashvarohi,
-    Ancient/Classical/Durg. Flagged repeatedly across this workbook's history as the single
-    most conspicuous missing unit — now that Fog of War is confirmed to exist
-    (`FogOfWar/FogOfWarManager.cs`), a scout has real function. **Recommend doing this one
-    first in Wave 4** — it's the highest player-facing value per session of anything in this
-    wave. *Depends on: Wave 0, Wave 1.*
-19. **[S] Skirmisher (anti-archer counter-archer), 2 tiers.** Pratirodhi Dhanurdhara → Maha
-    Pratirodhi Dhanurdhara, Classical/Durg. Completes the rock-paper-scissors triangle
-    (Archer counters Infantry, Skirmisher counters Archer, currently missing). *Depends on:
-    Wave 0, Wave 1.*
+18. ✅ **[M] Scout (Chara), 3-tier line — closed 2026-09-05.** Chara → Vega Ashvarohi → Maha
+    Vega Ashvarohi, Ancient/Classical/Durg. Flagged repeatedly across this workbook's history
+    as the single most conspicuous missing unit — now that Fog of War is confirmed to exist
+    (`FogOfWar/FogOfWarManager.cs`), a scout has real function. First Wave 4 item, done first
+    per this item's own recommendation. See `CLAUDE.md`'s "Current status" for full detail:
+    new `Progression/ScoutLineProgress.cs` (deliberately grows vision radius/move speed per
+    tier instead of HP/damage - "Vega" translates to "speed"), `Combat/ScoutFactory.cs` (first
+    live user of `UnitClass.Support` for real combat classification, not just Worker's
+    move-speed-multiplier-only use), `Barracks.RequestTrainChara`/
+    `RequestResearchCharaTier`, full `BuildMenu`/hotkey (F/G)/`NetTrainKind` wiring, 12 new
+    EditMode tests. *Depends on: Wave 0, Wave 1.*
+19. ✅ **[S] Skirmisher (anti-archer counter-archer), 2 tiers — closed 2026-09-05.** Pratirodhi
+    Dhanurdhara → Maha Pratirodhi Dhanurdhara, Classical/Durg. Completes the counter web's last
+    gap - the dedicated anti-archer specialist (see `CombatBonus`: 2x vs Archer, 1.25x received
+    from Infantry, both reusing Spearman's own pairing exactly - the closest existing precedent
+    for "a unit built to counter one other class," not independently balanced). See
+    `CLAUDE.md`'s "Current status" for full detail: new `Combat/UnitClass.Skirmisher`, new
+    `Progression/SkirmisherLineProgress.cs` (only 2 tiers total, not 3 like every Wave 3 line -
+    tier 1's bonus/cost reuses `ArcherLineProgress`'s own Durg-gate growth exactly), new
+    `Combat/SkirmisherFactory.cs` (mirrors `ArcherFactory.cs`'s shape - reuses the shared bow
+    model/animation, no dedicated Skirmisher model exists yet, flagged directly),
+    `Barracks.RequestTrainSkirmisher`/`RequestResearchSkirmisherTier`, full `BuildMenu`/hotkey
+    (C/V)/`NetTrainKind` wiring, 13 new EditMode tests. *Depends on: Wave 0, Wave 1.*
 20. **[S] Battering Ram, 3 tiers.** Dwarabhanjaka → Maha Dwarabhanjaka → Vajra Dwarabhanjaka,
     Classical/Durg/Imperial. Anti-building only, no splash, garrisonable — distinct role from
     the existing Mangonel-like Siege unit. *Depends on: Wave 0, Wave 1.*

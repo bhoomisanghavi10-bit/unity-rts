@@ -48,17 +48,17 @@ namespace KingdomsOfBharat.Tests
         [Test]
         public void FindCategoryMultiplier_MatchesAuditedValues()
         {
-            Assert.AreEqual(0.85f, CivilizationProfile.FindCategoryMultiplier(CivilizationId.Rajput, StatType.ResourceCost, UnitCategory.Cavalry), 0.001f);
-            Assert.AreEqual(1.15f, CivilizationProfile.FindCategoryMultiplier(CivilizationId.Maurya, StatType.MoveSpeed, UnitCategory.Support), 0.001f);
-            Assert.AreEqual(1.2f, CivilizationProfile.FindCategoryMultiplier(CivilizationId.Maratha, StatType.MoveSpeed, UnitCategory.Cavalry), 0.001f);
-            Assert.AreEqual(0.85f, CivilizationProfile.FindCategoryMultiplier(CivilizationId.Maratha, StatType.TrainTime, UnitCategory.Naval), 0.001f);
+            Assert.AreEqual(0.85f, CivilizationProfile.FindCategoryMultiplier(CivilizationId.Rajput, StatType.ResourceCost, UnitClass.Cavalry), 0.001f);
+            Assert.AreEqual(1.15f, CivilizationProfile.FindCategoryMultiplier(CivilizationId.Maurya, StatType.MoveSpeed, UnitClass.Support), 0.001f);
+            Assert.AreEqual(1.2f, CivilizationProfile.FindCategoryMultiplier(CivilizationId.Maratha, StatType.MoveSpeed, UnitClass.Cavalry), 0.001f);
+            Assert.AreEqual(0.85f, CivilizationProfile.FindCategoryMultiplier(CivilizationId.Maratha, StatType.TrainTime, UnitClass.Naval), 0.001f);
         }
 
         [Test]
         public void FindCategoryMultiplier_FallsBackToOneWhenNoMatchingBonus()
         {
-            Assert.AreEqual(1f, CivilizationProfile.FindCategoryMultiplier(CivilizationId.Chola, StatType.MoveSpeed, UnitCategory.Cavalry), 0.001f);
-            Assert.AreEqual(1f, CivilizationProfile.FindCategoryMultiplier(CivilizationId.Rajput, StatType.MoveSpeed, UnitCategory.Cavalry), 0.001f);
+            Assert.AreEqual(1f, CivilizationProfile.FindCategoryMultiplier(CivilizationId.Chola, StatType.MoveSpeed, UnitClass.Cavalry), 0.001f);
+            Assert.AreEqual(1f, CivilizationProfile.FindCategoryMultiplier(CivilizationId.Rajput, StatType.MoveSpeed, UnitClass.Cavalry), 0.001f);
         }
 
         // ResourceStockpile's faction field defaults to Player and has no
@@ -76,7 +76,7 @@ namespace KingdomsOfBharat.Tests
         {
             CivilizationRegistry.Assign(FactionId.Enemy2, CivilizationId.Rajput);
 
-            float rajputMultiplier = CivilizationProfile.FindCategoryMultiplier(CivilizationId.Rajput, StatType.ResourceCost, UnitCategory.Cavalry);
+            float rajputMultiplier = CivilizationProfile.FindCategoryMultiplier(CivilizationId.Rajput, StatType.ResourceCost, UnitClass.Cavalry);
             Assert.Less(rajputMultiplier, 1f, "Rajput's Cavalry gold-cost bonus should be a discount (<1x)");
 
             ResourceStockpile stockpile = CreateGameObject("Stockpile").AddComponent<ResourceStockpile>();
