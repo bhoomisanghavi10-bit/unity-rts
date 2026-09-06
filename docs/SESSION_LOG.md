@@ -8522,3 +8522,32 @@ total) are now all closed.
 own exit-criteria line updated to reflect closure. `CLAUDE.md`'s "Current status" updated.
 Next: Wave 5 (cross-cutting systems — item 29 Player/team colour system, or item 32
 Age/research always-visible readout) or any other item, user's call.
+
+---
+
+## 2026-09-07 — Fix `BuildMenu.ApplyTheme()` missing Wave 4 buttons (follow-up to `task_71f5649c`)
+
+Closed the gap the Trebuchet session above flagged and spawned as a background task: 6
+buttons — `cavalryArcherButton`/`camelRiderButton`/`scorpionButton` and their 3 matching tier
+buttons — were present in `_allGridButtons` (item 31's grid-layout array, correct) but missing
+from `ApplyTheme()`'s own separate `Button[] buttons` array, so they never received the
+command-card 4-state sprite set (`normal`/`hover`/`pressed`/`disabled`) or the `Sliced`/
+`SpriteSwap` wiring every other button gets — they'd have rendered with Unity's default blue
+button skin in an otherwise fully-themed command grid. Fix: added all 6 field references to
+that array, right where `trebuchetButton` already sits per the flagging session's own partial
+fix. Pure array-literal addition, no other logic touched.
+
+No new EditMode tests needed (pure UI-wiring, matching every prior session's convention for
+this class of fix) — full suite re-confirmed 501/501 unchanged. Live-verified via UnityMCP
+through the real production path: a real match (`CivilizationSetup.BeginMatch(Maurya)`), a
+real `BarracksFactory.Place`-spawned Barracks selected via reflection into
+`SelectionManager`'s private field (the CivPicker/MissionSelectMenu UI layers had to be
+disabled first since `BeginMatch` was invoked directly rather than through the normal
+mission-select flow), a forced `BuildMenu.Update()` tick, screenshotted the real command grid
+— every visible button (including the previously-unthemed ones) shares the identical tan
+command-card look, no default-blue outliers. Confirmed directly via reflection on all 6
+target buttons' `Image.sprite`/`Image.type`/`Button.transition` fields: all report
+`sprite=normal`, `type=Sliced`, `transition=SpriteSwap` — the themed state, not the default.
+
+Dismissed `task_71f5649c` (superseded by this fix). One scoped commit:
+`Assets/Scripts/UI/BuildMenu.cs`.

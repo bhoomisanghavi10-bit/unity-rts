@@ -550,10 +550,10 @@ namespace KingdomsOfBharat.UI
                 marketButton, dockButton, lumberCampButton, miningCampButton, millButton, durgButton,
                 karmashalaButton, monasteryButton,
                 workerButton, soldierButton, archerButton, cavalryButton,
-                siegeButton, spearmanButton, charaButton, skirmisherButton, batteringRamButton, trebuchetButton, uniqueUnitButton, uniqueUnitButton2, heroButton, ungarrisonButton,
+                siegeButton, spearmanButton, charaButton, skirmisherButton, batteringRamButton, trebuchetButton, cavalryArcherButton, camelRiderButton, scorpionButton, uniqueUnitButton, uniqueUnitButton2, heroButton, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
                 buyFoodButton, sellStoneButton, buyStoneButton, vanikButton, vaidyaButton, purohitaButton, attackUpgradeButton, armorUpgradeButton,
-                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2, charaTierButton, skirmisherTierButton, batteringRamTierButton, navalTierButton, fireShipButton, fireShipTierButton, tradeShipButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
+                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2, charaTierButton, skirmisherTierButton, batteringRamTierButton, cavalryArcherTierButton, camelRiderTierButton, scorpionTierButton, navalTierButton, fireShipButton, fireShipTierButton, tradeShipButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
             };
 
             foreach (Button button in buttons)

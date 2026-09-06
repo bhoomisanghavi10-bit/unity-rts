@@ -6,6 +6,16 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Fixed (2026-09-07, follow-up to `task_71f5649c`): `BuildMenu.ApplyTheme()`'s
+  button-theming array was missing `cavalryArcherButton`/`camelRiderButton`/
+  `scorpionButton` and their 3 tier buttons** (flagged, not fixed, by the item
+  24/Trebuchet session below) — those 6 buttons never got the command-card
+  4-state sprite theme, unlike every sibling button. Added all 6 to the
+  array. Pure UI-wiring, no new tests (501/501 unchanged). Live-verified via
+  UnityMCP: a real match, a real Barracks selected, screenshotted the real
+  command grid — all buttons share the themed tan look; confirmed via
+  reflection all 6 report `sprite=normal`/`type=Sliced`/`transition=SpriteSwap`
+  (the themed state). See `docs/SESSION_LOG.md`'s matching entry.
 - **Wave 4 item 24 (Trebuchet, 1 tier) closed (2026-09-07) — this closes
   Wave 4: all 11 items (18-28) are now done.** Picked up per the user's
   "start item 24 wave 4" request, right after item 28 closed. No design
