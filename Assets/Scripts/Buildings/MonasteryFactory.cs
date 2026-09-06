@@ -19,7 +19,7 @@ namespace KingdomsOfBharat.Buildings
             CivilizationId civ = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civ);
 
-            GameObject go = BuildingModelFactory.Spawn("Monastery", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
+            GameObject go = BuildingModelFactory.Spawn("Monastery", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor, faction: faction);
             go.name = faction == FactionId.Player ? "Monastery" : "EnemyMonastery";
             BuildingFootprint.Attach(go, BuildingFootprint.Square(BuildingFootprint.MonasteryTiles), carveObstacle: true);
 

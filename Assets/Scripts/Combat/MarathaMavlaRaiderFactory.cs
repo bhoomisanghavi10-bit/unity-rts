@@ -41,7 +41,7 @@ namespace KingdomsOfBharat.Combat
 
             GameObject go = HumanModelFactory.Spawn(
                 HumanModelFactory.Gender.Male, position, civilization,
-                prefabPathOverride: "UniqueUnits/MavlaRaider/MavlaRaider", applyPaletteMaterial: false);
+                prefabPathOverride: "UniqueUnits/MavlaRaider/MavlaRaider", applyPaletteMaterial: false, faction: faction);
             HumanModelFactory.ApplyCustomTexture(go, "UniqueUnits/MavlaRaider/MavlaRaider_albedo");
             // Wave 3 item 16: Elite tier (Maha Mavla Raider), Durg->Imperial,
             // baked in at spawn like every other tier line - not retroactive.

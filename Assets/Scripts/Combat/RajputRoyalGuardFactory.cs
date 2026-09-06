@@ -38,7 +38,7 @@ namespace KingdomsOfBharat.Combat
                 Debug.LogWarning("RajputRoyalGuardFactory: no generated UnitDefinition for 'rajput_royal_guard' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
-            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
+            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization, faction: faction);
             // Wave 3 item 16: Elite tier (Maha Royal Guard), Durg->Imperial,
             // baked in at spawn like every other tier line - not retroactive.
             string tierName = UniqueUnitEliteProgress.DisplayName(faction, "rajput_royal_guard", "Royal Guard");

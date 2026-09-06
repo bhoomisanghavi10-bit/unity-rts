@@ -50,7 +50,7 @@ namespace KingdomsOfBharat.Combat
             // same convention as every other combat-unit tier line.
             ScorpionTierData tier = ScorpionLineProgress.Current(faction);
 
-            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
+            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization, faction: faction);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} {tier.Name}"
                 : $"Enemy {profile.DisplayName} {tier.Name}";

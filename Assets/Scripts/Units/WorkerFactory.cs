@@ -65,7 +65,7 @@ namespace KingdomsOfBharat.Units
                 : "human/MaleVillager/MaleVillager";
             GameObject go = HumanModelFactory.Spawn(
                 villagerGender, position, civilization,
-                prefabPathOverride: villagerPrefabPath, applyPaletteMaterial: false);
+                prefabPathOverride: villagerPrefabPath, applyPaletteMaterial: false, faction: faction);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} Worker"
                 : $"Enemy {profile.DisplayName} Worker";

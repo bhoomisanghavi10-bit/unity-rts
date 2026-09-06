@@ -50,7 +50,7 @@ namespace KingdomsOfBharat.Combat
             // same convention as every other combat-unit tier line.
             FireShipTierData tier = FireShipLineProgress.Current(faction);
 
-            GameObject go = BoatModelFactory.Spawn("CombatShip", position, FireTint, isWarGalley: true);
+            GameObject go = BoatModelFactory.Spawn("CombatShip", position, FireTint, isWarGalley: true, faction: faction);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} {tier.Name}"
                 : $"Enemy {profile.DisplayName} {tier.Name}";

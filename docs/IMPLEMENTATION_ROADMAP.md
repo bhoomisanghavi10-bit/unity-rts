@@ -1021,16 +1021,60 @@ explicitly gated on a design decision, not just an implementation. **Met (2026-0
 These touch *everything* built in Waves 3-4, which is exactly why they belong in their own
 wave rather than being retrofitted piecemeal afterward.
 
-29. **[M] Player/team colour system.** The gap you identified directly. AoE colours by PLAYER
-    SLOT as a layer on top of civ identity (accent regions only — tunic, shield, roof trim —
-    not a full recolour), where we currently colour by CIVILIZATION only
-    (`CivilizationProfile.PrimaryColor`). Needs: a `FactionId`-keyed colour assignment, a
-    designated team-colour material slot/mask region on unit and building models
-    (`GameplayMaterial.cs`, `BuildingModelFactory.cs`), and minimap blips confirmed to read
-    per-player rather than per-civ. **Do this in Wave 5, not Wave 6** — every unit built in
-    Wave 4 should get its team-colour material slot from the start rather than retrofitted.
-    *Depends on: nothing structurally, but sequenced here deliberately so it lands before any
-    more new unit art is finalized.*
+29. **[M] Player/team colour system. Closed (2026-09-07).** Picked up per the user's "start
+    wave 5 item 29" request, right after Wave 4 closed. Research ahead of any code (an Explore
+    agent survey) confirmed the real gap: no accent-region mask/second-color channel exists
+    anywhere in this project's models or shaders — `HumanModelFactory` swaps a trim-sheet
+    texture *offset* per civ (one material, no team slot) and `BuildingModelFactory.TintMaterials`
+    does a flat single-tint lerp. Painting real per-pixel masks (the item's own literal "tunic,
+    shield, roof trim" spec) would need new texture/shader authoring — flagged back to the user
+    rather than assumed away. **User supplied reference AoE screenshots** showing the actual
+    in-game convention is discrete geometry, not a painted mask: small flat-colored cloth
+    banners/pennants draped on buildings (roof edges, gates, doors) and mounted on units
+    (spear-top flags, small back banners) — buildable now with zero new art, using the same
+    hand-built-mesh idiom `ProceduralBuildingFactory.BuildPyramidMesh`/`RallyPoint.BuildFlag`
+    already use for other primitives. New `Core/TeamColor.cs` (`FactionId` → Color: Player=blue,
+    Enemy=red, Enemy2=green — deliberately independent of `CivilizationProfile.PrimaryColor`, so
+    two Player-controlled units of different civs read as the same team and two enemy factions
+    playing the same civ don't collide) and `Core/TeamColorAccent.cs`
+    (`AttachToBuilding`/`AttachToBoat`/`AttachToHumanoid`, each building a small double-sided
+    quad banner/pennant via `GameplayMaterial.CreateOpaque`). Wired via one optional
+    `FactionId? faction = null` param threaded through the 3 shared spawn choke points
+    (`HumanModelFactory.Spawn`, `BuildingModelFactory.Spawn`/`Refresh`/`BuildVisual`,
+    `BoatModelFactory.Spawn`) rather than touching every unit/building factory's own logic —
+    each of the ~42 individual factory call sites (23 human units incl. 2 War Elephant
+    factories reached directly since they bypass `HumanModelFactory.Spawn`'s shared path, 15
+    buildings + `AgeTieredBuildingVisual`, 4 boats) needed only one added argument, their
+    already-in-scope `faction` parameter. Building banners are parented under the "Visual"
+    child, so `BuildingModelFactory.Refresh`'s existing destroy-and-rebuild on every Age-up
+    re-skin automatically cleans up and re-creates the banner too — no separate cleanup path.
+    **Found and fixed 2 real bugs during live verification, not assumed away**: (1) a
+    `Object.Destroy` (not `DestroyImmediate`) call on the pennant pole's collider logged an
+    Editor-only error and broke several previously-passing EditMode tests the moment `faction`
+    started flowing through in production code paths those tests exercise
+    (`EntitySpawnerTests`/`DesyncRecoveryTests`) — fixed by switching to `DestroyImmediate`,
+    the same fix class this project's `ProceduralBuildingFactory`-adjacent code has needed
+    before. (2) `Transform.SetParent(parent, worldPositionStays: true)` only preserves world
+    scale across a re-parent onto a UNIFORMLY-scaled parent — a non-uniformly-scaled building
+    visual (Farm's own squashed-Y procedural look) left its banner squashed the same way, and a
+    villager rig's own tiny baked bone scale (0.01) left Worker pennants nearly invisible at 1%
+    size. Both confirmed live via UnityMCP reflection (measuring `Transform.lossyScale`) before
+    guessing a fix — a new `TeamColorAccent.CompensateParentScale` forces each accent's world
+    scale back to exactly 1 unconditionally (an absolute set, not a multiply on top of whatever
+    `SetParent` already did), confirmed idempotent and correct for both the uniform (TownCenter)
+    and non-uniform (Farm) cases afterward. 6 new EditMode tests (`TeamColorTests.cs`, 507
+    total, up from 501, all pass) — pure `GameObject`/`Mesh` construction, no `MonoBehaviour`
+    lifecycle timing involved, so directly testable without Play mode (unlike the factories' own
+    full `Spawn` methods). Live-verified via UnityMCP through the real production path: a real
+    match (`CivilizationSetup.BeginMatch(Maurya)`), reflection-driven spawns of a Soldier,
+    Barracks, Tower, Dock, War Galley, and a Maurya War Elephant (the one factory that bypasses
+    `HumanModelFactory.Spawn` entirely) for both Player and Enemy factions — every accent's
+    color matched `TeamColor.For` exactly and every accent's `lossyScale` read exactly `(1,1,1)`
+    after the scale-compensation fix; screenshotted a real TownCenter's door banner and a real
+    Farm's roofline banner, both correctly sized and colored, not the pre-fix squash/near-
+    invisible states. No `MinimapController.cs` change needed — it renders the live scene
+    through a second camera, so the banners read there automatically. *Depends on: nothing
+    structurally — closed with no blockers.*
 30. **[L] UI layout re-anchor — bottom bar. Closed (2026-09-05).** From the UI Layout sheet:
     re-anchor `BuildMenu.cs`, `SelectedUnitPanel.cs`, and a slice of `ResourceHUD.cs` into one
     shared bottom-docked root (command panel / info panel / minimap, left to right), matching

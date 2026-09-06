@@ -22,7 +22,7 @@ namespace KingdomsOfBharat.Buildings
             CivilizationId civ = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civ);
 
-            GameObject go = BuildingModelFactory.Spawn("Dock", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
+            GameObject go = BuildingModelFactory.Spawn("Dock", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor, faction: faction);
             go.name = faction == FactionId.Player ? "Dock" : "EnemyDock";
             // Dock is the one non-Wall/Gate exception to the square-tile
             // table (see BuildingFootprint) - it's a pier that has to reach

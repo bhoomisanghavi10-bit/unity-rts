@@ -30,7 +30,7 @@ namespace KingdomsOfBharat.Buildings
             CivilizationId civ = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civ);
 
-            GameObject go = BuildingModelFactory.Spawn("TownCenter", civ, position, Size, profile.PrimaryColor, AgeProgress.CurrentAge(faction));
+            GameObject go = BuildingModelFactory.Spawn("TownCenter", civ, position, Size, profile.PrimaryColor, AgeProgress.CurrentAge(faction), faction: faction);
             go.name = faction == FactionId.Player ? "TownCenter" : "EnemyTownCenter";
             BuildingFootprint.Attach(go, BuildingFootprint.Square(BuildingFootprint.TownCenterTiles), carveObstacle: true);
 

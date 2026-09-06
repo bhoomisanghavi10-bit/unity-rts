@@ -49,7 +49,7 @@ namespace KingdomsOfBharat.Combat
             // line.
             CavalryArcherTierData tier = CavalryArcherLineProgress.Current(faction);
 
-            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
+            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization, faction: faction);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} {tier.Name}"
                 : $"Enemy {profile.DisplayName} {tier.Name}";

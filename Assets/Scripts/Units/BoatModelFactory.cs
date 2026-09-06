@@ -32,7 +32,7 @@ namespace KingdomsOfBharat.Units
                 { "FishingBoat", Quaternion.Euler(-90f, 0f, 0f) },
             };
 
-        public static GameObject Spawn(string resourceName, Vector3 position, Color civColor, bool isWarGalley)
+        public static GameObject Spawn(string resourceName, Vector3 position, Color civColor, bool isWarGalley, FactionId? faction = null)
         {
             // Ships/{resourceName} is where the sourced models actually
             // landed (flat extracted prefabs) - kept the boats/ paths too
@@ -57,6 +57,13 @@ namespace KingdomsOfBharat.Units
             else
             {
                 BuildProceduralHull(root.transform, civColor, isWarGalley);
+            }
+
+            // Wave 5 item 29: a player-color pennant near the mast/bow,
+            // independent of civColor above - see TeamColorAccent.
+            if (faction.HasValue)
+            {
+                TeamColorAccent.AttachToBoat(root.transform, ComputeWorldBounds(root), faction.Value);
             }
 
             return root;
@@ -85,6 +92,22 @@ namespace KingdomsOfBharat.Units
             part.transform.localPosition = localPosition;
             part.transform.localScale = size;
             part.GetComponent<MeshRenderer>().sharedMaterial = GameplayMaterial.CreateOpaque(color);
+        }
+
+        private static Bounds ComputeWorldBounds(GameObject go)
+        {
+            Renderer[] renderers = go.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0)
+            {
+                return new Bounds(go.transform.position, Vector3.one);
+            }
+
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+            {
+                bounds.Encapsulate(renderers[i].bounds);
+            }
+            return bounds;
         }
 
         private static void TintMaterials(GameObject go, Color civColor)

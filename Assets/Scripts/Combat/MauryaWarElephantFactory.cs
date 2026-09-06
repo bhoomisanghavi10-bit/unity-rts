@@ -62,6 +62,12 @@ namespace KingdomsOfBharat.Combat
             model.transform.localRotation = Quaternion.identity;
             model.transform.localScale = Vector3.one;
             HumanModelFactory.ApplyCustomTexture(model, "UniqueUnits/WarElephant/WarElephant_albedo");
+            // Wave 5 item 29: bypasses HumanModelFactory.Spawn (bespoke
+            // Meshy rig), so the player-color pennant is attached directly
+            // here instead - falls back to the model root since this rig
+            // has no Humanoid Avatar (ElephantAnimationDriver, not
+            // AnimationDriver).
+            TeamColorAccent.AttachToHumanoid(model, faction);
 
             float groundY = GroundReference.TryGetHeight(position, out float height) ? height : position.y - 1f;
             AlignFeetToGround(model, groundY);

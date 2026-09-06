@@ -6,6 +6,60 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 5 item 29 (Player/team colour system) closed (2026-09-07) — first
+  Wave 5 item.** Picked up per the user's "start wave 5 item 29" request,
+  right after Wave 4 closed. Research (an Explore agent survey) confirmed no
+  accent-region mask/second-color channel exists anywhere in this project's
+  models/shaders — `HumanModelFactory` swaps a trim-sheet texture *offset*
+  per civ, `BuildingModelFactory.TintMaterials` does a flat single-tint lerp
+  — so the item's own literal "tunic/shield/roof-trim mask" spec would need
+  new texture/shader authoring. Flagged this back to the user (via
+  AskUserQuestion) rather than assumed away; **user supplied real AoE
+  reference screenshots** showing the actual convention is discrete
+  geometry, not a painted mask — small flat-colored cloth banners/pennants
+  draped on buildings and mounted on units. Built with zero new art: new
+  `Core/TeamColor.cs` (`FactionId`→Color: Player=blue/Enemy=red/Enemy2=green,
+  deliberately independent of `CivilizationProfile.PrimaryColor` so two
+  Player-controlled units of different civs read as the same team) and
+  `Core/TeamColorAccent.cs` (hand-built double-sided quad banners/pennants,
+  same idiom `ProceduralBuildingFactory.BuildPyramidMesh`/`RallyPoint.
+  BuildFlag` already use). Wired via one optional `FactionId? faction = null`
+  param on the 3 shared spawn choke points (`HumanModelFactory.Spawn`,
+  `BuildingModelFactory.Spawn`/`Refresh`/`BuildVisual`,
+  `BoatModelFactory.Spawn`) rather than touching each factory's own logic —
+  ~42 individual call sites (23 human units incl. both War Elephant
+  factories, 15 buildings + `AgeTieredBuildingVisual`, 4 boats) each needed
+  only one added argument, their already-in-scope `faction` parameter.
+  Building banners parent under the "Visual" child, so
+  `BuildingModelFactory.Refresh`'s existing Age-up destroy/rebuild
+  automatically cleans up and re-creates the banner too. **Found and fixed 2
+  real bugs live, not assumed away**: an `Object.Destroy` (not
+  `DestroyImmediate`) on the pennant pole's collider broke several
+  previously-passing EditMode tests the moment `faction` started flowing
+  through in production code paths those tests exercise
+  (`EntitySpawnerTests`/`DesyncRecoveryTests`) — fixed via `DestroyImmediate`;
+  and `Transform.SetParent(parent, worldPositionStays: true)` only preserves
+  world scale onto a UNIFORMLY-scaled parent — a non-uniform building visual
+  (Farm's own squashed-Y look) squashed its banner the same way, and a
+  villager rig's tiny baked bone scale (0.01) left Worker pennants nearly
+  invisible — both confirmed live via UnityMCP reflection
+  (`Transform.lossyScale`) before fixing, resolved with a new
+  `TeamColorAccent.CompensateParentScale` that forces each accent's world
+  scale back to exactly 1 unconditionally (idempotent for both the uniform
+  and non-uniform cases). 6 new EditMode tests (`TeamColorTests.cs`, 507
+  total, up from 501, all pass) — pure `GameObject`/`Mesh` construction, no
+  `MonoBehaviour` lifecycle timing, directly testable without Play mode.
+  Live-verified via UnityMCP through the real production path: a real match
+  (`CivilizationSetup.BeginMatch(Maurya)`), reflection-driven spawns of a
+  Soldier/Barracks/Tower/Dock/War Galley/Maurya War Elephant (the one
+  factory bypassing `HumanModelFactory.Spawn`) for both Player and Enemy —
+  every accent's color matched `TeamColor.For` exactly and every accent's
+  `lossyScale` read exactly `(1,1,1)` after the fix; screenshotted a real
+  TownCenter door banner and a real Farm roofline banner, both correctly
+  sized/colored. No `MinimapController.cs` change needed — it renders the
+  live scene through a second camera, so banners read there automatically.
+  Next: Wave 5 item 32 (Age/research always-visible readout, the last Wave 5
+  item) or any other item, user's call.
 - **Fixed (2026-09-07, follow-up to `task_71f5649c`): `BuildMenu.ApplyTheme()`'s
   button-theming array was missing `cavalryArcherButton`/`camelRiderButton`/
   `scorpionButton` and their 3 tier buttons** (flagged, not fixed, by the item

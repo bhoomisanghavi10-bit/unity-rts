@@ -8551,3 +8551,161 @@ target buttons' `Image.sprite`/`Image.type`/`Button.transition` fields: all repo
 
 Dismissed `task_71f5649c` (superseded by this fix). One scoped commit:
 `Assets/Scripts/UI/BuildMenu.cs`.
+
+## 2026-09-07 — Wave 5 item 29 (Player/team colour system) — first Wave 5 item
+
+Picked up per the user's "start wave 5 item 29" request, right after Wave 4 closed (all 11
+items, 18-28). No design decision was pre-resolved by the roadmap this time — item 29's own
+text specs an AoE-style masked accent region (tunic/shield/roof trim) recolored per PLAYER SLOT
+(`FactionId.Player`/`Enemy`/`Enemy2`), layered on top of civ identity, where everything today
+colors by CIVILIZATION only (`CivilizationProfile.PrimaryColor`).
+
+### Investigation before any code
+
+An Explore agent surveyed the current color system directly (not trusted from the roadmap
+text): `HumanModelFactory.PaletteNameFor`/`ApplyPaletteMaterial` swap a shared trim-sheet
+texture's *offset* per civ onto one material — no second color channel exists.
+`BuildingModelFactory.TintMaterials` does a flat `Color.Lerp(material.color, civColor, 0.35f)`
+per renderer — again one color, no masked region. Grepped the whole `Assets/Scripts` tree for
+"TeamColor"/"AccentColor"/etc. — zero hits. Confirmed via a second focused Explore agent: no
+existing tintable second-color mask/slot exists on any unit or building model, and no existing
+code builds a small flat-colored decorative mesh and attaches it to an arbitrary socket point,
+though `ProceduralBuildingFactory.BuildPyramidMesh`/`CreateDoubleSidedMaterial` and
+`RallyPoint.BuildFlag` are directly reusable precedents for hand-built small primitives.
+
+Flagged this gap to the user via AskUserQuestion before planning further: real per-pixel
+masking (the item's own literal spec) needs new texture/shader authoring, out of scope for a
+code-only session. The user answered by attaching two real AoE screenshots instead of picking
+an option — showing the actual in-game convention is discrete decorative geometry, not a
+painted mask: small flat-colored cloth banners/pennants draped on buildings (roof edges, gates,
+doors) and mounted on units (spear-top flags, small back banners). This is buildable now with
+zero new art.
+
+### Plan Mode
+
+Used Plan Mode given the size (a cross-cutting change touching every unit/building/boat
+factory, ~42 files). Two further micro-investigations before finalizing the plan: confirmed
+`WeaponAttachment.AttachToBone`/`AttachBeside`'s socket-wrapper mechanism is built for loading
+an external prefab from `Resources`, not a runtime-built mesh — not directly reusable as-is, so
+`TeamColorAccent` builds and parents its own GameObjects directly instead of going through
+`WeaponAttachment`. Confirmed every unit/building/boat factory's own `Spawn`/`Place` method
+already receives `FactionId faction` as a parameter (needed for `FactionMember.Configure`), so
+threading it one level deeper into the 3 shared spawn factories only needed a one-argument
+addition at each call site, not new plumbing.
+
+### Implementation
+
+New `Assets/Scripts/Core/TeamColor.cs`: `TeamColor.For(FactionId)` → Player=blue
+`(0.16,0.38,0.85)`, Enemy=red `(0.82,0.16,0.16)`, Enemy2=green `(0.18,0.72,0.30)` — deliberately
+independent of `CivilizationProfile.Colors` (a civ's own crest color), so two Player-controlled
+units of different civs read as the same team and two enemy factions playing the same civ don't
+collide.
+
+New `Assets/Scripts/Core/TeamColorAccent.cs`:
+- `AttachToBuilding(Transform visualRoot, Bounds worldBounds, FactionId faction)` — sizes/
+  positions a hanging banner near one roof corner from the building's own final world bounds
+  (already computed generically by `BuildingModelFactory.AlignBaseToGround` for all 15 building
+  types, no per-type special-casing). Parents under the "Visual" child so
+  `BuildingModelFactory.Refresh`'s existing destroy-and-rebuild of that child on every Age-up
+  re-skin automatically cleans up and re-creates the banner — no separate cleanup path.
+- `AttachToBoat(Transform visualRoot, Bounds worldBounds, FactionId faction)` — same idea near
+  the mast/bow, using a new `BoatModelFactory.ComputeWorldBounds` helper (mirrors
+  `AlignBaseToGround`'s own renderer-bounds-encapsulation).
+- `AttachToHumanoid(GameObject model, FactionId faction)` — a small pole (tinted-brown
+  cylinder) + pennant (flag quad) mounted behind the unit: sockets to
+  `Animator.GetBoneTransform(HumanBodyBones.Spine)` when a Humanoid Avatar exists (every
+  `HumanModelFactory`-spawned unit), falling back to `model.transform` directly otherwise
+  (covers the 2 War Elephant factories' generic non-Humanoid rig).
+- `BuildFlagQuad` — a hand-built 4-vertex/2-triangle double-sided quad mesh, same idiom as
+  `ProceduralBuildingFactory.BuildPyramidMesh`/`CreateDoubleSidedMaterial` (`_Cull = Off` rather
+  than trusting hand-authored triangle winding).
+
+Wired via one optional `FactionId? faction = null` parameter added to the 3 shared spawn choke
+points: `HumanModelFactory.Spawn`, `BuildingModelFactory.Spawn`/`Refresh`/`BuildVisual`, and
+`BoatModelFactory.Spawn`. Every existing caller of these methods elsewhere in the project (all
+default to `null` = no accent, so nothing changes for a caller that doesn't pass one) stayed
+unaffected; every real production call site got exactly one added argument passing its own
+already-in-scope `faction` parameter:
+- 23 human-unit factories (`Assets/Scripts/Combat/*Factory.cs` + `Units/{WorkerFactory,
+  VanikFactory,VaidyaFactory,PurohitaFactory}.cs`), including 3 that pass
+  `prefabPathOverride`/`applyPaletteMaterial: false` (the Meshy-sourced unique units) — the
+  accent is independent of `applyPaletteMaterial`, gated only on `faction.HasValue`.
+- `MauryaWarElephantFactory.cs` — the one factory that bypasses `HumanModelFactory.Spawn`
+  entirely (a bespoke Meshy rig + `ApplyCustomTexture`) — got one direct
+  `TeamColorAccent.AttachToHumanoid(model, faction)` call instead.
+  (`VijayanagaraWarElephantFactory` turned out to already call `HumanModelFactory.Spawn`
+  normally, unlike its Maurya sibling — confirmed by reading the file rather than assumed from
+  the roadmap's "2 War Elephant factories bypass" framing.)
+- 15 building factories (`Assets/Scripts/Buildings/*Factory.cs`) + `AgeTieredBuildingVisual.
+  RefreshAllForFaction` (already had `faction` as its own method parameter).
+- 4 boat factories (`FireShipFactory`, `FishingBoatFactory`, `TradeShipFactory`,
+  `WarGalleyFactory`).
+
+### Two real bugs found and fixed during live verification
+
+1. **`Object.Destroy` broke previously-passing EditMode tests.** `TeamColorAccent.
+   AttachToHumanoid`'s pole-collider cleanup used `Object.Destroy` (the convention
+   `ProceduralBuildingFactory`/`RallyPoint` already use) — but unlike those call sites (which
+   only ever run from a full building `Place()`, itself NRE'ing outside Play mode, so their
+   `Destroy` calls never actually execute during EditMode tests), `HumanModelFactory.Spawn`
+   does run cleanly in EditMode, and is called directly by `EntitySpawnerTests`/
+   `DesyncRecoveryTests`. The moment `faction` started flowing all the way through in
+   production code, those tests' unit spawns started hitting a real `Object.Destroy` call
+   outside Play mode for the first time, logging `[Error] Destroy may not be called from edit
+   mode!` and failing 8 previously-green tests. Fixed by switching to `Object.DestroyImmediate`
+   — always safe regardless of mode for a one-off creation-time cleanup with nothing else
+   referencing the object yet.
+2. **Non-uniform/tiny parent scale wasn't compensated.** Live UnityMCP reflection (measuring
+   `Transform.lossyScale` on every spawned `TeamColorAccent`, not assumed correct from a
+   screenshot alone) found: Worker pennants rendered at `lossyScale ≈ (0.01,0.01,0.01)` — the
+   sourced villager rig's own bone chain (`Armature/Hips/Spine02`) bakes in a tiny scale, and
+   the accent wrapper's `localScale = Vector3.one` doesn't account for that. Separately, a real
+   `EnemyFarm` accent read `lossyScale = (1.00, 0.31, 1.00)` — Farm's own procedural visual has
+   a squashed Y scale, and `Transform.SetParent(parent, worldPositionStays: true)` turned out to
+   only actually preserve world scale across a re-parent onto a UNIFORMLY-scaled parent (proven
+   empirically: `TownCenter`'s own uniformly-scaled Visual child correctly read `lossyScale =
+   (1,1,1)` even before any fix) — for a non-uniform parent scale, Unity can't cleanly decompose
+   the resulting shear back into TRS and silently leaves the child scaled by the parent's own
+   factor instead. Fixed with a new `TeamColorAccent.CompensateParentScale(Transform child)`
+   that force-SETS (not multiplies — an earlier draft that multiplied on top of whatever
+   `SetParent` already did double-compensated the uniform-scale case, verified live and
+   reverted) the child's `localScale` to the exact reciprocal of `child.parent.lossyScale`,
+   confirmed idempotent and correct afterward for both the uniform (TownCenter) and non-uniform
+   (Farm) cases, plus the villager rig's tiny-scale case.
+
+### Tests and verification
+
+6 new EditMode tests (`Assets/Tests/EditMode/TeamColorTests.cs` — `TeamColor.For` returns 3
+distinct colors; `AttachToBuilding` adds a correctly-colored renderer and parents it under the
+visual root for automatic cleanup; `AttachToHumanoid` falls back to the model root with no
+`Animator` present (the War Elephant case) and its pennant color matches the faction;
+`AttachToBoat` adds a correctly-colored renderer) — 507 total, up from 501, all pass. Pure
+`GameObject`/`Mesh` construction, no `MonoBehaviour` lifecycle timing involved, so directly
+EditMode-testable unlike the factories' own full `Spawn` methods.
+
+Live-verified via UnityMCP through the real production path across two play sessions (the
+first surfaced both bugs above; the second re-confirmed the fixes): a real match
+(`CivilizationSetup.BeginMatch(Maurya)`), reflection-invoked spawns of a Soldier, Barracks
+(Player + Enemy), Tower, Dock, War Galley, and a Maurya War Elephant — every one of 16 real
+`TeamColorAccent` instances (including the ones spawned automatically by the real match's own
+starting TownCenters/Houses/Workers, not just this session's manual test spawns) read the exact
+`TeamColor.For(faction)` color via reflection, and after the scale fix every one read
+`lossyScale = (1,1,1)` exactly regardless of whether its parent (a villager rig bone, a
+uniformly-scaled TownCenter visual, or a non-uniformly-scaled Farm visual) carried its own
+scale. Screenshotted a real TownCenter's door banner and a real Farm's roofline banner, both
+correctly sized/colored (not the pre-fix squashed/near-invisible states). No
+`MinimapController.cs` change needed — it renders the live scene through a second camera, so
+the banners read there automatically without new code.
+
+Full EditMode suite re-confirmed 507/507 after every change. No AI-side changes needed (the
+accent is purely visual, attached inside the same spawn call the AI already uses).
+
+Next: Wave 5 item 32 (Age/research always-visible readout, the last open Wave 5 item), user's
+call.
+
+One scoped commit: `Assets/Scripts/Core/TeamColor.cs` (new), `Assets/Scripts/Core/
+TeamColorAccent.cs` (new), `Assets/Scripts/Units/HumanModelFactory.cs`,
+`Assets/Scripts/Buildings/BuildingModelFactory.cs`, `Assets/Scripts/Buildings/
+AgeTieredBuildingVisual.cs`, `Assets/Scripts/Units/BoatModelFactory.cs`, all 23 human-unit
+factory files, all 15 building factory files, all 4 boat factory files,
+`Assets/Tests/EditMode/TeamColorTests.cs` (new), `docs/IMPLEMENTATION_ROADMAP.md`, `CLAUDE.md`.

@@ -40,7 +40,7 @@ namespace KingdomsOfBharat.Combat
 
             GameObject go = HumanModelFactory.Spawn(
                 HumanModelFactory.Gender.Male, position, civilization,
-                prefabPathOverride: "UniqueUnits/PillarEdictScholar/PillarEdictScholar", applyPaletteMaterial: false);
+                prefabPathOverride: "UniqueUnits/PillarEdictScholar/PillarEdictScholar", applyPaletteMaterial: false, faction: faction);
             HumanModelFactory.ApplyCustomTexture(go, "UniqueUnits/PillarEdictScholar/PillarEdictScholar_albedo");
             // Wave 3 item 16: Elite tier (Maha Pillar Edict Scholar),
             // Durg->Imperial, baked in at spawn like every other tier line -

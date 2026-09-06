@@ -39,7 +39,8 @@ namespace KingdomsOfBharat.Units
         // Worker) is unaffected.
         public static GameObject Spawn(
             Gender gender, Vector3 position, CivilizationId civilization,
-            string prefabPathOverride = null, bool applyPaletteMaterial = true)
+            string prefabPathOverride = null, bool applyPaletteMaterial = true,
+            FactionId? faction = null)
         {
             string genderTag = gender == Gender.Male ? "M" : "F";
             string prefabPath = prefabPathOverride ?? $"human/Human Character Dummy/Prefabs/HumanDummy_{genderTag} White";
@@ -112,6 +113,14 @@ namespace KingdomsOfBharat.Units
             // see GroundFollower for why a one-time alignment isn't
             // enough.
             root.AddComponent<GroundFollower>().Configure(model.transform);
+
+            // Wave 5 item 29: a player-color pennant, independent of the
+            // civ-palette trim-sheet material applied above - see
+            // TeamColorAccent.
+            if (faction.HasValue)
+            {
+                TeamColorAccent.AttachToHumanoid(model, faction.Value);
+            }
 
             return root;
         }

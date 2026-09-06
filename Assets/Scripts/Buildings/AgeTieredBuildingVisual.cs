@@ -43,7 +43,7 @@ namespace KingdomsOfBharat.Buildings
                     continue;
                 }
 
-                BuildingModelFactory.Refresh(visual.gameObject, visual._resourceName, civ, newAge, visual._fallbackSize, profile.PrimaryColor);
+                BuildingModelFactory.Refresh(visual.gameObject, visual._resourceName, civ, newAge, visual._fallbackSize, profile.PrimaryColor, faction: faction);
             }
         }
     }

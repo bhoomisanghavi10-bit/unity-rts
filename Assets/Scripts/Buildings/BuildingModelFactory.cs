@@ -64,11 +64,11 @@ namespace KingdomsOfBharat.Buildings
         // original unsuffixed Buildings/{civId}/{resourceName} path
         // untouched, so none of the 45 existing Imperial prefabs are
         // re-probed differently.
-        public static GameObject Spawn(string resourceName, CivilizationId civId, Vector3 rootPosition, Vector3 fallbackSize, Color civColor, AgeId? age = null)
+        public static GameObject Spawn(string resourceName, CivilizationId civId, Vector3 rootPosition, Vector3 fallbackSize, Color civColor, AgeId? age = null, FactionId? faction = null)
         {
             GameObject root = new GameObject(resourceName);
             root.transform.position = rootPosition;
-            BuildVisual(root, resourceName, civId, age, fallbackSize, civColor);
+            BuildVisual(root, resourceName, civId, age, fallbackSize, civColor, faction);
             return root;
         }
 
@@ -80,7 +80,7 @@ namespace KingdomsOfBharat.Buildings
         // itself, etc.) completely untouched - a pure re-skin, not a
         // re-spawn. Used by AgeTieredBuildingVisual.RefreshAllForFaction
         // for the confirmed-retroactive Age-up re-skin.
-        public static void Refresh(GameObject root, string resourceName, CivilizationId civId, AgeId age, Vector3 fallbackSize, Color civColor)
+        public static void Refresh(GameObject root, string resourceName, CivilizationId civId, AgeId age, Vector3 fallbackSize, Color civColor, FactionId? faction = null)
         {
             Transform existingVisual = root.transform.Find(VisualChildName);
             if (existingVisual != null)
@@ -93,12 +93,12 @@ namespace KingdomsOfBharat.Buildings
                 Object.DestroyImmediate(leftover);
             }
 
-            BuildVisual(root, resourceName, civId, age, fallbackSize, civColor);
+            BuildVisual(root, resourceName, civId, age, fallbackSize, civColor, faction);
         }
 
         private const string VisualChildName = "Visual";
 
-        private static void BuildVisual(GameObject root, string resourceName, CivilizationId civId, AgeId? age, Vector3 fallbackSize, Color civColor)
+        private static void BuildVisual(GameObject root, string resourceName, CivilizationId civId, AgeId? age, Vector3 fallbackSize, Color civColor, FactionId? faction = null)
         {
             // Roadmap Section 4.1: each civ should eventually read as a
             // distinct architectural tradition rather than one shared
@@ -234,6 +234,15 @@ namespace KingdomsOfBharat.Buildings
             float groundY = root.transform.position.y - fallbackSize.y * 0.5f;
             Bounds bounds = AlignBaseToGround(model, groundY);
             AddBoundsCollider(root, bounds);
+
+            // Wave 5 item 29: parented under the "Visual" child (this
+            // method's own `model`), so it's automatically destroyed and
+            // re-created alongside it by Refresh above - no separate
+            // cleanup path needed for the Age-up re-skin case.
+            if (faction.HasValue)
+            {
+                TeamColorAccent.AttachToBuilding(model.transform, bounds, faction.Value);
+            }
         }
 
         private static Bounds AlignBaseToGround(GameObject model, float groundY)

@@ -29,7 +29,7 @@ namespace KingdomsOfBharat.Units
                 Debug.LogWarning("FishingBoatFactory: no generated UnitDefinition for 'fishing_boat' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
-            GameObject go = BoatModelFactory.Spawn("FishingBoat", position, profile.PrimaryColor, isWarGalley: false);
+            GameObject go = BoatModelFactory.Spawn("FishingBoat", position, profile.PrimaryColor, isWarGalley: false, faction: faction);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} Fishing Boat"
                 : $"Enemy {profile.DisplayName} Fishing Boat";

@@ -55,7 +55,7 @@ namespace KingdomsOfBharat.Combat
             // retroactive, same convention as every other line.
             ScoutTierData tier = ScoutLineProgress.Current(faction);
 
-            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
+            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization, faction: faction);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} {tier.Name}"
                 : $"Enemy {profile.DisplayName} {tier.Name}";

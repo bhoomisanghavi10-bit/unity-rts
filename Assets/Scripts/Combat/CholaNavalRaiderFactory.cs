@@ -37,7 +37,7 @@ namespace KingdomsOfBharat.Combat
                 Debug.LogWarning("CholaNavalRaiderFactory: no generated UnitDefinition for 'chola_naval_raider' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
-            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
+            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization, faction: faction);
             // Wave 3 item 16: Elite tier (Maha Naval Raider), Durg->Imperial,
             // baked in at spawn like every other tier line - not retroactive.
             string tierName = UniqueUnitEliteProgress.DisplayName(faction, "chola_naval_raider", "Naval Raider");

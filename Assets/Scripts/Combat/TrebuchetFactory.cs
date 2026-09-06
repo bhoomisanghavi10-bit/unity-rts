@@ -42,7 +42,7 @@ namespace KingdomsOfBharat.Combat
                 Debug.LogWarning("TrebuchetFactory: no generated UnitDefinition for 'trebuchet' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
-            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
+            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization, faction: faction);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} Maha Yantra"
                 : $"Enemy {profile.DisplayName} Maha Yantra";

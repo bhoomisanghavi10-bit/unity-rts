@@ -29,7 +29,7 @@ namespace KingdomsOfBharat.Units
                 Debug.LogWarning("TradeShipFactory: no generated UnitDefinition for 'trade_ship' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
-            GameObject go = BoatModelFactory.Spawn("TradeShip", position, profile.PrimaryColor, isWarGalley: false);
+            GameObject go = BoatModelFactory.Spawn("TradeShip", position, profile.PrimaryColor, isWarGalley: false, faction: faction);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} Trade Ship"
                 : $"Enemy {profile.DisplayName} Trade Ship";

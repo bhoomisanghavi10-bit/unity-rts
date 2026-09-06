@@ -27,7 +27,7 @@ namespace KingdomsOfBharat.Buildings
             CivilizationId civ = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civ);
 
-            GameObject go = BuildingModelFactory.Spawn("Durg", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor);
+            GameObject go = BuildingModelFactory.Spawn("Durg", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor, faction: faction);
             go.name = faction == FactionId.Player ? "Durg" : "EnemyDurg";
             BuildingFootprint.Attach(go, BuildingFootprint.Square(BuildingFootprint.DurgTiles), carveObstacle: true);
 

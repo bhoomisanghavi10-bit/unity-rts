@@ -32,7 +32,7 @@ namespace KingdomsOfBharat.Units
                 Debug.LogWarning("PurohitaFactory: no generated UnitDefinition for 'purohita' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
-            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization);
+            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization, faction: faction);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} Purohita"
                 : $"Enemy {profile.DisplayName} Purohita";
