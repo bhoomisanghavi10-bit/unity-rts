@@ -69,6 +69,11 @@ namespace KingdomsOfBharat.UI
             new RebindableAction("TrainCamelRider", "Train Camel Rider (Barracks)", KeyCode.U),
             new RebindableAction("TrainUniqueUnit", "Train Unique Unit (Durg)", KeyCode.Q),
             new RebindableAction("TrainUniqueUnit2", "Train 2nd Unique Unit (Durg)", KeyCode.Z),
+            // Wave 4 item 28: M is unused within the Durg context
+            // specifically (ResearchCavalryTier on Barracks - mutually
+            // exclusive selection context, this file's own established
+            // convention).
+            new RebindableAction("TrainHero", "Train Maharaja (Durg)", KeyCode.M),
             new RebindableAction("ResearchAttack", "Research Attack (Karmashala)", KeyCode.U),
             new RebindableAction("ResearchArmor", "Research Armor (Karmashala)", KeyCode.K),
             new RebindableAction("ResearchUniqueTech", "Research Unique Tech (Barracks)", KeyCode.J),
@@ -128,6 +133,7 @@ namespace KingdomsOfBharat.UI
         private TMP_Text _difficultyValueText;
         private TMP_Text _colorblindValueText;
         private TMP_Text _timeLimitValueText;
+        private TMP_Text _regicideValueText;
         private TMP_Text[] _keyButtonTexts = new TMP_Text[Actions.Length];
         private string _rebindingActionId;
 
@@ -226,6 +232,7 @@ namespace KingdomsOfBharat.UI
             _colorblindValueText.text = GameSettings.ColorblindMode ? "On" : "Off";
             int timeLimit = GameSettings.TimeLimitMinutes;
             _timeLimitValueText.text = timeLimit <= 0 ? "Off" : $"{timeLimit} min";
+            _regicideValueText.text = GameSettings.RegicideEnabled ? "On" : "Off";
 
             for (int i = 0; i < Actions.Length; i++)
             {
@@ -263,6 +270,14 @@ namespace KingdomsOfBharat.UI
             int currentIndex = System.Array.IndexOf(TimeLimitPresets, GameSettings.TimeLimitMinutes);
             int nextIndex = (currentIndex + 1) % TimeLimitPresets.Length; // -1 (unknown/corrupt value) wraps to 0 = Off, a safe fallback
             GameSettings.TimeLimitMinutes = TimeLimitPresets[nextIndex];
+            GameSettings.Save();
+            RefreshDisplayedValues();
+        }
+
+        // Wave 4 item 28: same on/off toggle shape as ToggleColorblind.
+        private void ToggleRegicide()
+        {
+            GameSettings.RegicideEnabled = !GameSettings.RegicideEnabled;
             GameSettings.Save();
             RefreshDisplayedValues();
         }
@@ -325,6 +340,12 @@ namespace KingdomsOfBharat.UI
 
             CreateLabel(boxGo.transform, "Time Limit", new Vector2(-150f, y), 18, TextAlignmentOptions.Left);
             _timeLimitValueText = CreateButton(boxGo.transform, "", new Vector2(130f, y), new Vector2(160f, 32f), CycleTimeLimit);
+            y -= 44f;
+
+            // Wave 4 item 28: opt-in Regicide toggle, same row shape as
+            // every other fixed setting above.
+            CreateLabel(boxGo.transform, "Regicide", new Vector2(-150f, y), 18, TextAlignmentOptions.Left);
+            _regicideValueText = CreateButton(boxGo.transform, "", new Vector2(130f, y), new Vector2(160f, 32f), ToggleRegicide);
             y -= 50f;
 
             CreateLabel(boxGo.transform, "Key Bindings", new Vector2(0f, y), 20, TextAlignmentOptions.Center);

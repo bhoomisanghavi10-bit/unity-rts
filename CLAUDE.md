@@ -6,6 +6,110 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 4 item 28 (Hero unit — Maharaja, per civ) closed (2026-09-07),
+  together with Regicide (pulled forward from Wave 6 item 37).** Picked up
+  per the user's "start item 28 wave 4" request, right after item 27
+  closed. Item 28 was explicitly gated in its own roadmap text ("only
+  build this if a Regicide-style victory condition is wanted... confirm
+  the victory condition it serves BEFORE building 5 hero units") —
+  resolved via 3 AskUserQuestion rounds before any code: build Regicide +
+  Hero together this session; **Maharaja is the strongest unit in the
+  game**, not AoE's own defenseless King (the user explicitly corrected
+  away from the initially-recommended "defenseless symbol" option);
+  Regicide is an opt-in `GameSettings.RegicideEnabled` toggle, off by
+  default (mirrors `TimeLimitMinutes`' own "0/false = old behavior"
+  convention); a dead Maharaja is retrainable once Regicide is off
+  (population-cap-of-1-alive, not a one-shot). Research confirmed
+  `MatchManager` is fully poll-based with zero event subscriptions
+  anywhere (`EvaluateSkirmishOutcome(bool)` is `internal static`, the same
+  directly-testable seam Time Limit's own session established) and
+  `Attackable` has no `OnDeath` event at all (death handled inline in
+  `TakeDamage`) — Regicide reuses that same poll convention rather than
+  adding new event plumbing. New `Progression/HeroProgress.cs`: tiny
+  compared to `UniqueUnitEliteProgress` — `IsAlive(faction)` is a pure
+  live scan of `Unit.All` for a `UnitClass.Hero` Attackable matching that
+  faction (same "zero bookkeeping, just recount" idiom
+  `Population.Current`/`MatchManager.FactionHasForces` already use — a
+  dead hero is simply gone from the registry), while
+  `HasTrainedHero`/`MarkTrained` is the one genuinely persistent bit,
+  needed so a faction that never built a Maharaja can't spuriously
+  win/lose Regicide. New `Combat/MaharajaFactory.cs`: unlike every other
+  unique unit (`UniqueUnitDefinition`, a per-civ list), Maharaja is
+  stat-identical across all 5 civs — one shared factory read via
+  `CivilizationRegistry.For(faction)`, matching `SoldierFactory`'s "one
+  factory, civ read at spawn" shape rather than
+  `RajputRoyalGuardFactory`'s one-civ-per-file shape. Stats (fallback: 220
+  HP/6-5 armor/24 dmg) sit clearly above the prior ceiling (Elephant
+  line's own Imperial-elite tier, ~130 HP/~17 dmg), per the user's
+  "strongest unit" call. `UnitClass.Hero` (not Cavalry) — `CombatBonus`
+  has zero Hero entries in either direction, falls through to the 1x
+  default, same as Vaidya/Purohita's own `Support` class. No dedicated
+  model exists — **flagging directly per the flag-asset-needs
+  convention**: reuses the same Human Character Dummy + Horse + Sword
+  combo `RajputRoyalGuardFactory` already uses, so a Maharaja is visually
+  identical to a Royal Guard/Cavalry hybrid, no distinct regalia or
+  silhouette. New `Durg.RequestTrainHero`/`IsTrainingHero`/
+  `TickHeroTraining`: a genuinely independent countdown track
+  (`_heroTrainRemaining`) alongside the existing unique-unit queue and the
+  elephant/elite research tracks — training a Maharaja doesn't block or
+  get blocked by unique-unit training. The population-cap-of-1 gate is
+  `!HeroProgress.IsAlive(Faction)` alone (no Regicide check in
+  `RequestTrainHero` at all) — this is what makes retraining after death
+  "just work" independent of the Regicide setting. New
+  `MatchManager.EvaluateSkirmishOutcome` Regicide branch, checked
+  **before** the existing `FactionHasForces` elimination logic (deliberate
+  — Regicide should end the match on hero death even while the loser's
+  army is still standing): Player's hero trained-but-dead → `Defeat`;
+  every hostile faction that ever trained a hero now has none alive →
+  `Victory`; reuses the existing `Victory`/`Defeat` enum values rather
+  than adding a new `MatchOutcome.Regicide` — `GameOverScreen`'s switch
+  already treats the enum as closed (`default` → Defeat), so
+  `GameOverScreen.cs` needed zero changes. New `GameSettings.
+  RegicideEnabled` (PlayerPrefs-backed, same shape as `ColorblindMode`), a
+  new Settings row (`SettingsMenu.BuildUi()` constructs its own UI
+  entirely in code, so this needed no scene-wiring gotcha). Full
+  `NetTrainKind.Hero`/`CommandSerializer`/`BuildMenu` wiring (new
+  `heroButton`/`heroLabel`, hotkey M, wired into
+  `SettingsMenu.Actions`/`HotkeyOverlay.DurgGroup`, added to
+  `_allGridButtons`/`ApplyTheme`'s button lists for item 31's grid
+  layout). New `unit_roster_template.csv` "maharaja" row (Age 3/Durg-
+  gated, 220 Food/180 Gold/45s — priced above every existing unique
+  unit's own ~90-130 Food/70-100 Gold range). 13 new EditMode tests
+  (`HeroTests.cs`: `HeroProgress`'s live-scan/persistent-flag split,
+  `Durg.RequestTrainHero`'s cap-of-1 refusal and independence from the
+  unique-unit queue, and `MatchManager.EvaluateSkirmishOutcome`'s new
+  Regicide branch across 5 cases — 493 total, up from 480, all pass). One
+  test was written with a wrong assumption (that a lone living hero counts
+  as "zero forces" for elimination purposes) and correctly failed on the
+  first real run — removed as redundant with a different, correct test,
+  rather than papered over. Live-verified via UnityMCP through the real
+  production path: a real match (`CivilizationSetup.BeginMatch(Maurya)`),
+  a real Durg, `RequestTrainHero()` deducted exactly 220 Food/180 Gold and
+  spawned a real "Maurya Maharaja" (242 HP, clearly above the elite War
+  Elephant's ~130 HP ceiling); a 2nd `RequestTrainHero()` call was
+  correctly refused with zero deduction while that Maharaja was alive;
+  killing it via a real lethal `TakeDamage` hit then calling
+  `RequestTrainHero()` again correctly succeeded (retraining-after-death
+  confirmed live, Regicide off); toggling `GameSettings.RegicideEnabled`
+  on and re-evaluating with the Player's hero dead flipped
+  `MatchManager.Outcome` to `Defeat` even though the Player's Durg
+  (non-hero forces) was still standing; the real `SettingsMenu` Regicide
+  toggle button correctly flipped the setting and its label; the real
+  scene-wired `HeroButton` (duplicated from `UniqueUnitButton2` via
+  UnityMCP — the exact recurring "new `[SerializeField]` field null in
+  the scene" gotcha every Wave 2/3/4 session has hit) correctly showed
+  "Maharaja (Already Trained)"/`interactable=false` while a hero was
+  alive, and its own `onClick.Invoke()` — once the hero was dead again —
+  left the stockpile unchanged immediately and deducted the exact cost
+  ~1 tick later, confirming `CommandBus` lockstep routing. Full EditMode
+  suite re-confirmed 493/493 after exiting Play mode. **No AI-side use of
+  Maharaja** (no AI training hook) — matches item 27's own "new
+  capability, not a regression" precedent, doubly reinforced by the AI's
+  existing Durg hook already only ever using unique-unit slot 0, never
+  slot 1. **This closes Wave 4 item 28 and pulls Regicide forward out of
+  Wave 6 item 37's original list** (Wonder/Relic remain unbuilt there).
+  Next: Wave 4 item 24 (Trebuchet, 1 tier — the last open Wave 4 item) or
+  Wave 5 (cross-cutting systems), user's call.
 - **Wave 4 item 27 (Support units — Vaidya + Purohita, splitting AoE's
   Monk) closed (2026-09-06).** Picked up per the user's "start wave 4 item
   27" request, right after item 26 closed. The roadmap flagged one open

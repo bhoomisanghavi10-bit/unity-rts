@@ -222,6 +222,7 @@ namespace KingdomsOfBharat.Multiplayer
                     NetTrainKind.UniqueUnit => durg.RequestTrainUniqueUnit,
                     NetTrainKind.UniqueUnitSlot0 => () => durg.RequestTrainUniqueUnit(0),
                     NetTrainKind.UniqueUnitSlot1 => () => durg.RequestTrainUniqueUnit(1),
+                    NetTrainKind.Hero => durg.RequestTrainHero,
                     _ => null,
                 };
                 return requestTrain == null ? null : new TrainCommand(faction, durg, requestTrain);

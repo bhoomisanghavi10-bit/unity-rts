@@ -71,6 +71,7 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         TradeShip,
         Vaidya,
         Purohita,
+        Hero,
     }
 
     // Mirrors BuildingPlacer.BuildingKind (internal enum nested in that

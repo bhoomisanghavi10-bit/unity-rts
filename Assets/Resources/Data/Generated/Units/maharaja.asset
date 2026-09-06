@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7eb99104ee614065ac1a988bfa29bc6, type: 3}
+  m_Name: maharaja
+  m_EditorClassIdentifier: KingdomsOfBharat.Runtime::UnitDefinition
+  unitId: maharaja
+  displayName: Maharaja
+  category: 8
+  ageRequirement: 3
+  cost:
+    food: 220
+    wood: 0
+    gold: 180
+    stone: 0
+  trainTimeSeconds: 45
+  maxHP: 220
+  attackDamage: 24
+  attackType: 0
+  meleeArmor: 6
+  pierceArmor: 5
+  attackRange: 1.2
+  attackSpeed: 0
+  moveSpeed: 5
+  isUniqueUnit: 0
+  civOwnerId: 
+  counterNotes: 'Wave 4 item 28: the Hero unit (see MaharajaFactory.cs/Durg.RequestTrainHero)
+    - user-confirmed design call: the strongest unit in the game (not AoE''s defenseless
+    King), stats sit clearly above the prior ceiling (Elephant line''s Imperial-elite
+    tier, ~130 HP/~17 dmg). One shared factory/row for all 5 civs, capped at 1 living
+    Maharaja per faction, and the carrier for the new opt-in Regicide victory condition
+    (MatchManager.EvaluateSkirmishOutcome, off by default via GameSettings.RegicideEnabled)
+    - NEW unit'
+  historicalBasis: Generic sovereign/commander figure
+  prefab: {fileID: 0}

@@ -2,6 +2,7 @@ using UnityEngine;
 using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Progression;
 using KingdomsOfBharat.Units;
 
 namespace KingdomsOfBharat.Match
@@ -119,6 +120,49 @@ namespace KingdomsOfBharat.Match
         // the same tick.
         internal static MatchOutcome EvaluateSkirmishOutcome(bool timeLimitReached)
         {
+            // Wave 4 item 28: Regicide, opt-in via GameSettings.
+            // RegicideEnabled (default false - this whole block is skipped
+            // for any match that never touches the setting). Checked before
+            // the elimination logic below since Regicide should end the
+            // match on hero death even while the losing faction's army is
+            // still standing - that's the entire point of the mode. A
+            // faction that never trained a hero (HeroProgress.
+            // HasTrainedHero false) can't spuriously trigger either branch.
+            if (GameSettings.RegicideEnabled)
+            {
+                if (HeroProgress.HasTrainedHero(FactionId.Player) && !HeroProgress.IsAlive(FactionId.Player))
+                {
+                    return MatchOutcome.Defeat;
+                }
+
+                bool anyHostileHeroTrained = false;
+                bool allHostileHeroesDead = true;
+                foreach (FactionId hostileFaction in AllFactions)
+                {
+                    if (hostileFaction == FactionId.Player || DiplomacyRegistry.AreAllied(FactionId.Player, hostileFaction))
+                    {
+                        continue;
+                    }
+
+                    if (!HeroProgress.HasTrainedHero(hostileFaction))
+                    {
+                        continue;
+                    }
+
+                    anyHostileHeroTrained = true;
+                    if (HeroProgress.IsAlive(hostileFaction))
+                    {
+                        allHostileHeroesDead = false;
+                        break;
+                    }
+                }
+
+                if (anyHostileHeroTrained && allHostileHeroesDead)
+                {
+                    return MatchOutcome.Victory;
+                }
+            }
+
             if (!FactionHasForces(FactionId.Player))
             {
                 return MatchOutcome.Defeat;

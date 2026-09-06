@@ -1,4 +1,5 @@
 using UnityEngine;
+using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Progression;
@@ -48,6 +49,13 @@ namespace KingdomsOfBharat.Buildings
         // both can be mid-research at once) - same "runs alongside, doesn't
         // block" convention as the elephant track above.
         private readonly float[] _eliteTierResearchRemaining = { -1f, -1f };
+
+        // Wave 4 item 28: Maharaja hero training - a genuinely independent
+        // track from the unique-unit queue above (_remaining/TrainingUnit),
+        // same "runs alongside, doesn't block" convention as the elephant/
+        // elite research tracks. Not gated on population/unique-unit-slot
+        // machinery at all - see RequestTrainHero's own cap-of-1 check.
+        private float _heroTrainRemaining = -1f;
 
         private ConstructionSite Site
         {
@@ -150,6 +158,54 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingEliteTier(1))
             {
                 TickEliteTierResearch(1);
+            }
+
+            if (IsTrainingHero)
+            {
+                TickHeroTraining();
+            }
+        }
+
+        public bool IsTrainingHero => _heroTrainRemaining >= 0f;
+
+        // Wave 4 item 28: cap of 1 living Maharaja per faction, enforced via
+        // HeroProgress.IsAlive's live scan rather than a persistent count -
+        // a dead Maharaja is simply gone from Unit.All, so a new one can
+        // always be queued once the old one dies (independent of Regicide -
+        // see MatchManager.EvaluateSkirmishOutcome for that separate check).
+        public void RequestTrainHero()
+        {
+            if (!IsComplete || IsTrainingHero || !Population.HasRoom(Faction) || HeroProgress.IsAlive(Faction))
+            {
+                return;
+            }
+
+            UnitDefinition def = DataRegistry.GetUnit("maharaja");
+            float foodCost = def != null ? def.cost.food : 220f;
+            float goldCost = def != null ? def.cost.gold : 180f;
+            float trainTime = def != null ? def.trainTimeSeconds : 45f;
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Food) < foodCost
+                || stockpile.GetTotal(ResourceType.Gold) < goldCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Food, -foodCost);
+            stockpile.Add(ResourceType.Gold, -goldCost);
+            _heroTrainRemaining = ScaledTrainTime(trainTime);
+        }
+
+        private void TickHeroTraining()
+        {
+            _heroTrainRemaining -= Time.deltaTime;
+            if (_heroTrainRemaining <= 0f)
+            {
+                GameObject spawned = MaharajaFactory.Spawn(transform.position + rallyOffset, Faction);
+                _rally.ApplyTo(spawned);
+                HeroProgress.MarkTrained(Faction);
+                _heroTrainRemaining = -1f;
             }
         }
 

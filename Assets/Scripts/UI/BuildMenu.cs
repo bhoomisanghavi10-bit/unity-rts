@@ -104,6 +104,13 @@ namespace KingdomsOfBharat.UI
         // only have 1 (see Update()).
         [SerializeField] private Button uniqueUnitButton2;
         [SerializeField] private TMP_Text uniqueUnitLabel2;
+        // Wave 4 item 28: Maharaja hero training - acts on a selected Durg
+        // like the unique-unit buttons above, but an independent track
+        // (Durg.RequestTrainHero/IsTrainingHero) that doesn't block or get
+        // blocked by unique-unit training, and has no per-civ variant (one
+        // shared unit for all 5 civs, no slot-2 button needed).
+        [SerializeField] private Button heroButton;
+        [SerializeField] private TMP_Text heroLabel;
         [SerializeField] private Button ungarrisonButton;
         [SerializeField] private Button fishingBoatButton;
         [SerializeField] private Button warGalleyButton;
@@ -265,6 +272,7 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyTrainScorpion;
         private KeyCode _keyTrainUniqueUnit;
         private KeyCode _keyTrainUniqueUnit2;
+        private KeyCode _keyTrainHero;
         private KeyCode _keyResearchAttack;
         private KeyCode _keyResearchArmor;
         private KeyCode _keyResearchUniqueTech;
@@ -355,6 +363,7 @@ namespace KingdomsOfBharat.UI
             scorpionButton.onClick.AddListener(TrainScorpionAtSelected);
             uniqueUnitButton.onClick.AddListener(TrainUniqueUnitAtSelected);
             uniqueUnitButton2.onClick.AddListener(TrainUniqueUnit2AtSelected);
+            heroButton.onClick.AddListener(TrainHeroAtSelected);
             ungarrisonButton.onClick.AddListener(UngarrisonAtSelected);
             fishingBoatButton.onClick.AddListener(TrainFishingBoatAtSelected);
             warGalleyButton.onClick.AddListener(TrainWarGalleyAtSelected);
@@ -402,7 +411,7 @@ namespace KingdomsOfBharat.UI
                 durgButton, karmashalaButton, monasteryButton, workerButton, soldierButton, archerButton,
                 cavalryButton, siegeButton, spearmanButton, charaButton, skirmisherButton,
                 batteringRamButton, cavalryArcherButton, camelRiderButton, scorpionButton,
-                uniqueUnitButton, uniqueUnitButton2, ungarrisonButton, fishingBoatButton,
+                uniqueUnitButton, uniqueUnitButton2, heroButton, ungarrisonButton, fishingBoatButton,
                 warGalleyButton, navalTierButton, fireShipButton, fireShipTierButton,
                 tradeShipButton,
                 sellWoodButton, buyWoodButton, sellFoodButton, buyFoodButton, sellStoneButton,
@@ -458,6 +467,11 @@ namespace KingdomsOfBharat.UI
             _keyTrainScorpion = GameSettings.GetKey("TrainScorpion", KeyCode.W);
             _keyTrainUniqueUnit = GameSettings.GetKey("TrainUniqueUnit", KeyCode.Q);
             _keyTrainUniqueUnit2 = GameSettings.GetKey("TrainUniqueUnit2", KeyCode.Z);
+            // Wave 4 item 28: M is unused within the Durg context
+            // specifically (ResearchCavalryTier on Barracks - mutually
+            // exclusive) - reused freely per this file's own established
+            // convention.
+            _keyTrainHero = GameSettings.GetKey("TrainHero", KeyCode.M);
             _keyResearchAttack = GameSettings.GetKey("ResearchAttack", KeyCode.U);
             _keyResearchArmor = GameSettings.GetKey("ResearchArmor", KeyCode.K);
             _keyResearchUniqueTech = GameSettings.GetKey("ResearchUniqueTech", KeyCode.J);
@@ -522,7 +536,7 @@ namespace KingdomsOfBharat.UI
                 marketButton, dockButton, lumberCampButton, miningCampButton, millButton, durgButton,
                 karmashalaButton, monasteryButton,
                 workerButton, soldierButton, archerButton, cavalryButton,
-                siegeButton, spearmanButton, charaButton, skirmisherButton, batteringRamButton, uniqueUnitButton, uniqueUnitButton2, ungarrisonButton,
+                siegeButton, spearmanButton, charaButton, skirmisherButton, batteringRamButton, uniqueUnitButton, uniqueUnitButton2, heroButton, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
                 buyFoodButton, sellStoneButton, buyStoneButton, vanikButton, vaidyaButton, purohitaButton, attackUpgradeButton, armorUpgradeButton,
                 uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2, charaTierButton, skirmisherTierButton, batteringRamTierButton, navalTierButton, fireShipButton, fireShipTierButton, tradeShipButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
@@ -585,6 +599,7 @@ namespace KingdomsOfBharat.UI
             SetupGridCell(scorpionButton, null);
             SetupGridCell(uniqueUnitButton, "train_unique_1");
             SetupGridCell(uniqueUnitButton2, "train_unique_2");
+            SetupGridCell(heroButton, null);
             SetupGridCell(ungarrisonButton, null);
             SetupGridCell(fishingBoatButton, null);
             SetupGridCell(warGalleyButton, null);
@@ -751,6 +766,7 @@ namespace KingdomsOfBharat.UI
             scorpionTierButton.gameObject.SetActive(barracks != null);
             uniqueUnitButton.gameObject.SetActive(durg != null);
             uniqueUnitButton2.gameObject.SetActive(durg != null && durg.UniqueUnitCount > 1);
+            heroButton.gameObject.SetActive(durg != null);
             elephantTierButton.gameObject.SetActive(durg != null && durg.TrainsElephant);
             eliteTierButton.gameObject.SetActive(durg != null && durg.TrainsEliteEligible(0));
             eliteTierButton2.gameObject.SetActive(durg != null && durg.TrainsEliteEligible(1));
@@ -1009,6 +1025,7 @@ namespace KingdomsOfBharat.UI
             {
                 if (Input.GetKeyDown(_keyTrainUniqueUnit)) TrainUniqueUnitAtSelected();
                 if (durg.UniqueUnitCount > 1 && Input.GetKeyDown(_keyTrainUniqueUnit2)) TrainUniqueUnit2AtSelected();
+                if (Input.GetKeyDown(_keyTrainHero)) TrainHeroAtSelected();
                 if (durg.TrainsElephant && Input.GetKeyDown(_keyResearchElephantTier)) ResearchElephantTierAtSelected();
                 if (durg.TrainsEliteEligible(0) && Input.GetKeyDown(_keyResearchEliteTier)) ResearchEliteTierAtSelected();
                 if (durg.TrainsEliteEligible(1) && Input.GetKeyDown(_keyResearchEliteTier2)) ResearchEliteTier2AtSelected();
@@ -1474,6 +1491,35 @@ namespace KingdomsOfBharat.UI
             {
                 UpdateEliteTierButton(durg, 1, eliteTierButton2, eliteTierLabel2);
             }
+
+            UpdateHeroButton(durg);
+        }
+
+        // Wave 4 item 28: Maharaja button state - independent of canTrain
+        // above (that's the unique-unit queue's own IsTraining, not
+        // Durg.IsTrainingHero) since the two tracks run alongside each
+        // other without blocking.
+        private void UpdateHeroButton(Durg durg)
+        {
+            if (durg.IsTrainingHero)
+            {
+                heroButton.interactable = false;
+                heroLabel.text = "Training Maharaja...";
+                return;
+            }
+
+            if (HeroProgress.IsAlive(NetworkMatch.LocalFaction))
+            {
+                heroButton.interactable = false;
+                heroLabel.text = "Maharaja (Already Trained)";
+                return;
+            }
+
+            UnitDefinition heroDef = DataRegistry.GetUnit("maharaja");
+            float heroFoodCost = heroDef != null ? heroDef.cost.food : 220f;
+            float heroGoldCost = heroDef != null ? heroDef.cost.gold : 180f;
+            heroButton.interactable = durg.IsComplete;
+            heroLabel.text = $"Train Maharaja ({(int)heroFoodCost} Food, {(int)heroGoldCost} Gold)";
         }
 
         // Wave 3 item 13: Elephant tier ladder research button state -
@@ -1928,6 +1974,16 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Durg durg)
             {
                 EnqueueTrain(durg, () => durg.RequestTrainUniqueUnit(1), NetTrainKind.UniqueUnitSlot1);
+            }
+        }
+
+        // Wave 4 item 28: same EnqueueTrain convention as every other
+        // trainable unit - routes through CommandBus's lockstep queue.
+        private void TrainHeroAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Durg durg)
+            {
+                EnqueueTrain(durg, durg.RequestTrainHero, NetTrainKind.Hero);
             }
         }
 

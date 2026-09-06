@@ -15,6 +15,7 @@ namespace KingdomsOfBharat.Core
         private const string DifficultyKey = "Settings_Difficulty";
         private const string ColorblindKey = "Settings_Colorblind";
         private const string TimeLimitKey = "Settings_TimeLimitMinutes";
+        private const string RegicideKey = "Settings_RegicideEnabled";
         private const string KeyPrefix = "Settings_Key_";
 
         // AiController's own [SerializeField] difficulty stays the source
@@ -49,6 +50,17 @@ namespace KingdomsOfBharat.Core
         {
             get => PlayerPrefs.GetInt(TimeLimitKey, 0);
             set => PlayerPrefs.SetInt(TimeLimitKey, value);
+        }
+
+        // Wave 4 item 28: off by default, same "false/0 means the old
+        // behavior" convention as TimeLimitMinutes above - a match that
+        // never touches this setting is completely unaffected by Maharaja
+        // deaths (MatchManager.EvaluateSkirmishOutcome's Regicide branch is
+        // skipped entirely when this is false).
+        public static bool RegicideEnabled
+        {
+            get => PlayerPrefs.GetInt(RegicideKey, 0) == 1;
+            set => PlayerPrefs.SetInt(RegicideKey, value ? 1 : 0);
         }
 
         // actionId identifies one rebindable action (e.g. "CycleStance",
