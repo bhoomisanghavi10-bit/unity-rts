@@ -106,6 +106,7 @@ namespace KingdomsOfBharat.UI
             new Entry("Upgrade Cavalry Archer Tier", "ResearchCavalryArcherTier", KeyCode.P),
             new Entry("Upgrade Camel Rider Tier", "ResearchCamelRiderTier", KeyCode.B),
             new Entry("Train Scorpion", "TrainScorpion", KeyCode.W),
+            new Entry("Train Trebuchet", "TrainTrebuchet", KeyCode.Q),
             new Entry("Upgrade Scorpion Tier", "ResearchScorpionTier", KeyCode.X),
         });
 

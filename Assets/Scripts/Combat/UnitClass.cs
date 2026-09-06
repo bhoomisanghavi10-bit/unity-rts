@@ -73,5 +73,13 @@ namespace KingdomsOfBharat.Combat
         // closes to range, but fragile if a Galley reaches it first - see
         // CombatBonus for its 2 matchups.
         FireShip,
+        // Wave 4 item 24: the Trebuchet - a long-range anti-building
+        // specialist with a hard minimum range (see
+        // MeleeAttacker.SetMinRange), the first single-tier trainable
+        // combat unit in the project. Gets its own class rather than
+        // folding into Siege (which would collide with Attackable.
+        // SiegeImmune's Siege-specific check) - see CombatBonus for its
+        // 2 matchups.
+        Trebuchet,
     }
 }

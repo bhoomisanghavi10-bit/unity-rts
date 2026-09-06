@@ -756,10 +756,79 @@ the others — genuinely parallel-safe once Waves 0-1 are done.
     already exists — this needs a raycast-through code path for pass-through damage, not a new
     mechanic type. *Depends on: Wave 0, Wave 1.*~~ **Closed (2026-09-05, code+tests only — Unity-side
     steps blocked this session, see below).** See `CLAUDE.md`'s "Current status" for full detail.
-24. **[S] Trebuchet, 1 tier.** Maha Yantra, Imperial only. Long-range anti-building with a
-    minimum range; needs a pack/unpack state (two mesh states or a fold animation) — flag the
-    animation need to yourself as a possible asset dependency even though the unit itself is
-    code-buildable now with a placeholder model. *Depends on: Wave 0, Wave 1.*
+24. **[S] Trebuchet, 1 tier. Closed (2026-09-07).** Picked up per the user's "start item 24
+    wave 4" request, right after item 28 closed. No design decision needed — the roadmap
+    already fixed scope (1 tier, Imperial only, long-range with a minimum range). An Explore
+    agent survey ahead of Plan Mode found the naive "copy an existing siege unit" approach
+    wouldn't fit: BatteringRam and Scorpion both turned out to actually be 2-tier lines
+    despite reading like flat units at a glance, so **Trebuchet is genuinely the first
+    single-tier trainable *combat* unit in this project** — `Barracks.RequestTrainChara()`
+    (Scout) was the closest training-shape precedent (flat `DataRegistry` cost read, one
+    `TrainingUnit` enum value, no tier data class, no `BuildMenu` tier button), not
+    BatteringRam/Scorpion. Also found **no existing `RequestTrainX` method has an inline
+    age-gate check** — every prior age gate lives on a tier ladder's own `RequiredAge`
+    (checked in `BuildMenu`'s `Update*TierButton` methods), which a single-tier unit has no
+    tier button to hang that on — so `Barracks.RequestTrainTrebuchet()` is the first
+    `RequestTrainX` with its own inline `AgeProgress.CurrentAge(Faction) != AgeId.Imperial`
+    check, a genuinely new pattern. **Minimum range is a wholly new mechanic** —
+    `MeleeAttacker` previously only checked "am I within max range," never "am I too close" —
+    new `MeleeAttacker.SetMinRange(float)`/`minAttackRange` field (defaults 0/disabled, every
+    existing user unaffected): a target closer than this can't be fired on at all (refused,
+    not backed away from — the player must manually reposition, matching AoE's own trebuchet
+    counterplay where a melee unit walking inside minimum range genuinely neutralizes it).
+    New `UnitClass.Trebuchet` (not folded into `Siege` — avoids colliding with `Attackable.
+    SiegeImmune`'s Siege-specific check) with 2 new `CombatBonus` pairings continuing the
+    established per-siege-archetype escalation: `Trebuchet→Building = 5x` (Siege 3x →
+    BatteringRam 4x → Trebuchet 5x, not independently balanced) and `Cavalry→Trebuchet = 1.5x`
+    (reuses `Cavalry→Scorpion`'s own value — the same "fast unit closes the gap on an
+    unarmored, slow-moving siege engine" vulnerability every other siege specialist already
+    has). New `Combat/TrebuchetFactory.cs` mirrors `ScorpionFactory.cs`'s shape (siege-class
+    engine, slow, no `GarrisonSeeker`, `Repairable` + upgrade-scaling opt-ins, Bow prop) but:
+    `SetRange(10)` (exceeds the prior game-wide ceiling of 7) + `SetMinRange(4)`, and —
+    **the first live consumer of `DamageType.Siege`**, declared in Wave 0 item 4 but unused by
+    any attacker until now (`Attackable.UsesPierceArmor` already routes `Siege` to
+    `meleeArmor` identically to `Melee`, so this needed zero engine change — the same kind of
+    "complete a Wave 0 loose end for free" moment Fire Ship/the Elephant line already had for
+    `Fire`/`Trample`). Cost: 200 Wood/150 Gold, no Food (machine, not a fed crew — matches
+    Scorpion's own cost-model precedent), base train time 8s. New `unit_roster_template.csv`
+    "trebuchet" row (Age 3/Imperial-gated). Full `NetTrainKind.Trebuchet`/
+    `CommandSerializer`/`BuildMenu` wiring: new `trebuchetButton`/`trebuchetLabel` — a train
+    button with **deliberately no matching tier button** (same "train-only" shape as
+    `charaButton`) and, unlike every other Barracks button, **the first whose own
+    `interactable` state depends on the current Age directly** rather than just
+    `canTrain` — hotkey Q (unused within the Barracks context specifically, already claimed
+    on Durg's `TrainUniqueUnit`, a mutually exclusive selection context), wired into
+    `SettingsMenu.Actions`/`HotkeyOverlay.BarracksGroup`. 8 new EditMode tests
+    (`TrebuchetTests.cs`: `SetMinRange`'s inside/between/beyond-range cases, both new
+    `CombatBonus` pairings, and `RequestTrainTrebuchet`'s Imperial-only age gate/no-double-
+    deduct — 501 total, up from 493, all pass). Hit the same recurring "new
+    `[SerializeField]` field null in the scene" gotcha every Wave 2/3/4 session has hit
+    (duplicated `ScorpionButton` into a real `TrebuchetButton` scene object via UnityMCP).
+    **Also flagged, not fixed, a real pre-existing gap found while wiring this button**:
+    `BuildMenu.ApplyTheme()`'s own button array (separate from `_allGridButtons`, which
+    correctly includes them) is missing `cavalryArcherButton`/`camelRiderButton`/
+    `scorpionButton` and their 3 tier buttons — those 6 likely still render with Unity's
+    default button skin instead of the game's command-card theme. Spawned as a background
+    task (`task_71f5649c`) rather than silently expanding this item's scope. Live-verified
+    via UnityMCP through the real production path: a real match
+    (`CivilizationSetup.BeginMatch(Maurya)`), a real `BarracksFactory.Place`-spawned
+    Barracks, `RequestTrainTrebuchet()` correctly refused at Classical age with zero
+    deduction, then deducted exactly 200 Wood/150 Gold at Imperial and spawned a real "Maurya
+    Maha Yantra" (`Attackable.Class == Trebuchet`, `damageType == Siege`, range 10, min range
+    4 — all confirmed via reflection); a real hostile Tower placed at distance ~3 (inside the
+    4-unit minimum range) took zero damage over 2.5 real seconds of ticking, then moved to
+    distance ~7 (between min and max) took real damage at the expected rate (300→108 HP
+    across 2 real hits, consistent with 20 base × 5x building bonus minus the Tower's own
+    armor); the real `TrebuchetButton`'s label/interactable correctly flipped between
+    "Requires Imperial Age" and the real cost string at the Imperial age boundary, and its
+    own `onClick.Invoke()` confirmed `CommandBus` lockstep routing (Wood/Gold unchanged
+    immediately, deducted ~1 tick later, real "Maurya Maha Yantra" spawned). Full EditMode
+    suite re-confirmed 501/501 after exiting Play mode. **No AI-side use of Trebuchet** (no
+    AI training hook) — matches the established Wave 4 precedent (every wholly-new Wave 4
+    unit has shipped with zero `AiController.cs` hook). **This closes Wave 4 item 24 — the
+    last open item in Wave 4's own numbered list.** Next: Wave 5 (cross-cutting systems, item
+    29 Player/team colour system or item 32 Age/research readout) or any other item, user's
+    call. *Depends on: Wave 0, Wave 1.*
 25. ~~**[S] Fire Ship, 3 tiers.** Agni Nauka → Maha Agni Nauka → Vega Agni Nauka,
     Classical/Durg/Imperial. First real consumer of `DamageType.Fire` (wired in Wave 0 item 4).
     *Depends on: Wave 0 item 4, Wave 1.*~~ **Closed (2026-09-05).** See `CLAUDE.md`'s
@@ -942,7 +1011,8 @@ the others — genuinely parallel-safe once Waves 0-1 are done.
 
 **Wave 4 exit criteria:** the roster gap the AoE tier-chain import surfaced (8 units) is
 closed, in whatever subset you actually confirmed you want — several items in this wave are
-explicitly gated on a design decision, not just an implementation.
+explicitly gated on a design decision, not just an implementation. **Met (2026-09-07) — all
+11 items (18-28) are closed.**
 
 ---
 

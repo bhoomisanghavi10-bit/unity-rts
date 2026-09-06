@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7eb99104ee614065ac1a988bfa29bc6, type: 3}
+  m_Name: trebuchet
+  m_EditorClassIdentifier: KingdomsOfBharat.Runtime::UnitDefinition
+  unitId: trebuchet
+  displayName: Trebuchet
+  category: 0
+  ageRequirement: 3
+  cost:
+    food: 0
+    wood: 200
+    gold: 150
+    stone: 0
+  trainTimeSeconds: 8
+  maxHP: 60
+  attackDamage: 20
+  attackType: 2
+  meleeArmor: 0
+  pierceArmor: 0
+  attackRange: 10
+  attackSpeed: 0
+  moveSpeed: 1
+  isUniqueUnit: 0
+  civOwnerId: 
+  counterNotes: 'Wave 4 item 24: long-range anti-building specialist with a hard
+    minimum range (see MeleeAttacker.SetMinRange) - first live consumer of DamageType.Siege
+    (declared Wave 0 item 4, unused until now). The first single-tier trainable combat
+    unit in the project, Imperial-only via an inline age gate on Barracks.RequestTrainTrebuchet
+    - NEW unit'
+  historicalBasis: Generic counterweight siege engine
+  prefab: {fileID: 0}

@@ -72,6 +72,7 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         Vaidya,
         Purohita,
         Hero,
+        Trebuchet,
     }
 
     // Mirrors BuildingPlacer.BuildingKind (internal enum nested in that

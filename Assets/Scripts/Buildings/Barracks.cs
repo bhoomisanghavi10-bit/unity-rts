@@ -61,6 +61,7 @@ namespace KingdomsOfBharat.Buildings
             CavalryArcher,
             CamelRider,
             Scorpion,
+            Trebuchet,
         }
 
         [SerializeField] private float soldierFoodCost = 50f;
@@ -669,6 +670,42 @@ namespace KingdomsOfBharat.Buildings
             _remaining = ScaledTrainTime();
         }
 
+        // Wave 4 item 24: Trebuchet - the first single-tier trainable
+        // combat unit in this project (no TrebuchetLineProgress; a flat
+        // DataRegistry cost read, same shape as RequestTrainChara), and the
+        // first Imperial-only trainable unit - every prior age gate lives
+        // on a tier ladder's own RequiredAge, which a single-tier unit has
+        // no tier button to hang that on, so this is genuinely the first
+        // RequestTrainX with its own inline age check.
+        public void RequestTrainTrebuchet()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            if (AgeProgress.CurrentAge(Faction) != AgeId.Imperial)
+            {
+                return;
+            }
+
+            UnitDefinition def = DataRegistry.GetUnit("trebuchet");
+            float woodCost = def != null ? def.cost.wood : 200f;
+            float goldCost = def != null ? def.cost.gold : 150f;
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Wood) < woodCost
+                || stockpile.GetTotal(ResourceType.Gold) < goldCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Wood, -woodCost);
+            stockpile.Add(ResourceType.Gold, -goldCost);
+            _trainingUnit = TrainingUnit.Trebuchet;
+            _remaining = ScaledTrainTime();
+        }
+
         private float ScaledTrainTime(float baseTrainTime = -1f)
         {
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
@@ -693,6 +730,7 @@ namespace KingdomsOfBharat.Buildings
                     TrainingUnit.CavalryArcher => CavalryArcherFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.CamelRider => CamelRiderFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.Scorpion => ScorpionFactory.Spawn(transform.position + rallyOffset, Faction),
+                    TrainingUnit.Trebuchet => TrebuchetFactory.Spawn(transform.position + rallyOffset, Faction),
                     _ => SoldierFactory.Spawn(transform.position + rallyOffset, Faction),
                 };
                 _rally.ApplyTo(spawned);

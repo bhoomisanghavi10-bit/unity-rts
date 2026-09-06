@@ -96,6 +96,13 @@ namespace KingdomsOfBharat.UI
         // cavalryArcherButton/camelRiderButton for the prior precedent of
         // this shape).
         [SerializeField] private Button scorpionButton;
+        // Wave 4 item 24: Trebuchet - a Barracks train button with
+        // deliberately no matching tier button (single-tier unit, same
+        // "train-only" shape as charaButton), and the first whose own
+        // interactable state depends on the current Age directly (Imperial
+        // only - see UpdateBarracksButtons).
+        [SerializeField] private Button trebuchetButton;
+        [SerializeField] private TMP_Text trebuchetLabel;
         [SerializeField] private Button uniqueUnitButton;
         [SerializeField] private TMP_Text uniqueUnitLabel;
         // Roadmap Section 5 item 3: Maurya/Maratha each have a 2nd unique
@@ -270,6 +277,7 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyTrainCavalryArcher;
         private KeyCode _keyTrainCamelRider;
         private KeyCode _keyTrainScorpion;
+        private KeyCode _keyTrainTrebuchet;
         private KeyCode _keyTrainUniqueUnit;
         private KeyCode _keyTrainUniqueUnit2;
         private KeyCode _keyTrainHero;
@@ -361,6 +369,7 @@ namespace KingdomsOfBharat.UI
             cavalryArcherButton.onClick.AddListener(TrainCavalryArcherAtSelected);
             camelRiderButton.onClick.AddListener(TrainCamelRiderAtSelected);
             scorpionButton.onClick.AddListener(TrainScorpionAtSelected);
+            trebuchetButton.onClick.AddListener(TrainTrebuchetAtSelected);
             uniqueUnitButton.onClick.AddListener(TrainUniqueUnitAtSelected);
             uniqueUnitButton2.onClick.AddListener(TrainUniqueUnit2AtSelected);
             heroButton.onClick.AddListener(TrainHeroAtSelected);
@@ -410,7 +419,7 @@ namespace KingdomsOfBharat.UI
                 marketButton, dockButton, lumberCampButton, miningCampButton, millButton,
                 durgButton, karmashalaButton, monasteryButton, workerButton, soldierButton, archerButton,
                 cavalryButton, siegeButton, spearmanButton, charaButton, skirmisherButton,
-                batteringRamButton, cavalryArcherButton, camelRiderButton, scorpionButton,
+                batteringRamButton, cavalryArcherButton, camelRiderButton, scorpionButton, trebuchetButton,
                 uniqueUnitButton, uniqueUnitButton2, heroButton, ungarrisonButton, fishingBoatButton,
                 warGalleyButton, navalTierButton, fireShipButton, fireShipTierButton,
                 tradeShipButton,
@@ -465,6 +474,11 @@ namespace KingdomsOfBharat.UI
             _keyTrainCavalryArcher = GameSettings.GetKey("TrainCavalryArcher", KeyCode.K);
             _keyTrainCamelRider = GameSettings.GetKey("TrainCamelRider", KeyCode.U);
             _keyTrainScorpion = GameSettings.GetKey("TrainScorpion", KeyCode.W);
+            // Wave 4 item 24: Q is unused within the Barracks context
+            // specifically (TrainUniqueUnit on Durg - mutually exclusive
+            // selection context) - reused freely per this file's own
+            // established convention.
+            _keyTrainTrebuchet = GameSettings.GetKey("TrainTrebuchet", KeyCode.Q);
             _keyTrainUniqueUnit = GameSettings.GetKey("TrainUniqueUnit", KeyCode.Q);
             _keyTrainUniqueUnit2 = GameSettings.GetKey("TrainUniqueUnit2", KeyCode.Z);
             // Wave 4 item 28: M is unused within the Durg context
@@ -536,7 +550,7 @@ namespace KingdomsOfBharat.UI
                 marketButton, dockButton, lumberCampButton, miningCampButton, millButton, durgButton,
                 karmashalaButton, monasteryButton,
                 workerButton, soldierButton, archerButton, cavalryButton,
-                siegeButton, spearmanButton, charaButton, skirmisherButton, batteringRamButton, uniqueUnitButton, uniqueUnitButton2, heroButton, ungarrisonButton,
+                siegeButton, spearmanButton, charaButton, skirmisherButton, batteringRamButton, trebuchetButton, uniqueUnitButton, uniqueUnitButton2, heroButton, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
                 buyFoodButton, sellStoneButton, buyStoneButton, vanikButton, vaidyaButton, purohitaButton, attackUpgradeButton, armorUpgradeButton,
                 uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2, charaTierButton, skirmisherTierButton, batteringRamTierButton, navalTierButton, fireShipButton, fireShipTierButton, tradeShipButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
@@ -597,6 +611,7 @@ namespace KingdomsOfBharat.UI
             SetupGridCell(cavalryArcherButton, null);
             SetupGridCell(camelRiderButton, null);
             SetupGridCell(scorpionButton, null);
+            SetupGridCell(trebuchetButton, null);
             SetupGridCell(uniqueUnitButton, "train_unique_1");
             SetupGridCell(uniqueUnitButton2, "train_unique_2");
             SetupGridCell(heroButton, null);
@@ -764,6 +779,7 @@ namespace KingdomsOfBharat.UI
             camelRiderTierButton.gameObject.SetActive(barracks != null);
             scorpionButton.gameObject.SetActive(barracks != null);
             scorpionTierButton.gameObject.SetActive(barracks != null);
+            trebuchetButton.gameObject.SetActive(barracks != null);
             uniqueUnitButton.gameObject.SetActive(durg != null);
             uniqueUnitButton2.gameObject.SetActive(durg != null && durg.UniqueUnitCount > 1);
             heroButton.gameObject.SetActive(durg != null);
@@ -1010,6 +1026,7 @@ namespace KingdomsOfBharat.UI
                 if (Input.GetKeyDown(_keyTrainCamelRider)) TrainCamelRiderAtSelected();
                 if (Input.GetKeyDown(_keyResearchCamelRiderTier)) ResearchCamelRiderTierAtSelected();
                 if (Input.GetKeyDown(_keyTrainScorpion)) TrainScorpionAtSelected();
+                if (Input.GetKeyDown(_keyTrainTrebuchet)) TrainTrebuchetAtSelected();
                 if (Input.GetKeyDown(_keyResearchScorpionTier)) ResearchScorpionTierAtSelected();
                 if (Input.GetKeyDown(_keyResearchUniqueTech)) ResearchUniqueTechAtSelected();
                 if (Input.GetKeyDown(_keyResearchInfantryTier)) ResearchInfantryTierAtSelected();
@@ -1080,6 +1097,7 @@ namespace KingdomsOfBharat.UI
             cavalryArcherButton.interactable = canTrain;
             camelRiderButton.interactable = canTrain;
             scorpionButton.interactable = canTrain;
+            UpdateTrebuchetButton(barracks, canTrain);
 
             UpdateUniqueTechButton(barracks);
             UpdateInfantryTierButton(barracks);
@@ -1726,6 +1744,19 @@ namespace KingdomsOfBharat.UI
                 : $"Buy {(int)MarketTradeAmount} {resourceName} ({(int)goldAmount} Gold)";
         }
 
+        // Wave 4 item 24: Trebuchet - the first Barracks train button whose
+        // own interactable state depends on the current Age directly
+        // (Imperial only), not just canTrain, since it has no tier ladder
+        // to hang an age gate on the way every other tiered unit does.
+        private void UpdateTrebuchetButton(Barracks barracks, bool canTrain)
+        {
+            bool ageReady = AgeProgress.CurrentAge(NetworkMatch.LocalFaction) == AgeId.Imperial;
+            trebuchetButton.interactable = canTrain && ageReady;
+            trebuchetLabel.text = ageReady
+                ? "Train Trebuchet (200 Wood, 150 Gold)"
+                : "Train Trebuchet (Requires Imperial Age)";
+        }
+
         // Phase 6: separate from UpdateUpgradeButton since a unique tech
         // has exactly one level (no tier/hasNextTier concept) - "Max" would
         // be a confusing label for something that was never tiered at all.
@@ -1958,6 +1989,14 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
             {
                 EnqueueTrain(barracks, barracks.RequestTrainScorpion, NetTrainKind.Scorpion);
+            }
+        }
+
+        private void TrainTrebuchetAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Barracks barracks)
+            {
+                EnqueueTrain(barracks, barracks.RequestTrainTrebuchet, NetTrainKind.Trebuchet);
             }
         }
 

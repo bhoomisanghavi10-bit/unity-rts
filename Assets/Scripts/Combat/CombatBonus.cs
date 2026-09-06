@@ -215,6 +215,27 @@ namespace KingdomsOfBharat.Combat
                 return 1.5f;
             }
 
+            // Trebuchet (Wave 4 item 24, unit_roster_template.csv
+            // "trebuchet"): the dedicated long-range anti-building
+            // specialist - continues the Siege 3x -> BatteringRam 4x
+            // escalation at a higher value again, since a Trebuchet's
+            // entire purpose (long range, hard minimum range - see
+            // MeleeAttacker.SetMinRange) is cracking fortifications a
+            // conventional army can't safely approach. Not independently
+            // balanced. The matching weakness reuses Cavalry->Scorpion's
+            // own 1.5x - the same "fast unit closes the gap on an
+            // unarmored, slow-moving siege engine" vulnerability every
+            // other siege specialist in this project already has.
+            if (attacker == UnitClass.Trebuchet && target == UnitClass.Building)
+            {
+                return 5f;
+            }
+
+            if (attacker == UnitClass.Cavalry && target == UnitClass.Trebuchet)
+            {
+                return 1.5f;
+            }
+
             return 1f;
         }
     }

@@ -96,6 +96,10 @@ namespace KingdomsOfBharat.UI
             // context, this file's own established convention).
             new RebindableAction("TrainScorpion", "Train Scorpion (Barracks)", KeyCode.W),
             new RebindableAction("ResearchScorpionTier", "Upgrade Scorpion Tier (Barracks)", KeyCode.X),
+            // Wave 4 item 24: Q is unused within the Barracks context
+            // specifically (TrainUniqueUnit on Durg - mutually exclusive
+            // selection context).
+            new RebindableAction("TrainTrebuchet", "Train Trebuchet (Barracks)", KeyCode.Q),
             new RebindableAction("TrainDockUnit", "Train Fishing Boat (Dock)", KeyCode.B),
             new RebindableAction("TrainWarGalley", "Train War Galley (Dock)", KeyCode.W),
             new RebindableAction("ResearchNavalTier", "Upgrade Naval Tier (Dock)", KeyCode.X),

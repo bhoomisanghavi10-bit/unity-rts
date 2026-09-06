@@ -47,6 +47,14 @@ namespace KingdomsOfBharat.Combat
         // can't even be given an attack-move onto a unit). Only
         // BatteringRamFactory sets this.
         [SerializeField] private bool buildingOnly;
+        // Wave 4 item 24 (Trebuchet): defaults to 0 (disabled), so every
+        // existing MeleeAttacker user is unaffected. When > 0, a target
+        // closer than this can't be fired on at all - not backed away
+        // from, just refused, matching AoE's own trebuchet counterplay
+        // (a melee unit walking inside minimum range genuinely
+        // neutralizes it; the player must manually reposition). Only
+        // TrebuchetFactory sets this.
+        [SerializeField] private float minAttackRange;
 
         private UnitMover _mover;
         private Attackable _self;
@@ -170,6 +178,13 @@ namespace KingdomsOfBharat.Combat
             buildingOnly = value;
         }
 
+        // Applied by TrebuchetFactory only (Wave 4 item 24) - see
+        // minAttackRange's own field comment.
+        public void SetMinRange(float newMinRange)
+        {
+            minAttackRange = newMinRange;
+        }
+
         // Applied by ScorpionFactory only (Wave 4 item 23) - see
         // pierceThroughDepth's own field comment.
         public void SetPierceThrough(float depth)
@@ -218,6 +233,11 @@ namespace KingdomsOfBharat.Combat
             if (distance > attackRange)
             {
                 Mover.MoveTo(_target.transform.position);
+                return;
+            }
+
+            if (distance < minAttackRange)
+            {
                 return;
             }
 
