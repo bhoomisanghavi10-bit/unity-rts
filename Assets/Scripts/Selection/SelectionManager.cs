@@ -415,18 +415,31 @@ namespace KingdomsOfBharat.Selection
             // sets a trade route - same "friendly-only, falls through to
             // attack otherwise" gating as hitFarm/hitGarrison/hitRepairable
             // above.
+            // Wave 4 item 27: right-clicking a friendly damaged (not
+            // full-health, not dead) unit with a Vaidya selected heals it -
+            // same "friendly-only, falls through to attack otherwise"
+            // gating as hitRepairable above, just checking Attackable
+            // directly instead of a dedicated Repairable component (any
+            // living unit is a valid heal target, not just
+            // buildings/ships/siege).
+            Attackable healTarget = null;
+            bool hitHealable = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable
+                && hit.collider.TryGetComponent(out healTarget)
+                && !healTarget.IsDead
+                && healTarget.Health < healTarget.MaxHealth
+                && IsFriendlyToPlayer(healTarget);
             Market marketTarget = null;
-            bool hitMarket = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable
+            bool hitMarket = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable && !hitHealable
                 && hit.collider.TryGetComponent(out marketTarget)
                 && marketTarget.IsComplete
                 && IsFriendlyToPlayer(marketTarget);
             Dock dockTarget = null;
-            bool hitDock = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable && !hitMarket
+            bool hitDock = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable && !hitHealable && !hitMarket
                 && hit.collider.TryGetComponent(out dockTarget)
                 && dockTarget.IsComplete
                 && IsFriendlyToPlayer(dockTarget);
             Attackable attackable = null;
-            bool hitAttackable = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable && !hitMarket && !hitDock
+            bool hitAttackable = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable && !hitHealable && !hitMarket && !hitDock
                 && hit.collider.TryGetComponent(out attackable)
                 && !attackable.IsDead;
 
@@ -482,6 +495,9 @@ namespace KingdomsOfBharat.Selection
                 // Wave 4 item 26.
                 unit.TryGetComponent(out Trader trader);
                 unit.TryGetComponent(out BoatTrader boatTrader);
+                // Wave 4 item 27.
+                unit.TryGetComponent(out VaidyaHealer healer);
+                unit.TryGetComponent(out PurohitaConverter purohita);
 
                 if (hitNode)
                 {
@@ -490,6 +506,8 @@ namespace KingdomsOfBharat.Selection
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
                     repairer?.CancelRepair();
+                    healer?.CancelHeal();
+                    purohita?.CancelConvert();
                     gatherer?.GatherFrom(node);
                     boatAttacker?.CancelAttack();
                     boatGatherer?.GatherFrom(node);
@@ -501,6 +519,8 @@ namespace KingdomsOfBharat.Selection
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
                     repairer?.CancelRepair();
+                    healer?.CancelHeal();
+                    purohita?.CancelConvert();
                     builder?.BuildAt(site);
                 }
                 else if (hitFarm && farmWorker != null && IsSameFaction(unit, farm))
@@ -510,6 +530,8 @@ namespace KingdomsOfBharat.Selection
                     attacker?.CancelAttack();
                     livestockWorker?.CancelWork();
                     repairer?.CancelRepair();
+                    healer?.CancelHeal();
+                    purohita?.CancelConvert();
                     farmWorker.StaffAt(farm);
                 }
                 else if (hitLivestock && livestockWorker != null)
@@ -519,6 +541,8 @@ namespace KingdomsOfBharat.Selection
                     attacker?.CancelAttack();
                     farmWorker?.CancelWork();
                     repairer?.CancelRepair();
+                    healer?.CancelHeal();
+                    purohita?.CancelConvert();
                     livestockWorker.StaffAt(livestock);
                 }
                 else if (hitGarrison && garrisonSeeker != null && IsSameFaction(unit, garrisonPoint))
@@ -529,6 +553,8 @@ namespace KingdomsOfBharat.Selection
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
                     repairer?.CancelRepair();
+                    healer?.CancelHeal();
+                    purohita?.CancelConvert();
                     garrisonSeeker.GarrisonAt(garrisonPoint);
                 }
                 else if (hitRepairable && repairer != null && IsSameFaction(unit, repairable))
@@ -538,7 +564,24 @@ namespace KingdomsOfBharat.Selection
                     attacker?.CancelAttack();
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
+                    healer?.CancelHeal();
+                    purohita?.CancelConvert();
                     repairer.RepairAt(repairable);
+                }
+                else if (hitHealable && healer != null)
+                {
+                    gatherer?.CancelGather();
+                    builder?.CancelBuild();
+                    attacker?.CancelAttack();
+                    farmWorker?.CancelWork();
+                    livestockWorker?.CancelWork();
+                    repairer?.CancelRepair();
+                    purohita?.CancelConvert();
+                    FactionId healFaction = unit.TryGetComponent(out FactionMember healUnitFaction)
+                        ? healUnitFaction.Faction
+                        : NetworkMatch.LocalFaction;
+                    int healTick = CommandBus.Enqueue(new AbilityCommand(healFaction, unit, () => healer.HealAt(healTarget)));
+                    SendNetworkCommand(CommandSerializer.ForHeal(healTick, healFaction, unit, healTarget));
                 }
                 else if (hitMarket && trader != null)
                 {
@@ -548,6 +591,8 @@ namespace KingdomsOfBharat.Selection
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
                     repairer?.CancelRepair();
+                    healer?.CancelHeal();
+                    purohita?.CancelConvert();
                     FactionId tradeFaction = unit.TryGetComponent(out FactionMember tradeUnitFaction)
                         ? tradeUnitFaction.Faction
                         : NetworkMatch.LocalFaction;
@@ -571,6 +616,8 @@ namespace KingdomsOfBharat.Selection
                     farmWorker?.CancelWork();
                     livestockWorker?.CancelWork();
                     repairer?.CancelRepair();
+                    healer?.CancelHeal();
+                    purohita?.CancelConvert();
                     FactionId attackFaction = unit.TryGetComponent(out FactionMember attackUnitFaction)
                         ? attackUnitFaction.Faction
                         : NetworkMatch.LocalFaction;
@@ -586,6 +633,15 @@ namespace KingdomsOfBharat.Selection
                     int boatAttackTick = CommandBus.Enqueue(new AttackCommand(attackFaction, boatAttacker, attackable, boatAttacker.AttackMove));
                     SendNetworkCommand(CommandSerializer.ForAttack(boatAttackTick, attackFaction, unit, attackable));
                 }
+                else if (hitAttackable && purohita != null && IsHostileTarget(unit, attackable) && PurohitaConverter.CanConvert(attackable))
+                {
+                    healer?.CancelHeal();
+                    FactionId convertFaction = unit.TryGetComponent(out FactionMember convertUnitFaction)
+                        ? convertUnitFaction.Faction
+                        : NetworkMatch.LocalFaction;
+                    int convertTick = CommandBus.Enqueue(new AbilityCommand(convertFaction, unit, () => purohita.ConvertAt(attackable)));
+                    SendNetworkCommand(CommandSerializer.ForConvert(convertTick, convertFaction, unit, attackable));
+                }
                 else
                 {
                     gatherer?.CancelGather();
@@ -598,6 +654,8 @@ namespace KingdomsOfBharat.Selection
                     boatAttacker?.CancelAttack();
                     trader?.CancelRoute();
                     boatTrader?.CancelRoute();
+                    healer?.CancelHeal();
+                    purohita?.CancelConvert();
                     if (unit.TryGetComponent(out UnitMover mover))
                     {
                         Vector3 offset = composedOffsets != null && composedOffsets.TryGetValue(unit.gameObject, out Vector3 composedOffset)

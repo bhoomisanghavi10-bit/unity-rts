@@ -107,6 +107,9 @@ namespace KingdomsOfBharat.UI
             // is unused within the Market context specifically
             // (ResearchSkirmisherTier on Barracks - mutually exclusive).
             new RebindableAction("TrainVanik", "Train Vanik (Market)", KeyCode.V),
+            new RebindableAction("PlaceMonastery", "Build Monastery", KeyCode.G),
+            new RebindableAction("TrainVaidya", "Train Vaidya (Monastery)", KeyCode.H),
+            new RebindableAction("TrainPurohita", "Train Purohita (Monastery)", KeyCode.C),
             new RebindableAction("Ungarrison", "Ungarrison", KeyCode.U),
             new RebindableAction("ToggleHotkeyOverlay", "Toggle Hotkey Reference (Overlay)", KeyCode.F1),
             new RebindableAction("SaveGame", "Quicksave", KeyCode.F5),

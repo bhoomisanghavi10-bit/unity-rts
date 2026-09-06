@@ -62,6 +62,10 @@ namespace KingdomsOfBharat.UI
         // button, same gating shape as durgButton/barracksButton above.
         [SerializeField] private Button karmashalaButton;
         [SerializeField] private TMP_Text karmashalaLabel;
+        // Wave 4 item 27: Monastery - placement button, same gating shape
+        // as durgButton/karmashalaButton above.
+        [SerializeField] private Button monasteryButton;
+        [SerializeField] private TMP_Text monasteryLabel;
         [SerializeField] private Button workerButton;
         [SerializeField] private Button soldierButton;
         [SerializeField] private Button archerButton;
@@ -137,6 +141,10 @@ namespace KingdomsOfBharat.UI
         // its own.
         [SerializeField] private Button vanikButton;
         [SerializeField] private TMP_Text vanikLabel;
+        // Wave 4 item 27: Vaidya/Purohita - train on a selected Monastery,
+        // same "no tier ladder" shape as vanikButton.
+        [SerializeField] private Button vaidyaButton;
+        [SerializeField] private Button purohitaButton;
         [SerializeField] private Button attackUpgradeButton;
         [SerializeField] private TMP_Text attackUpgradeLabel;
         [SerializeField] private Button armorUpgradeButton;
@@ -282,6 +290,9 @@ namespace KingdomsOfBharat.UI
         // Wave 4 item 26.
         private KeyCode _keyTrainTradeShip;
         private KeyCode _keyTrainVanik;
+        // Wave 4 item 27.
+        private KeyCode _keyTrainVaidya;
+        private KeyCode _keyTrainPurohita;
         private KeyCode _keyUngarrison;
 
         private BuildingPlacer _placer;
@@ -329,6 +340,7 @@ namespace KingdomsOfBharat.UI
             millButton.onClick.AddListener(() => _placer.BeginPlacementMill());
             durgButton.onClick.AddListener(() => _placer.BeginPlacementDurg());
             karmashalaButton.onClick.AddListener(() => _placer.BeginPlacementKarmashala());
+            monasteryButton.onClick.AddListener(() => _placer.BeginPlacementMonastery());
             workerButton.onClick.AddListener(TrainWorkerAtSelected);
             soldierButton.onClick.AddListener(TrainSoldierAtSelected);
             archerButton.onClick.AddListener(TrainArcherAtSelected);
@@ -351,6 +363,8 @@ namespace KingdomsOfBharat.UI
             fireShipTierButton.onClick.AddListener(ResearchFireShipTierAtSelected);
             tradeShipButton.onClick.AddListener(TrainTradeShipAtSelected);
             vanikButton.onClick.AddListener(TrainVanikAtSelected);
+            vaidyaButton.onClick.AddListener(TrainVaidyaAtSelected);
+            purohitaButton.onClick.AddListener(TrainPurohitaAtSelected);
             sellWoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Wood, sell: true));
             buyWoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Wood, sell: false));
             sellFoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Food, sell: true));
@@ -385,14 +399,14 @@ namespace KingdomsOfBharat.UI
             {
                 barracksButton, farmButton, houseButton, wallButton, gateButton, towerButton,
                 marketButton, dockButton, lumberCampButton, miningCampButton, millButton,
-                durgButton, karmashalaButton, workerButton, soldierButton, archerButton,
+                durgButton, karmashalaButton, monasteryButton, workerButton, soldierButton, archerButton,
                 cavalryButton, siegeButton, spearmanButton, charaButton, skirmisherButton,
                 batteringRamButton, cavalryArcherButton, camelRiderButton, scorpionButton,
                 uniqueUnitButton, uniqueUnitButton2, ungarrisonButton, fishingBoatButton,
                 warGalleyButton, navalTierButton, fireShipButton, fireShipTierButton,
                 tradeShipButton,
                 sellWoodButton, buyWoodButton, sellFoodButton, buyFoodButton, sellStoneButton,
-                buyStoneButton, vanikButton, attackUpgradeButton, armorUpgradeButton, uniqueTechButton,
+                buyStoneButton, vanikButton, vaidyaButton, purohitaButton, attackUpgradeButton, armorUpgradeButton, uniqueTechButton,
                 infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton,
                 siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2,
                 charaTierButton, skirmisherTierButton, batteringRamTierButton,
@@ -481,6 +495,10 @@ namespace KingdomsOfBharat.UI
             // ResearchSkirmisherTier on Barracks, mutually exclusive with a
             // selected Market) - reused freely per the same convention.
             _keyTrainVanik = GameSettings.GetKey("TrainVanik", KeyCode.V);
+            // Wave 4 item 27: H/C are fresh in the brand-new Monastery-
+            // selected context - nothing claimed there before this item.
+            _keyTrainVaidya = GameSettings.GetKey("TrainVaidya", KeyCode.H);
+            _keyTrainPurohita = GameSettings.GetKey("TrainPurohita", KeyCode.C);
             _keyUngarrison = GameSettings.GetKey("Ungarrison", KeyCode.U);
         }
 
@@ -502,11 +520,11 @@ namespace KingdomsOfBharat.UI
             {
                 barracksButton, farmButton, houseButton, wallButton, gateButton, towerButton,
                 marketButton, dockButton, lumberCampButton, miningCampButton, millButton, durgButton,
-                karmashalaButton,
+                karmashalaButton, monasteryButton,
                 workerButton, soldierButton, archerButton, cavalryButton,
                 siegeButton, spearmanButton, charaButton, skirmisherButton, batteringRamButton, uniqueUnitButton, uniqueUnitButton2, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
-                buyFoodButton, sellStoneButton, buyStoneButton, vanikButton, attackUpgradeButton, armorUpgradeButton,
+                buyFoodButton, sellStoneButton, buyStoneButton, vanikButton, vaidyaButton, purohitaButton, attackUpgradeButton, armorUpgradeButton,
                 uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2, charaTierButton, skirmisherTierButton, batteringRamTierButton, navalTierButton, fireShipButton, fireShipTierButton, tradeShipButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
             };
 
@@ -552,6 +570,7 @@ namespace KingdomsOfBharat.UI
             SetupGridCell(millButton, null);
             SetupGridCell(durgButton, null);
             SetupGridCell(karmashalaButton, null);
+            SetupGridCell(monasteryButton, null);
             SetupGridCell(workerButton, "train_worker");
             SetupGridCell(soldierButton, "train_soldier");
             SetupGridCell(archerButton, "train_archer");
@@ -580,6 +599,8 @@ namespace KingdomsOfBharat.UI
             SetupGridCell(sellStoneButton, "resource_stone");
             SetupGridCell(buyStoneButton, "resource_stone");
             SetupGridCell(vanikButton, null);
+            SetupGridCell(vaidyaButton, null);
+            SetupGridCell(purohitaButton, null);
             SetupGridCell(attackUpgradeButton, "upgrade_attack");
             SetupGridCell(armorUpgradeButton, "upgrade_armor");
             SetupGridCell(uniqueTechButton, null);
@@ -691,13 +712,16 @@ namespace KingdomsOfBharat.UI
             // Wave 2 item 8: flat Attack/Armor research lives on Karmashala,
             // not Barracks, from this session on.
             Karmashala karmashala = ownsSelected ? selected as Karmashala : null;
+            // Wave 4 item 27: Vaidya/Purohita training lives on the new
+            // Monastery building.
+            Monastery monastery = ownsSelected ? selected as Monastery : null;
             // General garrisoning system (2026-09-01): every building with
             // a GarrisonPoint (TownCenter/Tower/Wall) shows the Ungarrison
             // button when occupied - no longer restricted to Wall/Tower's
             // type, since TownCenter now has one too.
             GarrisonPoint garrisonPoint = ownsSelected ? selected.GetComponent<GarrisonPoint>() : null;
 
-            HandleHotkeys(townCenter, barracks, dock, durg, karmashala, garrisonPoint, market);
+            HandleHotkeys(townCenter, barracks, dock, durg, karmashala, garrisonPoint, market, monastery);
 
             SetPlacementButtonsActive(showPlacement);
             workerButton.gameObject.SetActive(townCenter != null);
@@ -755,6 +779,8 @@ namespace KingdomsOfBharat.UI
             sellStoneButton.gameObject.SetActive(market != null);
             buyStoneButton.gameObject.SetActive(market != null);
             vanikButton.gameObject.SetActive(market != null);
+            vaidyaButton.gameObject.SetActive(monastery != null);
+            purohitaButton.gameObject.SetActive(monastery != null);
 
             if (showPlacement)
             {
@@ -783,6 +809,10 @@ namespace KingdomsOfBharat.UI
                 karmashalaLabel.text = BuildingPlacer.CanPlaceKarmashala
                     ? "Build Karmashala (150 Wood)"
                     : "Build Karmashala (Requires Classical Age)";
+                monasteryButton.interactable = BuildingPlacer.CanPlaceMonastery;
+                monasteryLabel.text = BuildingPlacer.CanPlaceMonastery
+                    ? "Build Monastery (175 Wood, 100 Stone)"
+                    : "Build Monastery (Requires Durg Age)";
             }
 
             if (townCenter != null)
@@ -813,6 +843,11 @@ namespace KingdomsOfBharat.UI
             if (market != null)
             {
                 UpdateMarketButtons(market);
+            }
+
+            if (monastery != null)
+            {
+                UpdateMonasteryButtons(monastery);
             }
 
             // Roadmap item 31: runs last, after every context branch above
@@ -930,7 +965,7 @@ namespace KingdomsOfBharat.UI
         // disabled. Gated per-parameter (not a single "selected something"
         // check) so a key only ever acts on the currently selected building
         // of the matching type, fixing the old per-building Update() bug.
-        private void HandleHotkeys(TownCenter townCenter, Barracks barracks, Dock dock, Durg durg, Karmashala karmashala, GarrisonPoint garrisonPoint, Market market)
+        private void HandleHotkeys(TownCenter townCenter, Barracks barracks, Dock dock, Durg durg, Karmashala karmashala, GarrisonPoint garrisonPoint, Market market, Monastery monastery)
         {
             if (townCenter != null)
             {
@@ -1000,6 +1035,12 @@ namespace KingdomsOfBharat.UI
             if (market != null)
             {
                 if (Input.GetKeyDown(_keyTrainVanik)) TrainVanikAtSelected();
+            }
+
+            if (monastery != null)
+            {
+                if (Input.GetKeyDown(_keyTrainVaidya)) TrainVaidyaAtSelected();
+                if (Input.GetKeyDown(_keyTrainPurohita)) TrainPurohitaAtSelected();
             }
 
             if (garrisonPoint != null && garrisonPoint.Count > 0 && Input.GetKeyDown(_keyUngarrison))
@@ -1620,6 +1661,17 @@ namespace KingdomsOfBharat.UI
             }
         }
 
+        // Wave 4 item 27: Vaidya/Purohita, like Vanik, have no tier ladder -
+        // a flat interactable toggle for both, no dedicated cost label
+        // (neither vaidyaButton nor purohitaButton has one wired, matching
+        // tradeShipButton's own "flat cost like warGalleyButton" shape).
+        private void UpdateMonasteryButtons(Monastery monastery)
+        {
+            bool canTrain = monastery.IsComplete && !monastery.IsTraining;
+            vaidyaButton.interactable = canTrain;
+            purohitaButton.interactable = canTrain;
+        }
+
         private static void UpdateTradeButton(Button button, TMP_Text label, string verb, string resourceName, bool canAfford, float goldAmount)
         {
             button.interactable = canAfford;
@@ -1701,6 +1753,7 @@ namespace KingdomsOfBharat.UI
             millButton.gameObject.SetActive(active);
             durgButton.gameObject.SetActive(active);
             karmashalaButton.gameObject.SetActive(active);
+            monasteryButton.gameObject.SetActive(active);
         }
 
         private void UpdateTownCenterButtons(TownCenter townCenter)
@@ -1929,6 +1982,23 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Market market)
             {
                 EnqueueTrain(market, market.RequestTrainVanik, NetTrainKind.Vanik);
+            }
+        }
+
+        // Wave 4 item 27.
+        private void TrainVaidyaAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Monastery monastery)
+            {
+                EnqueueTrain(monastery, monastery.RequestTrainVaidya, NetTrainKind.Vaidya);
+            }
+        }
+
+        private void TrainPurohitaAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Monastery monastery)
+            {
+                EnqueueTrain(monastery, monastery.RequestTrainPurohita, NetTrainKind.Purohita);
             }
         }
 

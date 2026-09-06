@@ -70,6 +70,7 @@ namespace KingdomsOfBharat.UI
             new Entry("Place Mill", "PlaceMill", KeyCode.P),
             new Entry("Place Durg", "PlaceDurg", KeyCode.D),
             new Entry("Place Karmashala", "PlaceKarmashala", KeyCode.R),
+            new Entry("Place Monastery", "PlaceMonastery", KeyCode.G),
         });
 
         private static readonly Group TownCenterGroup = new Group("Town Center Selected", new[]
@@ -145,6 +146,14 @@ namespace KingdomsOfBharat.UI
             new Entry("Train Vanik", "TrainVanik", KeyCode.V),
         });
 
+        // Wave 4 item 27: first Monastery-context hotkeys - own group,
+        // same shape as MarketGroup.
+        private static readonly Group MonasteryGroup = new Group("Monastery Selected", new[]
+        {
+            new Entry("Train Vaidya", "TrainVaidya", KeyCode.H),
+            new Entry("Train Purohita", "TrainPurohita", KeyCode.C),
+        });
+
         private static readonly Group GarrisonGroup = new Group("Garrisoned Building Selected", new[]
         {
             new Entry("Ungarrison", "Ungarrison", KeyCode.U),
@@ -154,7 +163,7 @@ namespace KingdomsOfBharat.UI
         // group identity - purely a layout concern.
         private static readonly Group[][] Columns =
         {
-            new[] { GlobalGroup, DockGroup, MarketGroup, GarrisonGroup },
+            new[] { GlobalGroup, DockGroup, MarketGroup, MonasteryGroup, GarrisonGroup },
             new[] { PlacementGroup },
             new[] { TownCenterGroup, BarracksGroup, DurgGroup, KarmashalaGroup },
         };

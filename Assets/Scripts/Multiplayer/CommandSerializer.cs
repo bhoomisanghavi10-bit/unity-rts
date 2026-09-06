@@ -98,6 +98,47 @@ namespace KingdomsOfBharat.Multiplayer
             };
         }
 
+        // Wave 4 item 27: reuses Attack's own field shape, same reasoning
+        // as ForTradeRoute above - both sides here are already Units, so
+        // ForAttack's own attackerNetId/targetNetId resolve them directly.
+        public static NetMessageEnvelope ForHeal(int tick, FactionId faction, Unit healer, Attackable target)
+        {
+            NetworkId.TryGetId(healer, out int healerId);
+            int targetId = -1;
+            if (target.TryGetComponent(out Unit targetUnit))
+            {
+                NetworkId.TryGetId(targetUnit, out targetId);
+            }
+
+            return new NetMessageEnvelope
+            {
+                kind = NetMessageKind.Heal,
+                tick = tick,
+                faction = (int)faction,
+                attackerNetId = healerId,
+                targetNetId = targetId,
+            };
+        }
+
+        public static NetMessageEnvelope ForConvert(int tick, FactionId faction, Unit converter, Attackable target)
+        {
+            NetworkId.TryGetId(converter, out int converterId);
+            int targetId = -1;
+            if (target.TryGetComponent(out Unit targetUnit))
+            {
+                NetworkId.TryGetId(targetUnit, out targetId);
+            }
+
+            return new NetMessageEnvelope
+            {
+                kind = NetMessageKind.Convert,
+                tick = tick,
+                faction = (int)faction,
+                attackerNetId = converterId,
+                targetNetId = targetId,
+            };
+        }
+
         // --- Reconstruct a real, executable Command from a received
         // envelope, resolving NetworkIds back to live objects. Returns null
         // (caller must no-op) if a referenced object no longer exists - the
@@ -121,6 +162,10 @@ namespace KingdomsOfBharat.Multiplayer
                     return ToAttackCommand(envelope, faction);
                 case NetMessageKind.TradeRoute:
                     return ToTradeRouteCommand(envelope, faction);
+                case NetMessageKind.Heal:
+                    return ToHealCommand(envelope, faction);
+                case NetMessageKind.Convert:
+                    return ToConvertCommand(envelope, faction);
                 default:
                     return null;
             }
@@ -207,7 +252,57 @@ namespace KingdomsOfBharat.Multiplayer
                 return new TrainCommand(faction, market, market.RequestTrainVanik);
             }
 
+            // Wave 4 item 27: Vaidya/Purohita train here.
+            if (building is Monastery monastery)
+            {
+                Action requestTrain = envelope.trainKind switch
+                {
+                    NetTrainKind.Vaidya => monastery.RequestTrainVaidya,
+                    NetTrainKind.Purohita => monastery.RequestTrainPurohita,
+                    _ => null,
+                };
+                return requestTrain == null ? null : new TrainCommand(faction, monastery, requestTrain);
+            }
+
             return null;
+        }
+
+        // Wave 4 item 27: resolves a received heal order back to a real
+        // VaidyaHealer call - same resolution shape as ToAttackCommand
+        // (both sides are Units), but wraps VaidyaHealer.HealAt in an
+        // AbilityCommand instead of an AttackCommand.
+        private static Command ToHealCommand(NetMessageEnvelope envelope, FactionId faction)
+        {
+            if (!NetworkId.TryResolveUnit(envelope.attackerNetId, out Unit healerUnit)
+                || !healerUnit.TryGetComponent(out KingdomsOfBharat.ResourceGathering.VaidyaHealer healer))
+            {
+                return null;
+            }
+
+            if (!NetworkId.TryResolveUnit(envelope.targetNetId, out Unit targetUnit) || !targetUnit.TryGetComponent(out Attackable target))
+            {
+                return null;
+            }
+
+            return new AbilityCommand(faction, healerUnit, () => healer.HealAt(target));
+        }
+
+        // Wave 4 item 27: resolves a received convert order back to a real
+        // PurohitaConverter call.
+        private static Command ToConvertCommand(NetMessageEnvelope envelope, FactionId faction)
+        {
+            if (!NetworkId.TryResolveUnit(envelope.attackerNetId, out Unit converterUnit)
+                || !converterUnit.TryGetComponent(out KingdomsOfBharat.ResourceGathering.PurohitaConverter converter))
+            {
+                return null;
+            }
+
+            if (!NetworkId.TryResolveUnit(envelope.targetNetId, out Unit targetUnit) || !targetUnit.TryGetComponent(out Attackable target))
+            {
+                return null;
+            }
+
+            return new AbilityCommand(faction, converterUnit, () => converter.ConvertAt(target));
         }
 
         // Wave 4 item 26: resolves a received trade-route order back to a

@@ -30,6 +30,11 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         // Market/Dock) rather than adding new envelope fields - see those
         // fields' own comments below.
         TradeRoute,
+        // Wave 4 item 27: both also reuse Attack's own attackerNetId/
+        // targetNetId fields - the acting unit (Vaidya/Purohita) and its
+        // target, both already Units, so no new envelope fields needed.
+        Heal,
+        Convert,
         StateHash,
         ResyncSnapshot,
         // Sent every tick even when the local player issues no order that
@@ -64,6 +69,8 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         FireShip,
         Vanik,
         TradeShip,
+        Vaidya,
+        Purohita,
     }
 
     // Mirrors BuildingPlacer.BuildingKind (internal enum nested in that
@@ -86,6 +93,7 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         Mill,
         Durg,
         Karmashala,
+        Monastery,
     }
 
     [System.Serializable]
@@ -109,7 +117,9 @@ namespace KingdomsOfBharat.Multiplayer.Wire
 
         // Attack. Also reused, unchanged shape, by TradeRoute (Wave 4 item
         // 26): attackerNetId = the trader unit, targetNetId = the
-        // destination Market/Dock.
+        // destination Market/Dock. And by Heal/Convert (Wave 4 item 27):
+        // attackerNetId = the acting Vaidya/Purohita, targetNetId = its
+        // target unit.
         public int attackerNetId;
         public int targetNetId;
 

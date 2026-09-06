@@ -806,11 +806,45 @@ the others — genuinely parallel-safe once Waves 0-1 are done.
     Markets (AoE's real "most profitable" case), any icon art, a route-line VFX, and any
     AI-side use of Trader/Trade Ship (no AI training hook, matching every other Wave 3/4
     unit's own explicitly-out-of-scope call). *Depends on: Wave 0, Wave 1.*
-27. **[M] Support units — Vaidya (healer) and Purohita (converter), splitting AoE's Monk.**
+27. ~~**[M] Support units — Vaidya (healer) and Purohita (converter), splitting AoE's Monk.**
     Deliberately two units instead of one so healing can ship without committing to conversion
     mechanics. *Depends on: Wave 0 item 1 (the Support category needs a resolved UnitClass
     first), Wave 2 item 7 or a Monastery-equivalent building — resolve which building houses
-    these in Plan Mode.*
+    these in Plan Mode.*~~ **Closed (2026-09-06).** Two design decisions resolved via
+    AskUserQuestion before coding: a new Monastery building trains both units (Durg is too
+    narrowly scoped to per-civ unique units, Karmashala is pure research with zero
+    training-queue code — also sets up the Wave 5 Relic system, which already earmarked
+    reusing whichever unit/building this item picked), and Purohita's conversion is a full
+    AoE-style chance roll (per-second chance scaled by the target's missing-HP%, excluding
+    Buildings/Siege/other Support-Hero units) rather than a guaranteed conversion. See
+    `CLAUDE.md`'s "Current status" for full detail: new `Buildings/Monastery.cs`/
+    `MonasteryFactory.cs` (mirrors Karmashala's shape, single-slot queue for both units, Gold-
+    only costs), new `Resources/VaidyaHealer.cs` (calls the pre-existing `Attackable.Heal`
+    directly — no target-side component needed) and `Resources/PurohitaConverter.cs` (a
+    `DeterministicRandom.Match`-gated roll, mirroring `RajputDefianceHook`'s own "not
+    `UnityEngine.Random`, for lockstep replay" convention — reassigns a live enemy unit's
+    `FactionMember.Faction` directly, confirmed structurally safe since every read site in the
+    project reads it live, never cached), both units completely unarmed (no
+    `MeleeAttacker`, matching Vanik/Trade Ship). New `Multiplayer/AbilityCommand.cs` (a
+    generic delegate command shared by both Heal and Convert orders); `NetMessageKind.Heal`/
+    `Convert` both reuse `Attack`'s existing envelope fields (both sides already Units), same
+    reuse convention item 26's `TradeRoute` established. New `SelectionManager` `hitHealable`
+    branch (friendly + damaged, same gating shape as `hitRepairable`) and a third
+    `hitAttackable` arm for Purohita's convert order. Full `BuildMenu`/hotkey/`NetTrainKind`
+    wiring. 18 new EditMode tests (`SupportUnitTests.cs`, 480 total, all pass — including a
+    live `Tick` test forcing a guaranteed-success roll to prove `FactionMember.Faction`
+    actually flips). Live-verified via UnityMCP through the real production path: a real
+    match, a real Monastery placed/completed at Durg Age, real Vaidya/Purohita trained through
+    the real scene buttons via `CommandBus`'s lockstep queue, a real Vaidya healing a real
+    damaged Soldier to full HP via its own `Update()` loop, a real Purohita (forced
+    `baseChancePerSecond` high for a fast, deterministic success) flipping a real enemy
+    Soldier's `FactionMember.Faction` to Player with zero explicit `Population` bookkeeping
+    needed. **Flagged directly, not solved this session**: no live re-tint system exists
+    anywhere in the project, so a converted unit keeps its original owner's civ color — tied
+    to the not-yet-built Wave 5 item 29 colour system. No AI-side use of Monastery/Vaidya/
+    Purohita (new capability the AI never had, not existing behavior moved off Barracks, so
+    skipping it isn't a regression — unlike Durg/Karmashala's own AI hooks). *Depends on: Wave
+    0 item 1, Wave 2 item 7.*
 28. **[M] Hero unit — Maharaja, per civ.** `UnitCategory.Hero` is declared and unused. Only
     build this if a Regicide-style victory condition is wanted (see Wave 6) — a hero with no
     win-condition consumer is pure cost. *Depends on: Wave 0 item 1, and confirm the victory

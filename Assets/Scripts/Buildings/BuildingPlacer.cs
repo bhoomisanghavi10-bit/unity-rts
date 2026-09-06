@@ -25,7 +25,7 @@ namespace KingdomsOfBharat.Buildings
         // Internal (not private) so EditMode tests can exercise
         // WoodMultiplierFor/StoneMultiplierFor directly - see
         // Assets/Scripts/AssemblyInfo.cs for the InternalsVisibleTo grant.
-        internal enum BuildingKind { Barracks, Farm, House, Wall, Gate, Tower, Market, Dock, LumberCamp, MiningCamp, Mill, Durg, Karmashala }
+        internal enum BuildingKind { Barracks, Farm, House, Wall, Gate, Tower, Market, Dock, LumberCamp, MiningCamp, Mill, Durg, Karmashala, Monastery }
 
         [Header("Barracks")]
         [SerializeField] private KeyCode placeBarracksKey = KeyCode.B;
@@ -137,6 +137,16 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float karmashalaBuildTime = 10f;
         [SerializeField] private Vector3 karmashalaSize = new Vector3(2.4f, 1.8f, 2.4f);
 
+        // Wave 4 item 27: Monastery - trains Vaidya/Purohita. Gated to Durg
+        // Age, same as Durg itself - a mid/late-game unlock, not an early
+        // building.
+        [Header("Monastery")]
+        [SerializeField] private KeyCode placeMonasteryKey = KeyCode.G;
+        [SerializeField] private float monasteryWoodCost = 175f;
+        [SerializeField] private float monasteryStoneCost = 100f;
+        [SerializeField] private float monasteryBuildTime = 10f;
+        [SerializeField] private Vector3 monasterySize = new Vector3(2.4f, 1.8f, 2.4f);
+
         // SelectionManager checks this so a click meant to place/cancel a
         // building doesn't also register as a select/move/gather command.
         public static bool IsPlacing { get; private set; }
@@ -170,6 +180,7 @@ namespace KingdomsOfBharat.Buildings
             placeMillKey = GameSettings.GetKey("PlaceMill", placeMillKey);
             placeDurgKey = GameSettings.GetKey("PlaceDurg", placeDurgKey);
             placeKarmashalaKey = GameSettings.GetKey("PlaceKarmashala", placeKarmashalaKey);
+            placeMonasteryKey = GameSettings.GetKey("PlaceMonastery", placeMonasteryKey);
         }
 
         // Gated behind Classical Age - gives the Age system real teeth
@@ -301,6 +312,20 @@ namespace KingdomsOfBharat.Buildings
         // For BuildMenu, to show/disable the Build Karmashala button.
         public static bool CanPlaceKarmashala => AgeProgress.CurrentAge(NetworkMatch.LocalFaction) != AgeId.Ancient;
 
+        // Wave 4 item 27: gated behind Durg Age - same gate as Durg itself
+        // (CanPlaceDurg above), user-confirmed via AskUserQuestion (build a
+        // new Monastery building for Vaidya/Purohita).
+        public void BeginPlacementMonastery()
+        {
+            if (!_placing && CanPlaceMonastery)
+            {
+                StartPlacing(BuildingKind.Monastery);
+            }
+        }
+
+        // For BuildMenu, to show/disable the Build Monastery button.
+        public static bool CanPlaceMonastery => AgeProgress.CurrentAge(NetworkMatch.LocalFaction) >= AgeId.Durg;
+
         private void Update()
         {
             if (!_placing)
@@ -356,6 +381,10 @@ namespace KingdomsOfBharat.Buildings
                 else if (Input.GetKeyDown(placeKarmashalaKey))
                 {
                     BeginPlacementKarmashala();
+                }
+                else if (Input.GetKeyDown(placeMonasteryKey))
+                {
+                    BeginPlacementMonastery();
                 }
             }
 
@@ -525,6 +554,7 @@ namespace KingdomsOfBharat.Buildings
                 BuildingKind.Mill => NetBuildKind.Mill,
                 BuildingKind.Durg => NetBuildKind.Durg,
                 BuildingKind.Karmashala => NetBuildKind.Karmashala,
+                BuildingKind.Monastery => NetBuildKind.Monastery,
                 _ => NetBuildKind.Farm,
             };
         }
@@ -546,6 +576,7 @@ namespace KingdomsOfBharat.Buildings
                 NetBuildKind.Mill => BuildingKind.Mill,
                 NetBuildKind.Durg => BuildingKind.Durg,
                 NetBuildKind.Karmashala => BuildingKind.Karmashala,
+                NetBuildKind.Monastery => BuildingKind.Monastery,
                 _ => BuildingKind.Farm,
             };
         }
@@ -631,6 +662,11 @@ namespace KingdomsOfBharat.Buildings
                     stockpile.Add(ResourceType.Wood, -karmashalaWoodCost * multiplier);
                     KarmashalaFactory.Place(point, NetworkMatch.LocalFaction, karmashalaBuildTime);
                     break;
+                case BuildingKind.Monastery:
+                    stockpile.Add(ResourceType.Wood, -monasteryWoodCost * multiplier);
+                    stockpile.Add(ResourceType.Stone, -monasteryStoneCost * multiplier);
+                    MonasteryFactory.Place(point, NetworkMatch.LocalFaction, monasteryBuildTime);
+                    break;
             }
         }
 
@@ -676,6 +712,9 @@ namespace KingdomsOfBharat.Buildings
                         && stockpile.GetTotal(ResourceType.Stone) >= durgStoneCost * multiplier;
                 case BuildingKind.Karmashala:
                     return stockpile.GetTotal(ResourceType.Wood) >= karmashalaWoodCost * multiplier;
+                case BuildingKind.Monastery:
+                    return stockpile.GetTotal(ResourceType.Wood) >= monasteryWoodCost * multiplier
+                        && stockpile.GetTotal(ResourceType.Stone) >= monasteryStoneCost * multiplier;
                 default:
                     return stockpile.GetTotal(ResourceType.Wood) >= farmWoodCost * multiplier;
             }
@@ -697,6 +736,7 @@ namespace KingdomsOfBharat.Buildings
                 case BuildingKind.Mill: return millSize;
                 case BuildingKind.Durg: return durgSize;
                 case BuildingKind.Karmashala: return karmashalaSize;
+                case BuildingKind.Monastery: return monasterySize;
                 default: return farmSize;
             }
         }
@@ -716,6 +756,7 @@ namespace KingdomsOfBharat.Buildings
                 case BuildingKind.Market: return BuildingFootprint.Square(BuildingFootprint.MarketTiles);
                 case BuildingKind.Durg: return BuildingFootprint.Square(BuildingFootprint.DurgTiles);
                 case BuildingKind.Karmashala: return BuildingFootprint.Square(BuildingFootprint.KarmashalaTiles);
+                case BuildingKind.Monastery: return BuildingFootprint.Square(BuildingFootprint.MonasteryTiles);
                 case BuildingKind.Dock: return new Vector2(dockSize.x, dockSize.z);
                 case BuildingKind.LumberCamp:
                 case BuildingKind.MiningCamp:

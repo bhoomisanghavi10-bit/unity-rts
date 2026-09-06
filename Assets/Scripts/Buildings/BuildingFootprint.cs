@@ -35,6 +35,9 @@ namespace KingdomsOfBharat.Buildings
         // footprint - a mid-size production/research building, smaller than
         // Barracks/Durg's own bigger training footprints.
         public const int KarmashalaTiles = 3;
+        // Wave 4 item 27: Monastery shares the same mid-size 3-tile
+        // footprint as Market/Karmashala.
+        public const int MonasteryTiles = 3;
 
         private const float ObstacleHeight = 10f;
         internal const float MinObstacleSize = 0.1f;

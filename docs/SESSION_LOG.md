@@ -5,6 +5,95 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-06 — AoE-Parity Wave 4, item 27: Support units (Vaidya + Purohita) + Monastery
+
+**Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 27, picked up per the user's "start
+wave 4 item 27" request, right after item 26 closed.
+
+**Design decisions**: the roadmap flagged one open question ("resolve which building houses
+these in Plan Mode"), and research surfaced a second real one (how deep Purohita's conversion
+mechanic should go). Both resolved via AskUserQuestion before planning: a new Monastery
+building trains both units (Durg is too narrowly scoped to per-civ unique units, Karmashala is
+pure research with zero training-queue code — a Monastery also sets up the Wave 5 Relic
+system, already earmarked to reuse whichever unit/building this item picked), and Purohita's
+conversion is a full AoE-style chance roll (per-second chance scaled by the target's
+missing-HP%, excluding Buildings/Siege/other Support-Hero units) rather than a guaranteed
+conversion. Used Plan Mode given the size (new building + 2 new units + 2 new ability
+mechanics + wiring across ~10 files).
+
+**Research findings that shaped the implementation**: `Attackable.Heal(float)` already
+existed (used only by `Repairable` before this item) and needed zero changes; `FactionMember.
+Faction` is a trivial settable property with every one of its ~76 read sites reading it live,
+never cached as a stale enum, so reassigning it on a live enemy unit is structurally safe;
+`Population.Current` is a live scan of `Unit.All`, so a converted unit's population counts
+update automatically with no bookkeeping; `DeterministicRandom.Match.NextFloat01()` already
+existed for exactly this class of problem — `RajputDefianceHook.cs` (a 25%-chance-on-death
+roll) is the established precedent for using it instead of `UnityEngine.Random` so a
+gameplay-affecting roll replays identically under the lockstep `CommandBus`, mirrored exactly
+here.
+
+**Implementation**: new `Buildings/Monastery.cs`/`MonasteryFactory.cs` mirror `Karmashala.cs`/
+`KarmashalaFactory.cs`'s exact shape (single-slot queue for two unit kinds, same 3-tile
+footprint, same "raidable" 220 HP/1-2 armor), Gold-only costs, gated to Durg Age same as Durg
+itself. New `Resources/VaidyaHealer.cs` calls `Attackable.Heal` directly with no target-side
+component at all, so nothing had to be added to any of the ~15 existing unit factories — same
+"chase while out of range, act while in range" shape as `MeleeAttacker.Tick`. New `Resources/
+PurohitaConverter.cs`: same chase-then-act shape, but the "act" is a `DeterministicRandom`-
+gated roll (`ChanceForTick`, a pure per-second-to-per-frame probability conversion) instead of
+a guaranteed effect; on success, reassigns the target's `FactionMember.Faction` once (a
+one-shot transition, like `GarrisonPoint.TryGarrison`); `CanConvert` excludes Building/Siege/
+Support/Hero targets and dead ones. New `Units/VaidyaFactory.cs`/`PurohitaFactory.cs` mirror
+`VanikFactory.cs`'s shape — both units completely unarmed (no `MeleeAttacker`), matching
+Vanik/Trade Ship's own "can't fight back" precedent. No dedicated model exists for either —
+flagging directly per the flag-asset-needs convention: both reuse the shared Human Character
+Dummy body, visually identical to each other.
+
+New `Multiplayer/AbilityCommand.cs` (a small generic delegate command shared by both Heal and
+Convert orders); `NetMessageKind.Heal`/`Convert` both reuse `Attack`'s own existing
+`attackerNetId`/`targetNetId` fields (both sides already Units), same reuse convention item
+26's `TradeRoute` established. New `SelectionManager` `hitHealable` flag (friendly + damaged,
+same gating shape as `hitRepairable`) plus a third `hitAttackable` arm for Purohita's convert
+order; every other order branch gained the matching cancel calls. Full `BuildMenu`/hotkey
+(`G` places Monastery; `H`/`C` train Vaidya/Purohita, the first hotkeys in a brand-new
+Monastery-selected context)/`NetTrainKind` wiring.
+
+**Tests**: 18 new EditMode tests (`SupportUnitTests.cs`) — 480 total, up from 462, all pass.
+Hit the same recurring "`Attackable.TakeDamage` unconditionally spawns a VFX particle burst
+with an Editor-only 'Destroy may not be called from edit mode' log outside Play mode" gotcha
+`SiegeSplashTests`/`BuildingAttackerTests` already document — a killing blow needed three
+`LogAssert.Expect` calls per hit (the per-hit VFX burst, the death VFX burst, and
+`Attackable`'s own `Destroy(gameObject)`), found empirically via the real
+`~/Library/Logs/Unity/Editor.log` stack traces rather than guessing the count.
+
+**Live verification (UnityMCP, real production path)**: a real match
+(`CivilizationSetup.BeginMatch(Maurya)`); a real `MonasteryFactory.Place`-spawned Monastery
+correctly gated false→true on `CanPlaceMonastery` across the Classical→Durg age transition;
+real `RequestTrainVaidya`/`RequestTrainPurohita` invoked through the real scene-wired
+`VaidyaButton`/`PurohitaButton` (duplicated from `KarmashalaButton`/`VanikButton` via
+UnityMCP — the exact recurring "new `[SerializeField]` field null in the scene" gotcha every
+Wave 2/3/4 session has hit) each spawning a real unit through `Monastery.TickTraining`'s real
+single-slot queue, confirming Purohita's own click correctly no-op'd while Vaidya's training
+was still in progress and then succeeded once the slot freed; a real Vaidya's own
+`VaidyaHealer` healed a real damaged `SoldierFactory`-spawned Soldier to full HP entirely
+through its own live `Update()` loop, no forced ticks; a real Purohita (with
+`baseChancePerSecond` forced high via reflection for a fast, deterministic success) flipped a
+real enemy Soldier's `FactionMember.Faction` from Enemy to Player within a real running
+match, confirmed `Population.Current(Player)` reflected the new unit with zero explicit
+bookkeeping anywhere. Full EditMode suite re-confirmed 480/480 after exiting Play mode and
+reloading the scene.
+
+**Not built (flagged directly)**: no live re-tint system exists anywhere in the project, so a
+converted unit keeps its original owner's civ color after switching sides — tied to the
+not-yet-built Wave 5 item 29 (Player/team colour system). No AI-side use of Monastery/Vaidya/
+Purohita — new capability the AI never had before, not existing behavior moved off Barracks,
+so skipping it isn't a regression the way Durg/Karmashala's own AI hooks were required to be.
+
+**Roadmap/CLAUDE.md**: item 27 marked closed in `docs/IMPLEMENTATION_ROADMAP.md`.
+`CLAUDE.md`'s "Current status" updated. Next: item 24 (Trebuchet, 1 tier), item 28 (Hero
+unit — needs a victory-condition decision first), or Wave 5, user's call.
+
+---
+
 ## 2026-09-06 — AoE-Parity Wave 4, item 26: Trader (Vanik + Trade Ship)
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 26, picked up per the user's "start
