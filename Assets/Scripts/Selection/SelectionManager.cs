@@ -410,8 +410,23 @@ namespace KingdomsOfBharat.Selection
                 && hit.collider.TryGetComponent(out repairable)
                 && repairable.IsRepairable
                 && IsFriendlyToPlayer(repairable);
+            // Wave 4 item 26: right-clicking a friendly (owned or allied)
+            // Market/Dock with a Trader/BoatTrader-capable unit selected
+            // sets a trade route - same "friendly-only, falls through to
+            // attack otherwise" gating as hitFarm/hitGarrison/hitRepairable
+            // above.
+            Market marketTarget = null;
+            bool hitMarket = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable
+                && hit.collider.TryGetComponent(out marketTarget)
+                && marketTarget.IsComplete
+                && IsFriendlyToPlayer(marketTarget);
+            Dock dockTarget = null;
+            bool hitDock = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable && !hitMarket
+                && hit.collider.TryGetComponent(out dockTarget)
+                && dockTarget.IsComplete
+                && IsFriendlyToPlayer(dockTarget);
             Attackable attackable = null;
-            bool hitAttackable = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable
+            bool hitAttackable = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable && !hitMarket && !hitDock
                 && hit.collider.TryGetComponent(out attackable)
                 && !attackable.IsDead;
 
@@ -464,6 +479,9 @@ namespace KingdomsOfBharat.Selection
                 // boat selected would silently do nothing at all.
                 unit.TryGetComponent(out BoatGatherer boatGatherer);
                 unit.TryGetComponent(out BoatAttacker boatAttacker);
+                // Wave 4 item 26.
+                unit.TryGetComponent(out Trader trader);
+                unit.TryGetComponent(out BoatTrader boatTrader);
 
                 if (hitNode)
                 {
@@ -522,6 +540,30 @@ namespace KingdomsOfBharat.Selection
                     livestockWorker?.CancelWork();
                     repairer.RepairAt(repairable);
                 }
+                else if (hitMarket && trader != null)
+                {
+                    gatherer?.CancelGather();
+                    builder?.CancelBuild();
+                    attacker?.CancelAttack();
+                    farmWorker?.CancelWork();
+                    livestockWorker?.CancelWork();
+                    repairer?.CancelRepair();
+                    FactionId tradeFaction = unit.TryGetComponent(out FactionMember tradeUnitFaction)
+                        ? tradeUnitFaction.Faction
+                        : NetworkMatch.LocalFaction;
+                    int tradeTick = CommandBus.Enqueue(new TradeRouteCommand(tradeFaction, unit, () => trader.SetTradeRoute(marketTarget)));
+                    SendNetworkCommand(CommandSerializer.ForTradeRoute(tradeTick, tradeFaction, unit, marketTarget));
+                }
+                else if (hitDock && boatTrader != null)
+                {
+                    boatGatherer?.CancelGather();
+                    boatAttacker?.CancelAttack();
+                    FactionId tradeFaction = unit.TryGetComponent(out FactionMember tradeUnitFaction)
+                        ? tradeUnitFaction.Faction
+                        : NetworkMatch.LocalFaction;
+                    int tradeTick = CommandBus.Enqueue(new TradeRouteCommand(tradeFaction, unit, () => boatTrader.SetTradeRoute(dockTarget)));
+                    SendNetworkCommand(CommandSerializer.ForTradeRoute(tradeTick, tradeFaction, unit, dockTarget));
+                }
                 else if (hitAttackable && attacker != null && IsHostileTarget(unit, attackable))
                 {
                     gatherer?.CancelGather();
@@ -554,6 +596,8 @@ namespace KingdomsOfBharat.Selection
                     repairer?.CancelRepair();
                     boatGatherer?.CancelGather();
                     boatAttacker?.CancelAttack();
+                    trader?.CancelRoute();
+                    boatTrader?.CancelRoute();
                     if (unit.TryGetComponent(out UnitMover mover))
                     {
                         Vector3 offset = composedOffsets != null && composedOffsets.TryGetValue(unit.gameObject, out Vector3 composedOffset)

@@ -25,6 +25,11 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         Train,
         Build,
         Attack,
+        // Wave 4 item 26: reuses Attack's own two-int-id fields
+        // (attackerNetId = the trader unit, targetNetId = the destination
+        // Market/Dock) rather than adding new envelope fields - see those
+        // fields' own comments below.
+        TradeRoute,
         StateHash,
         ResyncSnapshot,
         // Sent every tick even when the local player issues no order that
@@ -57,6 +62,8 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         FishingBoat,
         WarGalley,
         FireShip,
+        Vanik,
+        TradeShip,
     }
 
     // Mirrors BuildingPlacer.BuildingKind (internal enum nested in that
@@ -100,7 +107,9 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         public NetBuildKind buildKind;
         public Vector3 point;
 
-        // Attack
+        // Attack. Also reused, unchanged shape, by TradeRoute (Wave 4 item
+        // 26): attackerNetId = the trader unit, targetNetId = the
+        // destination Market/Dock.
         public int attackerNetId;
         public int targetNetId;
 

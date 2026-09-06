@@ -6,6 +6,95 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 4 item 26 (Trader — Vanik + Trade Ship) closed (2026-09-06), full
+  scope.** Picked up per the user's "start wave 4 item 26" request, right
+  after item 31 closed. Item 26 was flagged in the roadmap as "design
+  decision first" — whether trade routes are wanted at all, since it's
+  genuinely new economic machinery (a Market-to-Market/Dock-to-Dock route
+  system), not just another trainable unit. Asked the user directly via
+  AskUserQuestion before planning — confirmed "build both land and naval
+  variants, full scope." Plan Mode used before implementation (touches 9
+  files across combat/buildings/UI/multiplayer). New `Resources/Trader.cs`/
+  `BoatTrader.cs` mirror `Gatherer`/`BoatGatherer`'s exact walk/act/walk-back
+  state-machine shape, but shuttle endlessly between two owned/allied
+  Markets/Docks instead of depleting a resource node — paying
+  `Mathf.Clamp(distance * ratePerUnit, min, max)` Gold into the owner's
+  stockpile on every leg's arrival (twice per round trip), not just once at
+  the end. New `Units/VanikFactory.cs`/`TradeShipFactory.cs`: both units are
+  **completely unarmed** — no `MeleeAttacker`/`BoatAttacker` at all, not even
+  Worker's own weak self-defense one — matching AoE's real Trade Cart/Cog
+  (fragile, must be escorted, can't fight back), though both still carry
+  `Attackable` so they're valid, killable targets. No dedicated model exists
+  for either — **flagging directly per the flag-asset-needs convention**:
+  Vanik reuses the shared Human Character Dummy body (civ-tinted, same as
+  Scout/CavalryArcher) and will look like a generic soldier, not a merchant;
+  Trade Ship reuses the same hull FishingBoat/WarGalley use and will look
+  identical to a Fishing Boat in the field. **Vanik trains at Market, not
+  Barracks** — a deliberate design call (Market's own unit) that required
+  adding a whole single-slot training queue to `Market.cs` from scratch
+  (mirroring `Dock`'s exact shape: `_remaining`/`IsTraining`/
+  `RequestTrainVanik`/`TickTraining`/a `RallyPoint` in `Awake`), since Market
+  previously had zero training-queue code at all (only `Sell`/`Buy`, both
+  left untouched). Trade Ship trains at Dock, added as a 4th `TrainingUnit`
+  case alongside FishingBoat/WarGalley/FireShip — the smaller addition,
+  since Dock's queue infrastructure already existed. New `SelectionManager`
+  right-click branch (`hitMarket`/`hitDock`, inserted before `hitAttackable`
+  so a friendly Market/Dock doesn't fall through to an attack order — same
+  "friendly-only, falls through to attack otherwise" gating convention
+  `hitGarrison`/`hitRepairable` already established) calls
+  `Trader.SetTradeRoute`/`BoatTrader.SetTradeRoute`, which resolves the
+  route's "home" leg to the nearest OTHER Market/Dock owned by the trader's
+  own faction (never an ally's, even though the clicked destination itself
+  can be an ally's) — **deliberately out of scope for v1: trading with
+  enemy/unallied Markets**, AoE's real "most profitable" case, flagged not
+  built. New `NetMessageKind.TradeRoute` deliberately reuses `Attack`'s own
+  two existing `attackerNetId`/`targetNetId` int fields (trader unit +
+  destination building) rather than adding new envelope fields, matching
+  this file's own "every field exists on every message, only the one
+  matching Kind is meaningful" convention; new `Multiplayer/
+  TradeRouteCommand.cs` mirrors `TrainCommand.cs`'s exact captured-delegate
+  shape; `CommandSerializer` gained `ForTradeRoute`/`ToTradeRouteCommand`
+  plus a new `Market` arm on `ToTrainCommand`'s building-type switch. Full
+  `BuildMenu`/hotkey/`NetTrainKind` wiring: `V` on Market (the very first
+  Market-context hotkey — no Market hotkeys existed before this item) and
+  `T` on Dock, both reused freely per this file's own established
+  mutually-exclusive-context convention; a new `MarketGroup` added to
+  `HotkeyOverlay.cs`. 11 new EditMode tests (`TraderTests.cs`: the gold
+  formula's clamp/scale behavior, and the nearest-owned-building routing
+  rule's same-faction/exclude-destination/no-candidates cases — 462 total,
+  up from 451, all pass). Hit and fixed the same recurring
+  `Building.OnEnable`-isn't-synchronous-in-EditMode-tests gotcha this
+  project has hit before (fixed the same way `BuildingFootprintTests`/
+  `AgeUpRequirementTests` already do: register test buildings directly into
+  `Building.All` rather than relying on `OnEnable`'s own timing). Live-
+  verified via UnityMCP through the real production path: a real match
+  (`CivilizationSetup.BeginMatch(Maurya)`), two real `MarketFactory.Place`-
+  spawned Markets 30 units apart (completed via
+  `ConstructionSite.CompleteImmediately()`, since the factory's third
+  parameter is a real build time, not a completion fraction — caught this
+  directly rather than assuming, after a first `SetTradeRoute` attempt
+  correctly no-op'd against a still-under-construction Market), a real
+  `VanikFactory.Spawn`-spawned Vanik given a real `Trader.SetTradeRoute()`
+  call walked the real distance via its own real `NavMeshAgent` and paid
+  Gold into the real stockpile on every leg's arrival (confirmed cycling
+  `MovingToDestination`/`MovingToHome` over several real round trips, Gold
+  climbing in `ComputeTradeGold`-clamped increments each time); the
+  identical proof repeated for Trade Ship with two real `DockFactory.Place`-
+  spawned Docks and a real `BoatTrader`; the real scene-wired
+  `VanikButton`/`TradeShipButton` (duplicated from `SellWoodButton`/
+  `FireShipButton` via UnityMCP — the exact recurring "new
+  `[SerializeField]` field null in the scene" gotcha every Wave 2/3/4
+  session has hit) each correctly trained a real second unit through
+  `CommandBus`'s lockstep queue when clicked with the matching building
+  selected (confirmed a real 2nd "Maurya Vanik"/"Maurya Trade Ship"
+  GameObject existed afterward, Wood/Gold deducted only once the queued
+  command actually executed, not synchronously at the click). Full EditMode
+  suite re-confirmed 462/462 after exiting Play mode. No AI-side use of
+  Trader/Trade Ship (no AI training hook), matching every other Wave 3/4
+  unit's own explicitly-out-of-scope call. Next: Wave 4 item 24 (Trebuchet,
+  1 tier), item 27 (Support units — Vaidya/Purohita), item 28 (Hero unit —
+  needs a victory-condition decision first), or Wave 5 (cross-cutting
+  systems), user's call.
 - **`docs/IMPLEMENTATION_ROADMAP.md` item 31 (BuildMenu command-panel grid
   redesign) closed (2026-09-06).** Picked up per the user's "start item 31"
   request, right after item 30 closed. Item 30 had deliberately left

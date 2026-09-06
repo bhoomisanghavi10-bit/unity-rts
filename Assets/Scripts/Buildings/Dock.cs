@@ -20,6 +20,7 @@ namespace KingdomsOfBharat.Buildings
             FishingBoat,
             WarGalley,
             FireShip,
+            TradeShip,
         }
 
         [SerializeField] private float fishingBoatFoodCost = 40f;
@@ -30,6 +31,10 @@ namespace KingdomsOfBharat.Buildings
         // unit_roster_template.csv's "fire_ship" row and Scorpion's own
         // "a crafted vessel, not a fed crew" cost-model precedent.
         [SerializeField] private float fireShipWoodCost = 70f;
+        // Wave 4 item 26: Trade Ship, the naval Trader - a crafted vessel
+        // like Fishing Boat/War Galley, so Wood+Gold, no Food.
+        [SerializeField] private float tradeShipWoodCost = 70f;
+        [SerializeField] private float tradeShipGoldCost = 30f;
         [SerializeField] private float trainTime = 6f;
         // Was a fixed Vector3(0,0,3) - always spawned/rallied boats 3
         // units north regardless of which shore the Dock was actually
@@ -186,6 +191,29 @@ namespace KingdomsOfBharat.Buildings
             _remaining = ScaledTrainTime();
         }
 
+        // Wave 4 item 26: Trade Ship, the naval Trader - see Dock.
+        // RequestTrainFireShip's own comment for why no age gate of its
+        // own is needed.
+        public void RequestTrainTradeShip()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Wood) < tradeShipWoodCost
+                || stockpile.GetTotal(ResourceType.Gold) < tradeShipGoldCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Wood, -tradeShipWoodCost);
+            stockpile.Add(ResourceType.Gold, -tradeShipGoldCost);
+            _trainingUnit = TrainingUnit.TradeShip;
+            _remaining = ScaledTrainTime();
+        }
+
         private float ScaledTrainTime()
         {
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
@@ -208,6 +236,7 @@ namespace KingdomsOfBharat.Buildings
                 {
                     TrainingUnit.WarGalley => WarGalleyFactory.Spawn(transform.position + _rallyOffset, Faction),
                     TrainingUnit.FireShip => FireShipFactory.Spawn(transform.position + _rallyOffset, Faction),
+                    TrainingUnit.TradeShip => TradeShipFactory.Spawn(transform.position + _rallyOffset, Faction),
                     _ => FishingBoatFactory.Spawn(transform.position + _rallyOffset, Faction),
                 };
                 _rally.ApplyTo(spawned);

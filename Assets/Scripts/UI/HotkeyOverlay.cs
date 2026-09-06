@@ -135,6 +135,14 @@ namespace KingdomsOfBharat.UI
             new Entry("Upgrade Naval Tier", "ResearchNavalTier", KeyCode.X),
             new Entry("Train Fire Ship", "TrainFireShip", KeyCode.Y),
             new Entry("Upgrade Fire Ship Tier", "ResearchFireShipTier", KeyCode.Z),
+            new Entry("Train Trade Ship", "TrainTradeShip", KeyCode.T),
+        });
+
+        // Wave 4 item 26: first Market-context hotkeys - own group, same
+        // shape as KarmashalaGroup's own split from Barracks.
+        private static readonly Group MarketGroup = new Group("Market Selected", new[]
+        {
+            new Entry("Train Vanik", "TrainVanik", KeyCode.V),
         });
 
         private static readonly Group GarrisonGroup = new Group("Garrisoned Building Selected", new[]
@@ -146,7 +154,7 @@ namespace KingdomsOfBharat.UI
         // group identity - purely a layout concern.
         private static readonly Group[][] Columns =
         {
-            new[] { GlobalGroup, DockGroup, GarrisonGroup },
+            new[] { GlobalGroup, DockGroup, MarketGroup, GarrisonGroup },
             new[] { PlacementGroup },
             new[] { TownCenterGroup, BarracksGroup, DurgGroup, KarmashalaGroup },
         };

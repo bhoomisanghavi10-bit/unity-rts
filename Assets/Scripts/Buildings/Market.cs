@@ -2,6 +2,7 @@ using UnityEngine;
 using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Progression;
+using KingdomsOfBharat.Units;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -20,6 +21,18 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float sellRate = 0.7f;
         [SerializeField] private float buyRate = 1.3f;
 
+        // Wave 4 item 26: Vanik trains here, not Barracks - Market's own
+        // unit. Single-slot queue, same shape as Dock's own training
+        // (TrainingUnit enum with one value, since only one unit type
+        // trains from a Market).
+        [SerializeField] private float vanikWoodCost = 80f;
+        [SerializeField] private float vanikGoldCost = 20f;
+        [SerializeField] private float trainTime = 20f;
+        [SerializeField] private float rallyDistance = 3f;
+        private Vector3 _rallyOffset;
+        private RallyPoint _rally;
+        private float _remaining = -1f;
+
         private FactionMember _factionMember;
 
         private FactionId Faction
@@ -34,7 +47,63 @@ namespace KingdomsOfBharat.Buildings
             }
         }
 
+        private void Awake()
+        {
+            // Markets aren't water-adjacency-sensitive like Docks (see
+            // Dock.Awake's WaterProximity-based direction) - a plain
+            // forward offset is enough for a land rally point.
+            _rallyOffset = transform.forward * rallyDistance;
+            _rally = gameObject.AddComponent<RallyPoint>();
+            _rally.Configure(_rallyOffset);
+        }
+
         public bool IsComplete => !TryGetComponent(out ConstructionSite site) || site.IsComplete;
+        public bool IsTraining => _remaining >= 0f;
+
+        private void Update()
+        {
+            if (IsTraining)
+            {
+                TickTraining();
+            }
+        }
+
+        public void RequestTrainVanik()
+        {
+            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            if (stockpile.GetTotal(ResourceType.Wood) < vanikWoodCost
+                || stockpile.GetTotal(ResourceType.Gold) < vanikGoldCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Wood, -vanikWoodCost);
+            stockpile.Add(ResourceType.Gold, -vanikGoldCost);
+            _remaining = ScaledTrainTime();
+        }
+
+        private float ScaledTrainTime()
+        {
+            float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
+            return trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier
+                * ageTrainMultiplier;
+        }
+
+        private void TickTraining()
+        {
+            _remaining -= Time.deltaTime;
+            if (_remaining <= 0f)
+            {
+                GameObject spawned = VanikFactory.Spawn(transform.position + _rallyOffset, Faction);
+                _rally.ApplyTo(spawned);
+                _remaining = -1f;
+            }
+        }
 
         // Phase 6: Chola's unique tech narrows the spread symmetrically -
         // sellRate up, buyRate down by the same amount - rather than being

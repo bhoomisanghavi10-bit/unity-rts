@@ -116,6 +116,10 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button fireShipButton;
         [SerializeField] private Button fireShipTierButton;
         [SerializeField] private TMP_Text fireShipTierLabel;
+        // Wave 4 item 26: Trade Ship, the naval Trader - trains on the same
+        // selected Dock as every other naval unit, no tier ladder of its
+        // own.
+        [SerializeField] private Button tradeShipButton;
         [SerializeField] private Button sellWoodButton;
         [SerializeField] private TMP_Text sellWoodLabel;
         [SerializeField] private Button buyWoodButton;
@@ -128,6 +132,11 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private TMP_Text sellStoneLabel;
         [SerializeField] private Button buyStoneButton;
         [SerializeField] private TMP_Text buyStoneLabel;
+        // Wave 4 item 26: Vanik, the land Trader - trains on the same
+        // selected Market as the Sell/Buy buttons above, no tier ladder of
+        // its own.
+        [SerializeField] private Button vanikButton;
+        [SerializeField] private TMP_Text vanikLabel;
         [SerializeField] private Button attackUpgradeButton;
         [SerializeField] private TMP_Text attackUpgradeLabel;
         [SerializeField] private Button armorUpgradeButton;
@@ -270,6 +279,9 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyResearchNavalTier;
         private KeyCode _keyTrainFireShip;
         private KeyCode _keyResearchFireShipTier;
+        // Wave 4 item 26.
+        private KeyCode _keyTrainTradeShip;
+        private KeyCode _keyTrainVanik;
         private KeyCode _keyUngarrison;
 
         private BuildingPlacer _placer;
@@ -337,6 +349,8 @@ namespace KingdomsOfBharat.UI
             navalTierButton.onClick.AddListener(ResearchNavalTierAtSelected);
             fireShipButton.onClick.AddListener(TrainFireShipAtSelected);
             fireShipTierButton.onClick.AddListener(ResearchFireShipTierAtSelected);
+            tradeShipButton.onClick.AddListener(TrainTradeShipAtSelected);
+            vanikButton.onClick.AddListener(TrainVanikAtSelected);
             sellWoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Wood, sell: true));
             buyWoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Wood, sell: false));
             sellFoodButton.onClick.AddListener(() => TradeAtSelected(ResourceType.Food, sell: true));
@@ -376,8 +390,9 @@ namespace KingdomsOfBharat.UI
                 batteringRamButton, cavalryArcherButton, camelRiderButton, scorpionButton,
                 uniqueUnitButton, uniqueUnitButton2, ungarrisonButton, fishingBoatButton,
                 warGalleyButton, navalTierButton, fireShipButton, fireShipTierButton,
+                tradeShipButton,
                 sellWoodButton, buyWoodButton, sellFoodButton, buyFoodButton, sellStoneButton,
-                buyStoneButton, attackUpgradeButton, armorUpgradeButton, uniqueTechButton,
+                buyStoneButton, vanikButton, attackUpgradeButton, armorUpgradeButton, uniqueTechButton,
                 infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton,
                 siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2,
                 charaTierButton, skirmisherTierButton, batteringRamTierButton,
@@ -456,6 +471,16 @@ namespace KingdomsOfBharat.UI
             // (see HandleHotkeys' header comment).
             _keyTrainFireShip = GameSettings.GetKey("TrainFireShip", KeyCode.Y);
             _keyResearchFireShipTier = GameSettings.GetKey("ResearchFireShipTier", KeyCode.Z);
+            // Wave 4 item 26: T isn't used anywhere in the Dock context yet
+            // (T = TrainUnit on Barracks, mutually exclusive with a
+            // selected Dock) - reused freely per this file's own
+            // established convention (see HandleHotkeys' header comment).
+            _keyTrainTradeShip = GameSettings.GetKey("TrainTradeShip", KeyCode.T);
+            // Wave 4 item 26: V isn't used anywhere in the Market context
+            // yet (no Market hotkeys existed before this item; V =
+            // ResearchSkirmisherTier on Barracks, mutually exclusive with a
+            // selected Market) - reused freely per the same convention.
+            _keyTrainVanik = GameSettings.GetKey("TrainVanik", KeyCode.V);
             _keyUngarrison = GameSettings.GetKey("Ungarrison", KeyCode.U);
         }
 
@@ -481,8 +506,8 @@ namespace KingdomsOfBharat.UI
                 workerButton, soldierButton, archerButton, cavalryButton,
                 siegeButton, spearmanButton, charaButton, skirmisherButton, batteringRamButton, uniqueUnitButton, uniqueUnitButton2, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
-                buyFoodButton, sellStoneButton, buyStoneButton, attackUpgradeButton, armorUpgradeButton,
-                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2, charaTierButton, skirmisherTierButton, batteringRamTierButton, navalTierButton, fireShipButton, fireShipTierButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
+                buyFoodButton, sellStoneButton, buyStoneButton, vanikButton, attackUpgradeButton, armorUpgradeButton,
+                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2, charaTierButton, skirmisherTierButton, batteringRamTierButton, navalTierButton, fireShipButton, fireShipTierButton, tradeShipButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
             };
 
             foreach (Button button in buttons)
@@ -547,12 +572,14 @@ namespace KingdomsOfBharat.UI
             SetupGridCell(navalTierButton, null);
             SetupGridCell(fireShipButton, null);
             SetupGridCell(fireShipTierButton, null);
+            SetupGridCell(tradeShipButton, null);
             SetupGridCell(sellWoodButton, "resource_wood");
             SetupGridCell(buyWoodButton, "resource_wood");
             SetupGridCell(sellFoodButton, "resource_food");
             SetupGridCell(buyFoodButton, "resource_food");
             SetupGridCell(sellStoneButton, "resource_stone");
             SetupGridCell(buyStoneButton, "resource_stone");
+            SetupGridCell(vanikButton, null);
             SetupGridCell(attackUpgradeButton, "upgrade_attack");
             SetupGridCell(armorUpgradeButton, "upgrade_armor");
             SetupGridCell(uniqueTechButton, null);
@@ -670,7 +697,7 @@ namespace KingdomsOfBharat.UI
             // type, since TownCenter now has one too.
             GarrisonPoint garrisonPoint = ownsSelected ? selected.GetComponent<GarrisonPoint>() : null;
 
-            HandleHotkeys(townCenter, barracks, dock, durg, karmashala, garrisonPoint);
+            HandleHotkeys(townCenter, barracks, dock, durg, karmashala, garrisonPoint, market);
 
             SetPlacementButtonsActive(showPlacement);
             workerButton.gameObject.SetActive(townCenter != null);
@@ -720,12 +747,14 @@ namespace KingdomsOfBharat.UI
             navalTierButton.gameObject.SetActive(dock != null);
             fireShipButton.gameObject.SetActive(dock != null);
             fireShipTierButton.gameObject.SetActive(dock != null);
+            tradeShipButton.gameObject.SetActive(dock != null);
             sellWoodButton.gameObject.SetActive(market != null);
             buyWoodButton.gameObject.SetActive(market != null);
             sellFoodButton.gameObject.SetActive(market != null);
             buyFoodButton.gameObject.SetActive(market != null);
             sellStoneButton.gameObject.SetActive(market != null);
             buyStoneButton.gameObject.SetActive(market != null);
+            vanikButton.gameObject.SetActive(market != null);
 
             if (showPlacement)
             {
@@ -901,7 +930,7 @@ namespace KingdomsOfBharat.UI
         // disabled. Gated per-parameter (not a single "selected something"
         // check) so a key only ever acts on the currently selected building
         // of the matching type, fixing the old per-building Update() bug.
-        private void HandleHotkeys(TownCenter townCenter, Barracks barracks, Dock dock, Durg durg, Karmashala karmashala, GarrisonPoint garrisonPoint)
+        private void HandleHotkeys(TownCenter townCenter, Barracks barracks, Dock dock, Durg durg, Karmashala karmashala, GarrisonPoint garrisonPoint, Market market)
         {
             if (townCenter != null)
             {
@@ -965,6 +994,12 @@ namespace KingdomsOfBharat.UI
                 if (Input.GetKeyDown(_keyResearchNavalTier)) ResearchNavalTierAtSelected();
                 if (Input.GetKeyDown(_keyTrainFireShip)) TrainFireShipAtSelected();
                 if (Input.GetKeyDown(_keyResearchFireShipTier)) ResearchFireShipTierAtSelected();
+                if (Input.GetKeyDown(_keyTrainTradeShip)) TrainTradeShipAtSelected();
+            }
+
+            if (market != null)
+            {
+                if (Input.GetKeyDown(_keyTrainVanik)) TrainVanikAtSelected();
             }
 
             if (garrisonPoint != null && garrisonPoint.Count > 0 && Input.GetKeyDown(_keyUngarrison))
@@ -1479,6 +1514,7 @@ namespace KingdomsOfBharat.UI
             fishingBoatButton.interactable = canTrain;
             warGalleyButton.interactable = canTrain;
             fireShipButton.interactable = canTrain;
+            tradeShipButton.interactable = canTrain;
 
             UpdateNavalTierButton(dock);
             UpdateFireShipTierButton(dock);
@@ -1567,6 +1603,21 @@ namespace KingdomsOfBharat.UI
             UpdateTradeButton(buyFoodButton, buyFoodLabel, "Buy", "Food", stockpile.GetTotal(ResourceType.Gold) >= goldCost, goldCost);
             UpdateTradeButton(sellStoneButton, sellStoneLabel, "Sell", "Stone", stockpile.GetTotal(ResourceType.Stone) >= MarketTradeAmount, goldPayout);
             UpdateTradeButton(buyStoneButton, buyStoneLabel, "Buy", "Stone", stockpile.GetTotal(ResourceType.Gold) >= goldCost, goldCost);
+
+            UpdateVanikButton(market);
+        }
+
+        // Wave 4 item 26: Vanik has no tier ladder - a flat interactable/
+        // cost label, closer to fishingBoatButton's own simplicity than
+        // any of the *TierButton methods above.
+        private void UpdateVanikButton(Market market)
+        {
+            bool canTrain = market.IsComplete && !market.IsTraining;
+            vanikButton.interactable = canTrain;
+            if (vanikLabel != null)
+            {
+                vanikLabel.text = market.IsTraining ? "Training Vanik..." : "Train Vanik (80 Wood, 20 Gold)";
+            }
         }
 
         private static void UpdateTradeButton(Button button, TMP_Text label, string verb, string resourceName, bool canAfford, float goldAmount)
@@ -1861,6 +1912,23 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is Dock dock)
             {
                 EnqueueTrain(dock, dock.RequestTrainFireShip, NetTrainKind.FireShip);
+            }
+        }
+
+        // Wave 4 item 26.
+        private void TrainTradeShipAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Dock dock)
+            {
+                EnqueueTrain(dock, dock.RequestTrainTradeShip, NetTrainKind.TradeShip);
+            }
+        }
+
+        private void TrainVanikAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Market market)
+            {
+                EnqueueTrain(market, market.RequestTrainVanik, NetTrainKind.Vanik);
             }
         }
 

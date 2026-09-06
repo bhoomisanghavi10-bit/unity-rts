@@ -80,6 +80,24 @@ namespace KingdomsOfBharat.Multiplayer
             };
         }
 
+        // Wave 4 item 26: reuses Attack's own field shape (one unit id, one
+        // building id) rather than adding new envelope fields - see
+        // NetMessageEnvelope's own comment on attackerNetId/targetNetId.
+        public static NetMessageEnvelope ForTradeRoute(int tick, FactionId faction, Unit trader, Building destination)
+        {
+            NetworkId.TryGetId(trader, out int traderId);
+            NetworkId.TryGetId(destination, out int destinationId);
+
+            return new NetMessageEnvelope
+            {
+                kind = NetMessageKind.TradeRoute,
+                tick = tick,
+                faction = (int)faction,
+                attackerNetId = traderId,
+                targetNetId = destinationId,
+            };
+        }
+
         // --- Reconstruct a real, executable Command from a received
         // envelope, resolving NetworkIds back to live objects. Returns null
         // (caller must no-op) if a referenced object no longer exists - the
@@ -101,6 +119,8 @@ namespace KingdomsOfBharat.Multiplayer
                     return ToBuildCommand(envelope, faction);
                 case NetMessageKind.Attack:
                     return ToAttackCommand(envelope, faction);
+                case NetMessageKind.TradeRoute:
+                    return ToTradeRouteCommand(envelope, faction);
                 default:
                     return null;
             }
@@ -174,9 +194,49 @@ namespace KingdomsOfBharat.Multiplayer
                     NetTrainKind.FishingBoat => dock.RequestTrainFishingBoat,
                     NetTrainKind.WarGalley => dock.RequestTrainWarGalley,
                     NetTrainKind.FireShip => dock.RequestTrainFireShip,
+                    NetTrainKind.TradeShip => dock.RequestTrainTradeShip,
                     _ => null,
                 };
                 return requestTrain == null ? null : new TrainCommand(faction, dock, requestTrain);
+            }
+
+            // Wave 4 item 26: Vanik trains here, not Barracks - Market's
+            // own unit.
+            if (building is Market market && envelope.trainKind == NetTrainKind.Vanik)
+            {
+                return new TrainCommand(faction, market, market.RequestTrainVanik);
+            }
+
+            return null;
+        }
+
+        // Wave 4 item 26: resolves a received trade-route order back to a
+        // real Trader/BoatTrader call - checks both possible trader
+        // component types against both possible destination building
+        // types, same "no shared interface" reasoning as ToTrainCommand's
+        // per-building-type switch above.
+        private static Command ToTradeRouteCommand(NetMessageEnvelope envelope, FactionId faction)
+        {
+            if (!NetworkId.TryResolveUnit(envelope.attackerNetId, out Unit traderUnit))
+            {
+                return null;
+            }
+
+            if (!NetworkId.TryResolveBuilding(envelope.targetNetId, out Building destination))
+            {
+                return null;
+            }
+
+            if (traderUnit.TryGetComponent(out KingdomsOfBharat.ResourceGathering.Trader trader)
+                && destination is Market market)
+            {
+                return new TradeRouteCommand(faction, traderUnit, () => trader.SetTradeRoute(market));
+            }
+
+            if (traderUnit.TryGetComponent(out KingdomsOfBharat.ResourceGathering.BoatTrader boatTrader)
+                && destination is Dock dock)
+            {
+                return new TradeRouteCommand(faction, traderUnit, () => boatTrader.SetTradeRoute(dock));
             }
 
             return null;

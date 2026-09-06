@@ -100,6 +100,13 @@ namespace KingdomsOfBharat.UI
             // selection context, this file's own established convention).
             new RebindableAction("TrainFireShip", "Train Fire Ship (Dock)", KeyCode.Y),
             new RebindableAction("ResearchFireShipTier", "Upgrade Fire Ship Tier (Dock)", KeyCode.Z),
+            // Wave 4 item 26: T is unused within the Dock context
+            // specifically (TrainUnit on Barracks - mutually exclusive).
+            new RebindableAction("TrainTradeShip", "Train Trade Ship (Dock)", KeyCode.T),
+            // Wave 4 item 26: no Market hotkeys existed before this item; V
+            // is unused within the Market context specifically
+            // (ResearchSkirmisherTier on Barracks - mutually exclusive).
+            new RebindableAction("TrainVanik", "Train Vanik (Market)", KeyCode.V),
             new RebindableAction("Ungarrison", "Ungarrison", KeyCode.U),
             new RebindableAction("ToggleHotkeyOverlay", "Toggle Hotkey Reference (Overlay)", KeyCode.F1),
             new RebindableAction("SaveGame", "Quicksave", KeyCode.F5),

@@ -764,12 +764,48 @@ the others — genuinely parallel-safe once Waves 0-1 are done.
     Classical/Durg/Imperial. First real consumer of `DamageType.Fire` (wired in Wave 0 item 4).
     *Depends on: Wave 0 item 4, Wave 1.*~~ **Closed (2026-09-05).** See `CLAUDE.md`'s
     "Current status" for full detail.
-26. **[M] Trader (land + naval), design decision first.** Vanik (land) / Trade Ship (naval).
+26. ~~**[M] Trader (land + naval), design decision first.** Vanik (land) / Trade Ship (naval).
     Needs a Market-to-Market (and Dock-to-Dock) route system — this is genuinely new economic
     machinery, not just a new unit, so size it as Medium and expect it to touch
     `Buildings/Market.cs` and `Buildings/Dock.cs` as well as a new unit class. *Depends on:
     Wave 0, Wave 1, and a yes/no on whether trade routes are wanted at all — it's listed as a
-    "Design decision" on the Economy sheet, not a confirmed build.*
+    "Design decision" on the Economy sheet, not a confirmed build.*~~ **Closed (2026-09-06),
+    full scope (both land and naval).** User confirmed via AskUserQuestion: build both
+    variants. See `CLAUDE.md`'s "Current status" for full detail: new `Resources/Trader.cs`/
+    `BoatTrader.cs` (mirror `Gatherer`/`BoatGatherer`'s walk/act/walk-back shape, but shuttle
+    endlessly between two owned/allied Markets/Docks instead of depleting a resource node,
+    paying `Mathf.Clamp(distance * rate, min, max)` Gold on every leg's arrival), new
+    `Units/VanikFactory.cs`/`TradeShipFactory.cs` (both completely unarmed - no
+    `MeleeAttacker`/`BoatAttacker` at all, matching AoE's actual Trade Cart/Cog - no dedicated
+    model exists yet, flagged directly: Vanik reuses the shared Human Character Dummy body,
+    Trade Ship reuses the same hull FishingBoat/WarGalley use), Vanik trains at Market (a new
+    single-slot training queue added to `Market.cs`, which previously had zero training code)
+    while Trade Ship trains at Dock (a 4th `TrainingUnit` case), a new `SelectionManager`
+    right-click branch (friendly-only Market/Dock hit, inserted before the attack branch, same
+    gating convention as `hitGarrison`/`hitRepairable`), new `NetMessageKind.TradeRoute`
+    (deliberately reuses `Attack`'s own `attackerNetId`/`targetNetId` fields rather than adding
+    new envelope fields) plus `TradeRouteCommand.cs`/`CommandSerializer.ForTradeRoute`/
+    `ToTradeRouteCommand`, full `BuildMenu`/hotkey (V on Market - the first Market-context
+    hotkey; T on Dock)/`NetTrainKind` wiring, 11 new EditMode tests (`TraderTests.cs`, 462
+    total, all pass - hit and fixed the same recurring "Building.OnEnable isn't synchronous in
+    EditMode tests" gotcha via direct `Building.All` registration, same convention as
+    `BuildingFootprintTests`/`AgeUpRequirementTests`). Live-verified via UnityMCP through the
+    real production path: a real match (`CivilizationSetup.BeginMatch(Maurya)`), two real
+    `MarketFactory.Place`-spawned Markets 30 units apart (completed via
+    `ConstructionSite.CompleteImmediately()`), a real `VanikFactory.Spawn`-spawned Vanik given
+    a real `Trader.SetTradeRoute()` call walked the real distance via its real `NavMeshAgent`
+    and paid Gold into the real stockpile on every leg's arrival (confirmed cycling
+    `MovingToDestination`/`MovingToHome`, Gold climbing in `ComputeTradeGold`-clamped
+    increments); the identical proof repeated for Trade Ship with two real
+    `DockFactory.Place`-spawned Docks and a real `BoatTrader`; the real scene-wired
+    `VanikButton`/`TradeShipButton` (duplicated from `SellWoodButton`/`FireShipButton` via
+    UnityMCP - the exact recurring "new `[SerializeField]` field null in the scene" gotcha
+    every Wave 2/3/4 session has hit) each correctly trained a real second unit through
+    `CommandBus`'s lockstep queue when clicked with the matching building selected. **Not
+    built, flagged directly per the item's own listed scope**: trading with enemy/unallied
+    Markets (AoE's real "most profitable" case), any icon art, a route-line VFX, and any
+    AI-side use of Trader/Trade Ship (no AI training hook, matching every other Wave 3/4
+    unit's own explicitly-out-of-scope call). *Depends on: Wave 0, Wave 1.*
 27. **[M] Support units — Vaidya (healer) and Purohita (converter), splitting AoE's Monk.**
     Deliberately two units instead of one so healing can ship without committing to conversion
     mechanics. *Depends on: Wave 0 item 1 (the Support category needs a resolved UnitClass
