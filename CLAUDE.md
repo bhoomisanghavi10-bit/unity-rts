@@ -6,6 +6,56 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **`docs/IMPLEMENTATION_ROADMAP.md` item 31 (BuildMenu command-panel grid
+  redesign) closed (2026-09-06).** Picked up per the user's "start item 31"
+  request, right after item 30 closed. Item 30 had deliberately left
+  `BuildMenu`'s internal content untouched (60 buttons stacked at fixed
+  absolute Y positions, big empty gaps when only a context's subset was
+  active) — this item replaces that with a real icon grid. An Explore agent
+  surveyed `BuildMenu.cs` first: 60 buttons/7 contexts, Barracks worst case
+  23 simultaneous; only 25/60 have a real icon (the other 35 are text-only
+  with live cost/percent/age-gate state); no UI tooltip system exists
+  (`HoverTooltip.cs` is 3D-raycast-only); no grid/pagination pattern exists
+  anywhere in the project. Two design decisions confirmed via
+  AskUserQuestion before planning: true icon-only grid + a new hover
+  tooltip (not a smaller "pack the text rows tighter" option), migrating
+  all 60 buttons/7 contexts in one session; paging (Prev/Next), not a
+  ScrollRect, for overflow. **Key decision that kept the diff bounded**:
+  none of the ~40 existing `Update*` label-generation methods changed — each
+  button's `TMP_Text` label is disabled (`enabled = false`, still receives
+  `.text =` writes every frame) and a new `TooltipTrigger` reads that live
+  text on hover; a new `LayoutCommandGrid()` (called at the very end of
+  `Update()`, after every context branch has decided `activeSelf` for the
+  frame) repositions/resizes only the current page's active buttons into a
+  4-column grid in code, every frame — so none of the 60 buttons needed
+  scene RectTransform edits either. New `TooltipTrigger.cs`/`ButtonTooltip.cs`
+  (a separate class from `HoverTooltip.cs`, pointer-event-triggered instead
+  of raycast-triggered — same "don't merge mechanically-different systems"
+  precedent as `CombatBonus`/`CounterMatrix`). New `BuildMenu.SetupGridCell`/
+  `PlaceholderIcon` (a flat generated `Texture2D`/`Sprite`, cached after
+  first build, for the 35 icon-less buttons — the same "generic procedural
+  shape" fallback convention this project already uses for buildings with
+  no model, applied to 2D icons — **flagging directly: real per-unit/
+  per-tech icon art is still needed eventually**) replace the old
+  `AddCommandIcon`. New `internal static BuildMenu.ComputeGridPage` is pure
+  pagination math, fully unit-testable with no scene dependency — 6 new
+  tests in `CommandGridLayoutTests.cs` (451 total, all pass). New scene
+  objects (`ButtonTooltip` panel, `GridPrevButton`/`GridNextButton`/
+  `GridPageLabel`) wired via UnityMCP; the 60 existing buttons needed zero
+  scene edits. Live-verified via UnityMCP through the real production path:
+  a real match (`CivilizationSetup.BeginMatch(Maurya)`), a real Builder
+  selected showed the real 13-button Placement context as a clean icon
+  grid (8 real icons, 5 placeholders, visually distinct), a real
+  `BarracksFactory.Place`-spawned Barracks selected showed the real
+  worst-case 23-button context on a single page with Prev/Next/page-label
+  correctly hidden, a real `TooltipTrigger.OnPointerEnter` on `DurgButton`
+  showed the tooltip with the exact live text `Update()` had already
+  computed ("Build Durg (Requires Durg Age)"), confirmed hidden again on
+  `OnPointerExit`. **Not live-verified by design**: pagination's actual
+  page-2 behavior, since no context today has enough buttons to force a
+  second page (worst case 23 &lt; capacity 28) — covered instead by
+  `CommandGridLayoutTests.cs`'s synthetic multi-page cases. Next: item 32
+  (Age/research readout) or any other item, user's call.
 - **`docs/IMPLEMENTATION_ROADMAP.md` item 30 (UI layout re-anchor — bottom bar)
   closed (2026-09-05).** Picked up per the user's explicit item request. Re-anchored
   `BuildMenu`, `SelectedUnitPanel`, and a slice of `ResourceHUD` into one shared

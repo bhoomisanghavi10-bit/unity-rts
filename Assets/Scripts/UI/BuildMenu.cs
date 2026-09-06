@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -206,6 +207,13 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button tradeDiscountsButton;
         [SerializeField] private TMP_Text tradeDiscountsLabel;
 
+        // Roadmap item 31: command-panel icon grid + paging, replacing the
+        // old fixed-Y vertical stack. gridPageLabel/nav buttons are hidden
+        // whenever everything fits on one page (LayoutCommandGrid).
+        [SerializeField] private Button gridPrevButton;
+        [SerializeField] private Button gridNextButton;
+        [SerializeField] private TMP_Text gridPageLabel;
+
         // Fixed per-click trade increment - Market.Buy/Sell take an arbitrary
         // amount but nothing in the project has established a convention for
         // letting the player choose one, so BuildMenu picks a flat number.
@@ -266,6 +274,27 @@ namespace KingdomsOfBharat.UI
 
         private BuildingPlacer _placer;
         private SelectionManager _selectionManager;
+
+        // Roadmap item 31: fixed declared order for the icon grid - every
+        // button below in one flat array, in the same order they're already
+        // declared as fields above (which already groups them sensibly by
+        // context, since only one context's buttons are ever active at
+        // once, save for the always-available ungarrisonButton). Built once
+        // in Awake so LayoutCommandGrid never allocates per-frame.
+        private Button[] _allGridButtons;
+        private const int GridColumns = 4;
+        private const float GridCellSize = 48f;
+        private const float GridGap = 4f;
+        private const float GridMargin = 8f;
+        // Rows that fit under the panel's own height (490) once the bottom
+        // strip is reserved for the page nav row - comfortably covers
+        // today's real worst case (Barracks, 23 buttons) in a single page;
+        // paging exists as a safety valve for whatever wave adds the 33rd.
+        private const int GridRows = 7;
+        private const int GridCapacity = GridColumns * GridRows;
+        private int _gridPage;
+        private object _lastGridContextKey;
+        private static Sprite _placeholderIcon;
 
         private void Awake()
         {
@@ -335,6 +364,36 @@ namespace KingdomsOfBharat.UI
             improvedToolsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.ImprovedTools));
             packMulesButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.PackMules));
             tradeDiscountsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.TradeDiscounts));
+
+            // Roadmap item 31: fixed order used by LayoutCommandGrid every
+            // frame - matches the field declaration order above.
+            _allGridButtons = new[]
+            {
+                barracksButton, farmButton, houseButton, wallButton, gateButton, towerButton,
+                marketButton, dockButton, lumberCampButton, miningCampButton, millButton,
+                durgButton, karmashalaButton, workerButton, soldierButton, archerButton,
+                cavalryButton, siegeButton, spearmanButton, charaButton, skirmisherButton,
+                batteringRamButton, cavalryArcherButton, camelRiderButton, scorpionButton,
+                uniqueUnitButton, uniqueUnitButton2, ungarrisonButton, fishingBoatButton,
+                warGalleyButton, navalTierButton, fireShipButton, fireShipTierButton,
+                sellWoodButton, buyWoodButton, sellFoodButton, buyFoodButton, sellStoneButton,
+                buyStoneButton, attackUpgradeButton, armorUpgradeButton, uniqueTechButton,
+                infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton,
+                siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2,
+                charaTierButton, skirmisherTierButton, batteringRamTierButton,
+                cavalryArcherTierButton, camelRiderTierButton, scorpionTierButton, ageButton,
+                improvedToolsButton, packMulesButton, tradeDiscountsButton,
+            };
+
+            if (gridPrevButton != null)
+            {
+                gridPrevButton.onClick.AddListener(() => _gridPage--);
+            }
+
+            if (gridNextButton != null)
+            {
+                gridNextButton.onClick.AddListener(() => _gridPage++);
+            }
         }
 
         // Item 1 (Hotkeys): same per-field GameSettings override pattern
@@ -449,88 +508,141 @@ namespace KingdomsOfBharat.UI
                 };
             }
 
-            AddCommandIcon(barracksButton, "build_barracks");
-            AddCommandIcon(farmButton, "build_farm");
-            AddCommandIcon(houseButton, "build_house");
-            AddCommandIcon(wallButton, "build_wall");
-            AddCommandIcon(gateButton, "build_gate");
-            AddCommandIcon(towerButton, "build_tower");
-            AddCommandIcon(marketButton, "build_market");
-            AddCommandIcon(dockButton, "build_dock");
-            AddCommandIcon(workerButton, "train_worker");
-            AddCommandIcon(soldierButton, "train_soldier");
-            AddCommandIcon(archerButton, "train_archer");
-            AddCommandIcon(cavalryButton, "train_cavalry");
-            AddCommandIcon(siegeButton, "train_siege");
-            AddCommandIcon(spearmanButton, "train_spearman");
-            AddCommandIcon(charaButton, "train_chara");
-            AddCommandIcon(uniqueUnitButton, "train_unique_1");
-            AddCommandIcon(uniqueUnitButton2, "train_unique_2");
-            AddCommandIcon(attackUpgradeButton, "upgrade_attack");
-            AddCommandIcon(armorUpgradeButton, "upgrade_armor");
-            AddCommandIcon(ageButton, "advance_age");
-            AddCommandIcon(sellWoodButton, "resource_wood");
-            AddCommandIcon(buyWoodButton, "resource_wood");
-            AddCommandIcon(sellFoodButton, "resource_food");
-            AddCommandIcon(buyFoodButton, "resource_food");
-            AddCommandIcon(sellStoneButton, "resource_stone");
-            AddCommandIcon(buyStoneButton, "resource_stone");
-            // No matching icon asset (not in the original spec) - stay
-            // text-only: ungarrisonButton, fishingBoatButton, warGalleyButton,
-            // uniqueTechButton, improvedToolsButton, packMulesButton,
-            // tradeDiscountsButton, lumberCampButton, miningCampButton,
-            // millButton, durgButton (Wave 2 item 7), karmashalaButton
-            // (Wave 2 item 8 - no bespoke art yet, see KarmashalaFactory's
-            // own asset-gap note), infantryTierButton (Wave 3 item 9),
-            // spearmanTierButton (Wave 3 item 10), archerTierButton
-            // (Wave 3 item 11), cavalryTierButton (Wave 3 item 12),
-            // siegeTierButton (Wave 3 item 14), navalTierButton
-            // (Wave 3 item 15), eliteTierButton/eliteTierButton2
-            // (Wave 3 item 16), charaTierButton (Wave 4 item 18).
-            // No "train_chara" icon asset exists either (Wave 4 item 18) -
-            // charaButton stays text-only too, same "no matching art yet"
-            // fallback as the buttons above (AddCommandIcon no-ops
-            // harmlessly when the sprite is missing). Same for
-            // skirmisherButton/skirmisherTierButton (Wave 4 item 19) - no
-            // "train_skirmisher" icon asset exists either. Same for
-            // batteringRamButton/batteringRamTierButton (Wave 4 item 20) -
-            // no "train_battering_ram" icon asset exists either. Same for
-            // fireShipButton/fireShipTierButton (Wave 4 item 25) - no
-            // "train_fire_ship" icon asset exists either.
+            // Roadmap item 31: every button becomes an icon-only grid cell.
+            // 25 of the 60 have a real icon asset; the other 35 (every
+            // tier-upgrade/research button, most Wave 4 units, and every
+            // building with no bespoke art yet) get the shared placeholder
+            // - flagged directly, per this project's own "flag asset needs"
+            // convention, as needing real per-unit/per-tech icon art later.
+            SetupGridCell(barracksButton, "build_barracks");
+            SetupGridCell(farmButton, "build_farm");
+            SetupGridCell(houseButton, "build_house");
+            SetupGridCell(wallButton, "build_wall");
+            SetupGridCell(gateButton, "build_gate");
+            SetupGridCell(towerButton, "build_tower");
+            SetupGridCell(marketButton, "build_market");
+            SetupGridCell(dockButton, "build_dock");
+            SetupGridCell(lumberCampButton, null);
+            SetupGridCell(miningCampButton, null);
+            SetupGridCell(millButton, null);
+            SetupGridCell(durgButton, null);
+            SetupGridCell(karmashalaButton, null);
+            SetupGridCell(workerButton, "train_worker");
+            SetupGridCell(soldierButton, "train_soldier");
+            SetupGridCell(archerButton, "train_archer");
+            SetupGridCell(cavalryButton, "train_cavalry");
+            SetupGridCell(siegeButton, "train_siege");
+            SetupGridCell(spearmanButton, "train_spearman");
+            SetupGridCell(charaButton, null);
+            SetupGridCell(skirmisherButton, null);
+            SetupGridCell(batteringRamButton, null);
+            SetupGridCell(cavalryArcherButton, null);
+            SetupGridCell(camelRiderButton, null);
+            SetupGridCell(scorpionButton, null);
+            SetupGridCell(uniqueUnitButton, "train_unique_1");
+            SetupGridCell(uniqueUnitButton2, "train_unique_2");
+            SetupGridCell(ungarrisonButton, null);
+            SetupGridCell(fishingBoatButton, null);
+            SetupGridCell(warGalleyButton, null);
+            SetupGridCell(navalTierButton, null);
+            SetupGridCell(fireShipButton, null);
+            SetupGridCell(fireShipTierButton, null);
+            SetupGridCell(sellWoodButton, "resource_wood");
+            SetupGridCell(buyWoodButton, "resource_wood");
+            SetupGridCell(sellFoodButton, "resource_food");
+            SetupGridCell(buyFoodButton, "resource_food");
+            SetupGridCell(sellStoneButton, "resource_stone");
+            SetupGridCell(buyStoneButton, "resource_stone");
+            SetupGridCell(attackUpgradeButton, "upgrade_attack");
+            SetupGridCell(armorUpgradeButton, "upgrade_armor");
+            SetupGridCell(uniqueTechButton, null);
+            SetupGridCell(infantryTierButton, null);
+            SetupGridCell(spearmanTierButton, null);
+            SetupGridCell(archerTierButton, null);
+            SetupGridCell(cavalryTierButton, null);
+            SetupGridCell(siegeTierButton, null);
+            SetupGridCell(elephantTierButton, null);
+            SetupGridCell(eliteTierButton, null);
+            SetupGridCell(eliteTierButton2, null);
+            SetupGridCell(charaTierButton, null);
+            SetupGridCell(skirmisherTierButton, null);
+            SetupGridCell(batteringRamTierButton, null);
+            SetupGridCell(cavalryArcherTierButton, null);
+            SetupGridCell(camelRiderTierButton, null);
+            SetupGridCell(scorpionTierButton, null);
+            SetupGridCell(ageButton, "advance_age");
+            SetupGridCell(improvedToolsButton, null);
+            SetupGridCell(packMulesButton, null);
+            SetupGridCell(tradeDiscountsButton, null);
         }
 
-        // Adds a small icon to the left edge of a command-card button and
-        // insets its text label by the same amount so they don't overlap.
-        // These buttons are thin 204x28 rows and some labels (dynamic cost
-        // strings like Barracks') already sit close to the button's full
-        // width - insetting 26px can push the longest labels to wrap onto a
-        // 2nd line. TMP's overflow mode on these labels is Overflow (not
-        // clipped), so the accepted worst case is a couple of buttons
-        // showing slightly-taller wrapped text, not lost/clipped info.
-        private static void AddCommandIcon(Button button, string iconName)
+        // Roadmap item 31: replaces the old AddCommandIcon (icon-left/
+        // text-right row layout) with an icon-only square grid cell. The
+        // button's existing label (found via GetComponentInChildren, same
+        // lookup AddCommandIcon used - covers both a dedicated [SerializeField]
+        // label and a plain inline child) is disabled so it no longer
+        // renders, but every one of the ~40 existing Update* methods keeps
+        // writing to it exactly as before - LayoutCommandGrid never touches
+        // that text, only whether/where the button itself is drawn, and
+        // TooltipTrigger reads that same live text on hover. This is why
+        // none of those ~40 methods needed to change for this redesign.
+        private static void SetupGridCell(Button button, string iconKey)
         {
-            Sprite icon = Resources.Load<Sprite>("UI/Icons/" + iconName);
+            Sprite icon = iconKey != null ? Resources.Load<Sprite>("UI/Icons/" + iconKey) : null;
             if (icon == null)
             {
-                return;
+                icon = PlaceholderIcon();
             }
 
-            GameObject iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            GameObject iconGo = new GameObject("GridIcon", typeof(RectTransform), typeof(Image));
             iconGo.transform.SetParent(button.transform, false);
             RectTransform iconRect = iconGo.GetComponent<RectTransform>();
-            iconRect.anchorMin = new Vector2(0f, 0.5f);
-            iconRect.anchorMax = new Vector2(0f, 0.5f);
-            iconRect.pivot = new Vector2(0f, 0.5f);
-            iconRect.sizeDelta = new Vector2(20f, 20f);
-            iconRect.anchoredPosition = new Vector2(6f, 0f);
+            iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+            iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+            iconRect.pivot = new Vector2(0.5f, 0.5f);
+            iconRect.sizeDelta = new Vector2(GridCellSize - 12f, GridCellSize - 12f);
+            iconRect.anchoredPosition = Vector2.zero;
             iconGo.GetComponent<Image>().sprite = icon;
 
             TMP_Text label = button.GetComponentInChildren<TMP_Text>();
             if (label != null)
             {
-                RectTransform labelRect = label.GetComponent<RectTransform>();
-                labelRect.offsetMin = new Vector2(26f, labelRect.offsetMin.y);
+                label.enabled = false;
             }
+
+            TooltipTrigger trigger = button.gameObject.AddComponent<TooltipTrigger>();
+            trigger.Source = label;
+        }
+
+        // A single flat generated square, cached after first build - not
+        // sourced art, the same "generic procedural shape" fallback
+        // convention this project already uses for buildings with no 3D
+        // model yet (BuildingModelFactory), applied here to 2D icons. 35 of
+        // the 60 grid cells use this today; real per-unit/per-tech icon art
+        // is still needed eventually (flagged directly, not glossed over).
+        private static Sprite PlaceholderIcon()
+        {
+            if (_placeholderIcon != null)
+            {
+                return _placeholderIcon;
+            }
+
+            const int size = 32;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            Color fill = new Color(0.55f, 0.45f, 0.25f, 1f);
+            Color border = new Color(0.85f, 0.72f, 0.4f, 1f);
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    bool onBorder = x < 2 || y < 2 || x >= size - 2 || y >= size - 2;
+                    texture.SetPixel(x, y, onBorder ? border : fill);
+                }
+            }
+
+            texture.Apply();
+            _placeholderIcon = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+            return _placeholderIcon;
         }
 
         private void Update()
@@ -673,6 +785,113 @@ namespace KingdomsOfBharat.UI
             {
                 UpdateMarketButtons(market);
             }
+
+            // Roadmap item 31: runs last, after every context branch above
+            // has finished deciding each button's final activeSelf/
+            // interactable/label state for this frame - narrows that set
+            // down to a positioned, paged icon grid without any of the
+            // logic above needing to know the grid exists.
+            LayoutCommandGrid(selected, showPlacement);
+        }
+
+        // Roadmap item 31: positions the current page's active buttons into
+        // a fixed-size icon grid and hides the rest for this frame only
+        // (their own activeSelf will be reasserted by the context logic
+        // above next frame regardless - this never permanently overrides
+        // it). Resets to page 0 whenever the selection/context changes so a
+        // stale page index from a previous context never persists.
+        private void LayoutCommandGrid(Building selected, bool showPlacement)
+        {
+            object contextKey = (object)selected ?? (showPlacement ? "placement" : null);
+            if (!Equals(contextKey, _lastGridContextKey))
+            {
+                _gridPage = 0;
+                _lastGridContextKey = contextKey;
+            }
+
+            var activeFlags = new bool[_allGridButtons.Length];
+            for (int i = 0; i < _allGridButtons.Length; i++)
+            {
+                activeFlags[i] = _allGridButtons[i].gameObject.activeSelf;
+            }
+
+            (List<int> visible, int pageCount, int clampedPage) = ComputeGridPage(activeFlags, GridCapacity, _gridPage);
+            _gridPage = clampedPage;
+
+            for (int slot = 0; slot < visible.Count; slot++)
+            {
+                Button button = _allGridButtons[visible[slot]];
+                int col = slot % GridColumns;
+                int row = slot / GridColumns;
+                RectTransform rect = button.transform as RectTransform;
+                rect.anchorMin = new Vector2(0f, 1f);
+                rect.anchorMax = new Vector2(0f, 1f);
+                rect.pivot = new Vector2(0f, 1f);
+                rect.sizeDelta = new Vector2(GridCellSize, GridCellSize);
+                rect.anchoredPosition = new Vector2(
+                    GridMargin + col * (GridCellSize + GridGap),
+                    -GridMargin - row * (GridCellSize + GridGap));
+            }
+
+            var visibleSet = new HashSet<int>(visible);
+            for (int i = 0; i < _allGridButtons.Length; i++)
+            {
+                if (activeFlags[i] && !visibleSet.Contains(i))
+                {
+                    _allGridButtons[i].gameObject.SetActive(false);
+                }
+            }
+
+            bool needsPaging = pageCount > 1;
+            if (gridPrevButton != null)
+            {
+                gridPrevButton.gameObject.SetActive(needsPaging);
+                gridPrevButton.interactable = _gridPage > 0;
+            }
+
+            if (gridNextButton != null)
+            {
+                gridNextButton.gameObject.SetActive(needsPaging);
+                gridNextButton.interactable = _gridPage < pageCount - 1;
+            }
+
+            if (gridPageLabel != null)
+            {
+                gridPageLabel.gameObject.SetActive(needsPaging);
+                if (needsPaging)
+                {
+                    gridPageLabel.text = $"Page {_gridPage + 1}/{pageCount}";
+                }
+            }
+        }
+
+        // Pure pagination math, independent of any live button/scene state -
+        // unit-tested directly (CommandGridLayoutTests.cs). activeFlags is
+        // indexed in the same fixed order as _allGridButtons.
+        internal static (List<int> visible, int pageCount, int clampedPage) ComputeGridPage(
+            IReadOnlyList<bool> activeFlags, int capacity, int requestedPage)
+        {
+            var activeIndices = new List<int>();
+            for (int i = 0; i < activeFlags.Count; i++)
+            {
+                if (activeFlags[i])
+                {
+                    activeIndices.Add(i);
+                }
+            }
+
+            int pageCount = activeIndices.Count == 0 ? 1 : (activeIndices.Count + capacity - 1) / capacity;
+            int clampedPage = Mathf.Clamp(requestedPage, 0, pageCount - 1);
+
+            var visible = new List<int>();
+            int start = clampedPage * capacity;
+            int end = Mathf.Min(start + capacity, activeIndices.Count);
+            for (int i = start; i < end; i++)
+            {
+                visible.Add(activeIndices[i]);
+            }
+
+            return (visible, pageCount, clampedPage);
         }
 
         // Item 1 (Hotkeys): each check calls the exact same handler its

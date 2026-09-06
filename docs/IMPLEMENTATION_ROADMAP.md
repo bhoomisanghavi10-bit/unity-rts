@@ -839,16 +839,59 @@ wave rather than being retrofitted piecemeal afterward.
     stockpile unchanged immediately, deducted exactly 50 ~2s later) — hit-testing/raycasting
     unaffected by the re-anchor. Next: item 31 (Age/research readout, explicitly designed to
     bundle with this one) or item 32 (newly flagged below), user's call.
-31. **[M] BuildMenu command-panel grid redesign (new, flagged during item 30).** Item 30's
-    own re-anchor kept `BuildMenu`'s internal content exactly as it was — a single tall
-    vertical column of ~56 stacked text-row buttons (currently 220x490, floating well past a
-    typical AoE command-card footprint). The user explicitly asked (when confirming item 30's
-    scope) that redesigning this into a proper horizontal/grid icon layout, paged or
-    scrollable, be tracked as its own item rather than bundled in — it's materially bigger
-    than an anchor change (real UI-flow work across `BuildMenu.cs`'s ~56 button wiring call
-    sites, plus new icon-grid layout code) and deserves its own session. *Depends on: item 30
-    (done) — the panel now docks in a sensible place for a grid redesign to land in without a
-    second re-anchor pass.*
+31. **[M] BuildMenu command-panel grid redesign. Closed (2026-09-06).** Item 30's own
+    re-anchor kept `BuildMenu`'s internal content exactly as it was — a single tall vertical
+    column of 60 stacked text-row buttons, each at a fixed absolute Y position, leaving large
+    empty gaps when only a subset of a context's buttons was active. Research (an Explore
+    agent survey of `BuildMenu.cs`) found the real shape of the problem before any design
+    choice was made: 60 buttons across 7 contexts, Barracks the worst case at 23 simultaneous
+    buttons; only 25 of 60 have a real icon asset (the other 35 — every tier-upgrade/research
+    button, most Wave 4 units — are text-only, and that text carries live cost/percent/
+    age-gate state); no tooltip system exists for UI widgets (`HoverTooltip.cs` is a 3D-raycast
+    world-object tooltip, not reusable here); no `GridLayoutGroup`/pagination pattern exists
+    anywhere in the project. Two design decisions confirmed via AskUserQuestion before
+    planning further: **true icon-only grid + a new hover tooltip** (not a smaller "keep
+    icon+text rows, pack them tighter" option) for the full 60-button/7-context migration in
+    one session (not split across sessions), and **paging (Prev/Next buttons)** for overflow,
+    not a `ScrollRect`. The key architectural decision that kept the diff bounded: **none of
+    the ~40 existing `Update*` label-generation methods needed to change** — each button's
+    existing `TMP_Text` label is disabled (`enabled = false`) once in `Awake()` so it stops
+    rendering but keeps receiving `.text =` writes every frame exactly as before, and a new
+    `TooltipTrigger` component reads that same live text on hover; a new `LayoutCommandGrid()`
+    called once at the end of `Update()` (after every context branch has already decided each
+    button's `activeSelf` for the frame) repositions/resizes only the current page's active
+    buttons into a 4-column grid and hides the rest — so no button's scene RectTransform
+    needed hand-editing either, all 60 are positioned in code every frame. New
+    `Assets/Scripts/UI/TooltipTrigger.cs` (`IPointerEnterHandler`/`IPointerExitHandler`,
+    relays its `TMP_Text` source's live text to `ButtonTooltip`) and
+    `Assets/Scripts/UI/ButtonTooltip.cs` (single Canvas-level instance, follows the mouse the
+    same way `HoverTooltip.cs`'s own panel does, but pointer-event-triggered instead of
+    raycast-triggered — kept as a separate class, same "don't merge topically-related but
+    mechanically-different systems" precedent as `CombatBonus`/`CounterMatrix`). New
+    `BuildMenu.SetupGridCell`/`PlaceholderIcon` (a flat generated `Texture2D`/`Sprite`, cached
+    after first build — not sourced art, the same "generic procedural shape" fallback
+    convention this project already uses for buildings with no 3D model yet, applied to the 35
+    icon-less buttons — **flagged directly per the flag-asset-needs convention: real
+    per-unit/per-tech icon art is still needed eventually**) replace the old `AddCommandIcon`.
+    New `internal static BuildMenu.ComputeGridPage` is pure pagination math (given which
+    buttons are active, in a fixed order, plus a page capacity, returns the current page's
+    visible slice, page count, and clamped page index) — fully unit-testable with no scene/
+    MonoBehaviour dependency, 6 new tests in `CommandGridLayoutTests.cs` (451 total, all pass)
+    covering single-page/multi-page/clamping/empty-set cases. New scene objects (`ButtonTooltip`
+    panel, `GridPrevButton`/`GridNextButton`/`GridPageLabel`) wired via UnityMCP; the 60
+    existing buttons needed zero scene edits since their layout is now fully code-driven.
+    Live-verified via UnityMCP through the real production path: a real match
+    (`CivilizationSetup.BeginMatch(Maurya)`), a real Builder-capable worker selected showed the
+    Placement context's real 13 buttons as a clean 4-column icon grid (8 real icons, 5
+    placeholders, visually distinct), a real `BarracksFactory.Place`-spawned Barracks selected
+    showed the real worst-case 23-button context in a single page with Prev/Next/page-label
+    correctly hidden (23 ≤ the ~28-capacity page), a real `TooltipTrigger.OnPointerEnter` call
+    on `DurgButton` showed the tooltip with the exact live text `Update()` had already computed
+    ("Build Durg (Requires Durg Age)"), confirmed hidden again on `OnPointerExit`. **Not
+    live-verified, by design**: pagination's actual page-2 behavior, since no context today has
+    enough active buttons to force a second page (worst case 23 < capacity 28) — covered
+    instead by `CommandGridLayoutTests.cs`'s own synthetic multi-page cases, not glossed over.
+    Next: item 32 (Age/research readout) or any other item, user's call.
 32. **[S] Age/research always-visible readout.** Top-center per AoE's convention: current
     age name + research-in-progress meter, always on screen. Cheap, and answers the most
     common new-player question. Natural to bundle with item 30 since both touch the top bar

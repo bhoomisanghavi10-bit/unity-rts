@@ -7906,3 +7906,141 @@ its new number (37). `CLAUDE.md`'s "Current status" updated. Next: item 31
 (BuildMenu grid redesign, flagged this session) or item 32 (Age/research
 readout, explicitly designed by the roadmap's own text to bundle with item
 30's work), user's call.
+
+## 2026-09-06 — `IMPLEMENTATION_ROADMAP.md` item 31 (BuildMenu command-panel grid redesign)
+
+Picked up per the user's "start item 31" request, right after item 30 closed the
+day before. Item 30 had deliberately left `BuildMenu`'s internal button layout
+untouched — a single tall vertical column of 60 buttons, each at a fixed
+absolute Y position authored once in the scene, producing large empty gaps
+whenever only a subset of a context's buttons was active (e.g. a TownCenter
+selection left ~300px of dead space between "Train Worker" and "Advance to
+Durg Age"). This item replaces that with a real AoE-style icon grid.
+
+**Research before any design decision**: spawned an Explore agent to survey
+`BuildMenu.cs` (1882 lines) in full rather than guessing at scope from the
+item's own one-paragraph description. Findings that shaped the plan: 60
+`[SerializeField] Button` fields across 7 contexts (Placement/TownCenter/
+Barracks/Durg/Karmashala/Dock/Market), Barracks the worst case at 23
+simultaneous buttons (11 unit-train + 12 tier/tech); only 25 of 60 have a real
+icon asset under `Assets/Resources/UI/Icons/` — the other 35 (every
+tier-upgrade/research button, most Wave 4 units) are text-only, and that text
+carries essential live state (cost, research percent, age gates, "(Max
+Tier)") computed by ~40 `Update*` methods; no tooltip system exists for UI
+widgets (`HoverTooltip.cs` is a 3D-physics-raycast tooltip for world objects,
+with no `IPointerEnterHandler` hook at all); no `GridLayoutGroup` or
+pagination pattern exists anywhere in the codebase (every list, including
+`ScenarioEditorMenu.cs`'s own palette, is a hand-authored absolute-Y vertical
+stack) — this is the first grid/paging UI the project has ever needed.
+
+**Two design decisions confirmed via AskUserQuestion before planning
+further**, since committing to the wrong one would have meant redoing
+significant work: (1) a true icon-only grid with a new hover tooltip
+relocating the dynamic text off the button face, rather than a smaller "keep
+icon+text rows, just pack them tighter" option that would have avoided
+needing new tooltip infrastructure — the user picked the bigger, more
+AoE-faithful option, and to migrate all 60 buttons/7 contexts in one session
+rather than splitting the work and leaving two visual styles side by side;
+(2) paging (Prev/Next buttons) for overflow, not a `ScrollRect`, matching the
+item's own "paged or scrollable" text. For the 35 icon-less buttons, one
+shared procedurally-generated placeholder icon (not sourced art) rather than
+borrowing a visually-similar-but-wrong existing icon from a related unit.
+
+**The key architectural decision that kept the diff bounded**: rather than
+rewriting any of the ~40 existing label-generation methods (`UpdateInfantryTierButton`,
+`UpdateUpgradeButton`, etc. — each already computes exactly the right dynamic
+string and assigns it to a `TMP_Text`), this redesign changes only how that
+text is *presented*. Every button's label `TMP_Text` is set `enabled = false`
+once in `Awake()` (rendering only — it keeps receiving `.text =` writes every
+frame exactly as before) and a new `TooltipTrigger` component reads that same
+live text on hover. This means **zero changes to any of the ~40 per-context
+label methods** and zero risk of drifting the cost/percent/age-gate strings
+they compute. Likewise, a new `LayoutCommandGrid()` — called once at the very
+end of `Update()`, after every context branch above it has already decided
+each button's final `activeSelf`/`interactable`/label state for the frame —
+repositions and resizes only the current page's active buttons into a
+4-column grid in code, every frame, the same way `Update()` already
+fully re-derives visibility every frame; this meant **none of the 60
+buttons' scene RectTransforms needed hand-editing** either.
+
+**New files**: `Assets/Scripts/UI/TooltipTrigger.cs`
+(`IPointerEnterHandler`/`IPointerExitHandler`, relays its `TMP_Text` source's
+live text to `ButtonTooltip`, hides on `OnDisable` so a tooltip never gets
+stuck open when its button disappears mid-hover) and
+`Assets/Scripts/UI/ButtonTooltip.cs` (a single Canvas-level instance that
+follows the mouse the same way `HoverTooltip.cs`'s own panel already does,
+but triggered by pointer events instead of a raycast — kept as a genuinely
+separate class rather than merged into `HoverTooltip`, matching this
+project's own established precedent of keeping topically-related but
+mechanically-different systems apart, e.g. `CombatBonus`/`CounterMatrix`).
+
+**`BuildMenu.cs` changes**: the old `AddCommandIcon` (icon-left/text-right,
+sized for a 204x28 row) is replaced by `SetupGridCell` (icon-centered, calls
+the new `PlaceholderIcon()` when no real sprite exists) called once per
+button in `Awake()` from an explicit 60-entry table. `PlaceholderIcon()`
+generates a flat bordered square `Texture2D`/`Sprite` at runtime, cached
+after first build — not sourced art, the same "generic procedural shape"
+fallback convention this project already uses for buildings with no 3D model
+yet (`BuildingModelFactory`), applied here to 2D icons. **Flagging directly,
+per this project's own "flag asset needs" convention**: 35 of 60 grid cells
+show this placeholder today; real per-unit/per-tech icon art is still needed
+eventually. New `internal static BuildMenu.ComputeGridPage(activeFlags,
+capacity, requestedPage)` is pure pagination math with zero MonoBehaviour/
+scene dependency — given which buttons are active (in a fixed declared
+order) and a page capacity, returns the current page's visible slice, total
+page count, and the clamped page index. 6 new EditMode tests in
+`CommandGridLayoutTests.cs` (451 total, up from 445, all pass): single-page
+(everything fits), multi-page slicing, page-index clamping both above the
+last page and below zero, an empty active set, and an exact-multiple-of-capacity
+boundary (no trailing empty page).
+
+**Scene wiring via UnityMCP**: new `ButtonTooltip` GameObject under
+`UICanvas` (a background `Image` + child `TMP_Text`, hidden by default via
+its own `Awake()`), new `GridPrevButton`/`GridNextButton` (duplicated from
+`WorkerButton`, relabeled "&lt; Prev"/"Next &gt;") and `GridPageLabel`
+(duplicated the same way, its stray `Button` component removed since it's
+text-only) positioned along the bottom of `BuildMenu`'s own panel, all
+wired to the new `[SerializeField]` fields on `BuildMenu`/`ButtonTooltip`.
+Notably, **none of the 60 existing command buttons needed any scene edit at
+all** — `LayoutCommandGrid()` fully repositions/resizes them in code every
+frame, so the old fixed absolute-Y authoring on each of them is simply
+overridden at runtime and no longer matters.
+
+Hit one real but shallow compile hiccup: the new `ComputeGridPage` used
+`List<int>`/`IReadOnlyList<bool>` before `System.Collections.Generic` was
+imported — caught immediately via `~/Library/Logs/Unity/Editor.log` (this
+project's own documented "check the log directly, not just the MCP console
+bridge" convention), fixed with one `using` line, then a clean recompile and
+451/451 pass.
+
+**Live-verified via UnityMCP** through the real production path, not just
+the isolated pagination math: a real match (`CivilizationSetup.BeginMatch(Maurya)`,
+bypassing `MissionSelectMenu`/`CivPicker` the same way item 30's session
+did), a real Builder-capable Worker selected showed the real 13-button
+Placement context rendered as a clean 4-column icon grid (8 real icons —
+Barracks/Farm/House/Wall/Gate/Tower/Market/Dock — plus 5 visually distinct
+placeholder squares for Lumber Camp/Mining Camp/Mill/Durg/Karmashala, no
+overlap, no Prev/Next since 13 fits on one page); a real
+`BarracksFactory.Place`-spawned Barracks selected (via the same
+`SelectionManager._selectedBuilding` reflection technique prior sessions
+established) showed the real worst-case 23-button context — 5 real icons
+(Soldier/Archer/Cavalry/Siege/Spearman) plus 18 placeholders, packed into 6
+rows of 4, with `gridPrevButton`/`gridNextButton`/`gridPageLabel` all
+correctly hidden since 23 ≤ the ~28-per-page capacity; a real
+`TooltipTrigger.OnPointerEnter` call on the real `DurgButton` showed
+`ButtonTooltip`'s panel with the exact live text `Update()` had already
+computed for that frame ("Build Durg (Requires Durg Age)") — proving the
+tooltip pulls real, current state, not a stale/duplicated copy — and a
+matching `OnPointerExit` call confirmed the panel hid again. **Not
+live-verified, by design, not glossed over**: pagination's actual
+page-2/Prev-Next-click behavior, since no context in the game today has
+enough simultaneously-active buttons to exceed one page's ~28 capacity (23
+is the real worst case) — that behavior is covered instead by
+`CommandGridLayoutTests.cs`'s own synthetic multi-page test cases, which
+don't depend on real button counts ever reaching that scale.
+
+**Roadmap/CLAUDE.md**: item 31 marked closed in
+`docs/IMPLEMENTATION_ROADMAP.md`. `CLAUDE.md`'s "Current status" updated.
+Next: item 32 (Age/research always-visible readout, explicitly designed by
+the roadmap's own text to bundle with item 30's work) or any other item,
+user's call.
