@@ -6,6 +6,42 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Icon art delivery closed (2026-09-07)** — not a numbered roadmap item, picked up at
+  the user's explicit request ("load them to the game before starting item 32"). User had 98
+  AI-generated icons ready on an external drive with meaningless generator filenames; each was
+  visually identified (multimodal read, category by category) and mapped against `BuildMenu.
+  cs`'s existing icon-key slots before any Unity changes, with the full mapping table reviewed
+  by the user first (caught 2 real swapped building identifications this way — Lumber Camp vs.
+  Gate). Imported 75 new + 5 overwritten Sprite assets (`Assets/Resources/UI/Icons/`,
+  `Assets/Resources/UI/Menu/crest_*.png`), wired ~50 `BuildMenu.SetupGridCell` icon keys
+  (all 14 building types, 12 of ~15 previously-placeholder Wave 4/5 units, tier buttons, Elite
+  badge), added a new `resource_population.png` to `ResourceHUD` (its own comment had
+  explicitly flagged this as missing since item 30), and added dynamic per-civ icon swapping
+  for `uniqueUnitButton`/`uniqueUnitButton2`/`uniqueTechButton` (the only 3 grid cells whose
+  correct icon depends on the currently-selected civ, not a fixed unit) via a new `SetGridIcon`
+  helper keyed by `UniqueUnitDefinition.UnitId`/`CivilizationRegistry.For(...)`. **Found and
+  fixed a real, previously-silent compile error** (`barracks.Faction` is `private` — used the
+  file's own existing `BuildingFaction(Component)` helper instead) that had been blocking all
+  compilation for roughly an hour without `read_console` ever reporting it — Unity kept running
+  a stale pre-edit assembly through several successful-looking `refresh_unity`/EditMode-test
+  calls; only caught by checking `~/Library/Logs/Unity/Editor.log` directly per this project's
+  own long-documented "console bridge can miss real errors" gotcha, and confirmed via the
+  `ScriptAssemblies/*.dll` file timestamp. 507/507 EditMode tests pass (against the real
+  recompiled assembly). Live-verified via UnityMCP: a real Maurya match, a real Durg/Barracks
+  correctly swapped `uniqueUnitButton`/`uniqueTechButton` to `train_unique_maurya_elephant`/
+  `uniquetech_maurya_base` on selection; every checked static grid icon resolved correctly;
+  `monasteryButton`/`tradeShipButton` correctly stayed on placeholder (no art delivered for
+  either, confirmed by the user). Screenshotted the real `CivPicker` screen confirming
+  Vijayanagara's and Maurya's crests render as the correct new art. **UnityMCP disconnected
+  right after that screenshot**, ending live verification for the session — nothing further was
+  checked. **Not done, flagged directly**: Monastery and Trade Ship still have no icon (no art
+  in this delivery); 11 command/UI icons (Attack-Move/Rally/Stop/Garrison/Repair/Patrol/Guard/
+  Cancel) are imported but wired to nothing — no BuildMenu slot represents them yet; ~15 unused
+  upgrade-tier portrait duplicates and 3 Karmashala tier-art variants sit unused on disk since
+  `BuildMenu`'s tier buttons only support one static icon each, not a per-tier swap. See
+  `docs/SESSION_LOG.md`'s matching entry for the full per-category identification writeup.
+  Next: Wave 5 item 32 (Age/research always-visible readout, the last open Wave 5 item), or
+  wiring the still-missing pieces above, user's call.
 - **Wave 5 item 29 (Player/team colour system) closed (2026-09-07) — first
   Wave 5 item.** Picked up per the user's "start wave 5 item 29" request,
   right after Wave 4 closed. Research (an Explore agent survey) confirmed no

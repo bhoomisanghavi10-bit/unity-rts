@@ -8709,3 +8709,124 @@ TeamColorAccent.cs` (new), `Assets/Scripts/Units/HumanModelFactory.cs`,
 AgeTieredBuildingVisual.cs`, `Assets/Scripts/Units/BoatModelFactory.cs`, all 23 human-unit
 factory files, all 15 building factory files, all 4 boat factory files,
 `Assets/Tests/EditMode/TeamColorTests.cs` (new), `docs/IMPLEMENTATION_ROADMAP.md`, `CLAUDE.md`.
+
+## 2026-09-07 — Icon art delivery: 98 AI-generated icons identified, imported, and wired
+
+Picked up at the user's explicit request ("load them to the game before starting item 32") —
+the user had 98 icons ready on an external drive (`/Volumes/US/icons all/`, 9 category
+subfolders: civilization crests, buildings, resources/population, already-live units, new
+Wave 4/5 units, unique units + Elite badge, command/UI icons, tech/upgrade icons, upgrade-tier
+portraits). All source files carried meaningless generator filenames
+(`Gemini_Generated_Image_*.png`, or bare `2.png`/`3.png`...), so every one had to be visually
+identified before it could be wired to a specific game element — no filename-based shortcut
+was possible.
+
+### Identification
+
+Read every image directly (multimodal) category by category, cross-checked against
+`BuildMenu.cs`'s existing `SetupGridCell` call list (25/60 buttons had real icons, 35 were on
+the shared placeholder) to know which slots were open. Presented the full file→target mapping
+as text for the user to review before touching Unity — caught and corrected 2 real
+misidentifications this way (`tasfdy`→Lumber Camp not Gate, `ux2hlx`→Gate not Lumber Camp; the
+two building icons had been swapped in the initial visual read). Confirmed via
+`AskUserQuestion`: import everything including near-duplicate tier-art variants and
+currently-unwired command icons (Attack-Move/Rally/Stop/Garrison/Repair/Patrol/Guard/Cancel),
+rather than trimming down to only what has an immediate slot.
+
+Final identified set: 5 civ crests (Chola/Vijayanagara/Rajput/Maurya/Maratha, matched via
+architectural motifs — temple gopuram, elephant+mandapa, pink chhatri, Ashoka lion capital,
+hill fort+flag); all 14 building types (a full art refresh, not just the 6 previously-missing
+ones — Durg, Karmashala, Monastery, Lumber Camp, Mining Camp, Mill were missing, the other 8
+already had older icons); Wood/Food/Gold/Stone plus a new Population icon; the 7 already-live
+units (Worker/Spearman/Siege/Fishing Boat/War Galley/Cavalry/Archer); 12 of the ~15 Wave 4/5
+units that were still on placeholder (Hero/Vanik/Scorpion/Battering Ram/Scout/Camel
+Rider/Purohita/Vaidya/Fire Ship/Trebuchet/Cavalry Archer/Skirmisher — Trade Ship and Monastery
+had no art in this delivery, confirmed by the user, and stay on placeholder); all 7 civ unique
+units plus the Elite badge; 11 command/UI icons (imported, not yet wired — no BuildMenu slot
+exists for them); Karmashala's Attack/Armor tier art plus 5 civ unique-tech badges; and ~15
+upgrade-tier portrait images (one picked per tier button, e.g. `tier_cavalry_1`, the rest
+imported but unused since `BuildMenu`'s tier buttons show one static icon each, not a
+per-tier-level swap).
+
+### Import and wiring
+
+Copied/renamed into `Assets/Resources/UI/Icons/` (75 new files) and `Assets/Resources/UI/Menu/`
+(5 crests, overwriting the existing placeholder crest files from an earlier UI-art session).
+Set Sprite import type via `manage_asset` (`textureType=Sprite`, `spriteImportMode=Single`) in
+3 batches of 25 (the tool's own 25-command batch ceiling), verified via `execute_code` that
+`Resources.Load<Sprite>` actually resolves each one (`get_info`'s own `assetType` field
+misleadingly still reports `Texture2D` even after a successful Sprite reimport — not a real
+signal, confirmed via direct `TextureImporter.textureType` inspection).
+
+`BuildMenu.cs`: replaced/filled ~50 `SetupGridCell` icon-key arguments (buildings, new units,
+tier buttons, Elite badge). Added dynamic per-civ icon swapping for `uniqueUnitButton`/
+`uniqueUnitButton2` (keyed by `UniqueUnitDefinition.UnitId`, already a public field — no new
+plumbing needed) and `uniqueTechButton` (keyed by `CivilizationRegistry.For(...)`), since these
+3 buttons are the only grid cells whose correct icon depends on which civ is currently
+selected rather than a fixed unit/tier — a new `SetGridIcon` static helper reuses the
+"GridIcon" child `SetupGridCell` already creates, called from `UpdateDurgButtons`/
+`UpdateUniqueTechButton` alongside their existing label-text updates. `ResourceHUD.cs` gained
+`AddResourceIcon(populationLabel, "resource_population")` — its own comment had explicitly
+flagged "no matching icon asset" for Population since Roadmap item 30's session; that's now
+closed. `CivPicker.cs` needed zero code changes — it already had a `Resources.Load<Sprite>("UI/
+Menu/crest_" + civId)` lookup with a graceful no-op fallback, written in the 2026-09-01 UI-skin
+session but only ever fed placeholder crest art until now.
+
+### A real, previously-silent compile error found and fixed
+
+The `uniqueTechButton` wiring initially referenced `barracks.Faction` directly, but `Barracks.
+Faction` is `private` — a genuine `CS0122` compile error. This blocked ALL compilation for
+roughly an hour of this session without ever surfacing through `read_console` (0 errors
+reported every time, matching this project's own long-documented "console bridge can miss real
+compile errors" gotcha) — Unity silently kept running the last successfully-compiled (pre-edit)
+assembly through several `refresh_unity(compile:request)` calls and even a full 507/507 EditMode
+run, none of which caught it, since the stale assembly still compiled and its test count hadn't
+changed. Only caught by checking `~/Library/Logs/Unity/Editor.log` directly after several
+confusing live-verification results (icons resolving fine via a standalone `Resources.Load`
+call but showing as an unnamed placeholder sprite when set through `SetupGridCell` — the tell
+was that even `barracksButton`'s own untouched, pre-existing icon key failed the same way,
+which a real per-icon bug couldn't explain but a stale-assembly-wide issue could). Fixed by
+using the already-existing `BuildingFaction(Component)` helper (`FactionMember.Faction` lookup)
+that other methods in this same file already use instead of reaching for a private field
+directly. Confirms the assembly's `ScriptAssemblies/*.dll` timestamp is the one fully reliable
+signal for "did my edit actually take effect" when `read_console` and stale Play-mode domains
+disagree.
+
+### Tests and verification
+
+507/507 EditMode tests pass (re-confirmed against the real recompiled assembly, not the earlier
+stale one). Live-verified via UnityMCP through the real production path: a real match
+(`CivilizationSetup.BeginMatch(Maurya)`), a real `DurgFactory.Place`/`BarracksFactory.Place`
+pair completed via `ConstructionSite.CompleteImmediately()`, selected via direct
+`SelectionManager._selectedBuilding` field assignment (the property has no public setter) —
+`BuildMenu.Update()` correctly swapped `uniqueUnitButton`'s icon to
+`train_unique_maurya_elephant` and `uniqueTechButton`'s icon to `uniquetech_maurya_base` once
+Maurya was selected, both starting from the generic Awake-time default. Every checked static
+grid icon (`durgButton`, `karmashalaButton`, `trebuchetButton`, `heroButton`, `vanikButton`,
+`eliteTierButton`, `cavalryTierButton`, `vaidyaButton`, `purohitaButton`, `fireShipButton`)
+resolved to its correct named sprite; `monasteryButton`/`tradeShipButton` correctly fell back
+to the placeholder (empty-named sprite) exactly as intended, since no art exists for either.
+Screenshotted the real `CivPicker` civ-select screen and confirmed (via a brightness-boosted
+crop, since the overlay renders dimmed under `MissionSelectMenu`) that Vijayanagara's and
+Maurya's crests render as the correct art — the elephant/mandapa motif and the Ashoka lion
+capital respectively, not the old placeholder. UnityMCP disconnected immediately after this
+screenshot, ending the session's live-verification window; no further checks were run this
+session.
+
+### Not done, explicitly flagged
+
+Monastery and Trade Ship still have no icon (no art existed in this delivery); the 11
+command/UI icons are imported but wired to nothing (no BuildMenu slot represents Attack-Move/
+Rally/Stop/Garrison/Repair/Patrol/Guard/Cancel yet); the ~15 unused upgrade-tier portrait
+duplicates and 3 Karmashala armor/attack tier-art variants sit unused on disk, since
+`BuildMenu`'s tier buttons only support one static icon each — genuine per-tier icon swapping
+would be new plumbing, not wiring. `crest_*.png` also exist redundantly under `Resources/UI/
+Icons/` (harmless leftover from the initial staging copy — the ones actually read by
+`CivPicker` are under `Resources/UI/Menu/`).
+
+Next: Wave 5 item 32 (Age/research always-visible readout, the last open Wave 5 item), user's
+call.
+
+One scoped commit: `Assets/Resources/UI/Icons/*.png` (75 new, ~13 overwritten), `Assets/
+Resources/UI/Menu/crest_*.png` (5 overwritten), `Assets/Scripts/UI/BuildMenu.cs`, `Assets/
+Scripts/UI/ResourceHUD.cs`, `docs/SESSION_LOG.md`, `CLAUDE.md`.

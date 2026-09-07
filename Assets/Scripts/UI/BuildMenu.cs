@@ -593,11 +593,11 @@ namespace KingdomsOfBharat.UI
             SetupGridCell(towerButton, "build_tower");
             SetupGridCell(marketButton, "build_market");
             SetupGridCell(dockButton, "build_dock");
-            SetupGridCell(lumberCampButton, null);
-            SetupGridCell(miningCampButton, null);
-            SetupGridCell(millButton, null);
-            SetupGridCell(durgButton, null);
-            SetupGridCell(karmashalaButton, null);
+            SetupGridCell(lumberCampButton, "build_lumbercamp");
+            SetupGridCell(miningCampButton, "build_miningcamp");
+            SetupGridCell(millButton, "build_mill");
+            SetupGridCell(durgButton, "build_durg");
+            SetupGridCell(karmashalaButton, "build_karmashala");
             SetupGridCell(monasteryButton, null);
             SetupGridCell(workerButton, "train_worker");
             SetupGridCell(soldierButton, "train_soldier");
@@ -605,22 +605,22 @@ namespace KingdomsOfBharat.UI
             SetupGridCell(cavalryButton, "train_cavalry");
             SetupGridCell(siegeButton, "train_siege");
             SetupGridCell(spearmanButton, "train_spearman");
-            SetupGridCell(charaButton, null);
-            SetupGridCell(skirmisherButton, null);
-            SetupGridCell(batteringRamButton, null);
-            SetupGridCell(cavalryArcherButton, null);
-            SetupGridCell(camelRiderButton, null);
-            SetupGridCell(scorpionButton, null);
-            SetupGridCell(trebuchetButton, null);
+            SetupGridCell(charaButton, "train_chara");
+            SetupGridCell(skirmisherButton, "train_skirmisher");
+            SetupGridCell(batteringRamButton, "train_batteringram");
+            SetupGridCell(cavalryArcherButton, "train_cavalryarcher");
+            SetupGridCell(camelRiderButton, "train_camelrider");
+            SetupGridCell(scorpionButton, "train_scorpion");
+            SetupGridCell(trebuchetButton, "train_trebuchet");
             SetupGridCell(uniqueUnitButton, "train_unique_1");
             SetupGridCell(uniqueUnitButton2, "train_unique_2");
-            SetupGridCell(heroButton, null);
+            SetupGridCell(heroButton, "train_hero");
             SetupGridCell(ungarrisonButton, null);
-            SetupGridCell(fishingBoatButton, null);
-            SetupGridCell(warGalleyButton, null);
-            SetupGridCell(navalTierButton, null);
-            SetupGridCell(fireShipButton, null);
-            SetupGridCell(fireShipTierButton, null);
+            SetupGridCell(fishingBoatButton, "train_fishingboat");
+            SetupGridCell(warGalleyButton, "train_wargalley");
+            SetupGridCell(navalTierButton, "tier_naval_1");
+            SetupGridCell(fireShipButton, "train_fireship");
+            SetupGridCell(fireShipTierButton, "train_fireship");
             SetupGridCell(tradeShipButton, null);
             SetupGridCell(sellWoodButton, "resource_wood");
             SetupGridCell(buyWoodButton, "resource_wood");
@@ -628,26 +628,26 @@ namespace KingdomsOfBharat.UI
             SetupGridCell(buyFoodButton, "resource_food");
             SetupGridCell(sellStoneButton, "resource_stone");
             SetupGridCell(buyStoneButton, "resource_stone");
-            SetupGridCell(vanikButton, null);
-            SetupGridCell(vaidyaButton, null);
-            SetupGridCell(purohitaButton, null);
+            SetupGridCell(vanikButton, "train_vanik");
+            SetupGridCell(vaidyaButton, "train_vaidya");
+            SetupGridCell(purohitaButton, "train_purohita");
             SetupGridCell(attackUpgradeButton, "upgrade_attack");
             SetupGridCell(armorUpgradeButton, "upgrade_armor");
-            SetupGridCell(uniqueTechButton, null);
-            SetupGridCell(infantryTierButton, null);
-            SetupGridCell(spearmanTierButton, null);
-            SetupGridCell(archerTierButton, null);
-            SetupGridCell(cavalryTierButton, null);
-            SetupGridCell(siegeTierButton, null);
-            SetupGridCell(elephantTierButton, null);
-            SetupGridCell(eliteTierButton, null);
-            SetupGridCell(eliteTierButton2, null);
-            SetupGridCell(charaTierButton, null);
-            SetupGridCell(skirmisherTierButton, null);
-            SetupGridCell(batteringRamTierButton, null);
-            SetupGridCell(cavalryArcherTierButton, null);
-            SetupGridCell(camelRiderTierButton, null);
-            SetupGridCell(scorpionTierButton, null);
+            SetupGridCell(uniqueTechButton, "uniquetech_maurya_base");
+            SetupGridCell(infantryTierButton, "tier_infantry_1");
+            SetupGridCell(spearmanTierButton, "tier_spearman_1");
+            SetupGridCell(archerTierButton, "tier_archer_1");
+            SetupGridCell(cavalryTierButton, "tier_cavalry_1");
+            SetupGridCell(siegeTierButton, "tier_siege_1");
+            SetupGridCell(elephantTierButton, "tier_elephant_1");
+            SetupGridCell(eliteTierButton, "badge_elite");
+            SetupGridCell(eliteTierButton2, "badge_elite");
+            SetupGridCell(charaTierButton, "train_chara");
+            SetupGridCell(skirmisherTierButton, "train_skirmisher");
+            SetupGridCell(batteringRamTierButton, "train_batteringram");
+            SetupGridCell(cavalryArcherTierButton, "train_cavalryarcher");
+            SetupGridCell(camelRiderTierButton, "train_camelrider");
+            SetupGridCell(scorpionTierButton, "train_scorpion");
             SetupGridCell(ageButton, "advance_age");
             SetupGridCell(improvedToolsButton, null);
             SetupGridCell(packMulesButton, null);
@@ -690,6 +690,50 @@ namespace KingdomsOfBharat.UI
 
             TooltipTrigger trigger = button.gameObject.AddComponent<TooltipTrigger>();
             trigger.Source = label;
+        }
+
+        // Wave 5 icon-art pass: uniqueUnitButton/uniqueUnitButton2/
+        // uniqueTechButton are the only 3 grid cells whose correct icon
+        // depends on which civ is selected, not a fixed unit/tier - every
+        // other SetupGridCell call above is a one-time Awake() assignment,
+        // but these need their sprite swapped at Update() time alongside
+        // their label text. Reuses the "GridIcon" child SetupGridCell
+        // already creates rather than adding a second Image reference.
+        private static readonly Dictionary<string, string> UniqueUnitIconKeys = new Dictionary<string, string>
+        {
+            { "chola_naval_raider", "train_unique_chola" },
+            { "vijayanagara_war_elephant", "train_unique_vijayanagara_elephant" },
+            { "rajput_royal_guard", "train_unique_rajput" },
+            { "maurya_war_elephant", "train_unique_maurya_elephant" },
+            { "pillar_edict_scholar", "train_unique_maurya_scholar" },
+            { "maratha_mavla_raider", "train_unique_maratha_mavla" },
+            { "maratha_durg_garrison", "train_unique_maratha_durggarrison" },
+        };
+
+        private static readonly Dictionary<CivilizationId, string> UniqueTechIconKeys = new Dictionary<CivilizationId, string>
+        {
+            { CivilizationId.Chola, "uniquetech_chola_base" },
+            { CivilizationId.Vijayanagara, "uniquetech_vijayanagara_base" },
+            { CivilizationId.Rajput, "uniquetech_rajput_base" },
+            { CivilizationId.Maurya, "uniquetech_maurya_base" },
+            { CivilizationId.Maratha, "uniquetech_maratha_base" },
+        };
+
+        private static void SetGridIcon(Button button, string iconKey)
+        {
+            Transform iconTransform = button.transform.Find("GridIcon");
+            if (iconTransform == null)
+            {
+                return;
+            }
+
+            Sprite icon = iconKey != null ? Resources.Load<Sprite>("UI/Icons/" + iconKey) : null;
+            if (icon == null)
+            {
+                icon = PlaceholderIcon();
+            }
+
+            iconTransform.GetComponent<Image>().sprite = icon;
         }
 
         // A single flat generated square, cached after first build - not
@@ -1485,14 +1529,17 @@ namespace KingdomsOfBharat.UI
         private void UpdateDurgButtons(Durg durg)
         {
             bool canTrain = durg.IsComplete && !durg.IsTraining;
+            UniqueUnitDefinition unique1 = durg.UniqueUnit;
             uniqueUnitButton.interactable = canTrain;
-            uniqueUnitLabel.text = $"Train {durg.UniqueUnit.Name} ({(int)durg.UniqueUnit.FoodCost} Food, {(int)durg.UniqueUnit.GoldCost} Gold)";
+            uniqueUnitLabel.text = $"Train {unique1.Name} ({(int)unique1.FoodCost} Food, {(int)unique1.GoldCost} Gold)";
+            SetGridIcon(uniqueUnitButton, UniqueUnitIconKeys.TryGetValue(unique1.UnitId, out string icon1) ? icon1 : null);
 
             if (durg.UniqueUnitCount > 1)
             {
                 UniqueUnitDefinition unique2 = durg.UniqueUnitAt(1);
                 uniqueUnitButton2.interactable = canTrain;
                 uniqueUnitLabel2.text = $"Train {unique2.Name} ({(int)unique2.FoodCost} Food, {(int)unique2.GoldCost} Gold)";
+                SetGridIcon(uniqueUnitButton2, UniqueUnitIconKeys.TryGetValue(unique2.UnitId, out string icon2) ? icon2 : null);
             }
 
             if (durg.TrainsElephant)
@@ -1763,6 +1810,8 @@ namespace KingdomsOfBharat.UI
         private void UpdateUniqueTechButton(Barracks barracks)
         {
             UniqueTechDefinition tech = barracks.UniqueTech;
+            CivilizationId civ = CivilizationRegistry.For(BuildingFaction(barracks));
+            SetGridIcon(uniqueTechButton, UniqueTechIconKeys.TryGetValue(civ, out string icon) ? icon : null);
 
             if (barracks.IsResearchingUniqueTech)
             {

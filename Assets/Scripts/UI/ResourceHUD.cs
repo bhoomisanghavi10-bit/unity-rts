@@ -61,12 +61,13 @@ namespace KingdomsOfBharat.UI
             AddResourceIcon(foodLabel, "resource_food");
             AddResourceIcon(goldLabel, "resource_gold");
             AddResourceIcon(stoneLabel, "resource_stone");
+            AddResourceIcon(populationLabel, "resource_population");
         }
 
         // Adds a small icon to the left of a resource label and shifts the
         // label right by the same amount, keeping its right edge fixed -
-        // civLabel/populationLabel/ageLabel have no matching icon asset and
-        // are left untouched.
+        // civLabel/ageLabel have no matching icon asset and are left
+        // untouched.
         private static void AddResourceIcon(TMP_Text label, string iconName)
         {
             Sprite icon = Resources.Load<Sprite>("UI/Icons/" + iconName);
