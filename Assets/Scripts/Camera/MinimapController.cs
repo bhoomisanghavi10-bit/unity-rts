@@ -40,6 +40,8 @@ namespace KingdomsOfBharat.Camera
             _renderTexture = new RenderTexture(textureSize, textureSize, 16);
             display.texture = _renderTexture;
 
+            ApplyDiamondFrame();
+
             var camGo = new GameObject("MinimapCamera");
             camGo.transform.SetParent(transform, false);
             camGo.transform.position = new Vector3(0f, cameraHeight, 0f);
@@ -90,6 +92,60 @@ namespace KingdomsOfBharat.Camera
             }
 
             HandleInput();
+        }
+
+        // 2026-09-12 ornate HUD reskin: `display`'s render-texture feed is a
+        // plain square, but the sourced frame art (`docs/UI_ART_BRIEF.md`'s
+        // "Ornate HUD reskin" spec) is a diamond viewport - clips `display`
+        // to that diamond via a `Mask` (using the interior-opaque frame
+        // sprite as the mask shape, the same sprite `Mask` reads alpha from
+        // for any masked child) rather than reshaping the camera's own
+        // render texture, then layers a second, interior-punched-out sprite
+        // of the same art on top as the visible ornate border - two crops
+        // of one source image, not two separate assets.
+        private void ApplyDiamondFrame()
+        {
+            Sprite maskShape = Resources.Load<Sprite>("UI/Panels/panel_minimap_frame");
+            Sprite borderOnly = Resources.Load<Sprite>("UI/Panels/panel_minimap_frame_border");
+            if (maskShape == null || borderOnly == null)
+            {
+                return;
+            }
+
+            RectTransform displayRect = display.rectTransform;
+            Transform parent = displayRect.parent;
+            int siblingIndex = displayRect.GetSiblingIndex();
+
+            GameObject maskGo = new GameObject("MinimapDiamondMask", typeof(RectTransform), typeof(Image), typeof(Mask));
+            RectTransform maskRect = maskGo.GetComponent<RectTransform>();
+            maskRect.SetParent(parent, false);
+            maskRect.anchorMin = displayRect.anchorMin;
+            maskRect.anchorMax = displayRect.anchorMax;
+            maskRect.pivot = displayRect.pivot;
+            maskRect.anchoredPosition = displayRect.anchoredPosition;
+            maskRect.sizeDelta = displayRect.sizeDelta;
+            maskRect.SetSiblingIndex(siblingIndex);
+
+            Image maskImage = maskGo.GetComponent<Image>();
+            maskImage.sprite = maskShape;
+            maskGo.GetComponent<Mask>().showMaskGraphic = false;
+
+            displayRect.SetParent(maskRect, false);
+            displayRect.anchorMin = Vector2.zero;
+            displayRect.anchorMax = Vector2.one;
+            displayRect.offsetMin = Vector2.zero;
+            displayRect.offsetMax = Vector2.zero;
+
+            GameObject borderGo = new GameObject("MinimapDiamondBorder", typeof(RectTransform), typeof(Image));
+            RectTransform borderRect = borderGo.GetComponent<RectTransform>();
+            borderRect.SetParent(parent, false);
+            borderRect.anchorMin = maskRect.anchorMin;
+            borderRect.anchorMax = maskRect.anchorMax;
+            borderRect.pivot = maskRect.pivot;
+            borderRect.anchoredPosition = maskRect.anchoredPosition;
+            borderRect.sizeDelta = maskRect.sizeDelta;
+            borderRect.SetSiblingIndex(maskRect.GetSiblingIndex() + 1);
+            borderGo.GetComponent<Image>().sprite = borderOnly;
         }
 
         private void HandleInput()
