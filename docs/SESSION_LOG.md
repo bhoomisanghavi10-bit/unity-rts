@@ -5,6 +5,83 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-12 — UI_ART_BRIEF.md Tier 1 art delivery wired (command-card frame,
+resource-bar frame, 19 action icons, 4 resource icons)
+
+**Scope**: not a numbered roadmap item — the user handed over a complete, self-
+consistent Tier 1 sourcing delivery from Canva at `/Users/bhoome/Downloads/tier 1/`
+("all icons are ready for tier 1") and asked to wire it in.
+
+**Overwrite decision**: the delivery includes a new command-card 4-state frame and a
+new resource-bar frame, both of which the Ornate HUD reskin session (2026-09-07/12)
+had already replaced with its own bronze-scalloped art. Asked the user via
+AskUserQuestion rather than guess; confirmed "replace everything" — this delivery's
+frames now supersede the ornate-reskin ones.
+
+**Asset identification**: all 19 action-icon filenames matched the `UI_ART_BRIEF.md`
+Tier 1 spec directly except `build archer.png`, which is visually a bow-and-arrow (Train
+Archer, mislabeled "build"). The 4 command-card states (`1`-`4.png`) and 4 resource
+icons (`1`-`4.png`) were unlabeled and identified visually: command-card 1=Normal
+(plain bronze), 2=Pressed (darker/recessed), 3=Disabled (desaturated gray, no bronze
+color at all), 4=Hover (bright glowing gold); resource icons 1=Wood (log pile),
+2=Stone (carved block), 3=Food (wheat sheaf), 4=Gold (coin stack) — confirmed via
+direct visual read of each file, not filename-trusted.
+
+**A real technical defect found before wiring**: every one of the 28 delivered PNGs
+(1264x1264 raw Canva exports) had the checkerboard "transparency" pattern **baked into
+literal RGB pixel values** (two near-white grays, ~R238-254, alternating in a grid),
+not real alpha — confirmed by sampling pixel values directly (`PIL.Image.getpixel`),
+not just visually. If imported as-is these would have rendered with a visible gray
+checkerboard background in-game instead of transparency. Fixed with a small scratch
+Python script (`dechecker.py`): flag near-gray/near-white pixels as background
+candidates, then keep only the candidate regions connected to the image border
+(`scipy.ndimage.label` flood-fill) as real background — this protects genuine
+light/white content inside the artwork (e.g. a white turban, a parchment highlight)
+from being eaten, since those regions aren't border-connected. Feathered the resulting
+alpha mask by 1.5px for anti-aliased edges, then cropped to content bounding box (icons
+only — the 4 command-card states were deliberately left uncropped at their original
+1264x1264 canvas so all 4 states stay pixel-identical in size for consistent 9-slicing
+across state swaps).
+
+**9-slice border measurement**: rather than guess (a lesson this project has already
+paid for once — the 2026-09-12 layout bug-fix session above), measured both new 9-slice
+frames by sampling pixel-color transitions along their centerlines: command-card frame
+(1264x1264 square) — border 100px uniform (flat dark center begins at x=102/y=100).
+Resource-bar frame (1776x578, cropped from the raw export) — asymmetric border
+(left=180, bottom=120, right=180, top=200), measured off-center (to avoid the tall
+center spire ornament) and cross-checked at the exact center column (the spire itself
+resolves into plain parchment by ~y=190-200, consistent with the off-center reading).
+
+**`ResourceHUD.cs` multiplier retuning required, found via live iteration, not assumed
+correct on the first pass**: the new resource-bar source (1776x578) is far larger than
+the old ornate-reskin source (213x80) the existing `pixelsPerUnitMultiplier` values were
+tuned for. First attempt (multiplier 6 for `background`, 5 for `matchStatusBackground`)
+screenshotted with real text clearly overlapping the top border ornament — border was
+still too thick relative to each panel's small display rect (200x120 / 220x84).
+Retuned to 12.5 for both, then to 16 for `matchStatusBackground` specifically (its
+3-line text stack needed slightly more flat parchment room than the 4-line resource
+list) — each iteration re-verified live via UnityMCP screenshot before moving on.
+
+**Live verification**: full EditMode suite unchanged (507/507, pure asset + import-
+setting change, no test expected). Live-verified via UnityMCP through the real
+production path: a real match (`CivilizationSetup.BeginMatch(Maurya)`, invoked via
+reflection since it's an instance method), the pre-match `MissionSelectMenu`/`CivPicker`
+overlays deactivated directly to see the live HUD unobstructed. Screenshotted and
+zoom-cropped: the resource bar (all 4 resource icons + Wood/Food/Gold/Stone text,
+clean, no border overlap), the `MatchStatus` panel (Civilization/Population/Age, clean
+after the multiplier retune), and the command-card grid on a real selected TownCenter
+(5 buttons, 2 with real icons — Worker, Advance Age — rendering the new bronze/gold
+frame correctly, 3 correctly on the placeholder square since no icon exists for those
+slots yet, matching the pre-existing "35 icon-less buttons" baseline, not a
+regression).
+
+**Not touched**: every other already-wired icon/frame outside this delivery's 28 files
+(tier badges, unique-unit icons, civ crests, cmd_* action-order icons, HP bar,
+selected-unit panel, tooltip panel, minimap frame) — out of scope for Tier 1.
+`UI_ART_BRIEF.md`'s Tier 1 checklist updated to fully checked.
+
+---
+
 ## 2026-09-12 — Ornate HUD reskin layout bug fix (borders, multipliers, dark tint)
 
 **Scope**: not a numbered roadmap item — a direct bug-fix follow-up to the ornate HUD

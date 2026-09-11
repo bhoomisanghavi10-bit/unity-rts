@@ -6,6 +6,51 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **UI_ART_BRIEF.md Tier 1 art delivery wired (2026-09-12)** — not a numbered
+  roadmap item. User supplied a complete, self-consistent Canva delivery for
+  `docs/UI_ART_BRIEF.md`'s Tier 1 spec at `/Users/bhoome/Downloads/tier 1/`
+  (19 action icons, 4 command-card button states, 4 resource icons, 1
+  resource-bar frame) and asked to wire it in ("all icons are ready for tier
+  1"). Since this delivery's command-card frame and resource-bar frame
+  overlap with what the Ornate HUD reskin session (immediately below) had
+  already shipped, asked the user directly (AskUserQuestion) whether to
+  overwrite — confirmed "replace everything." Identification: 18/19 action
+  icons matched the spec by filename directly; `build archer.png` is
+  visually a bow-and-arrow (Train Archer, just mislabeled "build"); the 4
+  unlabeled command-card states and 4 unlabeled resource icons were
+  identified by direct visual inspection, not filename-trusted (command-card
+  1=Normal/2=Pressed/3=Disabled/4=Hover by brightness+saturation; resource
+  icons 1=Wood/2=Stone/3=Food/4=Gold by subject). **Found a real defect
+  before wiring, not caught by trusting the export**: all 28 raw Canva PNGs
+  had their checkerboard "transparency" baked into literal RGB pixel values,
+  not real alpha (confirmed via direct pixel sampling) — would have rendered
+  a visible gray checkerboard in-game. Fixed with a scratch Python script
+  (border-connected-component flood-fill on near-white/near-gray pixels,
+  via `scipy.ndimage.label`, so genuine light content inside the art like a
+  white turban isn't eaten), feathered for anti-aliasing, cropped to content
+  for icons. Measured fresh 9-slice borders for both new frames via
+  pixel-centerline sampling (command-card: 100px uniform on a 1264x1264
+  square; resource bar: 180/120/180/200 asymmetric on a 1776x578 image) —
+  per this project's own prior lesson (see the layout-bug-fix entry below)
+  never to guess/reuse stale border values. `ResourceHUD.cs`'s
+  `pixelsPerUnitMultiplier` for both `background`/`matchStatusBackground`
+  needed real retuning (the new source art is far larger than the old
+  213x80 ornate-reskin source those values were tuned for) — first attempt
+  (6/5) still showed live text overlapping the top border in a screenshot;
+  iterated live via UnityMCP to 12.5/16 before the resource bar and
+  Civilization/Population/Age panel both read cleanly with no overlap.
+  507/507 EditMode tests pass unmodified (pure asset + import-setting
+  change). Live-verified via UnityMCP through the real production path: a
+  real match (`CivilizationSetup.BeginMatch(Maurya)`, via reflection), the
+  pre-match menu overlays deactivated directly to see the live HUD,
+  screenshotted and zoom-cropped the resource bar (4 icons + text, clean),
+  the `MatchStatus` panel (3 lines, clean after the multiplier retune), and
+  the command-card grid on a real selected TownCenter (5 buttons, 2 with
+  real icons rendering the new frame correctly, 3 correctly on the
+  placeholder square). `docs/UI_ART_BRIEF.md`'s Tier 1 checklist fully
+  checked off. Next: whatever the user directs — Tier 2 (selected-unit
+  panel frame, HP bar, tooltip frame — cursors already done) is the next
+  unchecked tier in that doc, or any other roadmap item.
 - **Ornate HUD reskin layout bug fixed (2026-09-12)** — not a numbered roadmap
   item, a direct follow-up to the ornate-HUD-reskin session above/before it, per
   the user's bug report ("the dimensions of the panels are not matching the

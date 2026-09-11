@@ -251,10 +251,14 @@ them)
 Use this to track sourcing progress — check off as art lands and gets wired in.
 
 **Tier 1 (ship first — resource bar + command card)**
-- [ ] Command-card button background × 4 states
-- [ ] 19 action icons (build/train/upgrade/age)
-- [ ] 4 resource icons (Wood/Food/Gold/Stone)
-- [ ] Resource-bar panel frame
+- [x] Command-card button background × 4 states — **done 2026-09-12.** User supplied
+  a self-consistent Canva delivery (ornate carved-bronze frame, 4 states) at
+  `/Users/bhoome/Downloads/tier 1/`, replacing the Ornate HUD reskin session's
+  own command-card frame per the user's explicit choice to overwrite it.
+- [x] 19 action icons (build/train/upgrade/age) — **done 2026-09-12**, same delivery.
+- [x] 4 resource icons (Wood/Food/Gold/Stone) — **done 2026-09-12**, same delivery.
+- [x] Resource-bar panel frame — **done 2026-09-12**, same delivery, also replacing
+  the Ornate HUD reskin's own resource-bar frame per the user's choice.
 
 **Tier 2 (HUD frequency)**
 - [ ] Selected-unit panel frame
