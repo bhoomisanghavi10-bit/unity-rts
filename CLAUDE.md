@@ -6,6 +6,52 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Ornate HUD reskin closed (2026-09-12)** — not a numbered roadmap item, a follow-on
+  to the icon-art-delivery session below (picked up right where that session's own
+  UnityMCP disconnect left off, per the user's explicit continuation request). User
+  supplied 8 Canva-generated HUD frame files sourced from the "Ornate HUD reskin" spec
+  this session's own predecessor added to `docs/UI_ART_BRIEF.md`. Wired: `panel_resource_bar.png`/
+  `panel_selected_unit.png` (overwritten backgrounds), all 4 `CommandCardButton` states
+  (normal/hover/pressed/disabled), and a new diamond-shaped minimap frame — the first
+  genuinely new visual shape in this HUD pass, not just a reskinned rectangle. New
+  `MinimapController.ApplyDiamondFrame()` wraps the existing render-texture `RawImage`
+  in a `Mask` component (using `panel_minimap_frame.png` as the mask shape, its
+  interior opaque/exterior transparent) and layers `panel_minimap_frame_border.png`
+  (interior punched transparent) on top as the visible ornate border — two crops of
+  one source image, not two separate assets; the render texture itself is untouched,
+  only how it's displayed. Set Sprite import type on both new panel files via
+  `manage_asset`. Forced a recompile and checked `~/Library/Logs/Unity/Editor.log`
+  directly per this project's own documented "console bridge can miss real errors"
+  gotcha (confirmed clean — zero `error CS` lines, and `KingdomsOfBharat.Runtime.dll`'s
+  timestamp postdated the script edit). 507/507 EditMode tests pass unmodified (pure
+  visual/UI change, no new test expected). Live-verified via UnityMCP through a real
+  match (`CivilizationSetup.BeginMatch(Maurya)`, invoked via reflection on the scene's
+  `CivilizationSetup` component — it's an instance method, not static, despite how
+  some earlier session-log entries phrase the call): screenshotted the real resource
+  bar (ornate scroll frame, Wood/Food/Gold/Stone), the real bottom info panel
+  (Civilization/Population/Age plus, once a TownCenter was selected via
+  `SelectionManager` reflection, the reskinned `SelectedUnitPanel` name/status/HP bar
+  stacked below it), the real command-card grid (5 buttons on a selected TownCenter,
+  2 with real icons showing the new tan/gold ornate button frame, 3 correctly on the
+  placeholder — matches the documented "35 icon-less buttons" baseline, not a
+  regression), and the real minimap — confirmed the diamond mask genuinely clips the
+  live camera feed (not just a static image) with the gold border overlay sitting
+  correctly on top, no misalignment. Also explicitly checked (not assumed) that
+  `HandleInput()`'s click-to-jump still works after the `RawImage` was reparented
+  under the new mask GameObject: read `display.rectTransform.GetWorldCorners()` live
+  and confirmed it occupies the exact same screen rect (1254,10)-(1474,230) as before
+  the reparent, since every anchor/offset was copied from the original rect — the
+  raycast/local-point math in `HandleInput` is geometry-driven off that same
+  RectTransform and is unaffected. One scoped commit (11 files: the 8 asset files +
+  `MinimapController.cs`) — hit and fixed a real process mistake mid-session: an
+  `amend` used to add the required commit-attribution trailer accidentally picked up
+  two unrelated pre-existing staged doc deletions
+  (`docs/BRING_IN_ART_1-4.md`/`docs/ICON_PLAN.md`, leftover uncommitted state from an
+  earlier session, not this session's work to claim) from the index; caught before
+  finalizing, restored their exact original pending-deletion state (removed from disk,
+  staged as deleted, uncommitted) via `git rm`, and re-verified the final commit
+  touches only the 11 intended files. Next: whatever the user directs — no further
+  ornate-HUD-reskin work is outstanding from this delivery.
 - **Icon art delivery closed (2026-09-07)** — not a numbered roadmap item, picked up at
   the user's explicit request ("load them to the game before starting item 32"). User had 98
   AI-generated icons ready on an external drive with meaningless generator filenames; each was

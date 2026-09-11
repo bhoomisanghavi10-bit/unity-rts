@@ -5,6 +5,71 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-12 — Ornate HUD reskin (resource bar, info panel, command-card buttons, diamond minimap frame)
+
+**Scope**: not a numbered roadmap item — a follow-on to the icon-art-delivery session
+(2026-09-07), continuing right where that session's UnityMCP disconnect left off, per the
+user's explicit continuation request. The prior session had already: identified 8
+Canva-generated HUD frame files against the "Ornate HUD reskin" spec in
+`docs/UI_ART_BRIEF.md`, fixed opaque-white backgrounds on 2 of them, split the diamond
+minimap frame into a mask-shape and border-only pair, copied all 8 files into place, and
+written (but never compiled or tested) `MinimapController.ApplyDiamondFrame()`.
+
+**This session's work**: connected to UnityMCP, set Sprite import type
+(`textureType=Sprite`, `spriteImportMode=Single`) on the 2 new panel files
+(`panel_minimap_frame.png`/`panel_minimap_frame_border.png`) via `manage_asset`, forced a
+recompile, and — per this project's own documented "console bridge can miss real compile
+errors" gotcha — checked `~/Library/Logs/Unity/Editor.log` directly rather than trusting
+`read_console` alone (zero `error CS` lines; confirmed `KingdomsOfBharat.Runtime.dll`'s
+timestamp postdated the `MinimapController.cs` edit, so the real recompiled assembly was in
+play, not a stale one). Ran the EditMode suite: 507/507 pass, unmodified — pure visual/UI
+change, no new test expected, matching every prior UI-skin-wiring session's own convention.
+
+**Live verification** (UnityMCP, real production path — not a shortcut): entered Play mode,
+began a real match via reflection on the scene's `CivilizationSetup` component's
+`BeginMatch(CivilizationId)` instance method (note: it's an instance method on the scene
+component, not a static class method, despite how some earlier session-log phrasing reads),
+disabled the `MissionSelectMenu`/`CivPicker` overlay canvases (left active by the direct
+reflection call, since it bypasses their normal Confirm-button close sequence) to see the
+underlying HUD cleanly. Screenshotted: the resource bar (ornate scroll frame,
+Wood/Food/Gold/Stone, top-left), the bottom info panel (Civilization/Population/Age, plus —
+once a TownCenter was selected via `SelectionManager._selectedBuilding` reflection — the
+reskinned `SelectedUnitPanel` name/status/green HP bar stacked below it), the command-card
+grid (5 buttons for a selected TownCenter: 2 real icons rendering on the new tan/gold ornate
+button-frame theme, 3 correctly showing the placeholder square — matches the already-documented
+"35 icon-less buttons use placeholder" baseline from the icon-delivery session, not a
+regression), and the minimap (confirmed the diamond `Mask` genuinely clips the live
+render-texture camera feed — not a static image — with the punched-border overlay sitting
+correctly on top, no seams or misalignment).
+
+**Click-to-jump regression check**: `HandleInput()` reads `display.rectTransform` for both
+its `RectangleContainsScreenPoint` hit-test and its `ScreenPointToLocalPointInRectangle` math,
+and `ApplyDiamondFrame()` reparents that same `RawImage` under a new mask GameObject. Rather
+than assume "same anchors → same behavior," read `display.rectTransform.GetWorldCorners()`
+live post-reparent and confirmed it occupies the exact same screen rect,
+`(1254,10)`-`(1474,230)`, that the minimap always has — every anchor/offset was copied
+verbatim from the original rect in `ApplyDiamondFrame`, so `HandleInput`'s geometry-driven
+math is provably unaffected, not just presumed safe.
+
+**A real process mistake, caught and fixed before finalizing**: the first commit's message
+omitted the required `Co-Authored-By` attribution trailer; fixing it via `git commit --amend`
+(safe here — a single local, unpublished commit) inadvertently pulled in two unrelated
+pre-existing staged deletions (`docs/BRING_IN_ART_1-4.md`/`docs/ICON_PLAN.md`) that were
+already sitting in the index before this session started — leftover uncommitted state from
+an earlier session, not this session's work to claim or resolve. Caught by re-inspecting the
+amended commit's stat output before treating it as done; fixed by checking out both files'
+content from the pre-HUD-commit parent (`4b856ef`) into the index/worktree, amending again so
+the HUD commit no longer touches them, then `git rm`-ing both to restore their exact original
+pending-deletion state (removed from disk, staged as deleted, uncommitted) — re-verified the
+final commit (`db9b3b4`) touches only its intended 11 files.
+
+**Commit**: `db9b3b4` — 8 asset files (4 `CommandCardButton` states, `panel_resource_bar.png`,
+`panel_selected_unit.png`, 2 new `panel_minimap_frame*.png` + `.meta`s) +
+`MinimapController.cs`. Next: no further ornate-HUD-reskin work is outstanding from this
+delivery — whatever the user directs next.
+
+---
+
 ## 2026-09-06 — AoE-Parity Wave 4, item 27: Support units (Vaidya + Purohita) + Monastery
 
 **Scope**: `docs/IMPLEMENTATION_ROADMAP.md` Wave 4 item 27, picked up per the user's "start
