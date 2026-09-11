@@ -5,6 +5,93 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-12 — Ornate HUD reskin layout bug fix (borders, multipliers, dark tint)
+
+**Scope**: not a numbered roadmap item — a direct bug-fix follow-up to the ornate HUD
+reskin session immediately below, triggered by a user screenshot showing garbled/
+overlapping text on the bottom-center info panel and flat, undecorated command-card
+buttons, with the report "the dimensions of the panels are not matching the screen
+size."
+
+**Asset identification re-check**: the user first renamed the 8 sourced Canva files to
+descriptive names in `/Users/bhoome/Downloads/iloveimg-resized/` (e.g. "1. Top resource
+bar frame.png", "4. Bottom-right minimap frame (new, diamond viewport).png") and asked
+for the UI layout to be redone against them. Byte-diffed every renamed file (via `md5`)
+against what was already wired in `Assets/Resources/UI/` — all 8 matched exactly,
+including all 4 `CommandCardButton` states, which were disambiguated visually by
+brightness (plate=hover/brightest, plate 2=normal, plate 3=pressed/darker, plate
+4=disabled/grayscale) and confirmed to already match the existing wiring. So the asset
+*identification* from the prior session was entirely correct — this was purely a layout/
+rendering bug, not a mis-mapped file.
+
+**Root cause 1 — invalid sprite borders**: rather than guess, wrote a small Python/
+Pillow script sampling pixel-color transitions along each sprite's horizontal and
+vertical centerlines to measure the real frame/flat-area boundary in each image. This
+surfaced the actual bug: `panel_resource_bar.png` (213x80) had `spriteBorder=(60,60,200,60)`
+— right border alone (200) exceeded the image width; `panel_selected_unit.png` (191x192)
+had `spriteBorder=(650,400,650,280)` — every value wildly exceeded both dimensions,
+clearly inherited from a much larger pre-resize source image; the 4 `CommandCardButton`
+sprites (128x128) had `spriteBorder=(90,90,90,90)` — left+right alone (180) exceeded the
+128px width. These invalid borders corrupt Unity's 9-slice rendering, producing the
+torn/overlapping look the user's screenshot showed. Fixed via `manage_asset modify` with
+borders measured from the actual pixel data: resource bar (40,24,40,16), selected-unit
+panel (33,47,24,48), command buttons (18,18,18,18) uniform.
+
+**Root cause 2 — stale `pixelsPerUnitMultiplier` values**: the border fix alone wasn't
+enough — re-verified live via UnityMCP screenshots after every change rather than
+assuming. `SelectedUnitPanel.cs`'s `pixelsPerUnitMultiplier = 65f` was calibrated for
+the *old* 2752x1536 placeholder art (per its own removed comment); the new 191x192 image
+combined with that huge multiplier crushed the border to near-zero, rendering as a flat
+undecorated rectangle. Recalculated to 2.74 — the panel's actual native-height ÷
+display-height ratio (192/70) — which correctly shrinks the border to fit the smaller
+display without overlap. `ResourceHUD.cs`'s two multipliers (12f, for the shared
+`background`/`matchStatusBackground` fields) needed no change: that panel's display size
+(200x120/220x84) is *larger* than its native art (213x80), so the border already fit
+without compensation once the underlying border pixel values were corrected.
+
+**Root cause 3 — Sliced vs Simple mismatch for the command-card grid**: `BuildMenu.cs`'s
+command-card buttons are always exactly 48x48 (`GridCellSize` constant, confirmed via
+grep — never resized to a different aspect), and the source art is square (128x128).
+Fighting a 9-slice border sized for 128px against a 48px square target either overlapped
+(thick border) or washed out all ornate detail (thin border) depending on the
+multiplier — there is no varying aspect ratio here that would ever need slicing.
+Switched `button.image.type` from `Sliced` to `Simple`, a clean uniform downscale that
+keeps the full carved detail crisp.
+
+**Root cause 4 — leftover dark tint**: even after the above, command buttons without a
+real icon assigned still rendered as flat gold squares. Reflecting on a live button's
+`Image` component found `color = RGBA(0.25, 0.25, 0.25, 0.9)` — a leftover placeholder
+tint from before this art existed, applied to every themed button and never reset by
+`BuildMenu.ApplyTheme()`'s loop (which only ever set `sprite`/`type`/`transition`/
+`spriteState`, never `color`). Added `button.image.color = Color.white;` to the loop.
+
+**Verification discipline**: each of the 4 fixes was screenshotted and crop-inspected
+individually before moving to the next — the border fix alone visibly helped the info
+panel but left the command buttons unchanged; the multiplier fix alone fixed
+`SelectedUnitPanel` but not the buttons; only after the `Simple`-type switch and the
+color-tint reset together did the command buttons show their full ornate gold trim.
+507/507 EditMode tests pass unmodified (pure visual/import-setting change, no logic
+change). Live-verified via UnityMCP through the real production path: a real match
+(`CivilizationSetup.BeginMatch(Maurya)`, invoked by reflection since it's an instance
+method on the scene's own component), a real selected TownCenter — confirmed the
+bottom-center info panel, every command-card button, the resource bar, and the minimap
+all render cleanly; and, directly reproducing the user's original report, confirmed the
+pre-match `CivPicker` card (visible dimmed behind `MissionSelectMenu` — unrelated
+pre-existing behavior, not something this session touched) now renders its
+"Civilization: Chola / Population: 0/10 / Age: Ancient Age / Confirm" text cleanly
+instead of the garbled/torn look the corrupted 9-slice rendering originally produced.
+
+**Commit**: `8a3191b` — 3 script files (`BuildMenu.cs`, `ResourceHUD.cs`,
+`SelectedUnitPanel.cs`) + 6 `.meta` files carrying the corrected `spriteBorder` values.
+Hit the same recurring "pre-existing staged doc deletions swept into an unrelated
+commit" mistake as the prior ornate-HUD-reskin session (`docs/BRING_IN_ART_1-4.md`/
+`docs/ICON_PLAN.md` were still staged for deletion in the index from before this
+session) — caught and fixed the same way (restore from the parent commit, amend, `git
+rm` again) before finalizing. Next: whatever the user directs — the ornate HUD reskin
+delivery is now genuinely closed, code and layout both.
+
+---
+
 ## 2026-09-12 — Ornate HUD reskin (resource bar, info panel, command-card buttons, diamond minimap frame)
 
 **Scope**: not a numbered roadmap item — a follow-on to the icon-art-delivery session

@@ -6,6 +6,81 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Ornate HUD reskin layout bug fixed (2026-09-12)** — not a numbered roadmap
+  item, a direct follow-up to the ornate-HUD-reskin session above/before it, per
+  the user's bug report ("the dimensions of the panels are not matching the
+  screen size") with a screenshot showing garbled/overlapping text on the
+  bottom-center info panel and flat command-card buttons. User first renamed the
+  8 sourced Canva files to their descriptive names (`/Users/bhoome/Downloads/
+  iloveimg-resized/`) — byte-diffed every one against what was already wired and
+  confirmed **all 8 were already correctly identified/mapped** (including the 4
+  `CommandCardButton` states in brightness order: plate=hover, plate 2=normal,
+  plate 3=pressed, plate 4=disabled) — so this was a real layout bug, not a
+  mis-mapped asset. Root-caused via direct pixel measurement (a small Python/
+  Pillow script sampling color transitions along each sprite's horizontal/
+  vertical centerline) rather than guessing: `panel_resource_bar.png`/
+  `panel_selected_unit.png`/the 4 `CommandCardButton` sprites all carried
+  `spriteBorder` values that **exceeded the actual image dimensions**
+  (`panel_selected_unit.png`'s border summed to 1300px against a 191px-wide
+  image) — stale leftovers from a differently-sized pre-resize source, never
+  recalculated when the final art was wired in. Fixed via `manage_asset modify`
+  with border values measured from each sprite's real frame/flat-area boundary.
+  That alone wasn't sufficient — 3 more real bugs surfaced during live re-
+  verification, each requiring a proper before/after screenshot comparison, not
+  assumed fixed: (1) `SelectedUnitPanel.cs`'s `pixelsPerUnitMultiplier = 65f`
+  was tuned for the *old* 2752x1536 placeholder art's border scale, not this
+  session's 191x192 replacement — recalculated to 2.74 (the actual native-height
+  ÷ display-height ratio, 192/70); (2) `BuildMenu.cs`'s command-card grid buttons
+  are always exactly 48x48 with square 128x128 source art, so `Image.Type.Sliced`
+  (fighting a 9-slice border against a small square target, either overlapping
+  or washing out all ornate detail depending on the multiplier) was the wrong
+  choice entirely — switched to `Image.Type.Simple`, a clean uniform downscale
+  that keeps full carved detail crisp, no border math needed; (3) `BuildMenu.
+  ApplyTheme()`'s themed buttons were still carrying a leftover
+  `Image.color ≈ (0.25,0.25,0.25,0.9)` dark placeholder tint authored before
+  this art ever existed — silently muddying every themed button's real gold/
+  brown coloring — now reset to `Color.white` alongside the sprite assignment.
+  `ResourceHUD.cs`'s two `matchStatusBackground`/`background` multipliers
+  (12f→1f) needed no further tuning once the border was fixed — that panel's
+  display size (200x120/220x84) is *larger* than its native art (213x80), so no
+  downscale-compensation was needed there, unlike the two undersized panels
+  above. 507/507 EditMode tests pass unmodified (pure visual/import-setting
+  change). Live-verified via UnityMCP through the real production path at every
+  step (not just the final state) — a real match
+  (`CivilizationSetup.BeginMatch`, invoked via reflection since it's an instance
+  method on the scene's own component, not static), a real selected TownCenter,
+  cropped/zoomed screenshots of each panel before and after every individual
+  fix to confirm which specific change actually mattered (the border fix alone
+  wasn't enough; the multiplier fix alone wasn't enough either — all had to land
+  together): the bottom-center info panel now shows clean, non-overlapping
+  "Civilization/Population/Age" and "TownCenter/Complete/HP" text on properly
+  carved scroll frames; every command-card button shows full ornate gold trim
+  with visible corner ornaments instead of a flat tan square; and — directly
+  reproducing the user's original bug report — the pre-match `CivPicker` card
+  (visible dimmed behind `MissionSelectMenu`, unrelated pre-existing behavior)
+  now renders its "Civilization: Chola / Population: 0/10 / Age: Ancient Age /
+  Confirm" text cleanly instead of the garbled/torn look the corrupted 9-slice
+  rendering originally produced. One scoped commit — hit the same recurring
+  "pre-existing staged doc deletions get swept into an unrelated commit" mistake
+  as the prior ornate-HUD-reskin session's own commits (this project's index
+  still had `docs/BRING_IN_ART_1-4.md`/`docs/ICON_PLAN.md` staged for deletion
+  from before this session), caught and fixed the same way (restore from the
+  prior commit, amend, `git rm` again to preserve the original pending-deletion
+  state) before finalizing. Next: whatever the user directs — the ornate HUD
+  reskin delivery is now genuinely closed, code and layout both.
+- **FLAGGED (2026-09-12), not yet worked: Wave 5 item 29 (Player/team colour
+  system) is REOPENED.** User judgment call from live play — the shipped
+  banner/pennant approach (small colored cloth flags on units/buildings,
+  closed 2026-09-07) does not read correctly as a team-color system
+  visually. This is not a claim of a mechanical bug in the existing banner
+  code (scale-compensation, Age-up rebuild-safety, etc. are still believed
+  correct) — it's a design miss: the visual/UI itself needs to be
+  re-engineered with a different method. Full reopened note with candidate
+  directions (per-pixel accent-mask shader, rim-light/outline shader, larger/
+  more prominent banner) added directly under item 29 in
+  `docs/IMPLEMENTATION_ROADMAP.md`. Not started — next session on this
+  should open with AskUserQuestion to pin down what "correct" looks like
+  before writing any code, per that item's own note.
 - **Ornate HUD reskin closed (2026-09-12)** — not a numbered roadmap item, a follow-on
   to the icon-art-delivery session below (picked up right where that session's own
   UnityMCP disconnect left off, per the user's explicit continuation request). User
