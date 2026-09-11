@@ -28,6 +28,78 @@ the asset-specific line.
 
 ---
 
+## Ornate HUD reskin (top + bottom bars) — 2026-09-07 request
+
+The user asked for the top resource bar and bottom command/info/minimap bar to read
+like AoE II: Definitive Edition's own HUD — but that reference is Microsoft/World's
+Edge's actual shipped, copyrighted UI art, so it can't be copied or lifted directly
+(same reasoning `ICON_PLAN.md` already used to reject the aoe2-icon-resources repo).
+This section specs an **original** frame set that matches the reference's *silhouette
+and construction* (arched/scalloped carved-wood top edge, twisted-rope border
+molding, hanging corner ornaments, a diamond-shaped minimap viewport) while staying
+in Kingdoms of Bharat's own established motif language (lotus/mandala/temple carving,
+warm ochre-and-bronze palette) instead of AoE2's Western-medieval oak-and-iron
+styling. Replaces the plainer Tier 1/2 panel frames below wherever both exist — the
+plain frames stay as a fallback until this lands, same "swap the file, no code
+change" convention as the rest of this doc.
+
+> Reuse the master style paragraph above, plus: *"...a carved-wood-and-bronze HUD
+> panel frame with an arched, gently scalloped top edge (not a plain rectangle) —
+> a twisted-rope molding runs along the outer border, and a small hanging leaf/lotus
+> ornament drapes from each top corner. Indian temple-carving detail, not European
+> medieval oak. Flat readable center for UI content."*
+
+### Top resource bar frame (9-slice) — 1024×80 px
+- Plugs in at `Assets/Resources/UI/Panels/panel_resource_bar.png` (same path the
+  current plain frame uses — `ResourceHUD.cs` already loads this exact key for both
+  its own root background and the `MatchStatus` panel's `matchStatusBackground`, no
+  code change needed once the file is replaced).
+- Prompt: the shared paragraph above + *"...a single wide horizontal strip spanning
+  the top edge of the screen, arched/scalloped along the BOTTOM edge only (the top
+  edge is off-screen), symmetric hanging corner ornaments on both ends, landscape
+  format."*
+
+### Bottom-left info panel frame (9-slice) — 384×192 px
+- Plugs in at `Assets/Resources/UI/Panels/panel_selected_unit.png`
+  (`SelectedUnitPanel.cs`'s existing load key).
+- Prompt: the shared paragraph + *"...a portrait-adjacent info panel frame, arched
+  top-left and top-right corners, a small circular portrait-frame notch on the left
+  edge, landscape format, matches the resource bar's border style."*
+
+### Bottom-center command panel frame (9-slice) — 512×256 px
+- Plugs in at `Assets/Resources/UI/Icons/CommandCardButton/normal.png` (+
+  `hover`/`pressed`/`disabled` — same 4-state set `BuildMenu.cs` already loads) for
+  the individual grid-cell buttons, and a NEW wide frame behind the whole grid if
+  one doesn't already exist in-scene (check `BuildMenu`'s root panel background
+  first — it may only need the button-state art refreshed, not a new panel).
+- Prompt: the shared paragraph + *"...a grid-cell button plate with a beveled bronze
+  border and a small corner motif, square format, subtle state variants (Normal
+  bright, Hover glowing, Pressed recessed, Disabled desaturated)."*
+
+### Bottom-right minimap frame (NEW — diamond viewport) — 320×320 px
+- No plug-in exists yet (`MinimapController.cs` currently renders the map through a
+  plain `RawImage` with no frame at all — this is a genuinely new addition, not a
+  reskin of an existing asset). Once sourced, drop at
+  `Assets/Resources/UI/Panels/panel_minimap_frame.png` and flag it back for wiring —
+  needs one small `MinimapController.cs` change (a new `Image` sibling layered over
+  the existing `display` `RawImage`, matching how `panel_resource_bar` is already
+  layered under `ResourceHUD`'s own content).
+- Prompt: the shared paragraph + *"...a diamond-shaped (rotated square) ornate
+  viewport frame for a minimap, thick carved border with a small eye or lotus emblem
+  centered on the top point, two small circular icon-slot cutouts flanking the
+  bottom point, square canvas with the diamond centered and transparent corners."*
+
+### Corner mask ornaments (2, optional) — 96×96 px each
+- The reference's bottom-left and bottom-right outer corners each carry a small
+  carved wooden mask/figure hanging off the panel edge, outside the main frame.
+  Optional flourish, not required for the reskin to read as complete — matches
+  `docs/ICON_PLAN.md`'s own "hold lower-priority polish" precedent.
+- Prompt: the shared paragraph + *"...a small hanging corner ornament, a stylized
+  carved wooden face or lotus-bud finial, meant to overlay just outside a HUD
+  panel's outer corner, transparent background, no other subject."*
+
+---
+
 ## Tier 1 — highest visibility (do this tier first)
 
 **Where it plugs in**: `Assets/Resources/UI/Icons/` and
