@@ -45,14 +45,16 @@ namespace KingdomsOfBharat.UI
                 {
                     background.sprite = frame;
                     background.type = Image.Type.Sliced;
-                    // Source art is authored at 2752x1536 for a much larger
-                    // canvas than this 220x70 panel - without shrinking the
-                    // border's effective size to match, the 9-slice corners
-                    // would overlap into the panel's center. 65 was picked by
-                    // matching the sprite's authored border width against
-                    // this panel's actual pixel height (see Roadmap Section
-                    // 4.3 session log for the full multiplier table).
-                    background.pixelsPerUnitMultiplier = 65f;
+                    // 2026-09-12 ornate HUD reskin: source art is now a
+                    // purpose-sized 191x192 frame (spriteBorder tuned to its
+                    // own pixel dimensions), not the old 2752x1536 placeholder
+                    // this multiplier used to compensate for - but this
+                    // panel itself renders at 220x70, well under the
+                    // sprite's native 192px height. 2.74 matches that
+                    // downscale ratio (192/70) so the top/bottom border
+                    // shrinks proportionally instead of overlapping into the
+                    // panel's own 70px-tall center.
+                    background.pixelsPerUnitMultiplier = 2.74f;
                 }
             }
 

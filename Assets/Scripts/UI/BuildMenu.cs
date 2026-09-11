@@ -565,11 +565,22 @@ namespace KingdomsOfBharat.UI
                 }
 
                 button.image.sprite = normal;
-                button.image.type = Image.Type.Sliced;
-                // Source art is 669x679 for a much larger button than these
-                // 204x28 command-card rows - shrinks the 9-slice border to
-                // fit without overlapping into the button's center.
-                button.image.pixelsPerUnitMultiplier = 18f;
+                // 2026-09-12 ornate HUD reskin: reset to full white - these
+                // buttons carry a leftover dark placeholder tint
+                // (~0.25,0.25,0.25) authored before this art existed, which
+                // otherwise muddies the new sprite's own carved gold/brown
+                // coloring instead of letting it render as-authored.
+                button.image.color = Color.white;
+                // 2026-09-12 ornate HUD reskin: these grid-cell buttons are
+                // always exactly square (GridCellSize=48, item 31's icon
+                // grid) and the source art is already square (128x128) -
+                // Simple is a clean uniform downscale that keeps every
+                // carved/ornate detail crisp. Sliced fights a 9-slice
+                // border sized for 128px against a 48px target and either
+                // overlaps (thick border) or washes out the detail (thin
+                // border) - there's no varying aspect ratio here that would
+                // actually need slicing.
+                button.image.type = Image.Type.Simple;
                 button.transition = Selectable.Transition.SpriteSwap;
                 button.spriteState = new SpriteState
                 {

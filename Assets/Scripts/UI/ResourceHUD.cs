@@ -42,7 +42,11 @@ namespace KingdomsOfBharat.UI
                 background.color = Color.white;
                 background.sprite = frame;
                 background.type = Image.Type.Sliced;
-                background.pixelsPerUnitMultiplier = 12f;
+                // 2026-09-12 ornate HUD reskin: spriteBorder is tuned to
+                // this sprite's own 213x80 pixel dimensions, so the default
+                // multiplier (1) keeps border pixels 1:1 with screen pixels
+                // - no extra compensation needed.
+                background.pixelsPerUnitMultiplier = 1f;
             }
 
             // civLabel/populationLabel/ageLabel live under a separate
@@ -54,7 +58,7 @@ namespace KingdomsOfBharat.UI
                 matchStatusBackground.color = Color.white;
                 matchStatusBackground.sprite = frame;
                 matchStatusBackground.type = Image.Type.Sliced;
-                matchStatusBackground.pixelsPerUnitMultiplier = 12f;
+                matchStatusBackground.pixelsPerUnitMultiplier = 1f;
             }
 
             AddResourceIcon(woodLabel, "resource_wood");
