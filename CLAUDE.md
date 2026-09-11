@@ -6,6 +6,38 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **HUD scaling made responsive: CanvasScaler switched to Scale With Screen
+  Size (2026-09-12)** — not a numbered roadmap item, a direct follow-up to
+  the `scaleFactor 1→1.6` fix immediately below. That fix made the HUD
+  readable at one specific window size, but per the user's follow-up report
+  (with screenshots) it was still reading small, and — the real ask — they
+  wanted the UI to actually **track the game window's size**: shrink the
+  HUD when the window shrinks, grow it when the window grows, rather than
+  sit at one fixed multiplier tuned for a single observed resolution.
+  `Constant Pixel Size` mode (even with a `scaleFactor`) can never do this —
+  it renders every element at a literal fixed pixel count regardless of
+  actual resolution, by design. Switched `UICanvas`'s `CanvasScaler` to
+  `Scale With Screen Size` (`uiScaleMode=1`) with `referenceResolution
+  ={1000,600}` (deliberately smaller than the HUD's real design canvas —
+  chosen so the computed scale lands close to the same ~1.5x the manual fix
+  had already proven readable, at the window size actually observed live)
+  and `screenMatchMode=MatchWidthOrHeight` at 0.5 (blend width/height
+  equally, this project's existing default). `scaleFactor` reset to 1 (the
+  field this mode ignores). Live-verified via UnityMCP: entered Play mode
+  through a real match, read `Canvas.scaleFactor` directly at runtime —
+  computed to 1.498 (matching the hand-calculated
+  `sqrt(1484/1000 * 907/600)` for the observed window's actual
+  `renderingDisplaySize`), confirming the scale is now genuinely derived
+  from the live window size rather than a hardcoded constant — resizing the
+  window will recompute it accordingly. Screenshotted the resource bar,
+  command-card grid, and info/HP panel at this size: all read the same
+  clear, legible size the prior fixed-multiplier fix already established.
+  507/507 EditMode tests pass unmodified (pure scene-data change — 3 fields
+  in one `CanvasScaler`, confirmed via diff). One scoped commit
+  (`Assets/Scenes/Main.unity` only). Next: whatever the user directs — if
+  a specific window size still doesn't look right, the reference resolution
+  is the one further lever to retune (smaller reference = larger UI at any
+  given window size, and vice versa).
 - **HUD readability fix: CanvasScaler scaleFactor 1→1.6 (2026-09-12)** — not
   a numbered roadmap item, a direct follow-up to the Tier 1 art delivery
   session immediately below, per the user's report (with 2 screenshots)
@@ -27,10 +59,10 @@ asset requirements, 5. Priority order).
   scale together with content, so corner-anchored panels stay put). 507/507
   EditMode tests pass unmodified (pure scene-data change — one field,
   confirmed via diff). One scoped commit (`Assets/Scenes/Main.unity` only —
-  a single-line diff). Next: whatever the user directs — if 1.6x still
-  isn't enough on their display, or specific panels need independent
-  tuning beyond the uniform canvas multiplier, that's the next lever to
-  pull (though no such report has come in yet).
+  a single-line diff). **Superseded by the Scale With Screen Size fix
+  immediately above** — this fixed-multiplier approach couldn't respond to
+  window-size changes, which turned out to be part of what the user
+  actually wanted.
 - **UI_ART_BRIEF.md Tier 1 art delivery wired (2026-09-12)** — not a numbered
   roadmap item. User supplied a complete, self-consistent Canva delivery for
   `docs/UI_ART_BRIEF.md`'s Tier 1 spec at `/Users/bhoome/Downloads/tier 1/`

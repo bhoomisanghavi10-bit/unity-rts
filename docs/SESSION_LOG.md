@@ -5,6 +5,59 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-12 — HUD scaling made responsive: CanvasScaler → Scale With Screen Size
+
+**Scope**: not a numbered roadmap item — a direct follow-up to the `scaleFactor
+1→1.6` fix immediately below, from the same session. The user sent 2 more
+screenshots (both of the pre-match `MissionSelectMenu`/`CivPicker` screen, at what
+appear to be two different window sizes) and clarified the actual ask: it's not
+just "make it bigger once" — "in the minimize size the things should minimize with
+according to display screen of the game. if it decreases the size of the game
+window the elements also decrease size with respect to it." I.e. the HUD should
+track the live window/display size continuously, growing and shrinking with it,
+not sit at one fixed multiplier tuned for a single observed resolution.
+
+**Why the prior fix couldn't do this**: `Constant Pixel Size` mode (which the
+`scaleFactor 1.6` fix kept using) renders every element at a literal, fixed pixel
+count regardless of the actual window resolution, by design — no value of
+`scaleFactor` changes that; it's a static multiplier applied once, not a live
+function of window size.
+
+**Fix**: switched `UICanvas`'s `CanvasScaler` to `Scale With Screen Size`
+(`uiScaleMode: 0 → 1`), which computes its scale from the actual
+`Canvas.renderingDisplaySize` every frame relative to a configured
+`referenceResolution`. Set `referenceResolution` to `{1000, 600}` — deliberately
+smaller than the HUD's literal design canvas — chosen so the computed scale at the
+window size actually observed live (1484x907) lands close to the ~1.5x-1.6x the
+manual fixed-multiplier fix had already proven readable, rather than picking an
+arbitrary reference and hoping it reads right. `screenMatchMode` left at
+`MatchWidthOrHeight`/0.5 (blend width and height equally — this project's existing
+default, unchanged). Reset `scaleFactor` to 1 (the field this mode ignores
+entirely, left clean rather than stale at 1.6).
+
+**Live verification**: entered Play mode via UnityMCP, started a real match, and —
+rather than trust the math — read `Canvas.scaleFactor` directly at runtime via
+reflection: **1.498**, matching the hand-computed
+`sqrt(1484/1000 × 907/600) ≈ 1.498` for the window's actual
+`renderingDisplaySize` (1484x907) exactly, confirming the scale genuinely comes
+from live window dimensions now, not a hardcoded constant — resizing the actual
+window will recompute this on the next layout pass, the behavior the user asked
+for. Re-screenshotted the resource bar, command-card grid, and info/HP panel at
+this same window size: all read at the same clear, legible size the prior fix had
+already established (expected, since 1.498 ≈ 1.6). 507/507 EditMode tests pass
+unmodified (pure scene-data change — 3 `CanvasScaler` fields, confirmed via `git
+diff`). One scoped commit.
+
+**Not verified live**: an actual window resize during a running session (no tool
+available to resize the real Unity Game view panel from this session) — verified
+instead by confirming the scale is genuinely computed from `renderingDisplaySize`
+rather than hardcoded, which is the mechanism that guarantees correct behavior on
+resize; if the user resizes their window and it doesn't look right, the
+`referenceResolution` is the next tuning lever (smaller reference → larger UI at
+any given window size, and vice versa).
+
+---
+
 ## 2026-09-12 — HUD readability fix: CanvasScaler scaleFactor 1 → 1.6
 
 **Scope**: not a numbered roadmap item — a direct follow-up to the Tier 1 art
