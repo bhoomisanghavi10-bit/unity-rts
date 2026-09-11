@@ -5,6 +5,51 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-12 — HUD readability fix: CanvasScaler scaleFactor 1 → 1.6
+
+**Scope**: not a numbered roadmap item — a direct follow-up to the Tier 1 art
+delivery session immediately below, per the user's report (with 2 screenshots, one
+in-game and one showing the full Unity Editor for scale reference) that "everything
+is too small for humans to read... even in full screen the panels and texts look
+very small."
+
+**Root cause**: `UICanvas`'s `CanvasScaler` component uses `UI Scale Mode = Constant
+Pixel Size` (`uiScaleMode=0`) with `scaleFactor=1`. In this mode every UI element
+renders at exactly its authored RectTransform pixel size regardless of the actual
+screen/window resolution — a 200x120 resource panel or a 48x48 command-card button
+is genuinely only that many real screen pixels on any display, including a large
+one. The `referenceResolution` field (1920x1080) is inert in this mode — it only
+applies under `Scale With Screen Size`, which isn't in use here.
+
+**Fix**: raised `CanvasScaler.scaleFactor` from 1 to 1.6 — the single canvas-level
+multiplier `Constant Pixel Size` mode exposes specifically for this. It scales every
+UI element (RectTransform sizes, anchored corner offsets, and TMP font sizes)
+uniformly together, so relative layout/spacing is preserved and no per-panel
+RectTransform or font-size edits were needed. Considered switching to `Scale With
+Screen Size` instead, but ruled it out: the actual Game view resolution observed live
+(1484x907) is *smaller* than the configured reference resolution (1920x1080), so that
+mode would have scaled the UI down, not up — the opposite of what was needed.
+
+**Live verification**: entered Play mode via UnityMCP, started a real match
+(`CivilizationSetup.BeginMatch(Maurya)`, via reflection) with the pre-match menu
+overlays deactivated to see the live HUD. Screenshotted the resource bar, the
+`MatchStatus` panel, the minimap frame, and — with a real `TownCenter` selected via
+`SelectionManager` reflection — the command-card grid and the `SelectedUnitPanel`
+HP bar stack, all clearly larger and readable with text no longer cramped against
+frame borders. Corner-anchored panels (top-left resource bar, bottom-right minimap)
+stayed correctly anchored with no elements pushed off-screen, since anchored offsets
+scale together with the content rather than staying fixed while content grows.
+507/507 EditMode tests pass unmodified (pure scene-data change — confirmed via `git
+diff` that only `CanvasScaler.m_ScaleFactor` changed in `Assets/Scenes/Main.unity`,
+a single-line diff). One scoped commit.
+
+**Not done / open**: no other CanvasScaler settings were touched (mode stays Constant
+Pixel Size); if 1.6x still isn't enough on the user's actual display, or a specific
+panel needs independent tuning beyond this uniform multiplier, that's a further step
+— no such follow-up report has come in yet.
+
+---
+
 ## 2026-09-12 — UI_ART_BRIEF.md Tier 1 art delivery wired (command-card frame,
 resource-bar frame, 19 action icons, 4 resource icons)
 

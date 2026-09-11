@@ -6,6 +6,31 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **HUD readability fix: CanvasScaler scaleFactor 1→1.6 (2026-09-12)** — not
+  a numbered roadmap item, a direct follow-up to the Tier 1 art delivery
+  session immediately below, per the user's report (with 2 screenshots)
+  that "everything is too small for humans to read... even in full screen."
+  Root cause: `UICanvas`'s `CanvasScaler` is in `Constant Pixel Size` mode
+  (`uiScaleMode=0`), which renders every UI element at its literal authored
+  pixel size regardless of actual screen/window resolution — with a
+  `scaleFactor` of 1, a 200x120 resource panel or 48x48 command-card button
+  stays exactly that size in real screen pixels on any display, including a
+  large one, which is what made the user's fullscreen HUD read as tiny.
+  Fixed by raising `CanvasScaler.scaleFactor` to 1.6 — a single canvas-level
+  multiplier that scales every UI element (RectTransform sizes, anchored
+  offsets, and font sizes together) uniformly, so relative layout is
+  unaffected and nothing needed touching per-panel. Live-verified via
+  UnityMCP through a real match: resource bar, command-card grid, the
+  `MatchStatus`/`SelectedUnitPanel` info stack, and the minimap frame are
+  all visibly and proportionally larger with text clearly readable, with no
+  clipping or off-screen elements at the corners (anchor-relative offsets
+  scale together with content, so corner-anchored panels stay put). 507/507
+  EditMode tests pass unmodified (pure scene-data change — one field,
+  confirmed via diff). One scoped commit (`Assets/Scenes/Main.unity` only —
+  a single-line diff). Next: whatever the user directs — if 1.6x still
+  isn't enough on their display, or specific panels need independent
+  tuning beyond the uniform canvas multiplier, that's the next lever to
+  pull (though no such report has come in yet).
 - **UI_ART_BRIEF.md Tier 1 art delivery wired (2026-09-12)** — not a numbered
   roadmap item. User supplied a complete, self-consistent Canva delivery for
   `docs/UI_ART_BRIEF.md`'s Tier 1 spec at `/Users/bhoome/Downloads/tier 1/`
