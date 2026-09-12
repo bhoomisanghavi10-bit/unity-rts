@@ -53,6 +53,7 @@ namespace KingdomsOfBharat.Combat
             agent.speed = def != null ? def.moveSpeed : 2.2f;
 
             var unit = go.AddComponent<Unit>();
+            unit.IconKey = "train_unique_vijayanagara_elephant";
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             // General garrisoning system (2026-09-01): lets this unit

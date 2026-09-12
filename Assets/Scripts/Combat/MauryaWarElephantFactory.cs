@@ -78,6 +78,7 @@ namespace KingdomsOfBharat.Combat
             agent.speed = def != null ? def.moveSpeed : 2f;
 
             var unit = root.AddComponent<Unit>();
+            unit.IconKey = "train_unique_maurya_elephant";
             root.AddComponent<UnitMover>();
             root.AddComponent<SelectionIndicator>();
             // General garrisoning system (2026-09-01): lets this unit be

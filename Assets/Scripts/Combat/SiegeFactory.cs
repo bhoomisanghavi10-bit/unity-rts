@@ -50,6 +50,7 @@ namespace KingdomsOfBharat.Combat
             agent.speed = def != null ? def.moveSpeed : 1.8f;
 
             var unit = go.AddComponent<Unit>();
+            unit.IconKey = "train_siege";
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();

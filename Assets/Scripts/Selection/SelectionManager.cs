@@ -885,6 +885,23 @@ namespace KingdomsOfBharat.Selection
             }
         }
 
+        // Public narrowing entry point for SelectedUnitPanel's group-
+        // selection icon row (2026-09-13): clicking one unit's icon out of
+        // a multi-unit selection collapses the selection down to just that
+        // unit, same as clicking it directly in the world would. Reuses
+        // ClearSelection/Select so indicator state (SetSelected true/false)
+        // stays correct for every unit, not just the kept one.
+        public void SelectOnly(Unit unit)
+        {
+            if (unit == null)
+            {
+                return;
+            }
+
+            ClearSelection();
+            Select(unit);
+        }
+
         // Single-select, mutually exclusive with unit selection - ClearSelection
         // (called by both SelectSingle and SelectInBox before reselecting)
         // already drops any previously selected building.

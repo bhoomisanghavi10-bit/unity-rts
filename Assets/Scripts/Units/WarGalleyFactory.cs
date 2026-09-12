@@ -52,7 +52,7 @@ namespace KingdomsOfBharat.Units
                 ? $"{profile.DisplayName} {tier.Name}"
                 : $"Enemy {profile.DisplayName} {tier.Name}";
 
-            go.AddComponent<Unit>();
+            go.AddComponent<Unit>().IconKey = "train_wargalley";
             go.AddComponent<WaterMover>();
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();

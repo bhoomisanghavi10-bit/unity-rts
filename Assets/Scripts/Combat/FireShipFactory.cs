@@ -55,7 +55,7 @@ namespace KingdomsOfBharat.Combat
                 ? $"{profile.DisplayName} {tier.Name}"
                 : $"Enemy {profile.DisplayName} {tier.Name}";
 
-            go.AddComponent<Unit>();
+            go.AddComponent<Unit>().IconKey = "train_fireship";
             go.AddComponent<WaterMover>();
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();

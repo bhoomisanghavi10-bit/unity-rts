@@ -30,6 +30,17 @@ namespace KingdomsOfBharat.Units
     {
         public static readonly List<Unit> All = new List<Unit>();
 
+        // Resources/UI/Icons/{IconKey}.png - same icon-key convention
+        // BuildMenu.cs's own training buttons already use (e.g.
+        // "train_worker", "train_unique_chola"), so the two stay in sync
+        // for free. Set once by each unit factory right after spawning;
+        // null for anything a factory doesn't stamp (falls back to a
+        // placeholder in the UI, same convention BuildMenu itself already
+        // uses for icon-less buttons). Added for the SelectedUnitPanel
+        // group-selection icon row (2026-09-13) - the first consumer
+        // outside BuildMenu of this icon-key convention.
+        public string IconKey;
+
         private void OnEnable()
         {
             All.Add(this);

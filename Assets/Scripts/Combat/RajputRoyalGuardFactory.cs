@@ -52,6 +52,7 @@ namespace KingdomsOfBharat.Combat
             agent.speed = def != null ? def.moveSpeed : 6f;
 
             var unit = go.AddComponent<Unit>();
+            unit.IconKey = "train_unique_rajput";
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             // General garrisoning system (2026-09-01): lets this unit

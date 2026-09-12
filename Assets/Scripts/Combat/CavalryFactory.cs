@@ -60,6 +60,7 @@ namespace KingdomsOfBharat.Combat
             }
 
             var unit = go.AddComponent<Unit>();
+            unit.IconKey = "train_cavalry";
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             // General garrisoning system (2026-09-01): lets this unit

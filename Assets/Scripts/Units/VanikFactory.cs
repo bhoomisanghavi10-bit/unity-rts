@@ -43,6 +43,7 @@ namespace KingdomsOfBharat.Units
             agent.speed = def != null ? def.moveSpeed : 3.5f;
 
             var unit = go.AddComponent<Unit>();
+            unit.IconKey = "train_vanik";
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             go.AddComponent<GarrisonSeeker>();

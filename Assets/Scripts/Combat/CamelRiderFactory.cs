@@ -60,6 +60,7 @@ namespace KingdomsOfBharat.Combat
             agent.speed = def != null ? def.moveSpeed : 6.5f;
 
             var unit = go.AddComponent<Unit>();
+            unit.IconKey = "train_camelrider";
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             // General garrisoning system (2026-09-01): lets this unit

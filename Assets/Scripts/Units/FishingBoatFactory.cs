@@ -34,7 +34,7 @@ namespace KingdomsOfBharat.Units
                 ? $"{profile.DisplayName} Fishing Boat"
                 : $"Enemy {profile.DisplayName} Fishing Boat";
 
-            go.AddComponent<Unit>();
+            go.AddComponent<Unit>().IconKey = "train_fishingboat";
             go.AddComponent<WaterMover>();
             go.AddComponent<SelectionIndicator>();
             go.AddComponent<BoatGatherer>();

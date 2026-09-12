@@ -6,6 +6,71 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **New feature: SelectedUnitPanel group-selection icon row (2026-09-13)**
+  — not a bug fix, a real feature the user asked for: when a group of units
+  is selected, show a per-unit icon row so the player can pick a specific
+  unit out of the group, matching AoE's own multi-select portrait row.
+  Investigated first (an Explore agent survey) rather than assumed:
+  confirmed no icon lookup tied to a live `Unit` existed anywhere (only
+  hardcoded per-button icon keys in `BuildMenu.cs`'s own training buttons),
+  and `SelectionManager` had no way to narrow a multi-unit selection down
+  to one. Both needed building. 3 design decisions confirmed via
+  AskUserQuestion before writing anything: clicking an icon narrows the
+  whole selection to that unit (not just a highlight); icons are sourced
+  from a **new `Unit.IconKey` field stamped by each factory at spawn**
+  (not derived from the coarse `UnitClass` enum, which conflates e.g.
+  Worker/Soldier/Spearman all as "Infantry"), reusing the *exact* icon-key
+  strings `BuildMenu.ApplyTheme()`'s own `SetupGridCell` calls already
+  establish (`"train_worker"`, `"train_unique_chola"`, etc.) so the two
+  stay in sync for free; and the group row is a **single horizontal
+  scrollable strip** (not a wrapping grid), the user's own choice over
+  wrapping - new territory for this codebase (no prior horizontal-scroll
+  precedent; `SettingsMenu`'s own scroll list is vertical).
+  - `Unit.cs` gained one public field, `IconKey` (string, null by
+    default - falls back to a flat placeholder square in the UI, same
+    convention `BuildMenu.cs` itself already uses for its own icon-less
+    buttons).
+  - **26 unit-spawning factories** each gained one line
+    (`unit.IconKey = "train_X";`) right after their own existing
+    `AddComponent<Unit>()` call, using the identical key string
+    `BuildMenu.cs` already uses for that unit's own training button -
+    confirmed by grepping every `SetupGridCell(...)` call in
+    `BuildMenu.cs` first rather than inventing new key strings.
+    `TradeShipFactory` deliberately stamps nothing (matches
+    `tradeShipButton`'s own `null` icon key - no art exists for it yet).
+  - `SelectionManager.cs` gained one new public method,
+    `SelectOnly(Unit)` - thin wrapper over the existing private
+    `ClearSelection()`+`Select()` pair (unchanged), so indicator state
+    stays correct for every unit, not just the kept one.
+  - `SelectedUnitPanel.cs`: new `SetUpGroupIconRow()` (built once in
+    `Awake()`, a `ScrollRect`+`Viewport`(`RectMask2D`)+`Content` row
+    positioned right below `groupCountLabel`, horizontal-only scroll) and
+    `RefreshGroupIconRow()` (rebuilds the icon buttons only when the
+    actual set of selected units changes - not every frame - comparing
+    the live `Selected` list against a cached snapshot by reference;
+    avoids both wasted GameObject churn and the row silently rescrolling
+    to the start on every single frame). Each icon's `onClick` calls the
+    new `SelectionManager.SelectOnly`. Group row is explicitly hidden in
+    every other branch (single-unit, building, no-selection) so it can
+    never linger stale, same lesson as this session's earlier
+    stale-HP-bar fix.
+  511/511 EditMode tests pass unmodified - `SelectionManager` itself has
+  no existing EditMode test coverage at all (its own box-select/raycast
+  logic is Play-mode-only), and `SelectOnly` is a thin 2-call wrapper over
+  already-untested-but-already-live-relied-upon methods, so this was
+  live-verified instead rather than forcing new test infrastructure onto
+  an otherwise-untested class. Live-verified via UnityMCP through the real
+  production path: selected 4 real "Maratha Worker" units, confirmed
+  `IconKey` read back as `"train_worker"` on the live `Unit` instance,
+  screenshotted the real icon row (4 worker icons, correctly positioned
+  clear of the portrait notch), invoked a real icon button's `onClick`
+  and confirmed `SelectionManager.Selected.Count` dropped 4->1 with the
+  panel correctly switching to the single-unit view ("Maratha Worker",
+  HP 20/20) and the group row hidden. One scoped commit (`Unit.cs`,
+  `SelectionManager.cs`, `SelectedUnitPanel.cs`, and the 26 factory
+  files only - `ObjectivePanel.cs` showed modified in the working tree
+  from a concurrent session, not touched here). Next: whatever the user
+  directs.
 - **Fixed a real BuildMenu/SelectedUnitPanel overlap found via a resolution/
   alignment re-check (2026-09-13)** — the user asked to re-verify the HUD
   for panel overlap; measured both panels' actual world-space corners via

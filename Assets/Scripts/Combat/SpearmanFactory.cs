@@ -48,6 +48,7 @@ namespace KingdomsOfBharat.Combat
             agent.speed = def != null ? def.moveSpeed : 3.5f;
 
             var unit = go.AddComponent<Unit>();
+            unit.IconKey = "train_spearman";
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             // General garrisoning system (2026-09-01): lets this unit

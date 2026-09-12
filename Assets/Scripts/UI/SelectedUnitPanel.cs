@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -72,6 +73,167 @@ namespace KingdomsOfBharat.UI
             }
 
             SetUpHealthBar();
+            SetUpGroupIconRow();
+        }
+
+        // 2026-09-13: lets the player pick a specific unit out of a
+        // multi-unit selection instead of only ever seeing "N units
+        // selected" - a single horizontal scrollable row of per-unit
+        // icons (user's own choice over a wrapping grid, which the
+        // panel's tight width made awkward for large groups) underneath
+        // groupCountLabel; clicking one narrows the whole selection down
+        // to just that unit via SelectionManager.SelectOnly.
+        private const float GroupIconSize = 28f;
+        private const float GroupIconGap = 4f;
+        // Matches groupCountLabel's own row height (20) plus a small gap -
+        // same distance StatusLabel already sits below NameLabel in the
+        // single-unit layout, so this row continues that same rhythm.
+        private const float GroupRowTopOffset = 59f;
+
+        private GameObject _groupIconRoot;
+        private RectTransform _groupIconContent;
+        private readonly List<Unit> _lastGroupSnapshot = new List<Unit>();
+
+        private void SetUpGroupIconRow()
+        {
+            if (groupCountLabel == null)
+            {
+                return;
+            }
+
+            RectTransform labelRect = groupCountLabel.GetComponent<RectTransform>();
+
+            _groupIconRoot = new GameObject("GroupIconScroll", typeof(RectTransform));
+            _groupIconRoot.transform.SetParent(labelRect.parent, false);
+            RectTransform rootRect = _groupIconRoot.GetComponent<RectTransform>();
+            rootRect.anchorMin = new Vector2(0f, 1f);
+            rootRect.anchorMax = new Vector2(0f, 1f);
+            rootRect.pivot = new Vector2(0f, 1f);
+            rootRect.anchoredPosition = new Vector2(labelRect.anchoredPosition.x, -GroupRowTopOffset);
+            rootRect.sizeDelta = new Vector2(labelRect.sizeDelta.x, GroupIconSize);
+
+            var scroll = _groupIconRoot.AddComponent<ScrollRect>();
+            scroll.horizontal = true;
+            scroll.vertical = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = GroupIconSize;
+
+            var viewportGo = new GameObject("Viewport", typeof(RectTransform));
+            viewportGo.transform.SetParent(_groupIconRoot.transform, false);
+            RectTransform viewportRect = viewportGo.GetComponent<RectTransform>();
+            viewportRect.anchorMin = Vector2.zero;
+            viewportRect.anchorMax = Vector2.one;
+            viewportRect.offsetMin = Vector2.zero;
+            viewportRect.offsetMax = Vector2.zero;
+            viewportGo.AddComponent<RectMask2D>();
+            // Near-transparent rather than fully transparent so this Image
+            // still catches drag/scroll input over the whole viewport, not
+            // just where an icon's own Image sits - same convention
+            // SettingsMenu's Key Bindings scroll already established.
+            Image viewportImage = viewportGo.AddComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
+
+            var contentGo = new GameObject("Content", typeof(RectTransform));
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            _groupIconContent = contentGo.GetComponent<RectTransform>();
+            _groupIconContent.anchorMin = new Vector2(0f, 0.5f);
+            _groupIconContent.anchorMax = new Vector2(0f, 0.5f);
+            _groupIconContent.pivot = new Vector2(0f, 0.5f);
+            _groupIconContent.anchoredPosition = Vector2.zero;
+            _groupIconContent.sizeDelta = new Vector2(0f, GroupIconSize);
+
+            scroll.viewport = viewportRect;
+            scroll.content = _groupIconContent;
+
+            _groupIconRoot.SetActive(false);
+        }
+
+        // Only rebuilds the icon buttons when the actual set of selected
+        // units changed (not every frame) - a fresh GameObject per icon
+        // every Update() would be wasteful, and would also scroll the
+        // row back to the start on every single frame.
+        private void RefreshGroupIconRow(IReadOnlyList<Unit> units)
+        {
+            if (_groupIconRoot == null)
+            {
+                return;
+            }
+
+            _groupIconRoot.SetActive(true);
+            if (GroupSnapshotMatches(units))
+            {
+                return;
+            }
+
+            _lastGroupSnapshot.Clear();
+            _lastGroupSnapshot.AddRange(units);
+
+            for (int i = _groupIconContent.childCount - 1; i >= 0; i--)
+            {
+                Destroy(_groupIconContent.GetChild(i).gameObject);
+            }
+
+            float x = 0f;
+            foreach (Unit unit in units)
+            {
+                Unit capturedUnit = unit;
+                var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image), typeof(Button));
+                iconGo.transform.SetParent(_groupIconContent, false);
+                RectTransform iconRect = iconGo.GetComponent<RectTransform>();
+                iconRect.anchorMin = new Vector2(0f, 0.5f);
+                iconRect.anchorMax = new Vector2(0f, 0.5f);
+                iconRect.pivot = new Vector2(0f, 0.5f);
+                iconRect.sizeDelta = new Vector2(GroupIconSize, GroupIconSize);
+                iconRect.anchoredPosition = new Vector2(x, 0f);
+
+                Image image = iconGo.GetComponent<Image>();
+                Sprite icon = string.IsNullOrEmpty(capturedUnit.IconKey)
+                    ? null
+                    : Resources.Load<Sprite>("UI/Icons/" + capturedUnit.IconKey);
+                if (icon != null)
+                {
+                    image.sprite = icon;
+                    image.color = Color.white;
+                }
+                else
+                {
+                    // No icon art for this unit type yet - flat placeholder
+                    // square, same fallback convention BuildMenu.cs's own
+                    // command grid already uses for icon-less buttons.
+                    image.color = new Color(0.6f, 0.55f, 0.4f, 1f);
+                }
+
+                Button button = iconGo.GetComponent<Button>();
+                button.onClick.AddListener(() =>
+                {
+                    if (capturedUnit != null && _selectionManager != null)
+                    {
+                        _selectionManager.SelectOnly(capturedUnit);
+                    }
+                });
+
+                x += GroupIconSize + GroupIconGap;
+            }
+
+            _groupIconContent.sizeDelta = new Vector2(Mathf.Max(0f, x - GroupIconGap), GroupIconSize);
+        }
+
+        private bool GroupSnapshotMatches(IReadOnlyList<Unit> units)
+        {
+            if (units.Count != _lastGroupSnapshot.Count)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < units.Count; i++)
+            {
+                if (!ReferenceEquals(units[i], _lastGroupSnapshot[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         // hp_bar_frame/hp_bar_fill are siblings of hpLabel (same parent,
@@ -166,6 +328,7 @@ namespace KingdomsOfBharat.UI
             panelRoot.SetActive(hasSelection);
             if (!hasSelection)
             {
+                _groupIconRoot?.SetActive(false);
                 return;
             }
 
@@ -174,6 +337,7 @@ namespace KingdomsOfBharat.UI
                 nameLabel.gameObject.SetActive(true);
                 statusLabel.gameObject.SetActive(true);
                 groupCountLabel.gameObject.SetActive(false);
+                _groupIconRoot?.SetActive(false);
                 DrawBuilding(selectedBuilding);
                 return;
             }
@@ -185,6 +349,7 @@ namespace KingdomsOfBharat.UI
 
             if (single)
             {
+                _groupIconRoot?.SetActive(false);
                 DrawSingle(_selectionManager.Selected[0]);
             }
             else
@@ -200,6 +365,7 @@ namespace KingdomsOfBharat.UI
                 // behind "4 units selected".
                 hpLabel.gameObject.SetActive(false);
                 SetHealthBar(false, null);
+                RefreshGroupIconRow(_selectionManager.Selected);
             }
         }
 

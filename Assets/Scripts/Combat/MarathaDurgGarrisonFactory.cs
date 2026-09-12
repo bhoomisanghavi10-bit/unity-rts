@@ -56,6 +56,7 @@ namespace KingdomsOfBharat.Combat
             agent.speed = def != null ? def.moveSpeed : 3.5f;
 
             var unit = go.AddComponent<Unit>();
+            unit.IconKey = "train_unique_maratha_durggarrison";
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();

@@ -53,6 +53,7 @@ namespace KingdomsOfBharat.Combat
             agent.speed = def != null ? def.moveSpeed : 1.0f;
 
             var unit = go.AddComponent<Unit>();
+            unit.IconKey = "train_trebuchet";
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             var attackable = go.AddComponent<Attackable>();
