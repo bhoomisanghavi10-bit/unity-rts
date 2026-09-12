@@ -1075,6 +1075,42 @@ wave rather than being retrofitted piecemeal afterward.
     invisible states. No `MinimapController.cs` change needed — it renders the live scene
     through a second camera, so the banners read there automatically. *Depends on: nothing
     structurally — closed with no blockers.*
+    **REOPENED (2026-09-12), flagged by the user directly from live play: the banner/pennant
+    approach does not read correctly as a team-color system in practice** — the user's own
+    judgment call, not a re-litigation of the original AoE-reference research (that research
+    still stands: real AoE also uses discrete geometry, not a painted mask). The specific
+    complaint is the resulting visual/UI is wrong, not a mechanical bug in the banner code
+    itself (scale-compensation, Age-up rebuild-safety, etc. are still believed correct). **Not
+    yet re-scoped or re-implemented** — needs a fresh design pass before any code: candidates
+    worth investigating include a real per-pixel accent-mask/second-color shader channel (the
+    option the original research flagged as needing new texture/shader authoring and set aside
+    in favor of banners), a colored rim-light/outline shader on the unit silhouette itself
+    (cheap, no new art, reads clearly at RTS zoom — not evaluated last time), or a larger/more
+    prominent banner placement+size than the current small pennant. Whichever direction is
+    picked should be checked against the same live-match visual bar this session's own
+    complaint came from, not just unit tests. Next session on this item should start with
+    AskUserQuestion to pin down what "correct" looks like before writing any code.
+    **Investigated 2026-09-12 (asset-blocked, no code changed).** User supplied 3 real AoE II:
+    Definitive Edition reference screenshots showing the target: team color painted onto
+    architectural trim (dome/roofline/banner cloth) on buildings and as a large, dominant
+    cloth/tunic area on units — not a small flag. Investigation before any code found a hard
+    structural blocker on both sides: units render from one single flat-color material for the
+    whole body (`HumanModelFactory.ApplyPaletteMaterial` — the same mechanism that already
+    drives civ identity, with no separate cloth region to isolate), and buildings collapse to
+    exactly one material per model too (confirmed live via UnityMCP on Chola's TownCenter/
+    Tower/Barracks, and in `Assets/Editor/MeshyBuildingImporter.cs`'s import-time
+    material-slot overwrite) — so there's no existing "trim" material to tint separately from
+    "stone" either. Presented both findings to the user directly (AskUserQuestion, twice,
+    covering units and buildings separately since the building finding surfaced mid-session)
+    rather than building a compromise silently; user chose "wait for real art" for both,
+    explicitly declining the code-only fallbacks offered (a bigger cloth accessory for units, a
+    bigger/multi-banner treatment for buildings). Wrote `docs/TEAM_COLOR_ART_BRIEF.md` — a
+    mask-texture + shader-lerp spec (per-model grayscale mask, `lerp(baseAlbedo, teamColor,
+    mask)`) with a full per-unit/per-building checklist and a recommended pilot scope (Soldier
+    body + TownCenter) before committing to the full ~65-asset roster. Existing banner/pennant
+    code (`Core/TeamColorAccent.cs`) is unaffected and keeps running as the fallback. Status is
+    now **asset-blocked**, not started — next session on this item needs new mask-texture art
+    sourced before any code can land.
 30. **[L] UI layout re-anchor — bottom bar. Closed (2026-09-05).** From the UI Layout sheet:
     re-anchor `BuildMenu.cs`, `SelectedUnitPanel.cs`, and a slice of `ResourceHUD.cs` into one
     shared bottom-docked root (command panel / info panel / minimap, left to right), matching

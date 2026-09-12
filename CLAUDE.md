@@ -6,6 +6,33 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 5 item 29 (Player/team colour system) re-investigated, asset-blocked
+  (2026-09-12)** — the user reopened this item from live play and supplied 3
+  real AoE II: Definitive Edition reference screenshots showing the target:
+  team color painted onto architectural trim (dome/roofline/banner cloth) on
+  buildings and as a large, dominant cloth/tunic area on units, not the small
+  pennant this item originally shipped. Investigated before any code, per this
+  item's own note to design-check first: both units and buildings turned out to
+  render from exactly one flat-color material for the whole model — units via
+  `HumanModelFactory.ApplyPaletteMaterial` (the same mechanism that drives civ
+  identity, no separate cloth region to isolate), buildings confirmed live via
+  UnityMCP (Chola's TownCenter/Tower/Barracks each have exactly 1 `Renderer`/1
+  `Material`) and in `Assets/Editor/MeshyBuildingImporter.cs`'s import-time
+  material-slot collapse. Neither has an existing "trim"/"cloth" region a code
+  change alone could isolate and tint. Put both findings to the user directly
+  (AskUserQuestion, twice) rather than shipping a silent compromise; user chose
+  "wait for real art" for both, declining the offered code-only fallbacks (a
+  bigger cloth accessory for units, bigger/multi-banner treatment for
+  buildings). Wrote `docs/TEAM_COLOR_ART_BRIEF.md` — a mask-texture +
+  shader-lerp spec with a full per-unit/per-building checklist and a
+  recommended pilot scope (Soldier body + TownCenter) before committing to the
+  full ~65-asset roster. No gameplay/rendering code changed this session;
+  existing banner/pennant code (`Core/TeamColorAccent.cs`) is untouched and
+  keeps running as the fallback. Docs-only commit
+  (`docs/TEAM_COLOR_ART_BRIEF.md` new, `docs/IMPLEMENTATION_ROADMAP.md`/
+  `CLAUDE.md`/`docs/SESSION_LOG.md` updated). Next: whatever the user
+  directs — this item needs new mask-texture art sourced before more code can
+  land on it; otherwise Wave 5 item 32 or the Wave 6 backlog.
 - **HUD bottom bar reshaped to match AoE reference layouts (2026-09-12)** —
   direct follow-up to the 4-bug fix immediately below; the user shared 2 AoE
   II/III reference screenshots and asked for the HUD reshaped to match, then

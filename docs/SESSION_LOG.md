@@ -5,6 +5,61 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-12 — Wave 5 item 29 (team colour) re-investigated, found asset-blocked, spec written
+
+**Scope**: the user reopened item 29 (Player/team colour system) from live play — the
+banner/pennant approach shipped 2026-09-07 doesn't read as a real team-color system.
+Supplied 3 real AoE II: Definitive Edition reference screenshots showing the target: team
+color painted onto architectural trim (dome bases, roof edges, parapet banners, arch
+borders) on buildings, and as a large, dominant cloth/tunic area on units — not a small
+flag. The item's own roadmap note said to open with AskUserQuestion before writing any
+code, so no implementation was attempted before design was pinned down.
+
+**Investigation, not assumption**: read `Core/TeamColor.cs`/`Core/TeamColorAccent.cs`
+(the existing pennant system) directly, then `Assets/Scripts/Units/HumanModelFactory.cs`'s
+`ApplyPaletteMaterial` — confirmed it assigns one single flat-color material to every
+renderer on a unit's whole body (the same mechanism that already drives civ identity via a
+texture-offset swap on a shared trim-sheet material). No separate cloth/tunic region exists
+to recolor independently of skin/armor for team purposes.
+
+Asked the user how to handle units given that constraint (AskUserQuestion: bigger cloth
+accessory now / wait for real art / rim-light outline shader) — **user chose "wait for
+real art."**
+
+Then investigated buildings, expecting a different (better) answer since
+`BuildingModelFactory.TintMaterials` already loops every material on every renderer doing a
+civ-color Lerp — spawned a Chola TownCenter/Tower/Barracks live via UnityMCP
+(`execute_code`) and enumerated their actual `Renderer`/`Material` lists: **each has exactly
+1 renderer and 1 material**. A parallel Explore-agent read of `Assets/Editor/
+MeshyBuildingImporter.cs` confirmed why — it force-overwrites every renderer's material
+slots down to one shared material at import time (lines ~111-116), regardless of the source
+FBX's own material count. So buildings have the identical structural blocker as units: no
+"trim" material to isolate and tint separately from "stone." Put this second finding to the
+user directly (a second AskUserQuestion, since the premise of the first plan had just
+changed) — **user again chose "wait for real art," for buildings too**, declining the
+offered code-only fallback (bigger/more banners).
+
+**Deliverable this session**: `docs/TEAM_COLOR_ART_BRIEF.md` (new) — a mask-texture +
+shader-lerp technical spec (per-model grayscale mask, `lerp(baseAlbedo, teamColor,
+maskValue)`, sampled by a small URP shader with a per-instance team-color property already
+available via `TeamColor.For(faction)`), sourcing guidance (AI-assisted mask generation vs.
+hand-painting, same workflow as prior UI art deliveries), a recommendation to pilot on one
+unit + one building (Soldier body + TownCenter) before committing to the full roster, and a
+full per-unit/per-building checklist (~20 unit-body variants + 45 civ-building combos).
+Explicitly noted the current banner/pennant code stays running unchanged as a fallback.
+`docs/IMPLEMENTATION_ROADMAP.md` item 29 and `CLAUDE.md`'s status section both updated to
+record the investigation and mark the item **asset-blocked**, not started.
+
+**No gameplay or rendering code changed this session** — docs-only:
+`docs/TEAM_COLOR_ART_BRIEF.md` (new), `docs/IMPLEMENTATION_ROADMAP.md`, `CLAUDE.md`, this
+entry. No EditMode test run needed (nothing under `Assets/` touched).
+
+**Next**: this item needs new mask-texture art sourced (per the brief's pilot
+recommendation) before any further code can land on it. Otherwise Wave 5 item 32
+(Age/research readout) or the Wave 6 backlog, user's call.
+
+---
+
 ## 2026-09-12 — Fixed the Tier 2 text/crown-ornament overlap flagged earlier the same day
 
 **Scope**: the follow-up flagged as `task_9e3bd382` at the end of the Tier 2 art
