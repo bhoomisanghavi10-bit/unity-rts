@@ -5,6 +5,74 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-12 — Wave 5 item 29 follow-up: full 45-combo visual pass on the building trim tint
+
+**Scope**: direct continuation, same session, of the metallic-trim shipping session logged
+immediately below — the user explicitly asked to "do a visual pass on the other 44 buildings"
+after that session's own pilot (Chola TownCenter only).
+
+**Method**: entered Play mode, began a real match, and spawned all 45 civ/building combinations
+directly via `BuildingModelFactory.Spawn` (bypassing each building's own `Factory.Place`
+deliberately, so every combination could be forced onto its own real `CivilizationId` rather than
+whatever civ each faction happened to be assigned) — 0 exceptions across all 45. Screenshotted
+representative rows/close-ups across all 5 civs from multiple camera angles.
+
+**A real misdiagnosis, caught before shipping a fix for it**: the first close-up of
+Vijayanagara's TownCenter showed a broad pink wash across large wall sections, which read as
+"over-tinted" relative to Chola's clean localized highlighting. Reported this to the user with
+3 options (accept as-is / tune the over-tinted ones / investigate the invisible ones); user
+picked "tune the over-tinted ones now." Before touching the shader, went to verify the exact
+metallic-map content driving the effect (per this session's own established practice of checking
+actual pixel data rather than trusting a screenshot read) — and found the premise was wrong:
+`TownCenter_metallicSmoothness.png` for Vijayanagara measures **all zero** (Python/Pillow
+histogram: mean 0.0, 0.00% pixels above 128 across the whole 2048×2048 image), meaning
+`TeamColorBuildingTint`'s blend factor is ~0 everywhere on this building — the mechanism is
+doing virtually nothing here. Opened `TownCenter_albedo.png` directly and confirmed the pink
+patch is baked into the existing albedo texture itself, in the exact same UV region, entirely
+independent of team color. Went back to the user with the corrected finding rather than
+proceeding with the originally-approved shader tuning, since there was no over-tinting bug for
+it to fix.
+
+**Full pixel-measured picture, gathered with a small Python/Pillow script over the metallic maps
+directly** (not estimated from screenshots):
+
+| Building | Metallic map mean | % pixels > 128 |
+|---|---|---|
+| Chola TownCenter | 9.2 | 1.72% |
+| Vijayanagara TownCenter | 0.0 | 0.00% |
+| Vijayanagara Tower | 0.5 | 0.02% |
+| Vijayanagara Barracks | 0.0 | 0.00% |
+| Maurya TownCenter | 1.4 | 0.00% |
+| Maurya Tower | 0.0 | 0.00% |
+| Maurya Barracks | 0.9 | 0.00% |
+
+Chola's real, moderate metallic content produces the clean localized ornament highlighting seen
+in the prior session's pilot. Maurya's TownCenter is the interesting middle case: a near-zero
+average, but its sparse bright pixels are concentrated exactly on the gilded dome (a physically
+metallic surface in the source art), so that one region recolors fully and correctly to team
+color while the rest of the building is completely untouched — visually dramatic, but working
+exactly as designed, not a bug. Vijayanagara's whole building set and Maurya's Tower/Barracks
+have no usable metallic signal at all and get no visible effect from this mechanism — they fall
+back entirely to the pre-existing `TeamColorAccent` pennant, same as every building did before
+this feature existed.
+
+**Second decision, given the corrected diagnosis**: asked the user again how to proceed now that
+the real problem is under-tinting (sparse/empty metallic maps) rather than over-tinting; they
+chose to accept it as-is. A shader-side clamp/curve would only suppress the signal further and
+couldn't help the true-zero cases — there's no signal there to shape. Fixing this for real needs
+new metallic-map art for the affected civs/buildings, which is a content gap, not a code task;
+tracked in `docs/TEAM_COLOR_ART_BRIEF.md`'s checklist rather than attempted here.
+
+**No code changes this pass** — docs-only: `docs/TEAM_COLOR_ART_BRIEF.md` (checklist updated,
+pixel-measured findings table added, the Vijayanagara misdiagnosis documented and corrected),
+`docs/IMPLEMENTATION_ROADMAP.md` item 29 (dated follow-up note), `CLAUDE.md` status section (new
+bullet), this entry.
+
+**Next**: the unit-side equivalent once Blender-painted masks exist, Wave 5 item 32
+(Age/research readout), or the Wave 6 backlog — user's call.
+
+---
+
 ## 2026-09-12 — Wave 5 item 29 follow-up: building metallic-trim team color shipped, unit spec corrected
 
 **Scope**: direct continuation, same session, of the "asset-blocked" investigation logged

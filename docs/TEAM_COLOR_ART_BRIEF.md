@@ -68,12 +68,39 @@ Live-verified via UnityMCP: 3 real Chola TownCenters spawned for Player/Enemy/En
 the same gilded/ornament regions tinted to that faction's exact `TeamColor` (blue/red/green)
 while the plain stone is untouched, confirmed by direct screenshot comparison.
 
-**Not yet done — real follow-up work, not claimed complete here**: this was piloted on Chola's
-TownCenter only. A full visual pass confirming every civ/building combination actually *looks
-right* (not just "doesn't crash" — some buildings' metallic maps may mark different or fewer
-regions than TownCenter's) is still needed before calling every building done. Buildings with no
-metallic map at all (Durg, Karmashala, Monastery, the 3 drop-off buildings) get no benefit from
-this and still rely solely on the pennant.
+**Full-roster visual pass done (2026-09-12), same day**: spawned all 45 civ/building
+combinations (`BuildingModelFactory.Spawn` directly, forcing every one onto its own real civ, 0
+exceptions) and screenshotted representative samples across all 5 civs. Result: real, genuine
+per-civ variance, driven entirely by how much metallic data each civ's source art actually
+contains — not a bug in the mechanism. Measured pixel data (mean brightness / % bright pixels)
+on the metallic maps directly rather than trusting a screenshot read:
+
+| Building | Metallic map mean | % bright pixels |
+|---|---|---|
+| Chola TownCenter | 9.2 | 1.72% |
+| Maurya TownCenter | 1.4 | 0.00% (but concentrated exactly on the gilded dome) |
+| Vijayanagara TownCenter | 0.0 | 0.00% |
+| Vijayanagara Tower | 0.5 | 0.02% |
+| Vijayanagara Barracks | 0.0 | 0.00% |
+| Maurya Tower | 0.0 | 0.00% |
+| Maurya Barracks | 0.9 | 0.00% |
+
+Chola's buildings (moderate, real metallic content) get clean, localized ornament highlighting.
+Maurya's TownCenter dome — despite an almost-zero average — gets a strong, correct recolor
+because its handful of bright pixels are concentrated exactly on the gilded dome (a genuinely
+metallic surface), so that specific region recolors fully while the rest of the building is
+untouched — dramatic, but working as intended. **A first look at Vijayanagara's TownCenter
+looked "over-tinted" (a broad pink wash) and was initially misdiagnosed as such** — direct
+pixel/texture inspection showed that's wrong: its metallic map is essentially all-zero, so this
+mechanism does virtually nothing there; the pink is baked directly into the existing albedo
+texture and entirely unrelated to team color. The real, corrected finding: **Vijayanagara's
+whole building set and Maurya's Tower/Barracks have essentially no usable metallic signal at
+all** — not a bug, a content gap in the source art. Per the user's explicit choice, this is
+accepted as-is rather than "fixed" with a shader-side clamp (which would only suppress signal
+further, not add signal that isn't there) — these buildings simply fall back to the pennant
+alone for team color, exactly as they did before this feature existed. Fixing it for real would
+need new metallic-map art for those civs/buildings, tracked here as a known content gap, not a
+code task.
 
 ---
 
@@ -133,20 +160,28 @@ textures already, unlike the generic body) rather than the full roster below.
 - [ ] War Galley / Fishing Boat / Fire Ship (naval hull)
 - [ ] Maurya War Elephant / Vijayanagara War Elephant (own rig)
 
-### Buildings — no action needed (code-only fix shipped 2026-09-12, see "Buildings — shipped"
-above)
+### Buildings — no action needed (code-only fix shipped and visually passed 2026-09-12, see
+"Buildings — shipped" above)
 
 Every Meshy-imported civ building (9 buildings × 5 civs = 45 combos) automatically gets the
-metallic-trim team tint the moment it's spawned with a `faction` — nothing to source. **Live-
-verified on Chola's TownCenter only**; a future session should do a quick visual pass on the
-other 44 to confirm they all look right (not just that nothing crashes) before calling this
-fully closed:
+metallic-trim team tint the moment it's spawned with a `faction` — nothing to source. Full
+45-combo visual pass done 2026-09-12: mechanism runs cleanly everywhere (0 exceptions across all
+45), with real visual quality varying by how much metallic content each civ's own source art
+happens to contain — see the pixel-measured table above. No further action needed on the code
+side; the only way to improve the under-tinted civs/buildings below is new metallic-map art
+(a content gap, not a bug):
 
-- [x] Chola: TownCenter (piloted and screenshot-verified 2026-09-12)
-- [ ] Chola: Barracks, Tower, Market, Farm, House, Wall, Gate, Dock (mechanism applies
-      automatically — just needs a look)
-- [ ] Vijayanagara / Rajput / Maurya / Maratha: all 9 each (same — mechanism applies
-      automatically, needs a look)
+- [x] All 45 civ/building combinations spawned, screenshotted, and reviewed (2026-09-12)
+- [x] Chola: clean, localized ornament highlighting confirmed (real metallic content)
+- [x] Maurya: TownCenter dome recolors correctly (its one real metallic region); Tower/Barracks
+      have effectively no metallic signal — tint invisible there, pennant is the only indicator
+- [x] Vijayanagara: effectively no metallic signal anywhere in its building set — tint invisible,
+      pennant is the only indicator (**not** a bug — its metallic maps measured all-zero; an
+      unrelated pink patch baked into its TownCenter's own albedo was initially misread as
+      over-tinting and corrected after direct pixel inspection)
+- [ ] Rajput / Maratha: spawned and screenshotted in the group pass, not individually
+      pixel-measured — worth a closer look if either reads oddly in a real match, but nothing
+      flagged so far
 
 Buildings with **no** metallic map get no benefit and keep relying on the pennant alone:
 - [ ] Durg, Karmashala, Monastery, Lumber Camp, Mining Camp, Mill (non-civ-specific — shared

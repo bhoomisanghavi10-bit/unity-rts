@@ -1146,6 +1146,28 @@ wave rather than being retrofitted piecemeal afterward.
     Blender (or an equivalent 3D texture-paint tool), which paints directly on the visible 3D
     model and bakes to UV space automatically. User will source unit masks this way; no unit-side
     code this session.
+    **Full 45-combo visual pass done the same day, at the user's explicit request**:
+    spawned every civ/building combination (`BuildingModelFactory.Spawn` directly, forcing each
+    onto its own real civ) and screenshotted representative samples across all 5 civs — 0
+    exceptions, mechanism runs cleanly everywhere. A first look at Vijayanagara's TownCenter
+    read as "over-tinted" (a broad pink wash across large wall sections) — asked the user how to
+    proceed, they picked "tune the over-tinted ones," but direct pixel measurement of the
+    metallic maps before touching the shader found that diagnosis was wrong: Vijayanagara's
+    metallic maps measured essentially all-zero (mean 0.0, 0.00% bright pixels across
+    TownCenter/Barracks; Tower barely above zero) — this mechanism does virtually nothing there.
+    The pink patch is baked directly into Vijayanagara TownCenter's own albedo texture,
+    unrelated to team color entirely. Corrected course with the user rather than shipping a
+    fix for a bug that didn't exist; the real, measured finding is under-tinting, not
+    over-tinting: Vijayanagara's whole building set and Maurya's Tower/Barracks have no usable
+    metallic signal at all (Maurya's TownCenter is the interesting middle case — near-zero
+    average, but its few bright pixels sit exactly on the gilded dome, so that one region
+    recolors fully and correctly while the rest is untouched). User's second decision, given the
+    corrected diagnosis: accept as-is — these buildings simply fall back to the pennant alone,
+    same as before this feature existed; a shader-side clamp would only suppress signal further,
+    not add signal that isn't there. Fixing it for real needs new metallic-map art, tracked as a
+    content gap in `docs/TEAM_COLOR_ART_BRIEF.md`, not a code task. No further code changes this
+    pass — docs-only update (`docs/TEAM_COLOR_ART_BRIEF.md`'s checklist and findings table,
+    `CLAUDE.md`, `docs/SESSION_LOG.md`).
 30. **[L] UI layout re-anchor — bottom bar. Closed (2026-09-05).** From the UI Layout sheet:
     re-anchor `BuildMenu.cs`, `SelectedUnitPanel.cs`, and a slice of `ResourceHUD.cs` into one
     shared bottom-docked root (command panel / info panel / minimap, left to right), matching

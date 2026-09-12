@@ -6,6 +6,41 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 5 item 29 follow-up: full 45-combo visual pass on the building
+  team-color trim tint (2026-09-12)** — direct continuation of the
+  metallic-trim shipping session immediately below, per the user's
+  explicit "do a visual pass on the other 44 buildings" request. Spawned
+  every civ/building combination (`BuildingModelFactory.Spawn` directly,
+  forcing each onto its own real civ) and screenshotted representative
+  samples across all 5 civs — 0 exceptions, mechanism runs cleanly
+  everywhere. Hit and corrected a real self-caught misdiagnosis mid-
+  session: a first look at Vijayanagara's TownCenter read as "over-tinted"
+  (a broad pink wash), and after asking the user how to proceed they
+  picked "tune the over-tinted ones" — but before touching the shader,
+  directly measured the metallic maps' actual pixel data rather than
+  trusting the screenshot read, and found the diagnosis was wrong:
+  Vijayanagara's metallic maps are essentially all-zero (mean 0.0, 0.00%
+  bright pixels for TownCenter/Barracks), so this mechanism does virtually
+  nothing there — the pink patch is baked directly into Vijayanagara
+  TownCenter's own albedo texture, confirmed by viewing it directly, and
+  is entirely unrelated to team color. Went back to the user with the
+  corrected finding rather than shipping a fix for a bug that didn't
+  exist. The real, measured pattern: Chola's buildings get clean localized
+  highlighting (real metallic content, 1.72% bright pixels on TownCenter);
+  Maurya's TownCenter dome recolors correctly despite a near-zero average
+  because its handful of bright pixels sit exactly on the gilded dome (a
+  genuinely metallic surface); Vijayanagara's whole set and Maurya's
+  Tower/Barracks have no usable metallic signal at all and fall back
+  entirely to the existing pennant. User's second decision, given the
+  corrected diagnosis: accept as-is — a shader-side clamp would only
+  suppress signal further, not add signal that isn't there; fixing it for
+  real needs new metallic-map art, now tracked as a content gap in
+  `docs/TEAM_COLOR_ART_BRIEF.md` rather than attempted in code. No code
+  changes this pass (docs-only: `docs/TEAM_COLOR_ART_BRIEF.md`'s checklist
+  and findings table, `docs/IMPLEMENTATION_ROADMAP.md` item 29, this
+  status section, `docs/SESSION_LOG.md`). Next: whatever the user
+  directs — the unit-side Blender masks once sourced, Wave 5 item 32, or
+  the Wave 6 backlog.
 - **Fixed SelectedUnitPanel text overlapping the portrait-notch decoration
   (2026-09-12)** — ad hoc user bug report from the live bottom-center panel
   ("TownCenter/Complete/HP: 500/500"). Root cause, measured via direct pixel
