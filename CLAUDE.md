@@ -6,6 +6,68 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Fixed 4 more UI layout bugs found from a live screenshot review
+  (2026-09-12)** — direct follow-up to the CivPicker sibling-order fix
+  immediately below, per the user's "check the game for any other similar
+  bugs" request plus a live screenshot showing 2 new symptoms. All 4
+  confirmed live via UnityMCP before touching code, not assumed:
+  1. **`HoverTooltip.cs` showed a tooltip for bare ground** — the raycast
+     unconditionally set `line1 = go.name` for whatever it hit, so hovering
+     open terrain showed a tooltip reading literally "Ground" on every
+     frame the cursor wasn't over a real entity (not "stuck", just firing
+     correctly per the old, wrong logic almost all the time). Fixed by
+     gating the whole block on the hit object actually having a
+     `Unit`/incomplete `ConstructionSite`/`ResourceNode`/`Attackable`
+     component first. Live-verified: `panelRoot.activeSelf` is now `false`
+     while hovering ground (was unconditionally `true` before).
+  2. **Same tooltip panel was a fixed size regardless of content** — a
+     1-line hover ("Ground", or now any single-line case) got the same
+     tall 3-line box as a full unit tooltip (name+status+HP), mostly
+     empty. Fixed with a small formula
+     (`38 + (lines-1)*16 + 18 + 17`) derived directly from the existing
+     3-line layout's own numbers (validates exactly against the current
+     105-tall 3-line case), computed each time the tooltip shows - the
+     panel's top-pivoted anchor means only the bottom edge moves, so the
+     crown-ornament art fit from the 2026-09-12 Tier 2 session is
+     untouched. Live-verified both a 1-line (73 tall) and 3-line (105
+     tall, unchanged) tooltip render cleanly with no art
+     stretching/clipping.
+  3. **`ResourceHUD.cs`'s civLabel wrapped onto 2 lines for long civ
+     names, overlapping the Population row below it** — confirmed by
+     setting the label to "Civilization: Vijayanagara" (the longest civ
+     name) and measuring: `preferredWidth=206` against a 184-unit box,
+     `overflowMode=Overflow` with word-wrap on meant the 2nd line rendered
+     straight into the population row 26 units below it (screenshotted,
+     visibly overlapping). Fixed by switching `civLabel`/`ageLabel` to TMP
+     auto-sizing (word-wrap off, `fontSizeMin=10`) instead of wrapping -
+     every civ name now shrinks to fit on one line rather than breaking
+     into a second; short names (Chola, Maratha, ...) render unaffected at
+     the max size. Live-verified "Civilization: Vijayanagara" now renders
+     on one line, no overlap.
+  4. **New bug found while testing #3: `LanMatchMenu`'s own Canvas
+     z-fought with `ResourceHUD`** — both occupy the same top-left corner;
+     `LanMatchMenuCanvas.sortingOrder` had never been explicitly set
+     (defaulted to 0, tied with `UICanvas`), so for
+     equal-`sortingOrder` `ScreenSpaceOverlay` canvases there's no
+     reliable winner - confirmed live, the two panels' content rendered
+     interleaved with each other. Fixed by setting
+     `sortingOrder = 50` (beats `UICanvas`=0, stays below
+     `SettingsMenu`/`HotkeyOverlay`=200, `DiplomacyMenu`=190,
+     `MissionSelectMenu`=300). Live-verified: the LAN Match panel now
+     renders as one clean, fully-readable block on top of the resource
+     bar instead of the two interleaving.
+  510/510 EditMode tests pass unmodified for all 4 (pure UI logic/values,
+  no test-relevant logic touched). One scoped commit
+  (`HoverTooltip.cs`/`ResourceHUD.cs`/`LanMatchMenu.cs` only). **Separately
+  flagged, not yet started**: the user shared 2 real AoE II/III reference
+  screenshots and wants the bottom HUD reshaped to match — `BuildMenu` is
+  currently a tall 220×490 vertical sidebar (not a wide bottom bar as the
+  references show), and Civilization/Population/Age should likely fold
+  back into the top resource bar rather than sitting in the separate
+  bottom-center `MatchStatus` panel the 2026-09-05 "item 30" session
+  deliberately split it into. This needs a concrete redesign plan agreed
+  with the user before touching `BuildMenu.cs`/`ResourceHUD.cs`/
+  `Main.unity` - not started this session.
 - **Fixed MatchStatus (Civilization/Population/Age) bleeding through the
   CivPicker screen (2026-09-12)** — ad hoc user bug report from a live
   screenshot, not caused by any of this session's own earlier fixes. Real

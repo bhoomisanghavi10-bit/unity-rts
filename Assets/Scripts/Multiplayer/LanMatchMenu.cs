@@ -227,6 +227,18 @@ namespace KingdomsOfBharat.Multiplayer
             canvasGo.transform.SetParent(transform, false);
             var canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            // Never explicitly set before, so this defaulted to 0 - tied
+            // with UICanvas's own sortingOrder, which is exactly the
+            // scene-authored ResourceHUD panel this menu's top-left corner
+            // sits on top of. Equal-order ScreenSpaceOverlay canvases don't
+            // have a reliable winner, so the two z-fought (confirmed live:
+            // ResourceHUD and this panel's own "<"/">" buttons rendered
+            // interleaved in the same corner). This only needs to beat
+            // UICanvas(0) - it stays below the modal reference panels
+            // (SettingsMenu/HotkeyOverlay=200, DiplomacyMenu=190) and
+            // MissionSelectMenu(300), all of which are fine to still win
+            // against it.
+            canvas.sortingOrder = 50;
             canvasGo.AddComponent<CanvasScaler>();
             canvasGo.AddComponent<GraphicRaycaster>();
 

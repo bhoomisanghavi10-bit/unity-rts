@@ -67,6 +67,25 @@ namespace KingdomsOfBharat.UI
             AddResourceIcon(goldLabel, "resource_gold");
             AddResourceIcon(stoneLabel, "resource_stone");
             AddResourceIcon(populationLabel, "resource_population");
+
+            // "Civilization: Vijayanagara" (the longest civ name) measures
+            // wider than civLabel's 184-unit box at a fixed font size, and
+            // with word-wrap on (the label's own default) that pushed a
+            // 2nd line down into the populationLabel row directly below -
+            // confirmed live, not assumed. Auto-sizing shrinks the font
+            // just enough to keep every civ name on one line instead,
+            // rather than wrapping into the row below it; short names
+            // (Chola, Maratha, ...) render unaffected at the max size.
+            ConfigureSingleLineAutoSize(civLabel);
+            ConfigureSingleLineAutoSize(ageLabel);
+        }
+
+        private static void ConfigureSingleLineAutoSize(TMP_Text label)
+        {
+            label.enableWordWrapping = false;
+            label.enableAutoSizing = true;
+            label.fontSizeMin = 10f;
+            label.fontSizeMax = label.fontSize;
         }
 
         // Adds a small icon to the left of a resource label and shifts the

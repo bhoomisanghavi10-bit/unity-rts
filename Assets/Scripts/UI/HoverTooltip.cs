@@ -210,46 +210,62 @@ namespace KingdomsOfBharat.UI
                 if (Physics.Raycast(ray, out RaycastHit hit, maxDistance))
                 {
                     GameObject go = hit.collider.gameObject;
-                    line1 = go.name;
 
-                    if (go.TryGetComponent(out FactionMember factionMember))
+                    // Only a real entity is worth a tooltip - the raycast
+                    // itself is unfiltered (matches whatever
+                    // SelectionManager/BuildingPlacer would hit) and that
+                    // includes bare terrain, which has none of these
+                    // components. Without this gate the tooltip showed on
+                    // every frame the cursor was over open ground, reading
+                    // just "Ground".
+                    bool hasUnit = go.TryGetComponent(out Unit unit);
+                    bool hasIncompleteSite = go.TryGetComponent(out ConstructionSite site) && !site.IsComplete;
+                    bool hasResourceNode = go.TryGetComponent(out ResourceNode node);
+                    bool hasAttackable = go.TryGetComponent(out Attackable attackable);
+
+                    if (hasUnit || hasIncompleteSite || hasResourceNode || hasAttackable)
                     {
-                        // Item 48: real faction name instead of a binary
-                        // Player/Enemy ternary (which mislabeled a 3rd
-                        // faction as "Player"), plus an (Allied) suffix
-                        // when relevant so allies read differently from
-                        // hostiles at a glance.
-                        line1 += factionMember.Faction == FactionId.Player
-                            ? " (Player)"
-                            : DiplomacyRegistry.AreAllied(FactionId.Player, factionMember.Faction)
-                                ? $" ({factionMember.Faction} - Allied)"
-                                : $" ({factionMember.Faction})";
+                        line1 = go.name;
 
-                        if (factionMember.Faction != FactionId.Player
-                            && !DiplomacyRegistry.AreAllied(FactionId.Player, factionMember.Faction))
+                        if (go.TryGetComponent(out FactionMember factionMember))
                         {
-                            hoveringHostileTarget = true;
+                            // Item 48: real faction name instead of a binary
+                            // Player/Enemy ternary (which mislabeled a 3rd
+                            // faction as "Player"), plus an (Allied) suffix
+                            // when relevant so allies read differently from
+                            // hostiles at a glance.
+                            line1 += factionMember.Faction == FactionId.Player
+                                ? " (Player)"
+                                : DiplomacyRegistry.AreAllied(FactionId.Player, factionMember.Faction)
+                                    ? $" ({factionMember.Faction} - Allied)"
+                                    : $" ({factionMember.Faction})";
+
+                            if (factionMember.Faction != FactionId.Player
+                                && !DiplomacyRegistry.AreAllied(FactionId.Player, factionMember.Faction))
+                            {
+                                hoveringHostileTarget = true;
+                            }
                         }
-                    }
 
-                    if (go.TryGetComponent(out Unit unit))
-                    {
-                        line2 = UnitStatus.Describe(unit);
-                    }
-                    else if (go.TryGetComponent(out ConstructionSite site) && !site.IsComplete)
-                    {
-                        line2 = $"Building: {(int)(site.Progress * 100f)}%";
-                    }
-                    else if (go.TryGetComponent(out ResourceNode node))
-                    {
-                        line2 = node.ResourceType.ToString();
-                        hoveringResourceNode = true;
-                        hoveredResourceType = node.ResourceType;
-                    }
+                        if (hasUnit)
+                        {
+                            line2 = UnitStatus.Describe(unit);
+                        }
+                        else if (hasIncompleteSite)
+                        {
+                            line2 = $"Building: {(int)(site.Progress * 100f)}%";
+                        }
+                        else if (hasResourceNode)
+                        {
+                            line2 = node.ResourceType.ToString();
+                            hoveringResourceNode = true;
+                            hoveredResourceType = node.ResourceType;
+                        }
 
-                    if (go.TryGetComponent(out Attackable attackable))
-                    {
-                        line3 = $"HP: {(int)attackable.Health}/{(int)attackable.MaxHealth}";
+                        if (hasAttackable)
+                        {
+                            line3 = $"HP: {(int)attackable.Health}/{(int)attackable.MaxHealth}";
+                        }
                     }
                 }
             }
@@ -282,6 +298,26 @@ namespace KingdomsOfBharat.UI
             {
                 line3Label.text = line3;
             }
+
+            // Size to however many lines are actually showing instead of
+            // always reserving room for 3 - a 1-line tooltip ("Ground",
+            // pre-fix; now any single-line hover) used to get the same
+            // tall box as a full unit/HP tooltip, mostly empty. Panel is
+            // top-pivoted (pivot 0,1) with the crown ornament baked into
+            // its top ~38 units (2026-09-12 Tier 2 art delivery), so only
+            // the bottom edge needs to move - reusing the same per-line
+            // spacing (16) and bottom margin (17) the 3-line layout
+            // (Line1 y=-38, Line2 y=-54, Line3 y=-70, each 18 tall) is
+            // already built on keeps this consistent with that art fit
+            // rather than guessing a new constant.
+            int visibleLines = 1 + (line2 != null ? 1 : 0) + (line3 != null ? 1 : 0);
+            const float firstLineOffset = 38f;
+            const float lineSpacing = 16f;
+            const float lineHeight = 18f;
+            const float bottomMargin = 17f;
+            panelRoot.sizeDelta = new Vector2(
+                panelRoot.sizeDelta.x,
+                firstLineOffset + (visibleLines - 1) * lineSpacing + lineHeight + bottomMargin);
         }
     }
 }
