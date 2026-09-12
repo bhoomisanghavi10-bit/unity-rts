@@ -328,8 +328,20 @@ namespace KingdomsOfBharat.UI
         // but stays close to today's real worst case (Barracks, ~24
         // buttons); paging (already built, unaffected by this reshape)
         // remains the safety valve for whatever pushes past it.
-        private const int GridColumns = 8;
-        private const float GridCellSize = 48f;
+        // 2026-09-13: dropped 8->7 columns, cell size 48->44 - the full
+        // 8-column width (428 at 48) reached past SelectedUnitPanel's own
+        // left edge by ~51 units for ANY context using 2+ rows (confirmed
+        // live via RectTransform.GetWorldCorners on both panels - this
+        // isn't a rare edge case, a plain 13-button Worker placement menu
+        // already triggers it). 7 columns at 44 keeps the full-width grid
+        // at 348, comfortably inside the ~377-unit budget before
+        // SelectedUnitPanel's left edge, while keeping icons closer to
+        // their original readable size than an 8-column fit would allow
+        // (per the user's own choice between the two options). Capacity
+        // drops 24->21 (7x3); pagination (already built) covers whatever
+        // context needs more.
+        private const int GridColumns = 7;
+        private const float GridCellSize = 44f;
         private const float GridGap = 4f;
         private const float GridMargin = 8f;
         private const int GridRows = 3;

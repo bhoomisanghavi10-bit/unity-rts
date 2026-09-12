@@ -6,6 +6,28 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Fixed a real BuildMenu/SelectedUnitPanel overlap found via a resolution/
+  alignment re-check (2026-09-13)** — the user asked to re-verify the HUD
+  for panel overlap; measured both panels' actual world-space corners via
+  `RectTransform.GetWorldCorners` (not eyeballed) and found `BuildMenu`'s
+  full 8-column width (428 units) reached ~51 units past
+  `SelectedUnitPanel`'s own left edge for ANY context using 2+ rows - not a
+  rare edge case, a plain 13-button Worker placement menu already triggers
+  it. Fixed per the user's own suggested direction (smaller icons + fewer
+  columns, rather than repositioning either panel): `BuildMenu`'s grid
+  dropped 8->7 columns with `GridCellSize` 48->44, landing the full-width
+  grid at 348 units - comfortably inside the ~377-unit budget before
+  `SelectedUnitPanel`'s left edge (confirmed live: 44-unit gap at the
+  absolute worst case, a forced 21-button/3-row grid, the new 7x3
+  capacity's own maximum). Capacity drops slightly again (24->21);
+  pagination (already built, untouched) remains the safety valve. 511/511
+  EditMode tests pass unmodified. One scoped commit (`BuildMenu.cs` only).
+  Resolution testing itself wasn't re-attempted this session - the prior
+  session's own environment limitation (`Screen.width`/`height` stay
+  pinned regardless of any Editor Game-view resize technique tried) still
+  applies and wasn't re-litigated; this pass focused on alignment/overlap
+  at the current resolution instead, which is where the real bug was.
+  Next: whatever the user directs.
 - **Two more HUD bugs found and fixed during a full-selection-state sweep
   (2026-09-12)** — the user asked to re-check the whole HUD "with
   everything selected," which surfaced two real, previously-unnoticed
