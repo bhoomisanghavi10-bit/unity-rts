@@ -6,6 +6,73 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Swept the rest of the menu screens for the same overflow bug, found and
+  fixed 3 more real, independent ones (2026-09-12)** — direct follow-up to
+  the CivPicker fix immediately below, per the user's "check the other menu
+  screens for the same issue" request. Went through every screen-filling UI
+  overlay in the project (MissionSelectMenu, ScenarioEditorMenu,
+  GameOverScreen, SettingsMenu, DiplomacyMenu, LanMatchMenu, HotkeyOverlay)
+  live in Play mode via UnityMCP, not by inspection alone — CivPicker/
+  MissionSelectMenu/ScenarioEditorMenu/GameOverScreen were all already
+  clean. Found 3 real, pre-existing overflow/clipping bugs, **none of them
+  caused by the CanvasScaler change** — each had its own independent root
+  cause, just the same visible symptom (missing/cut-off text):
+  1. **`SettingsMenu.cs`'s Key Bindings list** — every row's action label
+     (`Cycle Stance`, `Place Barracks`, etc.) was positioned 10 UI units
+     past its own `ScrollRect` viewport's left `RectMask2D` clip edge
+     (label center `x=-100` with a 300-wide box put its left edge at -250,
+     10 past the 480-wide viewport's own -240 edge), chopping the first
+     letter off every single row ("ycle Stance", "lace Barracks", ...).
+     Fixed by moving the offset to `x=-80` (10-unit margin, matching the
+     value button's own 10-unit margin on the opposite edge). Pure math
+     fix, one line.
+  2. **`LanMatchMenu.cs`'s whole panel** — two separate bugs on the same
+     screen. (a) The panel root was anchored `(0.5,0.5)` with a fixed
+     `anchoredPosition=(-620,260)` on a **Constant Pixel Size** Canvas (raw
+     screen pixels, no `referenceResolution`) — correct on whatever wide
+     monitor it was tuned against, but overflowing off the LEFT edge on a
+     real ~1484px-wide window ("LAN Match (Phase 5 MVP)" clipped down to
+     "(Phase 5 MVP)"). Fixed by switching to a top-left corner anchor
+     (`anchorMin/Max/pivot=(0,1)`, `anchoredPosition=(20,-20)`) instead of
+     a center-relative offset — correct at any window size above roughly
+     440px wide, not just the one size this was tuned against. (b) The
+     Civilization/Scenario rows' `<`/`>` cycle buttons were children of the
+     SAME GameObject as the row's own `Text` (not a mask-clip issue this
+     time — a genuine z-order overlap): a left-aligned `HorizontalLayoutGroup`
+     stacked the buttons flush against the row's left edge, directly on top
+     of the label's own left-aligned text, covering its first ~60px
+     ("Civilization: Chola" rendered as "on: Chola"). Fixed by setting
+     `childAlignment = TextAnchor.MiddleRight` so the buttons dock to the
+     right instead, clear of the label.
+  3. **`HotkeyOverlay.cs`'s 3rd column** — a real, older, structural bug
+     that's been growing for months, not a one-line fix (confirmed via
+     AskUserQuestion before touching it — user picked "make it scrollable"
+     over a quick rebalance or just flagging it). The Town
+     Center/Barracks/Durg/Karmashala column has organically grown to ~46
+     rows (every new trainable unit/tech across many sessions — Trebuchet,
+     Scorpion, Camel Rider, Cavalry Archer, Hero, ...) against a static,
+     **unmasked**, fixed-position 3-column layout inside a 900×620 box —
+     content was simply drawn past the box's own bottom edge with nothing
+     to clip it, spilling all the way off the bottom of the real window
+     (confirmed live: `Content.sizeDelta.y` = 884 units for a box with only
+     490 units of intended row space). Fixed with the exact same
+     `ScrollRect`+`Viewport`(`RectMask2D`)+`Content` pattern
+     `SettingsMenu`'s own Key Bindings list already established: content
+     sized to the TALLEST column (computed at build time, not hardcoded),
+     top-pivoted rows using the same distance-from-top positioning
+     convention, only vertical scroll needed since `columnX` values stay
+     valid unchanged (still relative to content's own center — content
+     width still matches the box). Live-verified scrolling all the way to
+     the bottom lands cleanly on `Karmashala Selected` with the `Close`
+     button still visible and un-overlapped, nothing spilling past the
+     mask. 510/510 EditMode tests pass unmodified for all 3 fixes (pure UI
+     layout/code, no test-relevant logic touched). Live-verified every fix
+     via UnityMCP screenshots through the real runtime-built panels (these
+     3 menus are code-generated at Awake, not scene assets, so verification
+     needed forcing each panel active via reflection and comparing
+     before/after screenshots — not just re-reading the numbers). One
+     scoped commit (`SettingsMenu.cs`/`LanMatchMenu.cs`/`HotkeyOverlay.cs`
+     only). Next: whatever the user directs.
 - **Fixed CivPicker card overflow on the "Choose Your Civilization" screen
   (2026-09-12)** — not a numbered roadmap item, an ad hoc user-reported sizing
   bug, fixed the same way as the Tier 2 overlap fix immediately below (root-

@@ -248,14 +248,73 @@ namespace KingdomsOfBharat.UI
 
             CreateLabel(boxGo.transform, "Hotkey Reference", new Vector2(0f, 280f), 26, TextAlignmentOptions.Center);
 
+            // Column 3 (Town Center/Barracks/Durg/Karmashala) has grown to
+            // ~46 rows across many sessions adding new trainable units -
+            // far taller than this box's own fixed height, so it used to
+            // spill straight off the bottom of the screen uncontained (no
+            // mask at all). Same ScrollRect+Viewport(RectMask2D)+Content
+            // fix SettingsMenu's own Key Bindings list already uses:
+            // content sized to the TALLEST column, top-pivoted so rows can
+            // be positioned by distance-from-top exactly like the old
+            // unscrolled loop was, and only vertical scroll is needed since
+            // content width matches the viewport (columnX values are still
+            // valid unchanged, relative to content's own center).
+            const float rowHeight = 20f;
+            const float groupHeaderHeight = 26f;
+            const float groupSpacing = 10f;
+            const float scrollWidth = 900f;
+            float scrollTop = 230f;
+            float scrollBottom = -260f;
+            float scrollHeight = scrollTop - scrollBottom;
+
+            var scrollGo = new GameObject("HotkeyScroll");
+            scrollGo.transform.SetParent(boxGo.transform, false);
+            var scrollRect = scrollGo.AddComponent<RectTransform>();
+            scrollRect.anchorMin = new Vector2(0.5f, 0.5f);
+            scrollRect.anchorMax = new Vector2(0.5f, 0.5f);
+            scrollRect.pivot = new Vector2(0.5f, 1f);
+            scrollRect.sizeDelta = new Vector2(scrollWidth, scrollHeight);
+            scrollRect.anchoredPosition = new Vector2(0f, scrollTop);
+            var scroll = scrollGo.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = rowHeight;
+
+            var viewportGo = new GameObject("Viewport");
+            viewportGo.transform.SetParent(scrollGo.transform, false);
+            var viewportRect = viewportGo.AddComponent<RectTransform>();
+            viewportRect.anchorMin = Vector2.zero;
+            viewportRect.anchorMax = Vector2.one;
+            viewportRect.offsetMin = Vector2.zero;
+            viewportRect.offsetMax = Vector2.zero;
+            viewportGo.AddComponent<RectMask2D>();
+            // Near-transparent rather than fully transparent so this Image
+            // still catches drag/scroll input over the whole viewport, not
+            // just where a row's own text sits.
+            var viewportImage = viewportGo.AddComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
+
+            var contentGo = new GameObject("Content");
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            var contentRect = contentGo.AddComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+
+            scroll.viewport = viewportRect;
+            scroll.content = contentRect;
+
             float[] columnX = { -300f, 0f, 300f };
+            float maxColumnHeight = 0f;
             for (int c = 0; c < Columns.Length; c++)
             {
-                float y = 230f;
+                float y = 0f;
                 foreach (Group group in Columns[c])
                 {
-                    CreateLabel(boxGo.transform, group.Title, new Vector2(columnX[c], y), 15, TextAlignmentOptions.Center);
-                    y -= 26f;
+                    CreateLabel(contentGo.transform, group.Title, new Vector2(columnX[c], y), 15, TextAlignmentOptions.Center, 220f, 1f);
+                    y -= groupHeaderHeight;
 
                     foreach (Entry entry in group.Entries)
                     {
@@ -265,30 +324,35 @@ namespace KingdomsOfBharat.UI
                         // overlapped each other horizontally (caught via a
                         // live screenshot: "Place Wall" visibly bled into
                         // the Global column's "F10" at the same row height).
-                        CreateLabel(boxGo.transform, entry.Label, new Vector2(columnX[c] - 75f, y), 12, TextAlignmentOptions.Left, 150f);
-                        TMP_Text keyLabel = CreateLabel(boxGo.transform, "", new Vector2(columnX[c] + 60f, y), 12, TextAlignmentOptions.Right, 80f);
+                        CreateLabel(contentGo.transform, entry.Label, new Vector2(columnX[c] - 75f, y), 12, TextAlignmentOptions.Left, 150f, 1f);
+                        TMP_Text keyLabel = CreateLabel(contentGo.transform, "", new Vector2(columnX[c] + 60f, y), 12, TextAlignmentOptions.Right, 80f, 1f);
                         var binding = keyLabel.gameObject.AddComponent<HotkeyOverlayKeyLabel>();
                         binding.ActionId = entry.ActionId;
                         binding.Default = entry.Default;
                         keyLabel.text = GameSettings.GetKey(entry.ActionId, entry.Default).ToString();
-                        y -= 20f;
+                        y -= rowHeight;
                     }
 
-                    y -= 10f;
+                    y -= groupSpacing;
                 }
+
+                maxColumnHeight = Mathf.Max(maxColumnHeight, -y);
             }
+
+            contentRect.sizeDelta = new Vector2(0f, maxColumnHeight);
 
             CreateButton(boxGo.transform, "Close", new Vector2(0f, -290f), new Vector2(140f, 34f),
                 () => _panel.SetActive(false));
         }
 
-        private static TMP_Text CreateLabel(Transform parent, string text, Vector2 position, int fontSize, TextAlignmentOptions alignment, float width = 220f)
+        private static TMP_Text CreateLabel(Transform parent, string text, Vector2 position, int fontSize, TextAlignmentOptions alignment, float width = 220f, float anchorY = 0.5f)
         {
             var go = new GameObject("Label_" + text);
             go.transform.SetParent(parent, false);
             var rect = go.AddComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.anchorMin = new Vector2(0.5f, anchorY);
+            rect.anchorMax = new Vector2(0.5f, anchorY);
+            rect.pivot = new Vector2(0.5f, anchorY);
             rect.sizeDelta = new Vector2(width, 22f);
             rect.anchoredPosition = position;
 

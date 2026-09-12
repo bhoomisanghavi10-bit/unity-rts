@@ -423,7 +423,15 @@ namespace KingdomsOfBharat.UI
             for (int i = 0; i < Actions.Length; i++)
             {
                 string actionId = Actions[i].Id;
-                CreateLabel(contentGo.transform, Actions[i].Label, new Vector2(-100f, rowY), 15, TextAlignmentOptions.Left, anchorY: 1f);
+                // x=-80 (not -100): the label's 300-wide box is centered on
+                // this offset, so a -100 offset put its left edge at -250 -
+                // 10 units past the 480-wide scroll viewport's own -240 left
+                // clip edge, chopping the first letter off every row
+                // ("ycle Stance", "lace Barracks", ...) under the
+                // RectMask2D. -80 puts the left edge at -230, a 10-unit
+                // margin matching the value button's own 10-unit margin on
+                // the right (170+60=230, viewport edge 240).
+                CreateLabel(contentGo.transform, Actions[i].Label, new Vector2(-80f, rowY), 15, TextAlignmentOptions.Left, anchorY: 1f);
                 _keyButtonTexts[i] = CreateButton(contentGo.transform, "", new Vector2(170f, rowY), new Vector2(120f, 28f),
                     () => { _rebindingActionId = actionId; RefreshDisplayedValues(); }, anchorY: 1f);
                 rowY -= rowHeight;

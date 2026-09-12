@@ -233,10 +233,21 @@ namespace KingdomsOfBharat.Multiplayer
             _root = new GameObject("Panel");
             _root.transform.SetParent(canvasGo.transform, false);
             var rootRect = _root.AddComponent<RectTransform>();
-            rootRect.anchorMin = new Vector2(0.5f, 0.5f);
-            rootRect.anchorMax = new Vector2(0.5f, 0.5f);
+            // Top-left corner anchor with a small fixed margin, not a
+            // center-relative offset: this Canvas is Constant Pixel Size
+            // (real screen pixels, no CanvasScaler.referenceResolution),
+            // so a fixed anchoredPosition.x of -620 from center only fits
+            // on a screen wide enough that -620 - PanelWidth/2 stays on
+            // screen - it was overflowing off the LEFT edge (clipping
+            // "LAN Match" down to "(Phase 5 MVP)") on a real ~1484px-wide
+            // window. Anchoring to the corner instead makes this correct
+            // at any window size above ~PanelWidth+margin, not just the
+            // one size this was tuned against.
+            rootRect.anchorMin = new Vector2(0f, 1f);
+            rootRect.anchorMax = new Vector2(0f, 1f);
+            rootRect.pivot = new Vector2(0f, 1f);
             rootRect.sizeDelta = new Vector2(PanelWidth, PanelHeight);
-            rootRect.anchoredPosition = new Vector2(-620f, 260f);
+            rootRect.anchoredPosition = new Vector2(20f, -20f);
             var panelImage = _root.AddComponent<Image>();
             panelImage.color = new Color(0f, 0f, 0f, 0.75f);
 
@@ -406,9 +417,17 @@ namespace KingdomsOfBharat.Multiplayer
             uiText.color = Color.white;
             uiText.text = text;
 
+            // civRow/scenarioRow add "<"/">" cycle buttons as children of
+            // this same GameObject afterward. Left-aligned children (the
+            // HorizontalLayoutGroup default) stacked them flush against
+            // the row's left edge - directly on top of this Text's own
+            // default upper-left-aligned string, covering its first ~60px
+            // ("Civilization: Chola" rendered as just "on: Chola"). Right-
+            // aligning the buttons keeps them clear of the label instead.
             var rowLayout = rowGo.AddComponent<HorizontalLayoutGroup>();
             rowLayout.childControlWidth = false;
             rowLayout.childForceExpandWidth = false;
+            rowLayout.childAlignment = TextAnchor.MiddleRight;
 
             return uiText;
         }
