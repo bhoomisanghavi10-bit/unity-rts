@@ -6,6 +6,60 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Top bar made truly horizontal + command grid fitted to content
+  (2026-09-12)** — direct follow-up to the bottom-bar reshape below, per
+  the user's fresh screenshot feedback: the top bar was still a
+  vertically-stacked column (not horizontal like the reference), and the
+  command grid panel was a big mostly-empty rectangle for low-button-count
+  contexts (confirmed live via screenshot: TownCenter's 5 buttons sitting
+  inside the same 444x220 box a 24-button Barracks would need, with no
+  frame art at all - just a flat semi-transparent rectangle, unlike every
+  sibling HUD panel). Two changes:
+  1. **`ResourceHUD.cs` rewritten for a true horizontal row** - every prior
+     row's fixed scene-authored Y-stacked position is now computed in code
+     instead (`LayoutResourceItem`/`LayoutTextItem`, called once from
+     `Awake()` with a running x-cursor): icon+number pairs for Wood/Food/
+     Gold/Stone/Population left to right, then Civilization/Age as wider
+     text-only items continuing the same row - matches both reference
+     screenshots, which show a single left-to-right strip, not a column.
+     Resource labels also dropped their "Wood: "/"Food: "/etc. text prefix
+     (now just the number, icon carries the meaning) - matches the
+     references exactly and keeps the row's total width sane regardless of
+     stockpile size. Panel's own `sizeDelta` is computed from the final
+     cursor position rather than a fixed scene value, so it always exactly
+     fits its own content. `pixelsPerUnitMultiplier` retuned 12.5->40 for
+     the new ~44-tall single-row display rect (was tuned for the old
+     120-tall 4-row block).
+  2. **`BuildMenu.cs`'s command grid now sizes itself to however many rows/
+     columns the current context actually uses**, instead of always
+     reserving the full 8x3 capacity: `LayoutCommandGrid` computes
+     `rowsUsed`/`colsUsed` from the visible button count (capped at
+     `GridRows`/`GridColumns`), resizes the panel's `sizeDelta` and moves
+     the page-nav row to sit directly under whatever height that
+     produces. Width only shrinks for a genuinely single-row context (2+
+     rows keeps the full 8-column width, since a partial last row under
+     full rows above it is the expected shape, not something to also
+     shrink). Also gave the panel real frame art for the first time -
+     it had none before (a flat semi-transparent color, the one HUD panel
+     without proper 9-slice art) - reusing `panel_resource_bar` like every
+     sibling panel already does, since no bespoke command-panel frame
+     exists yet (flagging that directly, not silently reusing without
+     noting it). Live-verified via UnityMCP: a real TownCenter selection
+     (5 buttons, 1 row) now renders as a tight, properly-framed rectangle
+     sized to exactly 5 slots instead of a mostly-empty 444x220 box;
+     force-activating 20 buttons and re-invoking `LayoutCommandGrid`
+     directly confirmed the multi-row path computes the expected
+     428x204 (3 rows, full 8-column width) before the real per-frame
+     context logic reasserted the true 5-button state a moment later.
+  Also worked through this session's own recurring fog-of-war-looks-like-
+  a-render-bug trap for real this time: disabled `FogOfWarManager`'s own
+  `MeshRenderer` directly for clean screenshots, rather than fighting
+  camera framing around it as earlier attempts this session did - noting
+  the technique here since it'll recur in any future HUD verification
+  pass. 510/510 EditMode tests pass unmodified (pure UI layout, no
+  test-relevant logic touched). One scoped commit (`BuildMenu.cs`/
+  `ResourceHUD.cs` only - no scene changes needed this round, everything
+  is computed at runtime now). Next: whatever the user directs.
 - **Wave 5 item 29 (Player/team colour system) re-investigated, asset-blocked
   (2026-09-12)** — the user reopened this item from live play and supplied 3
   real AoE II: Definitive Edition reference screenshots showing the target:

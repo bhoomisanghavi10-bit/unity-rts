@@ -343,6 +343,26 @@ namespace KingdomsOfBharat.UI
             _placer = FindFirstObjectByType<BuildingPlacer>();
             _selectionManager = FindFirstObjectByType<SelectionManager>();
 
+            // This panel never had its own frame art - just a flat
+            // semi-transparent color - unlike every sibling HUD panel
+            // (ResourceHUD/SelectedUnitPanel/Minimap all use real 9-slice
+            // frame art). Confirmed live via screenshot as part of the
+            // 2026-09-12 command-grid reshape: reusing every other panel's
+            // ornate scroll-frame art here instead of a bespoke command-
+            // panel frame (none exists yet - flagging that directly) reads
+            // far more consistent than the plain flat box did.
+            if (TryGetComponent(out Image panelBackground))
+            {
+                Sprite frame = Resources.Load<Sprite>("UI/Panels/panel_resource_bar");
+                if (frame != null)
+                {
+                    panelBackground.color = Color.white;
+                    panelBackground.sprite = frame;
+                    panelBackground.type = Image.Type.Sliced;
+                    panelBackground.pixelsPerUnitMultiplier = 18f;
+                }
+            }
+
             ApplyKeySettings();
             ApplyTheme();
 
@@ -985,6 +1005,46 @@ namespace KingdomsOfBharat.UI
                 rect.anchoredPosition = new Vector2(
                     GridMargin + col * (GridCellSize + GridGap),
                     -GridMargin - row * (GridCellSize + GridGap));
+            }
+
+            // Fit the panel (and the page-nav row under it) to however many
+            // rows this context actually uses instead of always reserving
+            // the full GridRows worth of height - a 5-button context (e.g.
+            // TownCenter) used to sit inside the same 3-row-tall box as a
+            // 24-button one (Barracks), leaving most of the panel visibly
+            // empty. Width only shrinks for a single-row context (matches
+            // its real column count); anything using 2+ rows keeps the
+            // full 8-column width, since a partial last row next to full
+            // rows above it is the normal, expected shape.
+            int rowsUsed = Mathf.Max(1, Mathf.Min(GridRows, Mathf.CeilToInt(visible.Count / (float)GridColumns)));
+            int colsUsed = rowsUsed <= 1 ? Mathf.Max(1, Mathf.Min(visible.Count, GridColumns)) : GridColumns;
+            float gridContentWidth = colsUsed * GridCellSize + (colsUsed - 1) * GridGap;
+            float gridContentHeight = rowsUsed * GridCellSize + (rowsUsed - 1) * GridGap;
+            const float navRowGap = 8f;
+            const float navRowHeight = 28f;
+            float navRowY = -(GridMargin + gridContentHeight + navRowGap);
+
+            var panelRect = (RectTransform)transform;
+            panelRect.sizeDelta = new Vector2(
+                Mathf.Max(GridMargin * 2f + gridContentWidth, 200f),
+                GridMargin + gridContentHeight + navRowGap + navRowHeight + GridMargin);
+
+            if (gridPrevButton != null)
+            {
+                var navRect = (RectTransform)gridPrevButton.transform;
+                navRect.anchoredPosition = new Vector2(navRect.anchoredPosition.x, navRowY);
+            }
+
+            if (gridNextButton != null)
+            {
+                var navRect = (RectTransform)gridNextButton.transform;
+                navRect.anchoredPosition = new Vector2(navRect.anchoredPosition.x, navRowY);
+            }
+
+            if (gridPageLabel != null)
+            {
+                var navRect = (RectTransform)gridPageLabel.transform;
+                navRect.anchoredPosition = new Vector2(navRect.anchoredPosition.x, navRowY);
             }
 
             var visibleSet = new HashSet<int>(visible);
