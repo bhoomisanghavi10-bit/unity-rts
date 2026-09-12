@@ -8,17 +8,21 @@ using KingdomsOfBharat.Progression;
 
 namespace KingdomsOfBharat.UI
 {
-    // Always-on Wood/Food/Gold/Stone counters, top-left corner. Hardcoded to
-    // the Player's stockpile specifically (not a generic lookup) so it can
-    // never accidentally end up displaying the AI's economy. uGUI/TMP
-    // replacement for the original OnGUI version - the labels are real
-    // Canvas children wired up in the Inspector, this just pushes text
-    // into them every frame instead of issuing GUI.Label draw calls.
-    // Civilization/Population/Age (still driven by this same script) live
-    // separately, in the MatchStatus panel that's part of the shared
-    // bottom-docked bar (Roadmap item 30) alongside SelectedUnitPanel -
-    // those three read as per-match status rather than a live economy
-    // ticker, so they don't need to stay glued to the resource counters.
+    // Always-on Wood/Food/Gold/Stone/Civilization/Population/Age panel,
+    // top-left corner. Hardcoded to the Player's stockpile specifically
+    // (not a generic lookup) so it can never accidentally end up displaying
+    // the AI's economy. uGUI/TMP replacement for the original OnGUI version
+    // - the labels are real Canvas children wired up in the Inspector, this
+    // just pushes text into them every frame instead of issuing GUI.Label
+    // draw calls.
+    //
+    // 2026-09-12: Civilization/Population/Age used to live in their own
+    // separate MatchStatus panel down in the bottom-docked bar (Roadmap
+    // item 30) - folded back into this top-left panel as rows 5-7, at the
+    // user's explicit direction, to match their AoE reference screenshots
+    // (neither shows a separate civ/pop/age box; both show them merged
+    // into the top resource strip). civLabel/populationLabel/ageLabel are
+    // now scene children of this same GameObject, one shared background.
     public class ResourceHUD : MonoBehaviour
     {
         [SerializeField] private TMP_Text civLabel;
@@ -28,7 +32,6 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private TMP_Text stoneLabel;
         [SerializeField] private TMP_Text populationLabel;
         [SerializeField] private TMP_Text ageLabel;
-        [SerializeField] private Image matchStatusBackground;
 
         private void Awake()
         {
@@ -48,18 +51,6 @@ namespace KingdomsOfBharat.UI
                 // multiplier to shrink to a readable screen-pixel thickness
                 // (displayed border = source border / multiplier).
                 background.pixelsPerUnitMultiplier = 12.5f;
-            }
-
-            // civLabel/populationLabel/ageLabel live under a separate
-            // MatchStatus GameObject (part of InfoPanel, not a child of this
-            // one) so it needs its own background wired the same way rather
-            // than inheriting the block above.
-            if (matchStatusBackground != null && frame != null)
-            {
-                matchStatusBackground.color = Color.white;
-                matchStatusBackground.sprite = frame;
-                matchStatusBackground.type = Image.Type.Sliced;
-                matchStatusBackground.pixelsPerUnitMultiplier = 16f;
             }
 
             AddResourceIcon(woodLabel, "resource_wood");

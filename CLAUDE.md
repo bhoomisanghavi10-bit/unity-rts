@@ -6,6 +6,54 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **HUD bottom bar reshaped to match AoE reference layouts (2026-09-12)** —
+  direct follow-up to the 4-bug fix immediately below; the user shared 2 AoE
+  II/III reference screenshots and asked for the HUD reshaped to match, then
+  confirmed 2 concrete decisions via AskUserQuestion before any scene edit:
+  the command grid becomes 8 columns x 3 rows (not the recommended-but-
+  unconfirmed alternative), and the always-on "Civilization: X" label stays
+  but folds into the top resource bar (neither reference shows a separate
+  civ/pop/age box - both merge it into the top strip). Two changes:
+  1. **`BuildMenu.cs`'s command grid: 4 columns x 7 rows -> 8 x 3**
+     (`GridColumns`/`GridRows` only - `LayoutCommandGrid`'s positioning
+     math and `ComputeGridPage`'s pagination are both column-count-driven
+     and needed no other change). Capacity drops slightly (28->24, close
+     to today's real worst case of ~24 Barracks buttons); paging (already
+     built) is the safety valve for whatever pushes past it. Scene:
+     `BuildMenu` panel resized 220x490 (tall vertical sidebar) -> 444x220
+     (wide, short), still bottom-left anchored; `GridPrevButton`/
+     `GridNextButton`/`GridPageLabel` repositioned from y=-450 to y=-184 to
+     sit below the now-3-row-tall grid instead of the old 7-row one.
+     Live-verified via UnityMCP: selecting a building shows its active
+     buttons landing at exactly x=8/60/112/164/216 (52-unit spacing =
+     48 cell + 4 gap), y=-8 - precisely the 8-column formula, confirmed
+     numerically since a fog-of-war/camera-framing issue (unrelated to
+     this change - normal unexplored-fog black, not a bug) made a clean
+     screenshot of the grid's icons hard to get this session.
+  2. **Civilization/Population/Age folded back into `ResourceHUD`'s own
+     top-left panel as rows 5-7**, undoing the 2026-09-05 "item 30" split
+     that gave them their own separate `MatchStatus` box lower on screen -
+     that split predates both reference images and doesn't match either.
+     `civLabel`/`populationLabel`/`ageLabel` reparented from the now-
+     deleted `MatchStatus` GameObject directly onto `ResourceHUD`,
+     positioned as 3 more 24-unit-spaced rows continuing the existing
+     Wood/Food/Gold/Stone pattern; `ResourceHUD` grown 200x120 -> 200x180
+     to fit all 7 rows under one shared frame/background (no separate
+     background needed anymore - removed the now-dead
+     `matchStatusBackground` field and its wiring from `ResourceHUD.cs`
+     entirely rather than leave a dangling reference). `InfoPanel`
+     shrunk 220x202 -> 220x110 (now holds only `SelectedUnitPanel`, its
+     own height) since `MatchStatus` no longer lives under it.
+     Live-verified via UnityMCP screenshot: all 7 rows (Wood/Food/Gold/
+     Stone/Civilization/Population/Age) render cleanly inside one frame
+     with correct spacing, no overlap, no empty gap.
+  `MinimapController` (bottom-right, 220x220) needed no change - already
+  bottom-aligned at a compatible height. 510/510 EditMode tests pass
+  unmodified (pure UI layout, no test-relevant logic touched). One scoped
+  commit (`BuildMenu.cs`/`ResourceHUD.cs`/`Main.unity` only). Next:
+  whatever the user directs - if the command grid or top bar still don't
+  read right against the references once fully visible in a real match,
+  the exact pixel numbers above are the levers to retune.
 - **Fixed 4 more UI layout bugs found from a live screenshot review
   (2026-09-12)** — direct follow-up to the CivPicker sibling-order fix
   immediately below, per the user's "check the game for any other similar

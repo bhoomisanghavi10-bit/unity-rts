@@ -321,15 +321,18 @@ namespace KingdomsOfBharat.UI
         // once, save for the always-available ungarrisonButton). Built once
         // in Awake so LayoutCommandGrid never allocates per-frame.
         private Button[] _allGridButtons;
-        private const int GridColumns = 4;
+        // 2026-09-12: reshaped from 4 columns x 7 rows (a tall 220x490
+        // vertical sidebar) to 8 columns x 3 rows, at the user's explicit
+        // direction, to match a real AoE-style wide bottom command bar
+        // instead of a vertical column. Capacity drops slightly (28->24)
+        // but stays close to today's real worst case (Barracks, ~24
+        // buttons); paging (already built, unaffected by this reshape)
+        // remains the safety valve for whatever pushes past it.
+        private const int GridColumns = 8;
         private const float GridCellSize = 48f;
         private const float GridGap = 4f;
         private const float GridMargin = 8f;
-        // Rows that fit under the panel's own height (490) once the bottom
-        // strip is reserved for the page nav row - comfortably covers
-        // today's real worst case (Barracks, 23 buttons) in a single page;
-        // paging exists as a safety valve for whatever wave adds the 33rd.
-        private const int GridRows = 7;
+        private const int GridRows = 3;
         private const int GridCapacity = GridColumns * GridRows;
         private int _gridPage;
         private object _lastGridContextKey;
