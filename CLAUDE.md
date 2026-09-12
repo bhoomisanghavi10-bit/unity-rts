@@ -6,6 +6,36 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Two more HUD bugs found and fixed during a full-selection-state sweep
+  (2026-09-12)** — the user asked to re-check the whole HUD "with
+  everything selected," which surfaced two real, previously-unnoticed
+  bugs neither prior session had exercised (group selection, and the two
+  bottom-bar panels' now-dynamic heights drifting apart):
+  1. **Group selection left a stale HP bar/label showing** -
+     `SelectedUnitPanel.Update()`'s group-selection branch (`Selected.Count
+     != 1`) never toggled `hpLabel`/the HP bar at all - only
+     `DrawSingle`/`DrawBuilding` do that, and neither runs for a group.
+     Confirmed live: selecting a TownCenter (HP 500/500) then a group of 4
+     workers left "HP: 500/500" and a full green-red bar rendering behind
+     "4 units selected", entirely unrelated to the actual group. Fixed by
+     explicitly hiding both in that branch.
+  2. **Bottom-left (`BuildMenu`) and bottom-center (`SelectedUnitPanel`)
+     panels drifted out of height sync** - a direct consequence of the
+     prior session's own "fit BuildMenu to its content" change: BuildMenu's
+     height now varies per context (1-3 rows) but `SelectedUnitPanel`
+     stayed a fixed 110 tall, so the two panels' bottom-bar heights no
+     longer matched once BuildMenu grew for a busy context. Fixed by
+     caching a `BuildMenu` reference in `SelectedUnitPanel.Awake()` and
+     copying its live `sizeDelta.y` onto this panel's own RectTransform
+     every `Update()` - `Panel` (the framed background) is already anchor-
+     stretched to fill this GameObject, so no second resize call is
+     needed. Live-verified both directions: selecting a worker (13-button,
+     2-row placement grid) grows both panels to match; reselecting the
+     TownCenter (5-button, 1-row) shrinks both back down together, bottom
+     edges staying aligned throughout. 511/511 EditMode tests pass
+     unmodified (pure UI logic, no test-relevant behavior touched). One
+     scoped commit (`SelectedUnitPanel.cs` only). Next: whatever the user
+     directs.
 - **Wave 5 item 29 follow-up: full 45-combo visual pass on the building
   team-color trim tint (2026-09-12)** — direct continuation of the
   metallic-trim shipping session immediately below, per the user's

@@ -28,10 +28,20 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private TMP_Text groupCountLabel;
 
         private SelectionManager _selectionManager;
+        private BuildMenu _buildMenu;
 
         private void Awake()
         {
             _selectionManager = FindFirstObjectByType<SelectionManager>();
+            // BuildMenu's own panel height is now dynamic (fits however
+            // many grid rows the current context needs, 2026-09-12) - this
+            // panel matches it every frame so the two bottom-bar panels
+            // stay the same height instead of drifting out of sync
+            // whenever BuildMenu grows/shrinks. `Panel` (this script's own
+            // `panelRoot`) is anchor-stretched to fill this GameObject's
+            // own RectTransform, so resizing `transform` here is enough -
+            // no separate resize needed on `panelRoot` itself.
+            _buildMenu = FindFirstObjectByType<BuildMenu>();
 
             // Dedicated art, not the shared UIStyleTheme.PanelFrameSprite -
             // that one is modal_frame.png, meant for the 4 true popups
@@ -143,6 +153,13 @@ namespace KingdomsOfBharat.UI
 
         private void Update()
         {
+            if (_buildMenu != null)
+            {
+                var buildMenuRect = (RectTransform)_buildMenu.transform;
+                var selfRect = (RectTransform)transform;
+                selfRect.sizeDelta = new Vector2(selfRect.sizeDelta.x, buildMenuRect.sizeDelta.y);
+            }
+
             Building selectedBuilding = _selectionManager != null ? _selectionManager.SelectedBuilding : null;
             bool hasUnitSelection = _selectionManager != null && _selectionManager.Selected.Count > 0;
             bool hasSelection = hasUnitSelection || selectedBuilding != null;
@@ -173,6 +190,16 @@ namespace KingdomsOfBharat.UI
             else
             {
                 groupCountLabel.text = $"{_selectionManager.Selected.Count} units selected";
+                // DrawSingle/DrawBuilding are the only two places that
+                // toggle hpLabel/the HP bar, so a group selection (neither
+                // one) left them showing whatever the PREVIOUS selection
+                // last set - a stale HP bar/number from an earlier single
+                // unit or building, not anything about the current group.
+                // Confirmed live: selecting a TownCenter then a group of
+                // workers left "HP: 500/500" and a full bar rendering
+                // behind "4 units selected".
+                hpLabel.gameObject.SetActive(false);
+                SetHealthBar(false, null);
             }
         }
 
