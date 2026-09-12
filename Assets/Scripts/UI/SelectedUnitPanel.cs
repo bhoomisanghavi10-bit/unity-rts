@@ -44,17 +44,20 @@ namespace KingdomsOfBharat.UI
                 if (frame != null)
                 {
                     background.sprite = frame;
-                    background.type = Image.Type.Sliced;
-                    // 2026-09-12 ornate HUD reskin: source art is now a
-                    // purpose-sized 191x192 frame (spriteBorder tuned to its
-                    // own pixel dimensions), not the old 2752x1536 placeholder
-                    // this multiplier used to compensate for - but this
-                    // panel itself renders at 220x70, well under the
-                    // sprite's native 192px height. 2.74 matches that
-                    // downscale ratio (192/70) so the top/bottom border
-                    // shrinks proportionally instead of overlapping into the
-                    // panel's own 70px-tall center.
-                    background.pixelsPerUnitMultiplier = 2.74f;
+                    // 2026-09-12 Tier 2 UI art delivery: purpose-made
+                    // 1729x806 frame with a real circular portrait notch
+                    // positioned at the vertical MIDDLE of the left edge -
+                    // unlike every other 9-sliced HUD panel, that notch sits
+                    // in the stretchable middle band, not a non-stretching
+                    // corner, so Image.Type.Sliced squishes it into a thin
+                    // sliver at this panel's fixed 220x70 display size (live-
+                    // verified, not assumed). Same fix as BuildMenu.cs's
+                    // command-card buttons: Image.Type.Simple, a clean
+                    // uniform stretch that keeps the notch a recognizable
+                    // circle (mildly ovalized by the aspect mismatch, not
+                    // squashed flat) since this panel never renders at any
+                    // size but this one.
+                    background.type = Image.Type.Simple;
                 }
             }
 
@@ -103,10 +106,12 @@ namespace KingdomsOfBharat.UI
             Image frameImage = frameGo.GetComponent<Image>();
             frameImage.sprite = frameSprite;
             frameImage.type = Image.Type.Sliced;
-            // hp_bar_frame is authored at 2620x276 for roughly this rect's
-            // aspect ratio, so a much smaller multiplier suffices than the
-            // other, much-larger-canvas panels wired in this session.
-            frameImage.pixelsPerUnitMultiplier = 13f;
+            // 2026-09-12 Tier 2 UI art delivery: purpose-made 1772x187
+            // frame replacing the ornate-reskin placeholder. This bar
+            // renders at hpLabel's own rect size (204x20) - 9.35 matches
+            // the downscale ratio (187/20, this sprite's real native
+            // height over the live display height).
+            frameImage.pixelsPerUnitMultiplier = 9.35f;
 
             GameObject fillGo = new GameObject("Fill", typeof(RectTransform), typeof(Image));
             fillGo.transform.SetParent(_hpBarRoot.transform, false);

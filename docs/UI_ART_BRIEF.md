@@ -261,20 +261,47 @@ Use this to track sourcing progress — check off as art lands and gets wired in
   the Ornate HUD reskin's own resource-bar frame per the user's choice.
 
 **Tier 2 (HUD frequency)**
-- [ ] Selected-unit panel frame
-- [ ] HP bar frame + fill (2 sprites)
-- [ ] Hover-tooltip panel frame
-- [x] 5 cursor states (default/attack-move/invalid/gather/build-placement) — **done
-  2026-08-28, via approximate matches, not purpose-made art.** Sourced from an
-  imported Asset Store pack ("Basic RPG Cursors", `Assets/Cursors/`), not commissioned
-  to this spec — none of its icons are literal crossed-swords/circle-slash/sickle/
-  hammer-and-nail. Closest available substitutes used instead: Default = plain arrow,
-  Attack-move = single sword, Invalid = red arrow (no prohibition/slash icon exists in
-  the pack), Gather = hand-with-coins, Build-placement = axe+hammer. Cropped to
-  content and resized to the spec'd 32×32 (Python/Pillow, not in-Editor
-  `Texture2D.GetPixels` — see the known Editor-crash gotcha). If a closer-fitting set
-  is ever sourced, swap the 5 files at `Assets/Resources/UI/Cursors/` — no code change
-  needed.
+- [x] Selected-unit panel frame — **done 2026-09-12.** User supplied a real Canva
+  delivery at `/Users/bhoome/Downloads/tier 2/` matching this spec exactly (a real
+  circular portrait notch on the left edge, per the brief). Wired at
+  `Assets/Resources/UI/Panels/panel_selected_unit.png`. Uses `Image.Type.Simple`, not
+  `Sliced` — see `SelectedUnitPanel.cs`'s own comment: the notch sits in the
+  vertical-middle of the left edge, in 9-slice's stretchable middle band rather than a
+  non-stretching corner, so `Sliced` squished it into a thin sliver at this panel's
+  fixed 220×70 display size (live-verified via UnityMCP before switching).
+- [x] HP bar frame + fill (2 sprites) — **done 2026-09-12**, same delivery. Wired at
+  `Assets/Resources/UI/Panels/hp_bar_frame.png`/`hp_bar_fill.png`, `Sliced`/`Filled`
+  respectively, `pixelsPerUnitMultiplier` freshly measured against the new art's real
+  dimensions (not reused from the old placeholder).
+- [x] Hover-tooltip panel frame — **done 2026-09-12**, same delivery. Wired at
+  `Assets/Resources/UI/Panels/panel_tooltip.png`.
+- [x] 5+ cursor states (default/attack-move/invalid/gather×4/build-placement) —
+  **re-done 2026-09-12 with real purpose-made art, superseding the 2026-08-28
+  approximate-match note below.** Same Tier 2 delivery included genuine crossed-swords/
+  circle-slash/hammer-and-nail/pointing-hand icons matching this spec exactly, plus a
+  bonus expansion: 4 separate per-resource gather cursors (axe/sickle/pickaxe+gem/
+  pickaxe+hammer for Wood/Food/Gold/Stone) instead of one generic sickle icon.
+  `HoverTooltip.cs`'s `HoverCursorState` enum and `ResolveCursorState` were extended
+  (Gather → GatherWood/Food/Gold/Stone) to pick the cursor by the hovered
+  `ResourceNode.ResourceType`, live-verified via reflection against all 4 resource
+  types. All 8 files were RGB with no real alpha (same baked-checkerboard defect as
+  the Tier 1 delivery) — fixed via `Tools/ui_art_alpha_key.py`, then cropped/padded/
+  resized to 32×32. Old single `gather.png` removed (superseded, unreferenced).
+  Original 2026-08-28 note, kept for history: sourced from an imported Asset Store
+  pack ("Basic RPG Cursors", `Assets/Cursors/`), not commissioned to this spec — none
+  of its icons were literal crossed-swords/circle-slash/sickle/hammer-and-nail.
+  Closest available substitutes were used instead: Default = plain arrow, Attack-move
+  = single sword, Invalid = red arrow, Gather = hand-with-coins, Build-placement =
+  axe+hammer.
+
+**Known minor issue, flagged not fixed (2026-09-12)**: the new Selected-unit-panel/
+Hover-tooltip frames have a taller decorative top crown ornament (~22-30% of panel
+height) than the old placeholder art — both panels' top text row (unit name) now
+visually crosses under it. Text stays fully readable (thin linework, not solid), but
+it's a real cosmetic regression from the cleaner old layout; fixing it properly needs
+either a small panel-height increase or repositioned/resized text rows, both out of
+this session's own scope (wiring art + a cursor code change). Flagged as a background
+task (`task_9e3bd382`) rather than silently expanded into.
 
 **Tier 3 (menu screens)**
 - [ ] Shared modal panel frame

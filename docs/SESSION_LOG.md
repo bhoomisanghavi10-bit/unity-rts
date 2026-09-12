@@ -5,6 +5,112 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-12 — UI_ART_BRIEF.md Tier 2 art delivery wired (panels, HP bar, per-resource cursors)
+
+**Scope**: not a numbered roadmap item. Picked up at the user's "start tier 2"
+request, right after the Tier 1 delivery closed earlier the same session. User had a
+real Canva delivery ready at `/Users/bhoome/Downloads/tier 2/` matching Tier 2's
+checklist exactly (Selected-unit panel frame, HP bar frame + fill, Hover-tooltip
+panel frame) plus a bonus: the 4 originally-spec'd cursor states re-done as genuine
+purpose-made art (superseding the 2026-08-28 Asset Store approximate matches), plus
+4 NEW per-resource gather cursors (axe/sickle/pickaxe+gem/pickaxe+hammer for
+Wood/Food/Gold/Stone) splitting the single spec'd "Gather" icon. Asked the user via
+AskUserQuestion whether to wire all 4 gather cursors with real per-resource
+switching or collapse to one generic icon — confirmed "wire all 4."
+
+**Identification**: all 12 files visually inspected against their filenames/spec
+content before touching anything (per this project's own "never trust filenames
+blindly" convention) — all matched cleanly, no ambiguity.
+
+**Same defect as Tier 1, found again before wiring**: all 12 raw PNGs were RGB with
+no alpha channel at all (confirmed via direct pixel/mode inspection, not assumed) —
+the checkerboard "transparency" baked into literal RGB values. Fixed by reusing
+`Tools/ui_art_alpha_key.py` (built for exactly this in the Tier 1 session) directly,
+no changes needed to the shared tool. **One new wrinkle this delivery's own shape
+required**: `selected unit panel frame.png` has a circular portrait notch on the
+left edge (per spec) whose interior is also checkerboard-baked, but — since it's
+fully enclosed by the frame ring, not touching the image border — the tool's
+border-connectivity check (built specifically to *preserve* enclosed same-colored
+artwork, e.g. Tier 1's white-turban case) would have left it opaque. Fixed with one
+manual seed pixel (sampled from inside the circle) added to the connected-label set
+for this one image only, in the invocation script — not a change to the shared
+tool's default behavior. Cursors: after alpha-key + crop-to-content, padded to
+square and resized to 32×32 (Pillow), matching the established cursor-sizing
+precedent from the first pack.
+
+**A real 9-slice bug found and fixed live, not assumed correct**: initially wired
+`panel_selected_unit.png` as `Image.Type.Sliced` with a freshly pixel-measured
+border (matching every prior 9-slice session's methodology — border-flood-fill
+region + pixel-centerline/reference-color-distance sampling for the border values,
+never reusing the old placeholder's stale numbers). Live UnityMCP verification
+(real match, real damaged Soldier selected) showed the circular notch rendering as
+a thin distorted sliver, not a circle. Root cause: unlike every other 9-sliced HUD
+panel in this project, this notch sits in the *vertical middle* of the left edge —
+inside 9-slice's stretchable middle band, not a non-stretching corner — so at this
+panel's fixed 220×70 display size, the ~350px-tall circle in the source art gets
+squeezed into a ~30-unit vertical band. Fixed the same way `BuildMenu.cs`'s
+command-card buttons were fixed for an analogous reason in an earlier session:
+switched to `Image.Type.Simple` (a clean uniform stretch, no border math) since this
+panel never renders at any size but this one — re-verified live, the notch now
+reads as a recognizable (mildly ovalized, not squashed) circle.
+
+**Multiplier retuning**: `SelectedUnitPanel.cs`'s health-bar-frame multiplier
+(`13f`→`9.35f`) and `HoverTooltip.cs`'s tooltip-panel multiplier (`44f`→`13.125f`)
+were both freshly computed as `new sprite's native height ÷ live display rect
+height` (queried via UnityMCP against the real running scene's actual
+`RectTransform.rect`, not guessed) — the same convention every prior 9-slice
+retuning session in this project has used, since the new source art's pixel
+dimensions bear no relation to the old placeholder's.
+
+**`HoverTooltip.cs` code change** (the one non-asset change this session made):
+`HoverCursorState`'s single `Gather` member split into `GatherWood/GatherFood/
+GatherGold/GatherStone`; `ResolveCursorState` (the pure, tested decision function)
+gained a `ResourceGathering.ResourceType resourceType` parameter and switches on it
+when hovering a gatherable resource node; `Update()`'s raycast now captures
+`ResourceNode.ResourceType` into a local and passes it through.
+`HoverCursorStateTests.cs` updated (every call site takes the new parameter) plus 3
+new tests proving each resource type resolves to its own distinct cursor state (510
+total, up from 507, all pass).
+
+**Live-verified via UnityMCP through the real production path**: a real match
+(`CivilizationSetup.BeginMatch(Maurya)`, invoked via reflection), a real
+`SoldierFactory`-spawned Soldier damaged via a real `Attackable.TakeDamage` call and
+force-selected via `SelectionManager`'s own private `_selected` list — screenshotted
+the real `SelectedUnitPanel` showing the new frame, the now-correctly-circular
+portrait notch, and the new HP bar (frame + red-to-green gradient fill) all
+rendering cleanly; the real `HoverTooltip` panel forced visible (its own `Update()`
+temporarily disabled to hold the state for a screenshot, since it's driven by live
+`Input.mousePosition` each frame) showing the new frame with 3 lines of text,
+readable and un-clipped; `ResolveCursorState`/`TextureFor` invoked directly via
+reflection against all 4 real `ResourceType` values, each correctly resolving to
+its own distinct, successfully-loaded 32×32 cursor texture
+(`gather_wood`/`gather_food`/`gather_gold`/`gather_stone`); confirmed the other 4
+cursor states (`default`/`attack_move`/`invalid`/`build_placement`) still load
+correctly post-overwrite. Also found, mid-verification, that `UICanvas/CivPicker`
+(a persistent child object, not part of the `MissionSelectMenuCanvas` GameObject
+this and prior sessions have deactivated for verification) was bleeding through
+every screenshot — deactivated it directly for clean captures; this is verification
+scaffolding only, not a project change.
+
+**Found, flagged, not fixed**: the new panel frames' more prominent decorative top
+crown ornament (~22-30% of panel height, vs. the old placeholder's thinner border)
+now has the top text row (unit name) crossing under it in both
+`SelectedUnitPanel`/`HoverTooltip` — text stays fully readable (thin linework, not
+solid fill), but it's a real cosmetic regression from the old cleaner layout.
+Fixing it properly needs either a panel-height increase (with ripple effects on the
+`MatchStatus` panel stacked above `SelectedUnitPanel`, per the shared bottom-docked
+bar layout from Roadmap item 30) or repositioned/resized text rows — genuinely
+separate layout work from this session's own scope (wiring art + one cursor-logic
+change). Flagged via `spawn_task` (`task_9e3bd382`) rather than silently expanded
+into.
+
+507→510 EditMode tests pass. `docs/UI_ART_BRIEF.md`'s Tier 2 checklist fully checked
+off. One scoped commit. Next: whatever the user directs — Tier 3 (modal frame, menu
+buttons, civ-select crests) is the next unchecked tier in that doc, the flagged
+text/ornament overlap follow-up, or any other roadmap item.
+
+---
+
 ## 2026-09-12 — HUD scaling made responsive: CanvasScaler → Scale With Screen Size
 
 **Scope**: not a numbered roadmap item — a direct follow-up to the `scaleFactor

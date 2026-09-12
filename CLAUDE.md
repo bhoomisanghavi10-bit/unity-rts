@@ -6,6 +6,49 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **UI_ART_BRIEF.md Tier 2 art delivery wired (2026-09-12)** — not a numbered
+  roadmap item. User supplied a real Canva delivery at `/Users/bhoome/Downloads/
+  tier 2/` matching Tier 2's checklist (Selected-unit panel frame, HP bar frame +
+  fill, Hover-tooltip panel frame) plus a bonus: purpose-made replacements for the
+  4 originally-spec'd cursor states (superseding the 2026-08-28 Asset Store
+  approximate matches) and 4 NEW per-resource gather cursors (Wood/Food/Gold/Stone)
+  splitting the single spec'd "Gather" icon. User confirmed (AskUserQuestion) wiring
+  all 4 gather cursors with real per-resource switching. Same defect as Tier 1: all
+  12 files were RGB with no alpha, checkerboard baked into pixels — fixed by reusing
+  `Tools/ui_art_alpha_key.py` unchanged, plus one manual seed-pixel addition (in the
+  invocation script only) for `selected unit panel frame.png`'s circular portrait
+  notch, which sat fully enclosed by the frame ring and so wouldn't otherwise clear
+  under the tool's border-connectivity preservation logic. **Found and fixed a real
+  9-slice bug live, not assumed correct**: the portrait notch sits in the *vertical
+  middle* of the left edge — inside 9-slice's stretchable middle band, not a
+  non-stretching corner — so `Image.Type.Sliced` squished it into a thin sliver at
+  this panel's fixed 220×70 size; switched to `Image.Type.Simple` (same fix
+  `BuildMenu.cs`'s command-card buttons used previously for an analogous reason),
+  re-verified live: the notch now reads as a recognizable circle. Retuned
+  `SelectedUnitPanel.cs`'s HP-bar-frame multiplier (13→9.35) and `HoverTooltip.cs`'s
+  tooltip multiplier (44→13.125), both freshly computed from the new art's real
+  dimensions against the live display rect (queried via UnityMCP), never reusing
+  the old placeholder's stale values. Code change: `HoverTooltip.cs`'s
+  `HoverCursorState.Gather` split into `GatherWood/Food/Gold/Stone`;
+  `ResolveCursorState` (the pure/tested function) gained a `ResourceType` parameter
+  and switches on it; `Update()` passes the hovered node's real resource type
+  through. 3 new EditMode tests (510 total, up from 507, all pass). Live-verified
+  via UnityMCP through the real production path: a real match
+  (`CivilizationSetup.BeginMatch(Maurya)`), a real damaged Soldier force-selected
+  showing the new frame/HP-bar/notch all rendering cleanly; the real `HoverTooltip`
+  panel showing its new frame with clean, un-clipped text; `ResolveCursorState`/
+  `TextureFor` invoked directly against all 4 real `ResourceType` values, each
+  correctly resolving to its own distinct, successfully-loaded cursor texture; the
+  other 4 cursor states confirmed still loading correctly post-overwrite. **Found,
+  flagged, not fixed**: the new frames' taller decorative top crown ornament now has
+  the top text row (unit name) crossing under it in both panels — text stays
+  readable, but it's a real cosmetic regression from the old cleaner layout; fixing
+  it needs a panel-height increase or repositioned text rows, genuinely separate
+  layout work from this session's art-wiring scope. Flagged via `spawn_task`
+  (`task_9e3bd382`). `docs/UI_ART_BRIEF.md`'s Tier 2 checklist fully checked off.
+  Next: whatever the user directs — Tier 3 (modal frame, menu buttons, civ-select
+  crests) is the next unchecked tier in that doc, the flagged text/ornament overlap
+  follow-up, or any other roadmap item.
 - **HUD scaling made responsive: CanvasScaler switched to Scale With Screen
   Size (2026-09-12)** — not a numbered roadmap item, a direct follow-up to
   the `scaleFactor 1→1.6` fix immediately below. That fix made the HUD

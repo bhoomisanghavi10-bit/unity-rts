@@ -34,14 +34,21 @@ namespace KingdomsOfBharat.UI
         // Cursor states this hover can resolve to. Internal (not private) so
         // EditMode tests can exercise ResolveCursorState directly - see
         // Assets/Scripts/AssemblyInfo.cs for the InternalsVisibleTo grant.
-        internal enum HoverCursorState { Default, AttackMove, Gather, Invalid, BuildPlacement }
+        // Tier 2 delivered 4 separate per-resource gather cursors instead of
+        // one generic sickle icon, so Gather splits into 4 states here
+        // rather than picking a texture separately outside the pure
+        // decision function.
+        internal enum HoverCursorState { Default, AttackMove, GatherWood, GatherFood, GatherGold, GatherStone, Invalid, BuildPlacement }
 
         // Cursor textures, not sprites - Cursor.SetCursor takes a Texture2D
         // directly. Loaded once; hotspot is the texture center for the
         // symmetric gather/attack-move/invalid/build-placement icons,
         // top-left for the arrow.
         private Texture2D _cursorDefault;
-        private Texture2D _cursorGather;
+        private Texture2D _cursorGatherWood;
+        private Texture2D _cursorGatherFood;
+        private Texture2D _cursorGatherGold;
+        private Texture2D _cursorGatherStone;
         private Texture2D _cursorAttackMove;
         private Texture2D _cursorInvalid;
         private Texture2D _cursorBuildPlacement;
@@ -62,12 +69,20 @@ namespace KingdomsOfBharat.UI
                 {
                     background.sprite = frame;
                     background.type = Image.Type.Sliced;
-                    background.pixelsPerUnitMultiplier = 44f;
+                    // 2026-09-12 Tier 2 UI art delivery: purpose-made
+                    // 1646x735 frame replacing the old placeholder. This
+                    // panel renders at 160x56 - 13.125 matches the
+                    // downscale ratio (735/56, this sprite's real native
+                    // height over the live display height).
+                    background.pixelsPerUnitMultiplier = 13.125f;
                 }
             }
 
             _cursorDefault = Resources.Load<Texture2D>("UI/Cursors/default");
-            _cursorGather = Resources.Load<Texture2D>("UI/Cursors/gather");
+            _cursorGatherWood = Resources.Load<Texture2D>("UI/Cursors/gather_wood");
+            _cursorGatherFood = Resources.Load<Texture2D>("UI/Cursors/gather_food");
+            _cursorGatherGold = Resources.Load<Texture2D>("UI/Cursors/gather_gold");
+            _cursorGatherStone = Resources.Load<Texture2D>("UI/Cursors/gather_stone");
             _cursorAttackMove = Resources.Load<Texture2D>("UI/Cursors/attack_move");
             _cursorInvalid = Resources.Load<Texture2D>("UI/Cursors/invalid");
             _cursorBuildPlacement = Resources.Load<Texture2D>("UI/Cursors/build_placement");
@@ -90,7 +105,10 @@ namespace KingdomsOfBharat.UI
             switch (state)
             {
                 case HoverCursorState.AttackMove: return _cursorAttackMove;
-                case HoverCursorState.Gather: return _cursorGather;
+                case HoverCursorState.GatherWood: return _cursorGatherWood;
+                case HoverCursorState.GatherFood: return _cursorGatherFood;
+                case HoverCursorState.GatherGold: return _cursorGatherGold;
+                case HoverCursorState.GatherStone: return _cursorGatherStone;
                 case HoverCursorState.Invalid: return _cursorInvalid;
                 case HoverCursorState.BuildPlacement: return _cursorBuildPlacement;
                 default: return _cursorDefault;
@@ -106,7 +124,7 @@ namespace KingdomsOfBharat.UI
         internal static HoverCursorState ResolveCursorState(
             bool isPlacingBuilding,
             bool hoveringHostileTarget, bool selectionCanAttack,
-            bool hoveringResourceNode, bool selectionCanGather)
+            bool hoveringResourceNode, ResourceType resourceType, bool selectionCanGather)
         {
             if (isPlacingBuilding)
             {
@@ -120,7 +138,19 @@ namespace KingdomsOfBharat.UI
 
             if (hoveringResourceNode)
             {
-                return selectionCanGather ? HoverCursorState.Gather : HoverCursorState.Invalid;
+                if (!selectionCanGather)
+                {
+                    return HoverCursorState.Invalid;
+                }
+
+                switch (resourceType)
+                {
+                    case ResourceType.Wood: return HoverCursorState.GatherWood;
+                    case ResourceType.Food: return HoverCursorState.GatherFood;
+                    case ResourceType.Gold: return HoverCursorState.GatherGold;
+                    case ResourceType.Stone: return HoverCursorState.GatherStone;
+                    default: return HoverCursorState.GatherWood;
+                }
             }
 
             return HoverCursorState.Default;
@@ -172,6 +202,7 @@ namespace KingdomsOfBharat.UI
             string line3 = null;
             bool hoveringHostileTarget = false;
             bool hoveringResourceNode = false;
+            ResourceType hoveredResourceType = ResourceType.Wood;
 
             if (!BuildingPlacer.IsPlacing && !MinimapController.IsPointerOverMinimap)
             {
@@ -213,6 +244,7 @@ namespace KingdomsOfBharat.UI
                     {
                         line2 = node.ResourceType.ToString();
                         hoveringResourceNode = true;
+                        hoveredResourceType = node.ResourceType;
                     }
 
                     if (go.TryGetComponent(out Attackable attackable))
@@ -225,7 +257,7 @@ namespace KingdomsOfBharat.UI
             HoverCursorState cursorState = ResolveCursorState(
                 BuildingPlacer.IsPlacing,
                 hoveringHostileTarget, SelectionCanAttack(),
-                hoveringResourceNode, SelectionCanGather());
+                hoveringResourceNode, hoveredResourceType, SelectionCanGather());
             Texture2D cursor = TextureFor(cursorState);
 
             SetCursor(cursor);
