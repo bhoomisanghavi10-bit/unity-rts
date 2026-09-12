@@ -6,6 +6,32 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Fixed SelectedUnitPanel text overlapping the portrait-notch decoration
+  (2026-09-12)** — ad hoc user bug report from the live bottom-center panel
+  ("TownCenter/Complete/HP: 500/500"). Root cause, measured via direct pixel
+  sampling of `panel_selected_unit.png` at the exact rows the 3 text lines
+  render on (not guessed): the panel's circular portrait notch occupies
+  roughly the first 21% of the texture's width, but `NameLabel`/
+  `StatusLabel`/`HpLabel`/`GroupCountLabel` were only inset 8 units from the
+  panel's left edge - deep inside the notch/ring art (for the 2 rows that
+  cut through the portrait circle itself, that's the fully transparent
+  interior; for the row above the circle, it's the ornate ring border
+  itself). The panel's own `Image.Type.Simple` (from the 2026-09-12 Tier 2
+  art-delivery session, chosen specifically to keep this notch a real
+  circle) meant the notch scales uniformly with the panel, so a flat
+  inset in scene-authored units was never going to clear it - it needed
+  measuring, not assuming. Fixed by moving all 4 labels' left inset
+  8->50 units (`sizeDelta.x` correspondingly 204->162, right edge
+  unchanged) - the flat "safe to write on" parchment consistently starts
+  around 21% of the panel width at every text row sampled. The HP bar's
+  own `Frame`/`Fill` (code-created in `SelectedUnitPanel.SetUpHealthBar`)
+  needed no separate fix - they copy `hpLabel`'s own RectTransform values
+  at Awake, so they inherited the corrected position automatically. 511/511
+  EditMode tests pass unmodified (pure scene RectTransform data, no script
+  changed). Live-verified via UnityMCP: a real TownCenter selection now
+  shows all 3 lines clear of the portrait ring, the circle itself fully
+  visible and unobstructed. One scoped commit (`Assets/Scenes/Main.unity`
+  only). Next: whatever the user directs.
 - **Wave 5 item 29 follow-up: building team-color trim tint shipped, no new
   art needed (2026-09-12)** — direct continuation of the "asset-blocked"
   investigation immediately below, same session. Opening the actual texture
