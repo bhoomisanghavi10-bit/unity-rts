@@ -6,6 +6,30 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Fixed MatchStatus (Civilization/Population/Age) bleeding through the
+  CivPicker screen (2026-09-12)** — ad hoc user bug report from a live
+  screenshot, not caused by any of this session's own earlier fixes. Real
+  root cause, confirmed by reading `UICanvas`'s actual sibling order (not
+  guessed): `CivPicker` — its own header comment calls it "a pre-match,
+  full-screen blocking overlay" — sat at sibling index 4, while `InfoPanel`
+  (holding `MatchStatus`, which shows the Civilization/Population/Age
+  labels `ResourceHUD.cs` drives) sat at index 6, **after** it. Unity draws
+  Canvas children in ascending sibling order, so `InfoPanel` painted on
+  top of CivPicker's backdrop instead of being hidden behind it —
+  `ResourceHUD`/`BuildMenu`/`HoverTooltip`/`MinimapController` (indices
+  0-3, all before CivPicker) were correctly hidden the whole time; only
+  `InfoPanel` was ever misplaced. Secondary, non-bug detail noted while
+  investigating: the specific values shown ("Chola"/"0/10"/"Ancient Age")
+  are `CivilizationRegistry.For`'s own documented pre-match fallback
+  defaults (Chola, since no civ is assigned yet) — correct, harmless
+  behavior once the panel is actually hidden again. Fixed with a pure
+  scene-hierarchy reorder (`CivPicker.transform.SetAsLastSibling()`, no
+  code change) — confirmed via AskUserQuestion before touching the scene.
+  510/510 EditMode tests pass unmodified. Live-verified via UnityMCP: a
+  fresh CivPicker screen no longer shows the Civilization/Population/Age
+  card, and selecting a civ (Rajput) still correctly highlights the card
+  and enables Confirm, with nothing else regressed. One scoped commit
+  (`Assets/Scenes/Main.unity` only). Next: whatever the user directs.
 - **Swept the rest of the menu screens for the same overflow bug, found and
   fixed 3 more real, independent ones (2026-09-12)** — direct follow-up to
   the CivPicker fix immediately below, per the user's "check the other menu
