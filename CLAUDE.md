@@ -6,6 +6,42 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Fixed CivPicker card overflow on the "Choose Your Civilization" screen
+  (2026-09-12)** — not a numbered roadmap item, an ad hoc user-reported sizing
+  bug, fixed the same way as the Tier 2 overlap fix immediately below (root-
+  caused via live measurement, pure scene-data change, no code). Root cause:
+  `CivPicker`'s 5 civ cards (`Card_Chola`/`Card_Vijayanagara`/`Card_Rajput`/
+  `Card_Maurya`/`Card_Maratha`) have scene-authored, non-stretched
+  `RectTransform`s (fixed `sizeDelta`/`anchoredPosition`, not driven by any
+  layout group or C# positioning code — confirmed via a full read of
+  `CivPicker.cs`, which does no card-layout math at all) — 240-wide cards at
+  270-unit spacing, a 1320-unit-wide span, authored back when `UICanvas` was
+  in `Constant Pixel Size` mode against the actual (large) screen resolution.
+  The `Scale With Screen Size` HUD-responsiveness fix logged immediately
+  below this session correctly fixed the HUD, but as an unflagged side
+  effect it also shrank every OTHER UI element sharing that same canvas
+  (`CivPicker` included, confirmed via its own `RectTransform.rect` reading
+  ~991×606) down to the new `referenceResolution` of only 1000×600 UI
+  units — so `CivPicker`'s untouched 1320-wide card row started overflowing
+  both edges of the now-narrower canvas, exactly matching the user's
+  screenshot (Chola and Maratha's cards visibly clipped at the left/right
+  edges). Fixed by proportionally shrinking the cards to fit the new
+  reference width, not by touching `CanvasScaler` again (that's shared,
+  global, and already correctly serving the HUD): card width 240→170,
+  spacing 270→190 (same 30-unit gap ratio preserved), centers now
+  ±380/±190/0 instead of ±540/±270/0 — total span 1320→930, fits inside the
+  ~991-wide canvas with ~30 units of margin each side. Height (300) and the
+  crest/Name/Blurb inner layout untouched — `Name`/`Blurb` are already
+  stretch-anchored to their parent card, so they resized automatically with
+  no extra edit needed (confirmed by inspecting their `RectTransform`s
+  before editing anything). 510/510 EditMode tests pass unmodified (pure
+  `RectTransform` data change, no script touched). Live-verified via
+  UnityMCP: entered Play mode, screenshotted the real `CivPicker` panel —
+  all 5 cards now render fully on-screen with clean margins on both sides
+  and the Confirm button fully visible, matching every other civ's card
+  exactly (previously only the 3 center cards were fully visible). One
+  scoped commit (`Assets/Scenes/Main.unity` only). Next: whatever the user
+  directs.
 - **Fixed the Tier 2 text/crown-ornament overlap (2026-09-12)** — same-day
   follow-up to the Tier 2 art delivery session immediately below, picked up once
   the user started the flagged background task (`task_9e3bd382`). Root cause,
