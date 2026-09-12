@@ -294,14 +294,23 @@ Use this to track sourcing progress — check off as art lands and gets wired in
   = single sword, Invalid = red arrow, Gather = hand-with-coins, Build-placement =
   axe+hammer.
 
-**Known minor issue, flagged not fixed (2026-09-12)**: the new Selected-unit-panel/
-Hover-tooltip frames have a taller decorative top crown ornament (~22-30% of panel
-height) than the old placeholder art — both panels' top text row (unit name) now
-visually crosses under it. Text stays fully readable (thin linework, not solid), but
-it's a real cosmetic regression from the cleaner old layout; fixing it properly needs
-either a small panel-height increase or repositioned/resized text rows, both out of
-this session's own scope (wiring art + a cursor code change). Flagged as a background
-task (`task_9e3bd382`) rather than silently expanded into.
+**Text/ornament overlap, flagged 2026-09-12, fixed same day (follow-up session)**:
+the new Selected-unit-panel/Hover-tooltip frames have a much taller decorative top
+AND bottom ornament band than the old placeholder art (measured precisely via
+pixel-centerline sampling, not eyeballed: ~32%/25% of height for the selected-unit
+panel, ~36%/32% for the tooltip — bigger than initially guessed), so the original
+label Y-positions (tuned for the old thin-bordered art) put the top text row (unit
+name) under the crown ornament in both panels. Fixed by growing both panels'
+height (`SelectedUnitPanel` 70→110, `HoverTooltip`'s `Panel` 56→105 — pure scene
+data, `RectTransform.sizeDelta`) and repositioning all label rows to sit inside the
+now-larger flat zone; `MatchStatus`/`InfoPanel` (stacked above `SelectedUnitPanel`
+in the shared bottom-docked bar) shifted/grew by the same delta to absorb the
+extra height with zero ripple elsewhere — `HoverTooltip`'s own panel needed no
+sibling adjustment at all, since it's a self-contained floating tooltip positioned
+at the cursor every frame, not part of any static layout. Live-verified via
+UnityMCP: all 3 text rows in both panels now render fully clear of both ornaments
+with no overlap (screenshotted before/after). No code changes needed — pure
+scene-data change, 510/510 EditMode tests pass unmodified.
 
 **Tier 3 (menu screens)**
 - [ ] Shared modal panel frame

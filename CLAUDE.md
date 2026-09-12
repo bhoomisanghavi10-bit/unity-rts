@@ -6,6 +6,29 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Fixed the Tier 2 text/crown-ornament overlap (2026-09-12)** — same-day
+  follow-up to the Tier 2 art delivery session immediately below, picked up once
+  the user started the flagged background task (`task_9e3bd382`). Root cause,
+  measured precisely via pixel-centerline sampling (not re-guessed): the new
+  frames' ornament bands are bigger than the original session estimated —
+  `panel_selected_unit.png` ~32%/25% top/bottom (only 43% flat), `panel_tooltip.png`
+  ~36%/32% (only ~33% flat) — so the old label Y-positions (tuned for the thinner
+  placeholder art) put the top text row under the crown ornament. Fixed with pure
+  scene-data changes, no code: grew `SelectedUnitPanel` 70→110 and `HoverTooltip`'s
+  `Panel` 56→105 (`RectTransform.sizeDelta`), repositioned every label row to fit
+  the new flat zone, and shifted/grew `MatchStatus`/`InfoPanel` by the same delta
+  to absorb `SelectedUnitPanel`'s growth with zero ripple onto `BuildMenu`/minimap
+  (independently anchored siblings) — `HoverTooltip`'s own panel needed no sibling
+  adjustment at all, confirmed via reflection it's a self-contained floating panel
+  repositioned to the cursor every frame, not part of any static layout.
+  Live-verified via UnityMCP: all 3 text rows in both panels now render fully
+  clear of both ornaments (not just reduced — the initially-considered "accept
+  minor residual overlap" compromise turned out unnecessary once heights matched
+  the correctly-measured fractions). 510/510 EditMode tests pass unmodified (pure
+  scene-data change). One scoped commit. This closes `task_9e3bd382` — no more
+  open Tier 2 follow-ups. Next: whatever the user directs — Tier 3 (modal frame,
+  menu buttons, civ-select crests) is the next unchecked tier, or any other
+  roadmap item.
 - **UI_ART_BRIEF.md Tier 2 art delivery wired (2026-09-12)** — not a numbered
   roadmap item. User supplied a real Canva delivery at `/Users/bhoome/Downloads/
   tier 2/` matching Tier 2's checklist (Selected-unit panel frame, HP bar frame +

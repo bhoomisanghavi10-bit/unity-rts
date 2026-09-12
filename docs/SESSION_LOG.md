@@ -5,6 +5,55 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-12 — Fixed the Tier 2 text/crown-ornament overlap flagged earlier the same day
+
+**Scope**: the follow-up flagged as `task_9e3bd382` at the end of the Tier 2 art
+delivery session (immediately below) — picked up directly, in the same
+conversation, once the user started that background task.
+
+**Root cause, measured precisely rather than re-guessed**: pixel-centerline
+sampling (walking each panel's flat-color reference in from the top and bottom
+edges along a column clear of any corner/notch/crown artwork) found the new
+frames' top+bottom ornament bands are considerably bigger than the rough estimate
+from the original session: `panel_selected_unit.png` is ~32% ornament at the top,
+~25% at the bottom (only 43% flat-interior fraction); `panel_tooltip.png` is ~36%
+top, ~32% bottom (only ~33% flat). The two panels' label rows (`nameLabel`/
+`statusLabel`/`hpLabel` in a 220×70 rect; `line1`/`line2`/`line3` in a 160×56
+rect) were positioned for the OLD, thinner-bordered placeholder art and were
+never moved when the new art landed, so the top row sat inside the ornament zone.
+
+**Fix**: grew both panels' height and repositioned every label row to fit inside
+the new, bigger flat zone — pure scene data (`RectTransform.sizeDelta`/
+`anchoredPosition`), no code changes. `SelectedUnitPanel` (the container GameObject
+under `UICanvas/InfoPanel`) grew 70→110; its sibling `MatchStatus` (stacked above
+it in the shared bottom-docked bar, Roadmap item 30) shifted up by the same 40-unit
+delta and their shared parent `InfoPanel` grew by the same amount, so the two
+panels' 8-unit gap is preserved with zero ripple onto `BuildMenu`/the minimap
+(both independently anchored siblings, unaffected). `HoverTooltip`'s own `Panel`
+child grew 56→105 with **no sibling adjustment needed at all** — confirmed via
+reflection that it's a self-contained floating panel repositioned to the cursor
+every frame in `Update()`, not part of any static layout.
+
+Row positions (top-anchored, y negative downward): `SelectedUnitPanel`'s
+`nameLabel`/`statusLabel`/`hpLabel` at y=-35/-51/-67 (was -4/-24/-44);
+`HoverTooltip`'s `line1`/`line2`/`line3` at y=-38/-54/-70 (was -2/-20/-38). The
+dynamically-created HP bar (`SelectedUnitPanel.SetUpHealthBar`, which copies
+`hpLabel`'s own rect at `Awake`) needed no separate scene edit — it follows
+`hpLabel`'s new position automatically.
+
+**Live-verified via UnityMCP through the real production path**: a real match
+(`CivilizationSetup.BeginMatch(Maurya)`), the same real damaged/selected Soldier
+and forced-visible `HoverTooltip` panel this session's earlier verification used —
+screenshotted both before and after: all 3 text rows in both panels now render
+fully clear of the top AND bottom ornament artwork, no crossing at all (not just
+reduced — the initially-planned "accept some residual overlap on the least
+important row" compromise turned out unnecessary once the panel heights were
+sized to the correctly-measured ornament fractions). 510/510 EditMode tests pass
+unmodified (pure scene-data change, confirmed via `git diff` touching only
+`Assets/Scenes/Main.unity`). One scoped commit. This closes `task_9e3bd382`.
+
+---
+
 ## 2026-09-12 — UI_ART_BRIEF.md Tier 2 art delivery wired (panels, HP bar, per-resource cursors)
 
 **Scope**: not a numbered roadmap item. Picked up at the user's "start tier 2"
