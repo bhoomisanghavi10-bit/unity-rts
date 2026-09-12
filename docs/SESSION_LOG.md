@@ -5,6 +5,96 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-12 — Wave 5 item 29 follow-up: building metallic-trim team color shipped, unit spec corrected
+
+**Scope**: direct continuation, same session, of the "asset-blocked" investigation logged
+immediately below. That investigation concluded both units and buildings needed new art before
+any team-color code could land, based on renderer/material counts alone. This session went one
+step further — actually opening the texture files — and found that conclusion was only half
+right.
+
+**Buildings, the real finding**: viewed `TownCenter_albedo.png` and
+`TownCenter_metallicSmoothness.png` (Chola) side by side rather than reasoning from material
+counts. Two things came out of that: (1) `TownCenter_metallicSmoothness.png` already exists and
+already separates gilded/metal trim (bright pixels) from plain stone (near-black), at the exact
+same UV layout as the albedo — standard PBR output every `MeshyBuildingImporter`-sourced
+building already carries, confirmed live via `UnityEditor.ShaderUtil` that the material's
+`_MetallicGlossMap` property is genuinely wired to it. (2) both textures are themselves UV
+atlases (the model's surface chopped into fragments scattered arbitrarily across the 2D image,
+zero spatial coherence) — a real, separate finding that matters for the units side below.
+
+Presented the buildings finding to the user (AskUserQuestion) — confirmed: implement the
+metallic-driven trim tint now, code-only.
+
+**Implementation**: new `Assets/Resources/Shaders/TeamColorTrimBlit.shader` (a minimal Unlit
+URP-tagged blit shader, no lighting model — pure texture compositing, samples `_MainTex`
+(albedo) and `_MaskTex` (metallic map), outputs `lerp(albedo, teamColor, mask.r)`) and new
+`Assets/Scripts/Core/TeamColorBuildingTint.cs` (`TryApplyMetallicTrimTint(Renderer, FactionId)`):
+reads the renderer's material for `_BaseMap`/`_MainTex` and `_MetallicGlossMap` via the same
+defensive `HasProperty`/`GetTexture` checks `BuildingModelFactory.TintMaterials` already uses;
+no-ops entirely if either is missing (procedural fallbacks, or any future import without a
+metallic map). Caches one `RenderTexture` per `(albedo, metallic, faction)` key in a static
+`Dictionary`, baked once via `Graphics.Blit` at a capped 1024×1024 (downsampled from the source's
+4096×4096 — plenty for RTS viewing distance, keeps per-texture memory to ~4MB) and reused across
+every instance of that combination in a match. Applies the result via a `MaterialPropertyBlock`
+(setting both `_BaseMap` and `_MainTex` for shader-alias safety) rather than mutating
+`renderer.materials` — no material-instance duplication, and composes cleanly with
+`TintMaterials`'s existing 0.35 civ-color blend since that multiplies `Material.color`, a
+separate channel from whatever texture is sampled. `public static void Reset()` releases every
+cached RT and clears the dictionary, wired into `CivilizationSetup.BeginMatch` right next to the
+existing `DiplomacyRegistry.Reset()` call — same per-match static-registry-reset convention that
+file already establishes. Call site: `BuildingModelFactory.BuildVisual`, right after the existing
+`TintMaterials(model, civColor)` call, gated on the same `faction.HasValue` check
+`TeamColorAccent.AttachToBuilding` already uses.
+
+**Tests**: 1 new EditMode test (`TryApplyMetallicTrimTint_NoOpsWithoutMetallicMap`, added to the
+existing `TeamColorTests.cs`) — the one piece of this logic that's GPU-independent and worth
+locking in; the actual `Graphics.Blit` bake needs a real render, not EditMode. 511/511 EditMode
+tests pass (up from 510). Hit the routine "Editor already in Play mode from a prior session"
+blocker before the test run would start — `manage_editor(action: "stop")` cleared it.
+
+**Live verification, via UnityMCP through the real production path**: entered Play mode, began a
+real match (`CivilizationSetup.BeginMatch(Chola)`), then spawned 3 real TownCenters directly via
+`BuildingModelFactory.Spawn` (not `TownCenterFactory.Place`, deliberately — forcing all 3 onto
+`CivilizationId.Chola` explicitly so the only variable between them is `faction`, since
+`TownCenterFactory.Place`'s own civ-dedup guard would otherwise have given Enemy/Enemy2 different
+civs and confounded the comparison) for Player/Enemy/Enemy2. Screenshotted the Enemy (red) and
+Player (blue) TownCenters up close: the same scattered gilded/ornament patches across the tiered
+tower are visibly tinted to each faction's exact color, with the plain stone body unchanged
+between them — a direct, controlled A/B, not just "it didn't crash." Separately confirmed via
+reflection that the cache held 7 entries after all the session's spawns (3 pilot TownCenters plus
+earlier `TownCenterFactory.Place` calls across different civs) and correctly dropped to 0 after
+calling `TeamColorBuildingTint.Reset()`. Exited Play mode cleanly afterward.
+
+**Scope discipline**: piloted on Chola's TownCenter only, as agreed before implementing — a full
+visual pass confirming every one of the other 44 civ/building combinations actually looks right
+(not just that the mechanism runs without error) is real follow-up work, explicitly not claimed
+done here. Buildings with no metallic map (Durg, Karmashala, Monastery, the 3 drop-off buildings)
+are unaffected and still rely solely on the existing `TeamColorAccent` pennant.
+
+**Units — corrected, not implemented**: the UV-atlas finding above rules out the units sourcing
+guidance the earlier investigation had written into `docs/TEAM_COLOR_ART_BRIEF.md` (AI-image-tool
+or hand-painted-in-an-editor masks) — there is no way to align a mask to a texture with zero
+spatial coherence in the 2D image, regardless of tool. Put this to the user directly
+(AskUserQuestion) rather than silently leaving the wrong guidance in place; user confirmed they'll
+paint an aligned mask in Blender (the correct tool — it paints on the visible 3D model and bakes
+to UV space automatically, sidestepping the alignment problem entirely). Corrected
+`docs/TEAM_COLOR_ART_BRIEF.md`'s units section accordingly, with a concrete Blender workflow and
+a recommendation to pilot on one of the 4 unique units (which have real 2048×2048 painted
+textures, unlike the generic Human Character Dummy body's flat 128×128 color swatch). No unit-side
+code this session.
+
+**Docs updated**: `docs/TEAM_COLOR_ART_BRIEF.md` (buildings marked done, units guidance
+corrected), `docs/IMPLEMENTATION_ROADMAP.md` item 29 (dated follow-up note), `CLAUDE.md` status
+section (new bullet), this entry. One scoped commit covering the shader, the new C# file, the
+`BuildingModelFactory.cs`/`CivilizationSetup.cs` call sites, the new test, and the 3 doc updates.
+
+**Next**: a full-roster visual pass on the 44 remaining building/civ combinations for the
+metallic-trim tint, the unit-side equivalent once Blender-painted masks exist, Wave 5 item 32
+(Age/research readout), or the Wave 6 backlog — user's call.
+
+---
+
 ## 2026-09-12 — Wave 5 item 29 (team colour) re-investigated, found asset-blocked, spec written
 
 **Scope**: the user reopened item 29 (Player/team colour system) from live play — the

@@ -242,6 +242,17 @@ namespace KingdomsOfBharat.Buildings
             if (faction.HasValue)
             {
                 TeamColorAccent.AttachToBuilding(model.transform, bounds, faction.Value);
+
+                // Wave 5 item 29 follow-up: recolors gilded/metal trim
+                // toward the faction's team color using the model's own
+                // metallic map, if it has one - a no-op for procedural
+                // fallback shapes and any import without a metallic map.
+                // See Core/TeamColorBuildingTint.cs.
+                Renderer renderer = model.GetComponentInChildren<Renderer>(true);
+                if (renderer != null)
+                {
+                    TeamColorBuildingTint.TryApplyMetallicTrimTint(renderer, faction.Value);
+                }
             }
         }
 

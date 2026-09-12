@@ -103,5 +103,27 @@ namespace KingdomsOfBharat.Tests
             Assert.IsNotNull(renderer);
             Assert.AreEqual(TeamColor.For(FactionId.Player), renderer.sharedMaterial.color);
         }
+
+        // Wave 5 item 29 follow-up: TryApplyMetallicTrimTint must no-op
+        // safely (no exception, no MaterialPropertyBlock change) for any
+        // building whose material has no _MetallicGlossMap assigned - the
+        // procedural-fallback case, and the one piece of this feature's
+        // logic that's GPU-independent and worth locking in (the actual
+        // Graphics.Blit bake needs Play mode/UnityMCP, not EditMode).
+        [Test]
+        public void TryApplyMetallicTrimTint_NoOpsWithoutMetallicMap()
+        {
+            var go = new GameObject("PlainBuildingVisual");
+            _spawned.Add(go);
+            var renderer = go.AddComponent<MeshRenderer>();
+            var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            renderer.sharedMaterial = material;
+
+            Assert.DoesNotThrow(() => TeamColorBuildingTint.TryApplyMetallicTrimTint(renderer, FactionId.Enemy));
+
+            var block = new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(block);
+            Assert.IsTrue(block.isEmpty, "Expected no MaterialPropertyBlock override without a metallic map.");
+        }
     }
 }

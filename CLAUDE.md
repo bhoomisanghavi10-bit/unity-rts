@@ -6,6 +6,50 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 5 item 29 follow-up: building team-color trim tint shipped, no new
+  art needed (2026-09-12)** — direct continuation of the "asset-blocked"
+  investigation immediately below, same session. Opening the actual texture
+  files (not just checking renderer/material counts) found
+  `TownCenter_metallicSmoothness.png` already exists, at the same UV layout
+  as the albedo, and already separates gilded/metal trim (bright) from
+  plain stone (dark) — standard PBR output every Meshy-imported civ
+  building already carries, not something that needed sourcing. New
+  `Core/TeamColorBuildingTint.cs` + `Assets/Resources/Shaders/
+  TeamColorTrimBlit.shader`: an offscreen blit shader bakes
+  `lerp(albedo, teamColor, metallicMask)` into a cached `RenderTexture`
+  (one per albedo+metallic+faction combo, capped 1024x1024, reused across
+  every instance of that combo in a match) and applies it via a
+  `MaterialPropertyBlock` — no material duplication, composes cleanly with
+  the existing civ-color tint (`TintMaterials`, a separate `Material.color`
+  channel). Wired into `BuildingModelFactory.BuildVisual` right after the
+  existing civ-tint call; no-ops safely for buildings with no metallic map.
+  Cache released/cleared via a new `TeamColorBuildingTint.Reset()`, called
+  from `CivilizationSetup.BeginMatch` alongside the existing
+  `DiplomacyRegistry.Reset()` (same per-match static-registry-reset
+  convention that file already established). 1 new EditMode test (511
+  total, up from 510, all pass) covering the one piece of this logic
+  that's GPU-independent (no-op when no metallic map is present). Live-
+  verified via UnityMCP: 3 real Chola TownCenters spawned for
+  Player/Enemy/Enemy2 (forced onto the same civ to isolate the team-color
+  variable) all show the same gilded/ornament bands tinted to that
+  faction's exact `TeamColor` while plain stone stays untouched, confirmed
+  by direct screenshot comparison; separately confirmed `Reset()` actually
+  clears the cache (7->0 entries). **Piloted on Chola's TownCenter only** —
+  a full visual pass on the other 44 civ/building combinations is real
+  follow-up work, not claimed done here; buildings with no metallic map
+  (Durg/Karmashala/Monastery/drop-off buildings) still rely solely on the
+  pennant. Separately found (checking the actual unit texture files, not
+  assumed) that the earlier "wait for real art, source via Canva" guidance
+  for units was wrong in a way that needed correcting, not just waiting
+  on: those textures are UV atlases with no 2D spatial coherence, so no
+  2D/AI image tool can ever produce an aligned mask — corrected
+  `docs/TEAM_COLOR_ART_BRIEF.md` to specify Blender (paints directly on
+  the visible 3D model, bakes to UV space automatically) instead. User
+  will source unit masks that way; no unit-side code this session. Docs
+  updated: `docs/TEAM_COLOR_ART_BRIEF.md`, `docs/IMPLEMENTATION_ROADMAP.md`
+  item 29, this status section, `docs/SESSION_LOG.md`. Next: whatever the
+  user directs — a full-roster visual pass on the building trim tint, the
+  unit Blender masks once sourced, Wave 5 item 32, or the Wave 6 backlog.
 - **Top bar made truly horizontal + command grid fitted to content
   (2026-09-12)** — direct follow-up to the bottom-bar reshape below, per
   the user's fresh screenshot feedback: the top bar was still a

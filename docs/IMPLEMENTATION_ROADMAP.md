@@ -1108,9 +1108,44 @@ wave rather than being retrofitted piecemeal afterward.
     mask-texture + shader-lerp spec (per-model grayscale mask, `lerp(baseAlbedo, teamColor,
     mask)`) with a full per-unit/per-building checklist and a recommended pilot scope (Soldier
     body + TownCenter) before committing to the full ~65-asset roster. Existing banner/pennant
-    code (`Core/TeamColorAccent.cs`) is unaffected and keeps running as the fallback. Status is
-    now **asset-blocked**, not started — next session on this item needs new mask-texture art
-    sourced before any code can land.
+    code (`Core/TeamColorAccent.cs`) is unaffected and keeps running as the fallback. Status was
+    **asset-blocked** at that point — superseded within the same session, see immediately below.
+    **Buildings closed the same day (2026-09-12), code-only, no art needed after all.** Opening
+    the actual texture files (not just checking renderer/material counts) found
+    `TownCenter_metallicSmoothness.png` already exists, at the same UV layout as the albedo, and
+    already separates gilded/metal trim (bright) from plain stone (dark) — a ready-made mask
+    that happened to already exist as standard PBR output from the Meshy import pipeline, for
+    every civ building. Implemented `Core/TeamColorBuildingTint.cs` + `Assets/Resources/Shaders/
+    TeamColorTrimBlit.shader`: an offscreen blit shader bakes
+    `lerp(albedo, teamColor, metallicMask)` into a `RenderTexture` cached per
+    albedo+metallic+faction combination (capped 1024×1024, reused across every instance of that
+    combo in a match) and applies it via a `MaterialPropertyBlock` — no material duplication, no
+    conflict with the existing civ-color tint (`TintMaterials` multiplies `Material.color`, a
+    separate channel). Wired into `BuildingModelFactory.BuildVisual` right after the existing
+    civ-tint call; no-ops safely for any building without a metallic map (procedural fallbacks).
+    Cache released/cleared via a new `TeamColorBuildingTint.Reset()`, called from
+    `CivilizationSetup.BeginMatch` alongside the existing `DiplomacyRegistry.Reset()` (same
+    per-match static-registry-reset convention that file already established). 1 new EditMode
+    test (`TryApplyMetallicTrimTint_NoOpsWithoutMetallicMap`, the one piece of this feature's
+    logic that's GPU-independent — 511 total, up from 510, all pass). Live-verified via UnityMCP:
+    3 real Chola TownCenters spawned for Player/Enemy/Enemy2 (via `BuildingModelFactory.Spawn`
+    directly, forcing all 3 onto the same civ to isolate the team-color variable) all show the
+    same gilded/ornament bands tinted to that faction's exact `TeamColor` (blue/red/green) while
+    plain stone stays untouched — confirmed via direct screenshot comparison, not assumed;
+    separately confirmed `Reset()` actually clears the RenderTexture cache (7→0 entries) rather
+    than leaking it across matches. **Piloted on Chola's TownCenter only** — a full visual pass
+    on the other 44 civ/building combinations (checking they look right, not just that they
+    don't crash) is real follow-up work, not claimed done here; buildings with no metallic map
+    (Durg/Karmashala/Monastery/the 3 drop-off buildings) are unaffected and still rely solely on
+    the pennant. `docs/TEAM_COLOR_ART_BRIEF.md` updated to mark buildings done and correct its
+    own unit-sourcing guidance (see next paragraph). **Units remain asset-blocked** — a second,
+    unrelated finding (checked the actual texture files, not assumed): the unit textures are UV
+    atlases (surface fragments scattered arbitrarily across the 2D image with no spatial
+    coherence), which rules out ever producing an aligned mask via Canva or any 2D/AI image tool
+    — the brief's own first-pass sourcing guidance was wrong and has been corrected to specify
+    Blender (or an equivalent 3D texture-paint tool), which paints directly on the visible 3D
+    model and bakes to UV space automatically. User will source unit masks this way; no unit-side
+    code this session.
 30. **[L] UI layout re-anchor — bottom bar. Closed (2026-09-05).** From the UI Layout sheet:
     re-anchor `BuildMenu.cs`, `SelectedUnitPanel.cs`, and a slice of `ResourceHUD.cs` into one
     shared bottom-docked root (command panel / info panel / minimap, left to right), matching

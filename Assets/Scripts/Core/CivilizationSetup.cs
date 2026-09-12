@@ -199,6 +199,7 @@ namespace KingdomsOfBharat.Core
             }
 
             DiplomacyRegistry.Reset();
+            TeamColorBuildingTint.Reset();
 
             // AoE-parity gap-close: aiCiv/enemy2Civilization are fixed
             // Inspector defaults, not player-aware - nothing previously
