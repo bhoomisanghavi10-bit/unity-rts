@@ -57,3 +57,6 @@ crashlytics-build.properties
 # OS files
 .DS_Store
 Thumbs.db
+
+# MCP-driven Editor debug screenshots (accumulate every session, never needed long-term)
+/Assets/Screenshots/
