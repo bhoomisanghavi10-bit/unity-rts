@@ -9851,3 +9851,87 @@ call.
 One scoped commit: `Assets/Resources/UI/Icons/*.png` (75 new, ~13 overwritten), `Assets/
 Resources/UI/Menu/crest_*.png` (5 overwritten), `Assets/Scripts/UI/BuildMenu.cs`, `Assets/
 Scripts/UI/ResourceHUD.cs`, `docs/SESSION_LOG.md`, `CLAUDE.md`.
+
+## 2026-09-14 — Wave 5 item 32 (Age/research always-visible readout) — closes Wave 5
+
+Picked up per the user's "start Age/research always-visible readout" request, with the scope
+already narrowed in their own prompt: Civilization/Population/Age labels are already always-on
+(folded into `ResourceHUD` during the 2026-09-12 HUD pass) — only the research-in-progress
+meter itself was missing.
+
+### Scope decision
+
+Item 32's own text ("current age name + research-in-progress meter... per AoE's convention")
+doesn't flag an open design question, but this project supports many more *concurrent*
+research tracks than real AoE ever surfaces outside its tech tree — Karmashala's Attack/Armor,
+every Barracks/Dock tier line (Infantry/Spearman/Archer/Cavalry/Siege/Scout/CavalryArcher/
+CamelRider/Scorpion/Naval/FireShip), Durg's Elephant/Elite tiers, TownCenter's own Economy Tech
+track — all can run at once. Scoped this deliberately to **Age-up only**, matching real AoE II's
+actual top-center "torch" readout (which is Age-up-specific, not a general tech-progress
+display) and keeping this a genuinely `[S]`-sized item as labeled. Every other concurrent
+research track stays visible only on its own building's selection UI, unchanged — not a
+regression, just unchanged scope.
+
+### Implementation
+
+New `TownCenter.FindAgingUp(FactionId)` (`Assets/Scripts/Buildings/TownCenter.cs`): scans
+`Building.All` for a TownCenter owned by that faction with `IsAgingUp` true, mirroring the same
+registry-scan convention `AgeUpRequirement.IsMet` already uses rather than adding a second
+TownCenter-specific registry. Also exposed the previously-private `_ageUpTarget` as a public
+`AgeUpTarget` getter — needed so the HUD can show which Age is being researched, not just how
+far along.
+
+`ResourceHUD.cs` gained a second row, built entirely in code in `Awake()` (same convention the
+existing resource-icon row already uses — no scene wiring needed, avoiding the recurring "new
+`[SerializeField]` null in the scene" gotcha every Wave 2-5 session has hit at some point):
+a label ("Researching: {Age name} ({percent}%)") plus a thin fill bar reusing
+`SelectedUnitPanel`'s own `hp_bar_frame`/`hp_bar_fill` 9-slice art (the only progress-bar asset
+in the project — no new art needed). Hidden by default; `Update()` calls
+`TownCenter.FindAgingUp(FactionId.Player)` every frame and toggles the row + resizes the panel's
+`sizeDelta.y` to fit (same per-frame self-resize precedent `BuildMenu`/`SelectedUnitPanel`
+already established), so the panel grows only while an Age-up is actually in progress and snaps
+back down the instant it completes. The fill bar's `pixelsPerUnitMultiplier` is computed from
+the sprite's own `rect.height` divided by this bar's (shorter, 10-unit) display height rather
+than a copied constant, since it's a different height than `SelectedUnitPanel`'s HP bar.
+
+### Tests and verification
+
+4 new EditMode tests (`AgeResearchReadoutTests.cs`, mirroring `AgeUpRequirementTests.cs`'s own
+`Building.All`-registration-without-`OnEnable` pattern, using `FactionId.Enemy2` to stay
+isolated): `FindAgingUp` returns null with no TownCenters, null when a TownCenter exists but
+isn't aging up, the correct instance (plus the correct `AgeUpTarget`) while one is, and null for
+a different faction even while that faction's own TownCenter is mid-countdown. 515/515 EditMode
+tests pass (511 prior + 4 new; the same 2 pre-existing, unrelated `BuildingModelFactoryTests`
+failures as every recent session, confirmed unchanged both before and after this session's Play
+mode run).
+
+Live-verified via UnityMCP through the real production path: a real match
+(`CivilizationSetup.BeginMatch(Maurya)`, though `CivPicker`'s own pre-match default landed the
+faction on Chola in practice — not this item's concern), pre-match overlay canvases
+(`MissionSelectMenuCanvas`, `CivPicker`, `LanMatchMenuCanvas`) deactivated directly to see the
+live HUD. Granted the Player faction real Wood/Stone via `ResourceStockpile.SetTotal` (both
+started at 0, which is why the first `RequestAgeUp()` attempt correctly no-op'd —
+`IsAgingUp` stayed false), then a real `TownCenter.RequestAgeUp()` correctly started a real
+countdown (`IsAgingUp=true`, `AgeUpTarget=Classical`). Screenshotted the live HUD mid-research —
+"Researching: Classical Age (41%)" with a visibly filling bar directly below the resource row,
+panel correctly grown to fit, main row unaffected. Forced the countdown to its final 0.01s via
+reflection on the private `_ageUpRemaining` field (the same "force a tick to completion"
+technique this project's other Age/tier-research sessions already use) and re-screenshotted
+after completion: `IsAgingUp` correctly flipped back to false, `AgeProgress.CurrentAge` advanced
+to Classical, the research row and the panel's extra height both cleanly disappeared, leaving
+only the unchanged single-row resource strip with `Age: Classical Age`.
+
+### Not done, explicitly out of scope
+
+Every research track besides Age-up (Karmashala Attack/Armor, every Barracks/Dock tier line,
+Durg's Elephant/Elite tiers, TownCenter's Economy Tech) is deliberately not surfaced in this
+always-on readout — see the scope decision above. This closes item 32, **the last open item in
+Wave 5** — Wave 5's own exit criteria ("every unit and building has a working team-colour slot,
+and the HUD reads as one coherent AoE-style bottom-bar layout") are now both met.
+
+Next: Wave 6 (Economy/meta backlog — Town Bell, idle-worker indicator, Relics, Score system,
+victory conditions beyond Conquest, game modes, cheat codes, tutorial content), or any other
+item, user's call.
+
+One scoped commit: `Assets/Scripts/Buildings/TownCenter.cs`, `Assets/Scripts/UI/ResourceHUD.cs`,
+`Assets/Tests/EditMode/AgeResearchReadoutTests.cs` (new), `docs/SESSION_LOG.md`, `CLAUDE.md`.

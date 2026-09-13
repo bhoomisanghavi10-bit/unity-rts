@@ -6,6 +6,46 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 5 item 32 (Age/research always-visible readout) closed (2026-09-14) —
+  closes Wave 5.** Picked up per the user's "start Age/research always-visible
+  readout" request, with scope already narrowed in their own prompt:
+  Civilization/Population/Age labels were already always-on (folded into
+  `ResourceHUD` during the 2026-09-12 HUD pass) — only the research-in-progress
+  meter itself was missing. **Scoped deliberately to Age-up only**, not every
+  concurrent research track this project supports (Karmashala Attack/Armor,
+  every Barracks/Dock tier line, Durg's Elephant/Elite tiers, TownCenter's
+  Economy Tech) — matches real AoE II's own top-center "torch" readout (Age-up
+  specific, not a general tech-progress display) and keeps this a genuinely
+  small item as labeled; every other research track stays visible only on its
+  own building's selection UI, unchanged. New
+  `TownCenter.FindAgingUp(FactionId)` scans `Building.All` for a TownCenter
+  owned by that faction currently aging up (mirrors `AgeUpRequirement.IsMet`'s
+  own registry-scan convention), plus a new public `AgeUpTarget` getter
+  (previously private). `ResourceHUD.cs` gained a second row, built entirely
+  in code in `Awake()` (no scene wiring, avoiding the recurring "new
+  `[SerializeField]` null in the scene" gotcha) — a label ("Researching:
+  {Age} ({percent}%)") plus a thin fill bar reusing `SelectedUnitPanel`'s own
+  `hp_bar_frame`/`hp_bar_fill` art (no new art needed) — hidden by default,
+  shown and the panel resized to fit only while a TownCenter is actually
+  aging up, snapping back down the instant it completes. 4 new EditMode tests
+  (`AgeResearchReadoutTests.cs`, mirroring `AgeUpRequirementTests.cs`'s own
+  pattern), 515/515 total pass (2 pre-existing, unrelated
+  `BuildingModelFactoryTests` failures, same baseline as every recent
+  session). Live-verified via UnityMCP through the real production path: a
+  real match, pre-match overlays deactivated to see the live HUD, granted
+  real Wood/Stone (both started at 0 - the first `RequestAgeUp()` attempt
+  correctly no-op'd until funded), a real `RequestAgeUp()` started a real
+  countdown, screenshotted mid-research ("Researching: Classical Age (41%)"
+  with a visibly filling bar, panel correctly grown), forced the countdown to
+  completion via reflection and re-screenshotted - `IsAgingUp` flipped false,
+  `AgeProgress.CurrentAge` advanced to Classical, the research row and the
+  panel's extra height both cleanly disappeared. **This closes item 32, the
+  last open item in Wave 5** — Wave 5's own exit criteria (every unit/building
+  has a working team-colour slot; the HUD reads as one coherent AoE-style
+  bottom-bar layout) are both now met. Next: Wave 6 (Economy/meta backlog —
+  Town Bell, idle-worker indicator, Relics, Score system, victory conditions
+  beyond Conquest, game modes, cheat codes, tutorial content), or any other
+  item, user's call.
 - **Purohita rigged model wired (2026-09-14)** — ad hoc, user-supplied 3D rig
   ("Meshy AI Sacred Pilgrim biped", 2 `.glb` files: Walking/Running variants of the
   same mesh), not a numbered roadmap item. Purohita (Wave 4 item 27) previously

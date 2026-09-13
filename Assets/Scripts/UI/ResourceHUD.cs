@@ -46,6 +46,23 @@ namespace KingdomsOfBharat.UI
         private const float TopMargin = 10f;
         private const float BottomMargin = 10f;
 
+        // Item 32 (Age/research always-visible readout): a second row,
+        // built in code like the resource icons above rather than wired in
+        // the scene, that only appears while a TownCenter is aging up -
+        // AoE's own "torch" readout, scoped to Age-up specifically (the
+        // one research every player is always tracking) rather than
+        // surfacing every concurrent tier/upgrade research track this
+        // project supports (those stay visible on their own building's
+        // selection UI, same as before this item).
+        private const float ResearchGap = 6f;
+        private const float ResearchLabelHeight = 18f;
+        private const float ResearchBarHeight = 10f;
+
+        private RectTransform _panelRect;
+        private GameObject _researchRow;
+        private TMP_Text _researchLabel;
+        private Image _researchFill;
+
         private void Awake()
         {
             // The root already carries its own background Image (a flat
@@ -77,7 +94,11 @@ namespace KingdomsOfBharat.UI
             x = LayoutTextItem(civLabel, x, 170f);
             x = LayoutTextItem(ageLabel, x, 110f);
 
-            panelRect.sizeDelta = new Vector2(x - ItemGap + LeftMargin, TopMargin + RowHeight + BottomMargin);
+            float panelWidth = x - ItemGap + LeftMargin;
+            _panelRect = panelRect;
+            panelRect.sizeDelta = new Vector2(panelWidth, PanelHeight(researching: false));
+
+            SetUpResearchRow(panelWidth - LeftMargin * 2f);
 
             // "Civilization: Vijayanagara" (the longest civ name) measures
             // wider than civLabel's own box at a fixed font size, and with
@@ -146,6 +167,98 @@ namespace KingdomsOfBharat.UI
             return x + width + ItemGap;
         }
 
+        private static float PanelHeight(bool researching)
+        {
+            float baseHeight = TopMargin + RowHeight + BottomMargin;
+            if (!researching)
+            {
+                return baseHeight;
+            }
+
+            return baseHeight + ResearchGap + ResearchLabelHeight + ResearchBarHeight;
+        }
+
+        // Builds the Age-up readout row (label + fill bar), a sibling row
+        // below the main resource strip, hidden until Update() finds a
+        // faction TownCenter actually aging up. Reuses SelectedUnitPanel's
+        // own hp_bar_frame/hp_bar_fill art (the only 9-slice progress-bar
+        // asset in the project) rather than sourcing new art for a second
+        // bar style.
+        private void SetUpResearchRow(float rowWidth)
+        {
+            _researchRow = new GameObject("ResearchRow", typeof(RectTransform));
+            RectTransform rowRect = _researchRow.GetComponent<RectTransform>();
+            rowRect.SetParent(transform, false);
+            rowRect.anchorMin = new Vector2(0f, 1f);
+            rowRect.anchorMax = new Vector2(0f, 1f);
+            rowRect.pivot = new Vector2(0f, 1f);
+            rowRect.anchoredPosition = new Vector2(LeftMargin, -(TopMargin + RowHeight + ResearchGap));
+            rowRect.sizeDelta = new Vector2(rowWidth, ResearchLabelHeight + ResearchBarHeight);
+
+            GameObject labelGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+            RectTransform labelRect = labelGo.GetComponent<RectTransform>();
+            labelRect.SetParent(rowRect, false);
+            labelRect.anchorMin = new Vector2(0f, 1f);
+            labelRect.anchorMax = new Vector2(0f, 1f);
+            labelRect.pivot = new Vector2(0f, 1f);
+            labelRect.anchoredPosition = Vector2.zero;
+            labelRect.sizeDelta = new Vector2(rowWidth, ResearchLabelHeight);
+            _researchLabel = labelGo.GetComponent<TextMeshProUGUI>();
+            _researchLabel.fontSize = 14f;
+            _researchLabel.color = Color.white;
+            _researchLabel.raycastTarget = false;
+            _researchLabel.enableWordWrapping = false;
+
+            Sprite frameSprite = Resources.Load<Sprite>("UI/Panels/hp_bar_frame");
+            Sprite fillSprite = Resources.Load<Sprite>("UI/Panels/hp_bar_fill");
+            if (frameSprite == null || fillSprite == null)
+            {
+                _researchRow.SetActive(false);
+                return;
+            }
+
+            GameObject barGo = new GameObject("Bar", typeof(RectTransform));
+            RectTransform barRect = barGo.GetComponent<RectTransform>();
+            barRect.SetParent(rowRect, false);
+            barRect.anchorMin = new Vector2(0f, 1f);
+            barRect.anchorMax = new Vector2(0f, 1f);
+            barRect.pivot = new Vector2(0f, 1f);
+            barRect.anchoredPosition = new Vector2(0f, -ResearchLabelHeight);
+            barRect.sizeDelta = new Vector2(rowWidth, ResearchBarHeight);
+
+            GameObject frameGo = new GameObject("Frame", typeof(RectTransform), typeof(Image));
+            RectTransform frameRect = frameGo.GetComponent<RectTransform>();
+            frameRect.SetParent(barRect, false);
+            frameRect.anchorMin = Vector2.zero;
+            frameRect.anchorMax = Vector2.one;
+            frameRect.offsetMin = Vector2.zero;
+            frameRect.offsetMax = Vector2.zero;
+            Image frameImage = frameGo.GetComponent<Image>();
+            frameImage.sprite = frameSprite;
+            frameImage.type = Image.Type.Sliced;
+            // Multiplier = the sprite's own native height / this bar's
+            // display height, same formula SelectedUnitPanel.SetUpHealthBar
+            // uses for its own (taller) HP bar - computed from the sprite's
+            // real size rather than a value copied from that other display
+            // height, since this bar is a different height.
+            frameImage.pixelsPerUnitMultiplier = frameSprite.rect.height / ResearchBarHeight;
+
+            GameObject fillGo = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            RectTransform fillRect = fillGo.GetComponent<RectTransform>();
+            fillRect.SetParent(barRect, false);
+            fillRect.anchorMin = Vector2.zero;
+            fillRect.anchorMax = Vector2.one;
+            fillRect.offsetMin = Vector2.zero;
+            fillRect.offsetMax = Vector2.zero;
+            _researchFill = fillGo.GetComponent<Image>();
+            _researchFill.sprite = fillSprite;
+            _researchFill.type = Image.Type.Filled;
+            _researchFill.fillMethod = Image.FillMethod.Horizontal;
+            _researchFill.fillAmount = 0f;
+
+            _researchRow.SetActive(false);
+        }
+
         private void Update()
         {
             ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
@@ -164,6 +277,37 @@ namespace KingdomsOfBharat.UI
             stoneLabel.text = $"{(int)stockpile.GetTotal(ResourceType.Stone)}";
             populationLabel.text = $"{Population.Current(FactionId.Player)}/{Population.Cap(FactionId.Player)}";
             ageLabel.text = $"Age: {ageName}";
+
+            UpdateResearchRow();
+        }
+
+        private void UpdateResearchRow()
+        {
+            if (_researchRow == null)
+            {
+                return;
+            }
+
+            TownCenter agingUp = TownCenter.FindAgingUp(FactionId.Player);
+            bool researching = agingUp != null;
+            _researchRow.SetActive(researching);
+            if (_panelRect != null)
+            {
+                _panelRect.sizeDelta = new Vector2(_panelRect.sizeDelta.x, PanelHeight(researching));
+            }
+
+            if (!researching)
+            {
+                return;
+            }
+
+            string targetAgeName = AgeProfile.For(agingUp.AgeUpTarget).DisplayName;
+            int percent = Mathf.RoundToInt(agingUp.AgeUpProgress * 100f);
+            _researchLabel.text = $"Researching: {targetAgeName} ({percent}%)";
+            if (_researchFill != null)
+            {
+                _researchFill.fillAmount = agingUp.AgeUpProgress;
+            }
         }
     }
 }

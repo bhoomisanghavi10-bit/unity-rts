@@ -71,7 +71,33 @@ namespace KingdomsOfBharat.Buildings
 
         public bool IsTraining => _remaining >= 0f;
         public bool IsAgingUp => _ageUpRemaining >= 0f;
+        public AgeId AgeUpTarget => _ageUpTarget;
         public float AgeUpProgress => IsAgingUp ? 1f - (_ageUpRemaining / AgeProfile.For(_ageUpTarget).ResearchTime) : 0f;
+
+        // Item 32 (always-visible Age/research readout): the HUD needs to
+        // find "the" TownCenter that's currently aging up for a faction
+        // without the player having it selected - scans Building.All the
+        // same way AgeUpRequirement.IsMet already does, rather than adding
+        // a second TownCenter-specific registry. A faction only ever has
+        // one Age-up in flight in practice (AgeProgress is faction-wide),
+        // but nothing stops two TownCenters from both being mid-countdown
+        // at once - returns the first one found, which is what the readout
+        // shows.
+        public static TownCenter FindAgingUp(FactionId faction)
+        {
+            foreach (Building building in All)
+            {
+                if (building is TownCenter townCenter
+                    && townCenter.IsAgingUp
+                    && townCenter.TryGetComponent(out FactionMember member)
+                    && member.Faction == faction)
+                {
+                    return townCenter;
+                }
+            }
+
+            return null;
+        }
 
         public bool IsResearchingEconomyTech => _economyTechRemaining >= 0f;
         public EconomyTech EconomyTechTarget => _economyTechTarget;
