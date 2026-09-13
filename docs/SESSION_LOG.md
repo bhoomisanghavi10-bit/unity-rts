@@ -10539,3 +10539,42 @@ this project's own status docs too, not just concurrent sessions.
 
 Next: user's call among Wave 6's decision-free items, the Relics/Wonder/game-
 modes design decision, or the README refresh.
+
+---
+
+## 2026-09-14 — README.md refresh (repo root)
+
+Picked up per the reconciliation session's own "what's next" list (README
+drift, confirmed stale 2026-09-03, zero blocker). The prior README described
+the original single-map/one-generic-civ/no-naval prototype and stopped its own
+milestone list at item 26 -- badly out of date against the actual project,
+which now has 5 civilizations, 4 Ages, a ~25-type unit roster with tier
+ladders, naval combat, diplomacy, a full scenario editor with LAN play, and a
+deterministic LAN multiplayer MVP.
+
+Rewrote it from scratch, grounded directly in CLAUDE.md's current-status log
+and the Master Reference workbook's "Dev Status Overview" sheet (not just
+paraphrased from memory): current scope section (civs/ages/units/buildings/
+naval/economy/meta/multiplayer/UI, each cross-checked against what's actually
+implemented per the workbook), tech stack, a refreshed project-structure tree
+(confirmed the real folder list under `Assets/Scripts` via `ls` rather than
+keeping the old one --  it had `Multiplayer/`, `Match/`, `Progression/`,
+`Audio/`, `Data/` that the old tree never listed, and no longer has a
+`Selection`-only-input framing), a "Running the game" section reflecting the
+real current controls (civ picker, F1 hotkey overlay, F11 diplomacy, Settings
+modal, scenario editor entry point) instead of the old capsule-worker/OnGUI
+walkthrough, a "Testing" section pointing at the EditMode suite and its one
+known baseline failure, and a pointer to the Master Reference workbook/
+SESSION_LOG/CLAUDE.md as the actual source of truth rather than duplicating
+their content.
+
+Docs-only change, no code touched, no tests affected. One scoped commit:
+`README.md`, `CLAUDE.md`, `docs/SESSION_LOG.md` -- deliberately excludes the
+unrelated concurrent-session work already sitting in the tree
+(`MarathaMavlaRaiderFactory.cs`, `CivilizationSetup.cs`, `TeamColorUnitTint.cs`,
+`corner_ornament.png`, `docs/PROJECT_TRACKER.html`, `.mcp.json`,
+`ProjectSettings/ProjectSettings.asset`), left untouched via targeted `git add`.
+
+Next: user's call among Wave 6's decision-free items (idle-worker indicator,
+cheat codes, tutorial content), the Relics/Wonder/game-modes design decision,
+or unit-side team colour once Blender masks are sourced.

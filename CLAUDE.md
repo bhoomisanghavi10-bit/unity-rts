@@ -8,6 +8,25 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **README.md refresh (2026-09-14)** — picked up per the reconciliation
+  session's own "what's next" list (README drift, confirmed stale
+  2026-09-03). The prior README described the original single-map/one-
+  generic-civ/no-naval prototype and stopped its own milestone list at item
+  26. Rewrote it from scratch, grounded in CLAUDE.md's current-status log
+  and the Master Reference workbook's "Dev Status Overview" sheet: current
+  scope (5 civs/4 Ages/~25 unit types with tier ladders/15 building types/
+  naval/economy/meta systems/LAN multiplayer/UI), tech stack, a
+  project-structure tree confirmed against the real `Assets/Scripts` folder
+  list via `ls` (added `Multiplayer/`, `Match/`, `Progression/`, `Audio/`,
+  `Data/`, which the old tree never listed), a "Running the game" section
+  reflecting real current controls (civ picker, F1 hotkey overlay, F11
+  diplomacy, scenario editor entry point) instead of the old capsule-worker/
+  OnGUI walkthrough, a "Testing" section, and a pointer to the workbook/
+  SESSION_LOG/CLAUDE.md as the source of truth rather than duplicating their
+  content. Docs-only, no code/tests touched. One scoped commit (`README.md`,
+  `CLAUDE.md`, `docs/SESSION_LOG.md`). Next: user's call — Wave 6's
+  decision-free items, the Relics/Wonder/game-modes design decision, or
+  unit-side team colour once Blender masks are sourced.
 - **Master reference doc reconciliation (2026-09-14)** — session opened per
   protocol by reading the "Dev Status Overview" sheet; its own "next steps"
   pointer named 2 candidates that turned out already closed once checked
