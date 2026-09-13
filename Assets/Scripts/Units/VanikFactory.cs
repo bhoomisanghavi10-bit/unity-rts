@@ -14,10 +14,15 @@ namespace KingdomsOfBharat.Units
     // allied Markets via the Trader component (see Trader.cs). Deliberately
     // unarmed, unlike Worker's weak self-defense MeleeAttacker - matches
     // AoE's own Trade Cart (fragile, must be escorted, can't fight back).
-    // No dedicated model exists yet - reuses the shared Human Character
-    // Dummy body, civ-tinted, same as Scout/CavalryArcher - flagging
-    // directly per the flag-asset-needs convention: a Vanik currently looks
-    // like a generic soldier, not a merchant.
+    //
+    // Visual closure (2026-09-14): a real rigged pack-ox model (user-
+    // supplied Meshy AI GLB) replaces the placeholder Human Character
+    // Dummy body this unit previously reused - a beast of burden fits a
+    // Trader far better than a soldier-shaped human, and matches AoE's own
+    // Trade Cart being pulled/carried rather than walked on foot. See
+    // OxModelFactory's own header comment for the model/animation pipeline
+    // (a Cow-pack walk clip retargeted onto this rig's legs/tail in
+    // Blender, since the two skeletons share no bone names).
     public static class VanikFactory
     {
         public static GameObject Spawn(Vector3 position, FactionId faction)
@@ -32,14 +37,14 @@ namespace KingdomsOfBharat.Units
                 Debug.LogWarning("VanikFactory: no generated UnitDefinition for 'vanik' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
-            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization, faction: faction);
+            GameObject go = OxModelFactory.Spawn(position);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} Vanik"
                 : $"Enemy {profile.DisplayName} Vanik";
 
             var agent = go.AddComponent<NavMeshAgent>();
-            agent.radius = 0.4f;
-            agent.height = 2f;
+            agent.radius = 0.6f;
+            agent.height = 1.6f;
             agent.speed = def != null ? def.moveSpeed : 3.5f;
 
             var unit = go.AddComponent<Unit>();
@@ -55,7 +60,7 @@ namespace KingdomsOfBharat.Units
             go.AddComponent<HealthBar>();
 
             go.AddComponent<FactionMember>().Configure(faction);
-            go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);
+            go.AddComponent<OxAnimationDriver>().Configure(OxAnimationSet.Load(), agent);
 
             if (faction == FactionId.Player)
             {

@@ -10132,3 +10132,186 @@ One scoped commit: `Assets/Scripts/Buildings/TownBell.cs` (new),
 another Wave 6 item (idle-worker indicator, cheat codes, tutorial content are
 also design-decision-free; Relics/victory conditions/game modes need a
 design decision first), user's call.
+
+## 2026-09-14: Vanik's real pack-ox model wired
+
+Ad hoc, user-supplied 3D delivery (`Meshy_AI_Character_output.glb`), not a
+numbered roadmap item. The user described it as "the trader animal
+character rig model... an ox back supply model" and asked to "use cow
+walking animation for this model". This closes a flag-asset-needs gap
+`VanikFactory.cs` had carried since Wave 4 item 26 shipped: Vanik (the land
+Trader) reused the shared Human Character Dummy body, "flagging directly...
+a Vanik currently looks like a generic soldier, not a merchant."
+
+**Inspecting the delivery.** The glb's own JSON (parsed directly, no Unity
+involved yet) showed a single skinned mesh with a 47-bone skeleton named
+generically (`Bone_000`..`Bone_046`, a Meshy "UniRig" auto-rig) and zero
+embedded animations. Bone names carry no semantic hint at all, so I
+recovered the actual anatomy by importing the glb into a headless Blender
+instance (`/Applications/Blender.app/Contents/MacOS/Blender --background
+--python <script>` — no Blender MCP session was open this session, driven
+directly via the CLI instead) and reading every edit-bone's world head/tail
+position and parent/child structure. From the raw geometry: a root/spine
+chain branching into a head+ear+horn cluster, 2 rear legs (5 bones each,
+attaching mid-chain), 2 front legs (5 bones each, attaching further along
+toward the front), a 5-bone tail, and a second small appendage cluster
+lower on the chest that turned out — confirmed once actually rendered — to
+be the cargo pack's own dangling straps/baskets, not a body part.
+
+**Why retargeting was needed at all.** Reusing an *existing* clip requires
+either a Humanoid Avatar (biped only — this is a quadruped) or identical
+bone names between rigs (checked directly: the Shepherd Valley cow pack's
+`A_Cow_Walk_01.fbx` uses Rigify-style `DEF-thigh.L`/`DEF-front_shin.R`/
+etc., a completely disjoint naming scheme from `Bone_024`/`Bone_042`/etc.,
+confirmed via `strings` on the FBX before writing any retarget code). No
+direct clip-sharing path exists; a real cross-rig retarget was the only
+option matching the user's explicit request to reuse the cow's walk.
+
+**The retarget method.** Imported both the Ox glb and the Cow's
+`A_Cow_Walk_01.fbx` (bringing its own `Cow_Rig` armature + baked action)
+into one Blender scene. Built a bone-pair mapping per limb by matching
+chain topology, not names: rear-left `[Bone_024,023,022,021,020]` ↔
+`[DEF-thigh.L, DEF-shin.L, DEF-foot.L]`, rear-right/front-left/front-right
+mirrored analogously, tail `[Bone_010..006]` ↔ `[DEF-tail..004]` (an exact
+5-for-5 match). Chain lengths differ (Ox legs are 5 bones, Cow's are 3-4),
+so each target bone maps to the nearest source bone by
+`round(i * (M-1)/(N-1))` — a simple proportional nearest-neighbor, not an
+attempt at anatomically perfect correspondence.
+
+For each frame of the Cow's 21-frame walk cycle, computed each mapped
+source bone's **world-space rotation delta from its own bind pose**
+(`sourceRestWorld.inverted() @ sourceAnimWorld`), then reapplied that same
+delta onto the *target* bone's own bind pose
+(`delta @ targetRestWorld`), converted back into the target armature's
+object space, and keyframed the result. This is deliberately a world-space
+transfer, not a local-quaternion copy: the two rigs are independently
+authored with unrelated bone roll/twist conventions, and a naive local copy
+would silently bend joints on the wrong axis wherever those conventions
+disagree. Rest matrices were captured once via Edit Mode (`edit_bone.matrix`
+composed with each armature's own `matrix_world`) before any frame
+stepping, and posed matrices were read per-frame via a `evaluated_get`
+depsgraph object to avoid relying on `pose_bone.matrix` reflecting an
+unevaluated frame change in background mode.
+
+Deliberately did **not** retarget the spine, head, ears, or horn — no clean
+correspondence exists for those (the Ox's second appendage cluster is the
+cargo pack's own straps, which the Cow rig simply has nothing analogous
+to), and forcing a guessed mapping risked a visibly twisted neck for little
+benefit; only the 4 legs and tail actually animate. This is enough to read
+clearly as a walk cycle — verified directly by rendering 5 frames of the
+retargeted Ox (Cow hidden) via Blender's own background renderer and
+inspecting them as images *before* touching Unity at all: a real
+alternating 4-beat gait with correct forward/back leg swing and a slightly
+swishing tail, not just "the script completed with no errors."
+
+**Wiring into Unity.** Exported the retargeted Walk as baked-action FBX,
+plus a synthesized single-frame Idle (every pose bone reset to identity,
+2 identical keyframes) — no idle clip existed to retarget, so this is
+simply the model's own rest pose held static. The *displayed* prefab is
+imported straight from the original `.glb` via glTFast (correct embedded
+PBR textures/materials, confirmed via the glb's own material JSON: albedo/
+normal/metallicRoughness all present), not from Blender's FBX export
+(Blender's FBX exporter doesn't reliably carry glTF-embedded/packed
+textures across). This produced a real structural mismatch: glTFast
+collapses the glTF scene root into the prefab root directly (`Bone_000` is
+a *direct* child of the prefab), while Blender's own FBX export always
+wraps bones under an intermediate `Armature`-object node
+(`A_Ox_Walk_01/UniRigArmature/Bone_000/...`, confirmed by inspecting the
+imported FBX hierarchy directly in Unity, not assumed) — so the raw
+FBX-baked clip's curve paths would never bind against the real display
+prefab at all. Fixed by rewriting the clip: loaded each FBX's baked
+`AnimationClip` sub-asset, stripped the leading `UniRigArmature/` segment
+from every one of its 470 curve bindings via `AnimationUtility.
+GetCurveBindings`/`SetEditorCurve`, and saved the result as a standalone
+`.anim` asset. Verified 47/47 distinct curve paths resolve against the real
+display prefab's hierarchy (`transform.Find` against every path, 0 missing)
+before considering this fixed, rather than assuming the string surgery
+was correct.
+
+The prefab's own `Animator`+`Avatar` needed building by hand too —
+glTFast doesn't auto-attach either for a mesh with no embedded animation,
+confirmed by direct comparison against `SK_Cow.fbx` (Unity's own built-in
+FBX importer DOES auto-build a Generic Avatar+Animator for an equivalent
+asset). Used `AvatarBuilder.BuildGenericAvatar(instance, "")` (no root
+motion bone) rather than the Humanoid `HumanDescription` path
+`HumanoidGltfRigImporter.cs` uses for the biped units — this is a Generic
+quadruped rig, no Humanoid mapping applies. Scaled the prefab to 2.7 world
+units tall by measuring rendered bounds and solving for the target height
+directly (not guessed) — bigger than the ~1.9-unit worker-height
+convention, proportionate for a laden draft animal.
+
+New `Units/OxModelFactory.cs` mirrors `HumanModelFactory`'s root/child
+split (gameplay components on the root, ground-aligned visual child), but
+adds a `BoxCollider` fit to rendered bounds instead of a `CapsuleCollider`
+— reusing `AnimalModelFactory`'s own convention, since a quadruped's
+footprint is wider than it is tall, unlike a standing biped. New
+`Units/OxAnimationSet.cs`/`OxAnimationDriver.cs` mirror `CowAnimationSet`/
+`CowAnimationDriver`'s exact PlayableGraph-based shape, but drop the
+Livestock-specific "being milked" Eating state entirely — a Trader has
+nothing analogous, so this driver is keyed purely on `NavMeshAgent`
+velocity (Idle/Walk only), and is written generically enough to be reused
+by any future NavMeshAgent-driven unit wearing this model.
+`VanikFactory.cs` now spawns via `OxModelFactory.Spawn`/
+`OxAnimationDriver` instead of `HumanModelFactory`/`AnimationDriver`+
+`HumanAnimationSet`; `NavMeshAgent` radius/height retuned from the biped's
+0.4/2 to 0.6/1.6 for the quadruped's real footprint.
+
+**Found and fixed one real bug while verifying, not shipped blind**: the
+corrected `.anim` assets initially sat alongside their now-redundant source
+FBX files under the same base filename (`A_Ox_Walk_01.fbx` + `.anim`,
+similarly for Idle). `Resources.Load<AnimationClip>("AnimalAnimations/Ox/
+A_Ox_Idle_01")` resolved to the FBX's own wrongly-pathed embedded clip
+(named "Scene", confirmed live) rather than the corrected `.anim` — Walk
+happened to resolve to the right asset by luck of load order, Idle did
+not. Fixed by deleting the now-purely-intermediate FBX files from
+`Resources` entirely (they'd already served their one purpose — producing
+the baked action Blender exported), leaving only the corrected standalone
+`.anim` assets, and reconfirmed both `OxAnimationSet.Load()` slots resolve
+to their real, correctly-pathed asset by name afterward.
+
+520/522 EditMode tests pass (2 pre-existing, unrelated
+`BuildingModelFactoryTests` failures, same baseline as every recent
+session — confirmed unrelated by checking they're untouched by this
+session's diff). Live-verified via UnityMCP through the real production
+path: a real match (`CivilizationSetup.BeginMatch(Maurya)`), a real
+`VanikFactory.Spawn()` produced a "Maurya Vanik" with a valid `Animator`/
+`Avatar` (`isValid=true`) and a live `OxAnimationDriver`; forced the
+driver's own `SetClip`/`_graph` (via reflection, since both are private) to
+play the real Walk clip and evaluated the `PlayableGraph` at t=0/0.5/1.0 —
+a real rear-leg bone (`Bone_024`)'s local rotation swung ~9° at the
+midpoint and returned to within 0.01° of its start value after one full
+1.0s loop, directly proving the retargeted clip binds and drives the real
+spawned rig's bone hierarchy end-to-end (not just in the isolated Blender
+preview) and loops without a pop. A full visual screenshot of the spawned
+unit in Play mode was attempted but abandoned as inconclusive this
+session — repeated camera-framing/fog-of-war/menu-overlay round trips via
+UnityMCP kept colliding with the Unity Editor silently exiting Play Mode
+between calls (an environment instability unrelated to this session's own
+changes, reproduced identically against unrelated pre-existing code
+mid-session); the bone-rotation proof above was used instead as a more
+direct, less environment-fragile check of the actual deliverable.
+
+**Deliberately out of scope**: no team-color pennant/tint for this unit
+(a model-wiring pass, same scoping call Purohita's own session made);
+spine/head/ear/horn/cargo-pack-strap motion during the walk (flagged
+above — no clean correspondence exists on the Cow side to retarget from;
+would need either a hand-authored secondary-motion pass or a different
+source clip). **Found substantial unrelated uncommitted work already
+sitting in the working tree at session start** (from a concurrent
+session, not this one — confirmed via `git log`, since the Town Bell
+item's own session log entry above already flagged and excluded this same
+work while it was still in-flight): `MarathaMavlaRaiderFactory.cs`/
+`CivilizationSetup.cs` modifications, a new `TeamColorUnitTint.cs` pilot,
+`corner_ornament.png`, `docs/PROJECT_TRACKER.html`, `.mcp.json` — left
+entirely untouched, excluded from this session's commit via targeted
+`git add`, not a blanket stage.
+
+One scoped commit: `Assets/Scripts/Units/VanikFactory.cs`,
+`Assets/Scripts/Units/OxModelFactory.cs` (new),
+`Assets/Scripts/Units/OxAnimationSet.cs` (new),
+`Assets/Scripts/Units/OxAnimationDriver.cs` (new),
+`Assets/Resources/UniqueUnits/Vanik/` (new: `Vanik.glb`/`.prefab`/
+`_Avatar.asset`), `Assets/Resources/AnimalAnimations/Ox/` (new:
+`A_Ox_Walk_01.anim`/`A_Ox_Idle_01.anim`),
+`Assets/importedmodels/Vanik/Vanik_Source.glb` (new, raw delivery),
+`CLAUDE.md`, `docs/SESSION_LOG.md`. Next: whatever the user directs.
