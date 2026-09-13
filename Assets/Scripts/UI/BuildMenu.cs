@@ -119,6 +119,14 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private Button heroButton;
         [SerializeField] private TMP_Text heroLabel;
         [SerializeField] private Button ungarrisonButton;
+        // Wave 6 item 33 (Town Bell): deliberately NOT part of
+        // _allGridButtons/LayoutCommandGrid - every other button there is
+        // gated on a specific selected building, but Town Bell is a global
+        // action (sends every Worker home regardless of what, if anything,
+        // is selected), so it sits as its own always-visible button
+        // outside the context-sensitive grid, positioned in the scene
+        // directly above it.
+        [SerializeField] private Button townBellButton;
         [SerializeField] private Button fishingBoatButton;
         [SerializeField] private Button warGalleyButton;
         // Wave 3 item 15: Naval tier ladder research button, same gating
@@ -310,6 +318,7 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyTrainVaidya;
         private KeyCode _keyTrainPurohita;
         private KeyCode _keyUngarrison;
+        private KeyCode _keyTownBell;
 
         private BuildingPlacer _placer;
         private SelectionManager _selectionManager;
@@ -409,6 +418,7 @@ namespace KingdomsOfBharat.UI
             uniqueUnitButton2.onClick.AddListener(TrainUniqueUnit2AtSelected);
             heroButton.onClick.AddListener(TrainHeroAtSelected);
             ungarrisonButton.onClick.AddListener(UngarrisonAtSelected);
+            townBellButton.onClick.AddListener(RingTownBell);
             fishingBoatButton.onClick.AddListener(TrainFishingBoatAtSelected);
             warGalleyButton.onClick.AddListener(TrainWarGalleyAtSelected);
             navalTierButton.onClick.AddListener(ResearchNavalTierAtSelected);
@@ -563,6 +573,7 @@ namespace KingdomsOfBharat.UI
             _keyTrainVaidya = GameSettings.GetKey("TrainVaidya", KeyCode.H);
             _keyTrainPurohita = GameSettings.GetKey("TrainPurohita", KeyCode.C);
             _keyUngarrison = GameSettings.GetKey("Ungarrison", KeyCode.U);
+            _keyTownBell = GameSettings.GetKey("TownBell", KeyCode.F8);
         }
 
         // Command-card buttons get their own dedicated 4-state sprite set
@@ -1210,6 +1221,13 @@ namespace KingdomsOfBharat.UI
             if (garrisonPoint != null && garrisonPoint.Count > 0 && Input.GetKeyDown(_keyUngarrison))
             {
                 UngarrisonAtSelected();
+            }
+
+            // Wave 6 item 33: global, unconditional - unlike every check
+            // above, Town Bell doesn't act on a selected building at all.
+            if (Input.GetKeyDown(_keyTownBell))
+            {
+                RingTownBell();
             }
         }
 
@@ -2172,6 +2190,16 @@ namespace KingdomsOfBharat.UI
             {
                 garrisonPoint.UngarrisonAll();
             }
+        }
+
+        // Wave 6 item 33 (Town Bell): global, selection-independent - see
+        // TownBell.Ring. Local-only convenience, same "no CommandBus
+        // needed" reasoning as UngarrisonAtSelected/TradeAtSelected above -
+        // it just issues the same GarrisonSeeker.GarrisonAt orders a manual
+        // right-click garrison already issues per-unit, un-networked today.
+        private void RingTownBell()
+        {
+            TownBell.Ring(NetworkMatch.LocalFaction);
         }
 
         private void TrainFishingBoatAtSelected()

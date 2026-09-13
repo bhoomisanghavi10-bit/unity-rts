@@ -53,6 +53,7 @@ namespace KingdomsOfBharat.UI
             new Entry("Settings", "ToggleSettings", KeyCode.F10),
             new Entry("Diplomacy", "ToggleDiplomacy", KeyCode.F11),
             new Entry("Hotkey Reference", "ToggleHotkeyOverlay", KeyCode.F1),
+            new Entry("Ring Town Bell (Send Workers Home)", "TownBell", KeyCode.F8),
         });
 
         private static readonly Group PlacementGroup = new Group("Placement (Builder Selected)", new[]

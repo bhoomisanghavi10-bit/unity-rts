@@ -1275,8 +1275,8 @@ reads as one coherent AoE-style bottom-bar layout rather than two disconnected c
 None of these block each other. Treat this as a backlog to draw from once Waves 0-5 are
 stable, not a strict sequence.
 
-33. **[S] Town Bell.** One-click garrison-all-workers. Cheap, high perceived value during a
-    raid. *Depends on: nothing.*
+33. **[S] Town Bell - CLOSED (2026-09-14).** One-click garrison-all-workers. See CLAUDE.md's
+    matching status entry and `docs/SESSION_LOG.md` for full detail.
 34. **[S] Idle-worker indicator.** Small UI addition near the minimap. *Depends on: item 30
     if you want it inside the new bottom bar; otherwise independent.*
 35. **[M] Relics + Monastery-equivalent, if wanted.** AoE II relics pay 0.5 gold/sec and can

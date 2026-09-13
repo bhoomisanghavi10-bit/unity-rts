@@ -6,6 +6,53 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Wave 6 item 33 (Town Bell) closed (2026-09-14) — first Wave 6 item.**
+  Picked up per the user's "start wave 6 items" request; Wave 6 is an
+  explicitly parallel-safe backlog with no fixed order, so asked which
+  no-design-decision item to start with (33/34/39/40) — user picked Town
+  Bell. New `Buildings/TownBell.cs`: a static `Ring(FactionId)` that finds
+  every TownCenter and every Worker (identified by `Gatherer` presence, the
+  one component exclusive to `WorkerFactory`) owned by that faction, then
+  orders each worker to the nearest TownCenter with room via the existing
+  `GarrisonSeeker.GarrisonAt` — the same call a manual right-click garrison
+  order already makes — cancelling every other in-progress worker task
+  first (gather/build/repair/farm/livestock/attack), matching
+  `SelectionManager`'s own cancel list. Wired as a new, genuinely global
+  `BuildMenu.townBellButton` — deliberately outside `_allGridButtons`/
+  `LayoutCommandGrid` since every other grid button is gated on a specific
+  selected building and this one isn't — plus a new F8 hotkey. **Found and
+  fixed a real, previously-latent bug**: `GarrisonSeeker` cached its
+  `UnitMover` sibling eagerly in `Awake()` instead of lazily, unlike every
+  sibling class in this exact situation (`Gatherer.Mover`/`GarrisonPoint.
+  Attackable`/`Repairable`/`MeleeAttacker.Self`) — no prior test had ever
+  exercised `GarrisonAt` directly, so this NRE-in-EditMode gap went
+  unnoticed since the General Garrisoning system shipped (2026-09-01); fixed
+  by converting `_mover` to the same lazy-property pattern as its siblings.
+  7 new EditMode tests (`TownBellTests.cs`), 522/522 total pass (2
+  pre-existing, unrelated `BuildingModelFactoryTests` failures, same
+  baseline as every recent session). Live-verified via UnityMCP through the
+  real production path: a real match, 5 real spawned Player Workers, a real
+  TownCenter (`GarrisonPoint` capacity 8) — the real `TownBellButton`'s own
+  `onClick.Invoke()` sent all 5 workers walking via their own real
+  `NavMeshAgent` to garrison (`GarrisonPoint.Count` 0→5, each deactivated
+  exactly like a manual order), then a real `UngarrisonAll()` correctly
+  ejected all 5 — full round trip confirmed. Hit a real environment trap:
+  exiting Play Mode doesn't itself trigger a C# domain reload, so static
+  state from the Play session (age/civ assignments) briefly bled into the
+  next EditMode run, producing a large cascade of unrelated-looking
+  failures — resolved via `EditorUtility.RequestScriptReload()` before the
+  final run; flagging this for any future session that live-verifies via
+  Play Mode right before a definitive EditMode check. Also found (and left
+  entirely untouched, excluded via targeted `git add`) substantial unrelated
+  uncommitted work already sitting in the tree from a concurrent session —
+  `MarathaMavlaRaiderFactory.cs`/`CivilizationSetup.cs`/`VanikFactory.cs`
+  modified, new `TeamColorUnitTint.cs`, new Ox animation files, a new Vanik
+  model delivery, `corner_ornament.png`, `docs/PROJECT_TRACKER.html`,
+  `.mcp.json`. One scoped commit (`TownBell.cs`, `GarrisonSeeker.cs`,
+  `BuildMenu.cs`, `HotkeyOverlay.cs`, `SettingsMenu.cs`, `TownBellTests.cs`,
+  `Main.unity`, docs). Next: another Wave 6 item (idle-worker indicator,
+  cheat codes, tutorial content are also design-decision-free; Relics/
+  victory conditions/game modes need a design decision first), user's call.
 - **Vaidya rigged model wired, and a real latent scale bug in
   `HumanoidGltfRigImporter` found and fixed for both Vaidya and Purohita
   (2026-09-14)** — ad hoc, user-supplied 3D rig ("Meshy AI Wandering Sage

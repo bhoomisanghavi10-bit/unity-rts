@@ -31,21 +31,26 @@ namespace KingdomsOfBharat.Buildings
 
         public bool GrantsSiegeImmunity => grantsSiegeImmunity;
 
+        // Resolved lazily, not in Awake() - same "sibling component may not
+        // exist yet" gotcha documented on Gatherer.Mover/GarrisonPoint.
+        // Attackable/Repairable/MeleeAttacker.Self: an EditMode test's
+        // AddComponent<GarrisonSeeker>() doesn't guarantee Awake has run on
+        // the RequireComponent-added UnitMover before GarrisonAt is called
+        // synchronously right after (Town Bell, Wave 6 item 33, is the
+        // first caller to exercise GarrisonAt in exactly that context - no
+        // prior test drove it end to end).
+        private UnitMover Mover => _mover != null ? _mover : (_mover = GetComponent<UnitMover>());
+
         public void Configure(bool grantsSiegeImmunityValue)
         {
             grantsSiegeImmunity = grantsSiegeImmunityValue;
-        }
-
-        private void Awake()
-        {
-            _mover = GetComponent<UnitMover>();
         }
 
         public void GarrisonAt(GarrisonPoint target)
         {
             _target = target;
             _approachPoint = ComputeApproachPoint(target);
-            _mover.MoveTo(_approachPoint);
+            Mover.MoveTo(_approachPoint);
         }
 
         public void CancelGarrison()
@@ -80,7 +85,7 @@ namespace KingdomsOfBharat.Buildings
         private Vector3 ComputeApproachPoint(GarrisonPoint target)
         {
             return target.TryGetComponent(out BuildingFootprintTag footprintTag)
-                ? footprintTag.GetNearestApproachPoint(transform.position, _mover.Radius + 0.1f)
+                ? footprintTag.GetNearestApproachPoint(transform.position, Mover.Radius + 0.1f)
                 : target.transform.position;
         }
     }
