@@ -5,6 +5,117 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-14 — Vaidya rigged model wired, plus a real HumanoidGltfRigImporter scale bug found and fixed (affects Purohita too)
+
+**Scope**: ad hoc, user-supplied asset delivery, not a numbered roadmap item. User said
+"i have healer (vaidya) 3d rig model ready integrate it in the game" and supplied a zip
+(`Meshy_AI_Wandering_Sage_biped.zip`, two `.glb` files — Walking/Running variants of the
+same rigged mesh), the identical delivery shape as the same day's Purohita session.
+Vaidya (Wave 4 item 27) previously reused the generic shared Human Character Dummy body,
+flagged as needing a real model in that item's own factory comment.
+
+**Identification and import**: unzipped and inspected the raw glTF node names directly
+(not assumed from the filename) — confirmed the skeleton uses literal `HumanBodyBones`
+names (`Hips → Chest → UpperChest → Neck → Head`, no separate `Spine` node), the same
+convention Purohita's own delivery used, so `HumanoidGltfRigImporter.DirectHumanBoneMap`
+applied unchanged. Copied the Walking variant into
+`Assets/Resources/UniqueUnits/Vaidya/Vaidya.glb`, imported via Unity's existing glTFast
+pipeline (default import settings, matching Purohita's own `.meta`), archived the Running
+variant for reference at `Assets/importedmodels/Vaidya/Vaidya_Running_reference.glb`
+(its baked clip not extracted/wired, matching Purohita's own precedent — full model
+replacement, not animation extraction).
+
+**Building the Avatar hit a real tooling limitation**: calling
+`HumanoidGltfRigImporter.BuildAndSavePrefab` directly via `execute_code` failed to
+compile — its CodeDom (C# 6) compiler can't reliably resolve `(string, HumanBodyBones)[]`
+`ValueTuple` arrays across the dynamic-compilation boundary (a type-identity mismatch
+between the temp assembly's own tuple resolution and the one the Editor assembly was
+built against), even when fully qualifying every type name. Worked around by writing a
+scratch `[MenuItem]` Editor script (`VaidyaImportTemp.cs`) that calls the real method with
+a real compile-time reference, triggering it via `execute_menu_item`, then deleting the
+script before committing — not part of the shipped diff.
+
+**Found and fixed a real, previously-unnoticed latent bug, not assumed away**: the first
+build succeeded (`avatar isHuman=True`) but the live spawned unit's `Animator.avatar` read
+back `null` at runtime, and separately its world height read back as the raw
+pre-correction 2.2189 instead of the intended 1.902692. Two distinct root causes, found by
+comparing the prefab ASSET's own state against the RUNTIME-SPAWNED instance's state rather
+than trusting the asset alone:
+
+1. **Resource-path collision**: the raw source `Vaidya.glb` and the built `Vaidya.prefab`
+   both live at the same `Resources.Load` key (`UniqueUnits/Vaidya/Vaidya`, extension
+   stripped) — the exact same class of ambiguous-resource bug the Gold Mine session
+   already found and fixed for `EnvironmentPropFactory`'s `Resources.LoadAll` (a raw
+   source file staged inside a `Resources`-scanned folder next to its own built output).
+   `Resources.Load` resolved to the WRONG one (the raw glTF-imported GameObject, whose
+   Animator has no avatar) for Vaidya specifically, while the identical collision
+   happened to resolve correctly for Purohita (luck, not a real distinction — both
+   deliveries share the exact same file-naming pattern). Fixed by moving both raw source
+   `.glb`s (Vaidya's, and Purohita's while already touching this class of bug) out of the
+   `Resources` tree entirely to `Assets/importedmodels/{Unit}/{Unit}_Source.glb`, via
+   `AssetDatabase.MoveAsset` (GUID-preserving, confirmed the built prefabs' mesh/material
+   references stayed intact after the move).
+
+2. **The real scale bug**: `HumanoidGltfRigImporter.BuildAndSavePrefab` bakes its
+   height-scale correction onto `instance.transform` — which is the SAME GameObject as
+   the Animator (confirmed by dumping the actual hierarchy: `Animator` sits on the prefab
+   root, not a child). But `HumanModelFactory.Spawn` — the only runtime consumer of a
+   `prefabPathOverride` prefab — unconditionally resets that same top-level instantiated
+   object's `localScale` to `Vector3.one` (a guard, per its own comment, against the
+   shared dummy body's own scale getting silently corrupted). This discards the baked
+   correction for ANY `prefabPathOverride` caller, not just Vaidya. It affected Vaidya
+   visibly (0.86 correction → spawned at 2.22 world units instead of 1.9) and had already
+   shipped silently in Purohita too (0.93 correction — close enough to 1 that the ~7%
+   oversize went unnoticed in that same-day session's own live verification). Fixed by
+   having `BuildAndSavePrefab` apply the correction to the instantiated root's direct
+   CHILDREN instead of the root's own transform — this composes correctly with whatever
+   baked scale a child already carries (this rig's own `target_character` node, already
+   at 0.01 from the source armature) and leaves the root's own scale at 1, matching what
+   `HumanModelFactory.Spawn` already assumes. Verified this doesn't disturb Avatar
+   correctness: `BuildAvatar`'s `CollectSkeleton` snapshot happens BEFORE the scale
+   correction step in both the old and new code, so moving where the correction is
+   applied doesn't change what the Avatar itself encodes — only where the runtime-visible
+   scale factor lives.
+
+Rebuilt BOTH Vaidya's and Purohita's prefabs with the fixed importer (Purohita's rebuild
+sourced from its own already-imported `Purohita.glb`, at the same target height,
+producing a byte-identical `Purohita_Avatar.asset` — confirmed via `git diff`, since
+`CollectSkeleton`'s snapshot is scale-correction-order-invariant as expected).
+
+### Tests and verification
+
+513/515 EditMode tests pass, both before and after this session's changes (the same 2
+pre-existing, unrelated `BuildingModelFactoryTests` failures as every recent session).
+
+Live-verified via UnityMCP through the real production path: a real match, real
+`VaidyaFactory.Spawn`/`PurohitaFactory.Spawn` calls (invoked via reflection) producing
+real "Chola Vaidya"/"Chola Purohita" GameObjects — both now measure exactly 1.902692
+world units tall (was 2.22/2.05 respectively before the fix), both report
+`Animator.avatar.isHuman=true` with a non-null avatar resolved from a fresh
+`Resources.Load` call (not just read off the asset), and a real `NavMeshAgent.SetDestination`
+order completed end to end (`pathStatus=PathComplete`, moved ~13 of ~15 units toward the
+target before the check), with a further order confirmed still moving in later screenshots.
+Screenshotted both (fog-of-war's `MeshRenderer` disabled first, per this project's own
+documented technique for clean screenshots): both stand in a natural idle/walking pose,
+not T-posed, and read as visually distinct from each other (Vaidya: cream/tan robe,
+visible beard; Purohita: reddish robe) and from the shared dummy body used by every other
+human unit.
+
+### Not done, explicitly out of scope
+
+No team-color mask (none authored for this mesh's UV layout, same gap as Purohita's own
+delivery), no hand-held prop (this rig has none), the archived Running clip's baked
+animation wasn't extracted/wired (full model replacement was the ask, not animation
+extraction, matching Purohita's own precedent).
+
+One scoped commit: `Assets/Editor/HumanoidGltfRigImporter.cs`,
+`Assets/Scripts/Units/VaidyaFactory.cs`, the new
+`Assets/Resources/UniqueUnits/Vaidya/Vaidya.prefab`/`Vaidya_Avatar.asset`, the rebuilt
+`Assets/Resources/UniqueUnits/Purohita/Purohita.prefab`, both units' raw source `.glb`s
+moved to `Assets/importedmodels/{Unit}/`, `docs/SESSION_LOG.md`, `CLAUDE.md`.
+
+---
+
 ## 2026-09-14 — Purohita rigged model wired ("Meshy AI Sacred Pilgrim biped")
 
 **Scope**: ad hoc, user-supplied asset delivery, not a numbered roadmap item. User said

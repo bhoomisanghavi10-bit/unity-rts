@@ -13,11 +13,24 @@ namespace KingdomsOfBharat.Units
     // Wave 4 item 27: Vaidya, the healer half of AoE's Monk - heals a
     // friendly damaged unit via the VaidyaHealer component (see
     // VaidyaHealer.cs). Deliberately unarmed, mirroring
-    // Vanik/TradeShip's own "completely unarmed utility unit" shape - no
-    // dedicated model exists yet, reuses the shared Human Character Dummy
-    // body, civ-tinted - flagging directly per the flag-asset-needs
-    // convention: Vaidya currently looks like a generic soldier, not a
-    // healer, and is visually identical to Purohita.
+    // Vanik/TradeShip's own "completely unarmed utility unit" shape.
+    //
+    // Visual closure (2026-09-14): a real rigged glTF mesh ("Meshy AI
+    // Wandering Sage biped", user-supplied) replaces the generic dummy
+    // body - imported the same way as Purohita's own visual closure
+    // (HumanoidGltfRigImporter.DirectHumanBoneMap, since this rig's bone
+    // names are also literally Unity's own HumanBodyBones names, not
+    // Mixamo-style - confirmed by inspecting the raw glTF node names
+    // directly before importing). Kept its own embedded material as-is
+    // (applyPaletteMaterial:false, no ApplyCustomTexture call), same
+    // "single sourced asset, not a trim-sheet to retint" convention as
+    // Purohita/the Villager bodies - no team-color mask exists for this
+    // geometry yet, so this doesn't call TeamColorUnitTint - flagging
+    // directly per the flag-asset-needs convention: a Blender-painted
+    // mask for this mesh would need to be authored before that pilot can
+    // extend here. No hand-held prop either (this rig has no staff/vessel
+    // geometry) - visually just a plain robed sage figure for now,
+    // distinct from Purohita's own delivered mesh.
     public static class VaidyaFactory
     {
         public static GameObject Spawn(Vector3 position, FactionId faction)
@@ -32,7 +45,9 @@ namespace KingdomsOfBharat.Units
                 Debug.LogWarning("VaidyaFactory: no generated UnitDefinition for 'vaidya' - using fallback stats. Run BharatRTS/Generate Data Assets From CSV.");
             }
 
-            GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization, faction: faction);
+            GameObject go = HumanModelFactory.Spawn(
+                HumanModelFactory.Gender.Male, position, civilization,
+                prefabPathOverride: "UniqueUnits/Vaidya/Vaidya", applyPaletteMaterial: false, faction: faction);
             go.name = faction == FactionId.Player
                 ? $"{profile.DisplayName} Vaidya"
                 : $"Enemy {profile.DisplayName} Vaidya";

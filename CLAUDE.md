@@ -6,6 +6,77 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Vaidya rigged model wired, and a real latent scale bug in
+  `HumanoidGltfRigImporter` found and fixed for both Vaidya and Purohita
+  (2026-09-14)** — ad hoc, user-supplied 3D rig ("Meshy AI Wandering Sage
+  biped", 2 `.glb` files: Walking/Running variants of the same mesh), not a
+  numbered roadmap item. Vaidya (Wave 4 item 27) previously reused the
+  generic shared Human Character Dummy body; this replaces it with a real
+  rigged model, the same day's Purohita session's own visual-closure pattern
+  applied to its sibling unit. The new GLB's skeleton uses the same
+  "literal `HumanBodyBones` names" convention as Purohita's own delivery
+  (confirmed by reading the raw glTF node names directly before importing,
+  not assumed from the filename) — `HumanoidGltfRigImporter.DirectHumanBoneMap`
+  applied unchanged, no importer changes needed for the bone map itself.
+  Built the Avatar + saved prefab at
+  `Assets/Resources/UniqueUnits/Vaidya/Vaidya.prefab` at the established
+  worker-height convention (1.902692); `VaidyaFactory.cs` now spawns via
+  `prefabPathOverride`, keeping the rig's own embedded material as-is (no
+  `ApplyCustomTexture`, no team-color mask — none authored for this mesh's
+  UV layout yet, flagged directly, same gap as Purohita's). The archived
+  "Running" GLB's baked clip wasn't extracted/wired, matching Purohita's own
+  precedent (full model replacement, not animation extraction).
+  **Found and fixed a real, previously-unnoticed bug live via UnityMCP, not
+  assumed away**: `HumanoidGltfRigImporter.BuildAndSavePrefab` baked its
+  height-scale correction onto the same root Transform that carries the
+  Animator — but `HumanModelFactory.Spawn` unconditionally resets that same
+  top-level instantiated object's `localScale` to `Vector3.one` at runtime
+  (a guard against the shared dummy body's own scale getting corrupted, per
+  its own comment) — silently discarding the correction for ANY
+  `prefabPathOverride` caller. This affected Vaidya visibly (0.86 correction
+  → spawned at 2.22 world units instead of the intended 1.9) and had
+  already shipped silently in Purohita too (0.93 correction, close enough to
+  1 that the ~7% oversize went unnoticed in that session's own live
+  verification). Root-caused by comparing the prefab asset's own
+  `Animator.avatar` (valid) against the same object once spawned at runtime
+  (avatar read back `null` at first — a related but separate discovery: the
+  raw source `.glb` and the built `.prefab` shared the exact same
+  `Resources.Load` key (`UniqueUnits/Vaidya/Vaidya`), an ambiguous-resource
+  collision that resolved to the wrong asset for Vaidya specifically — the
+  same class of bug the Gold Mine session already flagged and fixed for
+  `EnvironmentPropFactory`'s `Resources.LoadAll`. Fixed by moving both raw
+  source `.glb`s (Vaidya's and, while already touching this, Purohita's
+  too) out of the `Resources` tree entirely, to
+  `Assets/importedmodels/{Unit}/{Unit}_Source.glb`, `AssetDatabase.MoveAsset`-
+  preserving GUIDs so the built prefabs' mesh/material references stayed
+  intact — confirmed live post-move). Fixed the scale bug itself by having
+  `BuildAndSavePrefab` apply the correction to the instantiated root's
+  direct children instead of the root's own transform (composes correctly
+  with whatever baked scale a child already carries, e.g. this rig's own
+  `target_character` node at 0.01 from the source armature) — the root's
+  own scale now stays 1, matching what `HumanModelFactory.Spawn` already
+  assumes/enforces. Rebuilt both Vaidya's and Purohita's prefabs with the
+  fixed tool (via a scratch `[MenuItem]` Editor script, deleted before
+  committing — `execute_code`'s CodeDom compiler can't reliably round-trip
+  `ValueTuple[]` arguments across its dynamic-compilation boundary, so the
+  existing `HumanoidGltfRigImporter.BuildAndSavePrefab`/`DirectHumanBoneMap`
+  couldn't be invoked directly that way). 513/515 EditMode tests pass (the
+  same 2 pre-existing, unrelated `BuildingModelFactoryTests` failures as
+  every recent session, confirmed unchanged before and after this session's
+  Play mode run). Live-verified via UnityMCP through the real production
+  path: a real match, real "Chola Vaidya" and "Chola Purohita" spawns both
+  now measure exactly 1.902692 world units tall (was 2.22/2.05 respectively
+  before the fix) with `Avatar.isHuman=true` and a valid avatar resolved at
+  runtime (not just on the asset), a real NavMeshAgent walk order completed
+  end to end (`PathComplete`, position updated), and screenshots confirm
+  both stand in a natural pose (not T-posed) and read as visually distinct
+  from each other (Vaidya: cream/tan robe, visible beard/hood; Purohita:
+  reddish robe) and from the shared dummy body. **Deliberately out of
+  scope**: no team-color mask, no hand-held prop (this rig has none), the
+  archived Running clip. One scoped commit (`HumanoidGltfRigImporter.cs`,
+  `VaidyaFactory.cs`, the new `Vaidya.prefab`/`Vaidya_Avatar.asset`, the
+  rebuilt `Purohita.prefab`, and both units' archived raw source `.glb`s
+  moved under `Assets/importedmodels/`). Next: whatever the user directs.
 - **Wave 5 item 32 (Age/research always-visible readout) closed (2026-09-14) —
   closes Wave 5.** Picked up per the user's "start Age/research always-visible
   readout" request, with scope already narrowed in their own prompt:

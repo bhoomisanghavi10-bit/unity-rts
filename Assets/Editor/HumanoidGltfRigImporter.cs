@@ -139,8 +139,40 @@ namespace KingdomsOfBharat.Editor
                     return "ERROR: no renderer bounds found to measure height";
                 }
 
+                // Applied to the root's own DIRECT CHILDREN, not
+                // instance.transform itself: HumanModelFactory.Spawn (the
+                // only runtime consumer of a prefabPathOverride prefab)
+                // unconditionally resets the top-level instantiated
+                // object's own localScale to Vector3.one as a guard
+                // against the shared dummy-body asset's scale getting
+                // corrupted - which would silently discard a correction
+                // baked onto this same root transform (found live via
+                // UnityMCP while wiring Vaidya: its 0.86 correction read
+                // back as a visibly-wrong worldHeight of 2.22, not the
+                // 1.902692 target - Purohita shipped with the identical
+                // latent bug, just unnoticed since its own correction,
+                // 0.93, was close enough to 1 to not look obviously wrong).
+                // The Animator lives on the same GameObject as the root
+                // (confirmed via both Purohita's and this rig's own
+                // hierarchy), so the correction has to live one level
+                // below it to survive - each direct child's local scale is
+                // multiplied instead, which composes correctly with
+                // whatever baked scale that child already carries (e.g.
+                // this rig's own "target_character" node, already at
+                // 0.01 from the source armature).
                 float correction = targetHeight / measuredHeight;
-                instance.transform.localScale *= correction;
+                if (instance.transform.childCount > 0)
+                {
+                    for (int i = 0; i < instance.transform.childCount; i++)
+                    {
+                        Transform child = instance.transform.GetChild(i);
+                        child.localScale *= correction;
+                    }
+                }
+                else
+                {
+                    instance.transform.localScale *= correction;
+                }
 
                 GameObject savedPrefab = PrefabUtility.SaveAsPrefabAsset(instance, prefabDestPath, out bool success);
                 if (!success)
