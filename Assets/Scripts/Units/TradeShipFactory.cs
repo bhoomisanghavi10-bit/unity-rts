@@ -34,10 +34,7 @@ namespace KingdomsOfBharat.Units
                 ? $"{profile.DisplayName} Trade Ship"
                 : $"Enemy {profile.DisplayName} Trade Ship";
 
-            go.AddComponent<Unit>();
-            // No icon art exists for this unit yet (per BuildMenu.cs's
-            // own tradeShipButton, also null) - falls back to the UI's
-            // placeholder icon, same convention BuildMenu itself uses.
+            go.AddComponent<Unit>().IconKey = "train_tradeship";
             go.AddComponent<WaterMover>();
             go.AddComponent<SelectionIndicator>();
             go.AddComponent<BoatTrader>();

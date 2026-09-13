@@ -10385,3 +10385,82 @@ One scoped commit: `Assets/Scripts/Units/VanikFactory.cs`,
 `A_Ox_Walk_01.anim`/`A_Ox_Idle_01.anim`),
 `Assets/importedmodels/Vanik/Vanik_Source.glb` (new, raw delivery),
 `CLAUDE.md`, `docs/SESSION_LOG.md`. Next: whatever the user directs.
+
+## 2026-09-14: Tier 4 generic-unit portraits wired into SelectedUnitPanel + TradeShip stamped
+
+Picked up the pending item flagged at the end of the 2026-09-13 Tier 4
+staging session: the 21 generic-unit portrait crops were committed
+unwired (`Assets/Resources/UI/Portraits/train_<IconKey>.png`), and
+`SelectedUnitPanel.cs`'s display wiring was explicitly held for a live
+pixel check against the panel's real circular notch, which needed
+Unity/UnityMCP reachable (it wasn't, for two sessions in a row). Reachable
+this session.
+
+**Root cause found before writing any placement code**: `Resources.
+Load<Sprite>("UI/Portraits/" + iconKey)` returned null for every one of
+the 21 files — their `.meta`s still had `textureType: 0` (Default
+Texture2D), not Sprite. The staging pass alpha-keyed and cropped the
+pixels but never set the Unity import type, so nothing could have loaded
+as a `Sprite` regardless of any placement code. Fixed for all 21 files via
+`TextureImporter.textureType = Sprite` (`spriteImportMode = Single`,
+mipmaps off), `SaveAndReimport()`.
+
+**Notch position measured directly from the real texture, not
+estimated**: `panel_selected_unit.png` is 1729x806. Scanned alpha
+transitions along the vertical-middle row and the resulting column,
+found the actual notch hole at x=[45,321) / y=[213,506) (bottom-left
+origin, matching Unity's anchor convention exactly — no axis flip
+needed). Converted to `anchorMin/anchorMax` fractions of the full sprite
+rect with a small inset (`(0.036, 0.2743)`-`(0.1757, 0.6178)`), so the
+portrait tracks correctly regardless of the panel's own dynamic height
+(it stretches to match `BuildMenu`'s per the 2026-09-12 sync fix) since
+the background `Image` is `Type.Simple` with no 9-slice border — a
+fraction of the full rect is exactly where the notch renders at any size.
+
+New `SelectedUnitPanel.SetUpPortrait()`/`SetPortrait(iconKey)`: a plain
+`Image` child of `Panel` (renders after the background's own Image in
+the same GameObject, so it draws over the transparent notch, not
+underneath it), `preserveAspect = false` to match how the frame itself is
+stretched (already mildly ovalized by design, per the existing Tier 2
+session's own comment). Wired: `DrawSingle` sets it from `unit.IconKey`;
+`DrawBuilding` and the group-selection branch explicitly clear it
+(buildings have no `IconKey` yet, and a stale single-unit portrait behind
+"N units selected" would repeat the exact same class of bug the
+2026-09-12 stale-HP-bar fix already caught once).
+
+Also stamped `TradeShipFactory.cs`'s spawned `Unit.IconKey =
+"train_tradeship"` — the file already existed
+(`Assets/Resources/UI/Portraits/train_tradeship.png`, part of the Tier 4
+delivery) but nothing had ever set the key, so it was unreachable by
+name. Removed the factory's now-stale "no icon art exists" comment.
+
+522/522 EditMode tests pass unmodified before and after (pure asset
+import-setting + UI-wiring change, no new test-relevant logic). Live-
+verified via UnityMCP through the real production path: a real match
+(`CivilizationSetup.BeginMatch(Maurya)`), pre-match overlays deactivated,
+a real spawned "Maurya Worker" selected — the portrait renders cleanly
+inside the ring with no overflow past the frame art, text fully clear
+(screenshot confirmed, zoomed crop attached to the session). Selecting a
+real TownCenter confirmed the portrait correctly disappears (no stale
+image left over) for the building-selection branch.
+
+**Not done, explicitly out of scope for this pass**: the other 20
+portraits weren't individually re-screenshotted against the notch (only
+Worker's composition — "foot" — was), though all 21 share the same
+staged crop/alpha-key pipeline from the prior session, which explicitly
+verified all three composition types (foot/mounted/vehicle) by eye before
+batching. Building portraits and the 10 civ-exclusive unique-unit
+portraits remain fully unsourced (unchanged from the prior session's
+note). `TradeShipFactory`'s 3D model still has no dedicated art (unrelated
+to this pass — the model gap was already flagged, only the portrait icon
+key was in scope here).
+
+One scoped commit: `Assets/Scripts/UI/SelectedUnitPanel.cs`,
+`Assets/Scripts/Units/TradeShipFactory.cs`, the 21
+`Assets/Resources/UI/Portraits/*.png.meta` files, `CLAUDE.md`,
+`docs/SESSION_LOG.md` — deliberately excludes the unrelated concurrent-
+session work already sitting in the tree (`MarathaMavlaRaiderFactory.cs`,
+`CivilizationSetup.cs`, `TeamColorUnitTint.cs`, `corner_ornament.png`,
+`docs/PROJECT_TRACKER.html`, `.mcp.json`, `ProjectSettings/
+ProjectSettings.asset`), left untouched via targeted `git add`. Next:
+whatever the user directs.

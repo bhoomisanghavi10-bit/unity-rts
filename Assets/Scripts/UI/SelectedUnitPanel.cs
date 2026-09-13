@@ -74,6 +74,63 @@ namespace KingdomsOfBharat.UI
 
             SetUpHealthBar();
             SetUpGroupIconRow();
+            SetUpPortrait();
+        }
+
+        // 2026-09-14: displays the selected unit's portrait (Resources/UI/
+        // Portraits/{IconKey}.png, the Tier 4 delivery staged unwired since
+        // 2026-09-13) inside panel_selected_unit.png's real circular notch.
+        // Anchors below are pixel-measured against the actual 1729x806
+        // source texture (notch at x=[45,321), y=[213,506) from the
+        // texture's bottom-left origin - not guessed - then expressed as
+        // fractions of the full sprite so they track correctly regardless
+        // of Panel's own dynamic height (it stretches to match BuildMenu's,
+        // see the Awake() comment above, and this background Image is
+        // Type.Simple with no 9-slice border, so a fraction of the full
+        // rect is exactly where the notch renders at any size). A small
+        // inset (0.01 fraction each edge) keeps the portrait's own square
+        // corners from poking past the ring art into the flat parchment.
+        private static readonly Vector2 PortraitAnchorMin = new Vector2(0.0360f, 0.2743f);
+        private static readonly Vector2 PortraitAnchorMax = new Vector2(0.1757f, 0.6178f);
+
+        private Image _portraitImage;
+
+        private void SetUpPortrait()
+        {
+            if (panelRoot == null)
+            {
+                return;
+            }
+
+            var portraitGo = new GameObject("Portrait", typeof(RectTransform), typeof(Image));
+            portraitGo.transform.SetParent(panelRoot.transform, false);
+            var rect = (RectTransform)portraitGo.transform;
+            rect.anchorMin = PortraitAnchorMin;
+            rect.anchorMax = PortraitAnchorMax;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            _portraitImage = portraitGo.GetComponent<Image>();
+            _portraitImage.raycastTarget = false;
+            _portraitImage.preserveAspect = false;
+            portraitGo.SetActive(false);
+        }
+
+        private void SetPortrait(string iconKey)
+        {
+            if (_portraitImage == null)
+            {
+                return;
+            }
+
+            Sprite portrait = string.IsNullOrEmpty(iconKey)
+                ? null
+                : Resources.Load<Sprite>("UI/Portraits/" + iconKey);
+            _portraitImage.gameObject.SetActive(portrait != null);
+            if (portrait != null)
+            {
+                _portraitImage.sprite = portrait;
+            }
         }
 
         // 2026-09-13: lets the player pick a specific unit out of a
@@ -338,6 +395,7 @@ namespace KingdomsOfBharat.UI
                 statusLabel.gameObject.SetActive(true);
                 groupCountLabel.gameObject.SetActive(false);
                 _groupIconRoot?.SetActive(false);
+                SetPortrait(null);
                 DrawBuilding(selectedBuilding);
                 return;
             }
@@ -365,6 +423,7 @@ namespace KingdomsOfBharat.UI
                 // behind "4 units selected".
                 hpLabel.gameObject.SetActive(false);
                 SetHealthBar(false, null);
+                SetPortrait(null);
                 RefreshGroupIconRow(_selectionManager.Selected);
             }
         }
@@ -373,6 +432,7 @@ namespace KingdomsOfBharat.UI
         {
             nameLabel.text = unit.gameObject.name;
             statusLabel.text = UnitStatus.Describe(unit);
+            SetPortrait(unit.IconKey);
             if (unit.TryGetComponent(out StanceController stance))
             {
                 statusLabel.text += $" | Stance: {stance.Stance} (V to cycle)";

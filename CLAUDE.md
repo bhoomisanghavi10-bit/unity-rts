@@ -6,6 +6,50 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **UI_ART_BRIEF.md Tier 4: SelectedUnitPanel portrait display wiring closed
+  (2026-09-14)** — closes the display-wiring gap the 2026-09-13 staging
+  session left pending (Unity/UnityMCP was unreachable for two sessions in
+  a row; reachable this session). Root cause found before writing any
+  placement code: all 21 staged portrait PNGs had `textureType: 0`
+  (Default Texture2D) in their `.meta`s, not Sprite — `Resources.
+  Load<Sprite>` returned null for every one regardless of any placement
+  code, since the staging pass alpha-keyed/cropped the pixels but never
+  set the Unity import type. Fixed for all 21 via `TextureImporter.
+  textureType = Sprite`. The portrait notch's real position was measured
+  directly off `panel_selected_unit.png` (1729x806) by scanning alpha
+  transitions, not estimated — notch at x=[45,321)/y=[213,506), bottom-
+  left origin (matches Unity's anchor convention with no axis flip
+  needed) — expressed as `anchorMin`/`anchorMax` fractions
+  (`(0.036,0.2743)`-`(0.1757,0.6178)`) so the portrait tracks correctly
+  even though the panel's own height is dynamic (synced to `BuildMenu`'s,
+  per the 2026-09-12 fix). New `SelectedUnitPanel.SetUpPortrait()`/
+  `SetPortrait(iconKey)`: a plain `Image` child of `Panel` (renders over
+  the transparent notch since it's a later sibling in the same
+  GameObject), wired from `DrawSingle`'s `unit.IconKey`, explicitly
+  cleared in `DrawBuilding` and the group-selection branch (buildings have
+  no `IconKey` yet; a stale portrait behind "N units selected" would
+  repeat the exact stale-HP-bar bug class from 2026-09-12). Also stamped
+  `TradeShipFactory.cs`'s spawned unit with `IconKey = "train_tradeship"`
+  — the portrait file already existed from the Tier 4 delivery but nothing
+  had ever set the key. 522/522 EditMode tests pass unmodified. Live-
+  verified via UnityMCP through the real production path: a real match
+  (`CivilizationSetup.BeginMatch(Maurya)`), pre-match overlays
+  deactivated, a real spawned "Maurya Worker" selected — the portrait
+  renders cleanly inside the ring with no overflow, screenshot-confirmed;
+  selecting a real TownCenter confirmed the portrait correctly clears (no
+  stale leftover). **Not done**: only Worker's own composition was
+  individually re-screenshotted against the live notch (the other 20 share
+  the same staged pipeline, already visually verified by composition type
+  in the prior session, but not re-checked one-by-one here); building
+  portraits and the 10 civ-exclusive unique-unit portraits remain
+  unsourced; `TradeShipFactory`'s 3D model still has no dedicated art
+  (unrelated to this pass). One scoped commit
+  (`SelectedUnitPanel.cs`/`TradeShipFactory.cs`/21 `.meta` files/docs) —
+  deliberately excludes the unrelated concurrent-session work already
+  sitting in the tree (`MarathaMavlaRaiderFactory.cs`, `CivilizationSetup.
+  cs`, `TeamColorUnitTint.cs`, `corner_ornament.png`, `docs/
+  PROJECT_TRACKER.html`, `.mcp.json`, `ProjectSettings/ProjectSettings.
+  asset`). Next: whatever the user directs.
 - **UI_ART_BRIEF.md Tier 4: 21 generic-unit portraits identified/alpha-keyed/
   cropped/staged, display wiring pending (2026-09-14)** — user delivered a
   framed-card portrait set for all 21 generic units at `~/Downloads/generic
