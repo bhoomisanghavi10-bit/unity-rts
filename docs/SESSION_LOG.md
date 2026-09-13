@@ -288,6 +288,76 @@ Tier 4 session note) and this session was not asked to commit.
 
 ---
 
+## 2026-09-14 — Tier 4 generic-unit portraits: identified, alpha-keyed, cropped, staged (wiring pending)
+
+**Scope**: user delivered 21 PNGs at `~/Downloads/generic unit icon/` (numbered
+1-21) meant to cover the 21 generic-unit portrait prompts from the prior session's
+Tier 4 prompt list.
+
+**Findings before touching anything**:
+- The file numbering only matches the prompt-list order through image 12 —
+  **13-21 are scrambled** (e.g. `20.png` is the Camel Rider, not the Maharaja;
+  `13.png` is the Trade Ship, not the Camel Rider). Verified every one of the 21
+  individually by content (multimodal read), not trusted by filename/order, per
+  this project's own repeated lesson about art-delivery identification. Full
+  corrected mapping recorded in `docs/UI_ART_BRIEF.md`'s Tier 4 checklist.
+- All 21 are RGB with a baked checkerboard background, no real alpha — same
+  defect as every prior UI art delivery (Tier 1/2/3).
+- The delivered art is a full framed portrait card (arched top, lotus corner
+  ornaments, its own decorative border) — not the plain bust the brief's
+  original template asked for, and not compatible with dropping straight into
+  `SelectedUnitPanel`'s existing circular portrait notch (would double-frame).
+  Put to the user directly (AskUserQuestion): confirmed center-crop to a plain
+  circle, discarding the arch/corner ornament, over enlarging the display area
+  to show the full card.
+- Unity/UnityMCP was unreachable the entire session (same as the prior Tier 4
+  session) - no live pixel verification possible. Asked the user whether to
+  proceed with the display-code/scene wiring anyway on best-effort measurements,
+  or hold it for a live Unity check; **user chose to hold** the actual wiring,
+  but confirmed staging the finished, self-verifiable asset files (no code/scene
+  touched, zero effect on the running game) was fine to do now.
+
+**Real finding while staging, unrelated to this task**: mid-session, `git log`
+showed the branch had jumped from 53 to 61 commits ahead of origin — a second,
+independent Claude Code session was actively committing to this exact branch at
+the same time (Town Bell, Gold Mine models, Vaidya/Purohita model wiring, an
+Age-up HUD meter). Confirmed via `Assets/Resources/UniqueUnits/Purohita/` -
+flagged as stale/uncommitted at the start of this session - having been turned
+into a real compiled prefab+avatar and committed by that other session while this
+one was working. A `.meta` file also appeared under the new `UI/Portraits/`
+folder without this session creating it, meaning a live Unity Editor instance
+(belonging to that other session) was actively watching and auto-importing this
+exact project directory. Flagged directly to the user rather than silently
+continuing or silently stopping; user confirmed proceeding carefully (own new
+files only, re-check git status immediately before every commit, avoid any file
+the other session had touched).
+
+**Work done**: wrote a scratch crop script
+(`Tools/ui_art_alpha_key.py`'s existing border-flood-fill `alpha_key`, plus a
+new center-crop-to-circle step, diameter 74% of the trimmed canvas centered at
+(50%, 52%)) - verified by eye on samples spanning the full range of composition
+types (foot portrait, mounted, wide vehicle/siege-engine) before batching all
+21, since a fixed crop ratio needed to generalize across very different
+compositions with no Unity available to render/verify results live (the Read
+tool's own image display substituted for that this session). All 21 committed
+unwired to `Assets/Resources/UI/Portraits/train_<IconKey>.png`, named to match
+each unit's existing `Unit.IconKey` field exactly (e.g. `train_worker.png`) so
+the eventual display code is a one-line `Resources.Load` away, mirroring the
+`UI/Icons/` lookup convention the group-selection icon row already established.
+
+**Not done, explicitly deferred to a future session with Unity reachable**: the
+actual `SelectedUnitPanel.cs` display code (a new portrait `Image` sized/
+positioned against the panel's real live circular notch - needs a pixel check,
+not a guess); stamping `TradeShipFactory.IconKey = "train_tradeship"` (currently
+stamps none at all, so its portrait can't be loaded by anything yet even though
+the asset exists); building portraits and the 10 civ-exclusive unique-unit
+portraits (fully unsourced, not part of this delivery). Two commits this
+session: the portrait assets (`1a15b2d`), plus this doc update. Next: the
+display wiring once Unity/UnityMCP reconnects, or whatever else the user directs
+in the meantime.
+
+---
+
 ## 2026-09-13 — UI_ART_BRIEF.md Tier 4 reconciled: minimap frame already done, portraits are the only open item
 
 **Scope**: picked up per the user's "start tier 4" request. Before touching anything,

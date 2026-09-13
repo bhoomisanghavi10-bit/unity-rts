@@ -6,6 +6,44 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **UI_ART_BRIEF.md Tier 4: 21 generic-unit portraits identified/alpha-keyed/
+  cropped/staged, display wiring pending (2026-09-14)** — user delivered a
+  framed-card portrait set for all 21 generic units at `~/Downloads/generic
+  unit icon/`. The delivery's numbering only matched the prior session's
+  prompt-list order through image 12 — 13-21 were scrambled (e.g. `20.png`
+  was the Camel Rider, not the Maharaja) — identified all 21 individually by
+  content rather than trusted by number. All 21 were RGB with a baked
+  checkerboard background (same defect as every prior UI art delivery); the
+  art itself is a full framed card (arch + lotus corners), not the plain bust
+  the brief's template asked for, which would double-frame inside
+  `SelectedUnitPanel`'s existing circular notch — user confirmed (via
+  AskUserQuestion) center-cropping to a plain circle over enlarging the
+  display area. Alpha-keyed with the existing `Tools/ui_art_alpha_key.py`
+  plus a new center-crop-to-circle step, verified by eye across every
+  composition type (foot/mounted/vehicle) before batching all 21. Committed
+  unwired at `Assets/Resources/UI/Portraits/train_<IconKey>.png`, named to
+  match each unit's existing `Unit.IconKey` exactly. **Unity/UnityMCP was
+  unreachable all session** (same as the prior Tier 4 session) — asked the
+  user whether to wire the actual display code (a new portrait `Image` in
+  `SelectedUnitPanel`'s notch) on best-effort measurements anyway or hold for
+  a live pixel check; user chose to hold the wiring, but confirmed staging
+  the self-verifiable asset files (no code/scene touched) was fine now.
+  `TradeShipFactory` still stamps no `IconKey` at all (no art existed for it
+  before this delivery) and needs one added as part of that same future
+  wiring pass. **Also found and flagged, not caused by this session**: mid-
+  session, `git log` showed the branch jump from 53 to 61 commits ahead of
+  origin — a second, independent session was actively committing to this
+  same branch concurrently (Town Bell, Gold Mine models, Vaidya/Purohita
+  model wiring, an Age-up HUD meter), confirmed by the previously-flagged
+  stale `Assets/Resources/UniqueUnits/Purohita/` delivery turning into a real
+  compiled prefab+avatar mid-session, and a `.meta` file appearing under the
+  new `Portraits/` folder that this session never created (a live Unity
+  Editor belonging to that other session was watching this exact directory).
+  Flagged directly to the user; confirmed proceeding carefully (new files
+  only, re-check git status before every commit). Building portraits and the
+  10 civ-exclusive unique-unit portraits remain fully unsourced. Two commits
+  (`1a15b2d` + this doc update). Next: the `SelectedUnitPanel.cs` display
+  wiring once Unity/UnityMCP is reachable, or whatever else the user directs.
 - **Vanik's real pack-ox model wired (2026-09-14)** — ad hoc, user-supplied
   3D model (`Meshy_AI_Character_output.glb`, "the trader animal character
   rig model... an ox back supply model"), not a numbered roadmap item.

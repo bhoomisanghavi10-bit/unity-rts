@@ -387,10 +387,21 @@ scene-data change, 510/510 EditMode tests pass unmodified.
   `MinimapController.ApplyDiamondFrame()`
   (`Assets/Scripts/Camera/MinimapController.cs:106`); confirmed both files present and
   the wiring intact as of this session. No further action needed.
-- [ ] Unit/building portraits (as many or few as you want — fully optional) — **the
-  only item left open in this entire doc.** No art has been sourced yet (no
-  `Assets/Resources/UI/Portraits/` folder exists) — needs Canva/commissioned images
-  per the prompt template above before any wiring session can start.
+- [~] Unit/building portraits — **21 of 21 generic units delivered and staged,
+  2026-09-14; display wiring not started.** User delivered a full framed-card
+  portrait set (not the plain-bust template above) for all 21 generic units;
+  identified individually (delivery numbering didn't match after image 12),
+  alpha-keyed, and center-cropped to a plain circle per the user's own choice
+  — committed unwired at `Assets/Resources/UI/Portraits/train_<IconKey>.png`
+  (filenames match each unit's existing `Unit.IconKey` exactly). **Still
+  needed**: the actual display code (a new portrait `Image` inside
+  `SelectedUnitPanel`'s existing circular notch, `Assets/Scripts/UI/
+  SelectedUnitPanel.cs`) — held pending a live Unity session, since sizing/
+  positioning against the notch needs a pixel check UnityMCP couldn't do
+  this session (unreachable all session); `TradeShipFactory` still stamps no
+  `IconKey` at all (no art existed for it before now) and needs one added
+  before its portrait can ever be loaded. Building portraits and the 10
+  civ-exclusive unique-unit portraits remain fully unsourced.
 
 **Total for a complete first pass (Tiers 1+2)**: ~34 discrete image files.
 **Total including Tiers 3+4 (excluding optional portraits)**: ~42 discrete image
