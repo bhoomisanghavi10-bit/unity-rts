@@ -5,6 +5,116 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-13 — UI_ART_BRIEF.md Tier 3 art delivery wired, real 9-slice rendering bug found and fixed
+
+**Scope**: picked up mid-task from a prior session's own carryover note. That session had
+already alpha-keyed and wired all 9 Tier 3 files (`modal_frame`, 3 `menu_button_*` states, 5
+civ crests) into `Assets/Resources/UI/Menu/`, corrected the 9-slice border values in each
+`.meta` (catching a real first-pass bug where column/pedestal ornament leaked into the
+stretched middle), and set `preserveAspect = true` on `CivPicker`'s crest `Image`. It could
+not go further because both `unity`/`UnityMCP` MCP servers were unreachable — the border-
+correction work went in fully uncommitted, unverified live.
+
+**What this session found**: live-verifying `SettingsMenu`'s modal frame in Play mode showed
+it hadn't actually been fixed — the panel rendered as a warped, crowded mess: a large
+temple/tower silhouette dominating almost the entire panel with no visible flat interior,
+regardless of what `pixelsPerUnitMultiplier` value was tried (tested 0.03, 0.1, 1, 1.8, 10,
+200 — none produced the expected result, and several looked visually identical to each
+other, which was itself a clue something more fundamental was wrong). Root-caused by
+inspecting the actual generated mesh via reflection (`image.canvasRenderer.GetMesh()`) rather
+than continuing to guess at multiplier values — the mesh vertex grid was geometrically a
+correct 3×3 nine-slice layout, which ruled out a border-math bug and pointed at the texture
+import settings instead. Confirmed via `TextureImporterSettings.spriteMeshType`: all 4 new
+Tier 3 sprites (`modal_frame`/`menu_button_normal`/`menu_button_hover`/`menu_button_pressed`)
+had imported with **Mesh Type = Tight** (Unity's alpha-hugging, non-rectangular mesh) — this
+fundamentally breaks `Image.Type.Sliced`'s 9-slice UV math, which assumes a simple rectangular
+quad. Proved this directly by temporarily switching the same sprite to `Image.Type.Simple`
+(no 9-slice math at all, just a raw stretch) and seeing the frame render exactly as intended —
+full side towers, flat interior, correct top/bottom ornament. Fixed by setting
+`settings.spriteMeshType = SpriteMeshType.FullRect` + `importer.SaveAndReimport()` on all 4
+files.
+
+**A second, real bug surfaced immediately after the mesh-type fix**: even with a geometrically
+correct 9-slice mesh, `SettingsMenu`'s Box still rendered with a border that consumed most of
+the 560×700 panel, because `Image.pixelsPerUnitMultiplier` had never been set — it defaults to
+1, which renders a 9-slice border at a literal 1:1 texture-pixel-to-UI-unit size. That's only
+correct when a panel happens to display at the frame texture's own native 1264×1237 size;
+every real panel here is much smaller, so the border rendered wildly oversized relative to the
+panel. `border_local_units = spriteBorderPixels / pixelsPerUnitMultiplier` was confirmed
+directly from the generated mesh's vertex positions (at `multiplier=1`, vertex x-coordinates
+were exactly ±(280, 90) — i.e. the border consumed exactly the raw 190px value as literal UI
+units, not scaled to the panel at all).
+
+**Fixed centrally, not per-panel**: rather than hardcoding a different multiplier per menu
+(which would need retuning every time a panel's size changes), added
+`UIStyleTheme.FitBorderToRect` — computes `pixelsPerUnitMultiplier` from the panel's own live
+`RectTransform` height ÷ the frame texture's native height, called automatically from the end
+of `UIStyleTheme.ApplyPanel`. This is the single shared helper every code-built menu panel
+already routes through (`grep`-confirmed 5 real call sites: `SettingsMenu`, `HotkeyOverlay`,
+`DiplomacyMenu`, `ObjectivePanel`, `ScenarioEditorMenu`), so the fix lands everywhere at once
+instead of needing 5 separate hardcoded values. This required reordering each call site so the
+Image's `RectTransform` is sized (anchors + `sizeDelta`) *before* `ApplyPanel` runs — all 5 had
+it the other way around (`ApplyPanel` called first, then the rect sized), which is exactly why
+`FitBorderToRect` couldn't have worked without this reorder even if it had existed before.
+`ObjectivePanel.cs` already carried an unrelated, pre-existing uncommitted anchor-repositioning
+edit (top-left → top-right anchor) from a concurrent session when this session started, sitting
+in the same handful of lines being reordered — reordered around it rather than reverting it;
+it rides along in this session's own commit since the two edits share lines and can't be
+cleanly split via `git add -p` without rewriting the diff by hand.
+
+**Formula validated empirically across 3 differently-sized panels**, not assumed correct after
+one working case: `SettingsMenu` (560×700, multiplier computed 1.767), `HotkeyOverlay`
+(900×620, multiplier 1.995), `DiplomacyMenu` (800×260, multiplier 4.758) — all three, at their
+very different aspect ratios and scales, rendered with a clean, correctly-proportioned frame:
+visible side ornament, genuine flat interior with no bleeding, correct header/footer bands.
+
+**A real environment trap cost significant time mid-session, unrelated to the actual bug**: a
+`manage_editor(action="pause")` call (made to test whether `ObjectivePanel` would stop
+re-hiding itself via its own `Update()` logic while frozen) left Play mode stuck
+(`is_paused=true, is_changing=true`) for a long stretch afterward. During that stretch,
+*nothing* newly-activated rendered in any screenshot — not `ObjectivePanel`, not
+`HotkeyOverlay`, not `DiplomacyMenu`, and not even a from-scratch test `Canvas`+`Image` created
+directly via `execute_code` specifically to isolate the problem. That last test was the key
+diagnostic: a brand new, trivially-correct full-screen red `Image` failing to render proved
+this had nothing to do with any of the actual UI code being investigated — the whole game was
+simply frozen. Calling `pause` again (confirmed via `mcpforunity://editor/state` — it toggles
+rather than sets a state) unstuck it, and every panel rendered correctly immediately after,
+with zero further changes needed.
+
+**Verification**: 509/511 EditMode tests pass — the 2 failures
+(`BuildingModelFactoryTests.Spawn_FallsBackToSharedModel_ForEveryCiv_WhenNoCivSpecificModelExists`,
+`Spawn_UsesCholaSpecificModel_AndStandsUpright`) are pre-existing and unrelated, caused by the
+already-committed `a5d2b15` "Remove leftover raw _Source FBX exports" cleanup (confirmed via
+`git show --stat a5d2b15`, committed before this session started) removing Chola TownCenter's
+raw source FBX that some other pipeline step apparently still expected — not touched or caused
+by anything in this session. Live-verified via UnityMCP through the real production code path
+(not reflection overrides bypassing `ApplyPanel`): after the code fix, recompiled and
+re-entered Play mode, `SettingsMenu`/`HotkeyOverlay`/`DiplomacyMenu` all screenshot cleanly at
+their real sizes with the multiplier now computed automatically
+(`img.pixelsPerUnitMultiplier` read back as exactly 1.767143 for `SettingsMenu`, matching the
+manually-derived value exactly). `CivPicker`'s 5 crests confirmed rendering correctly with
+`preserveAspect` (the prior session's fix, unaffected by this one, all 5 read clearly distinct
+and undistorted). `MissionSelectMenu`'s buttons were already visually clean both before and
+after the mesh-type fix (their particular alpha shape happened not to expose the bug visibly),
+but received the identical underlying fix for correctness regardless. `ObjectivePanel`
+(shows only with a real active scenario objective, none active in a skirmish match) and
+`ScenarioEditorMenu` (not reached in this session's match flow) weren't directly
+screenshotted, but get the identical fix through the same shared `ApplyPanel` code path other
+panels were confirmed against.
+
+**Files**: `Assets/Resources/UI/Menu/modal_frame.png`+`.meta`,
+`menu_button_normal.png`+`.meta`, `menu_button_hover.png`+`.meta`,
+`menu_button_pressed.png`+`.meta`, `Assets/Resources/UI/Menu/crest_*.png` (5, prior session's
+alpha-key work, committed here for the first time), `Assets/Scripts/UI/UIStyleTheme.cs`,
+`Assets/Scripts/UI/SettingsMenu.cs`, `Assets/Scripts/UI/HotkeyOverlay.cs`,
+`Assets/Scripts/UI/DiplomacyMenu.cs`, `Assets/Scripts/UI/ObjectivePanel.cs` (incl. the
+unrelated riding-along anchor fix from a concurrent session),
+`Assets/Scripts/UI/ScenarioEditorMenu.cs`, `Assets/Scripts/UI/CivPicker.cs`,
+`docs/UI_ART_BRIEF.md`. One scoped commit. **This closes Tier 3** in `UI_ART_BRIEF.md` — Tier 4
+(minimap frame, optional unit/building portraits) is the only remaining tier in that doc.
+
+---
+
 ## 2026-09-12 — Wave 5 item 29 follow-up: full 45-combo visual pass on the building trim tint
 
 **Scope**: direct continuation, same session, of the metallic-trim shipping session logged

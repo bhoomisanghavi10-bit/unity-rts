@@ -74,7 +74,12 @@ namespace KingdomsOfBharat.UI
             crestRect.pivot = new Vector2(0.5f, 1f);
             crestRect.sizeDelta = new Vector2(64f, 64f);
             crestRect.anchoredPosition = new Vector2(0f, 0f);
-            crestGo.GetComponent<Image>().sprite = crest;
+            Image crestImage = crestGo.GetComponent<Image>();
+            crestImage.sprite = crest;
+            // Real per-civ crest art isn't perfectly square after alpha-
+            // keying/content-cropping (e.g. Chola's is 1099x1213) - without
+            // this, a fixed 64x64 box would stretch it off-aspect.
+            crestImage.preserveAspect = true;
         }
 
         private void Select(CivilizationId civ)

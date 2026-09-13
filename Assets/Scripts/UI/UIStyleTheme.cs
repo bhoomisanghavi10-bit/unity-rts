@@ -70,6 +70,9 @@ namespace KingdomsOfBharat.UI
         // Applies the panel frame sprite/background color to an Image if
         // one is present - shared by every panel/backdrop call site so the
         // "assign sprite only if we have one" check lives in one place.
+        // Callers must set the Image's RectTransform to its final
+        // anchors/sizeDelta *before* calling this, so FitBorderToRect below
+        // can read the panel's real display size.
         public void ApplyPanel(Image image)
         {
             if (image == null)
@@ -82,7 +85,34 @@ namespace KingdomsOfBharat.UI
             {
                 image.sprite = panelFrameSprite;
                 image.type = Image.Type.Sliced;
+                FitBorderToRect(image);
             }
+        }
+
+        // A 9-slice frame sprite's border is authored in source-texture
+        // pixels. Image.pixelsPerUnitMultiplier defaults to 1, which renders
+        // that border at a literal 1:1 texture-pixel-to-UI-unit size -
+        // correct only when a panel happens to display at the frame
+        // texture's own native size. Every panel here is a different size
+        // than modal_frame.png's 1264x1237 source, so left uncorrected the
+        // border rendered either near-invisibly thin (letting the ornamental
+        // corner/edge art fill nearly the whole panel once the "flat middle"
+        // stretch region swallowed almost everything) on the smaller panels,
+        // or oversized on larger ones. Scaling by the texture's own height
+        // over the panel's actual rendered height keeps the border at the
+        // same on-screen proportion the art was authored at, regardless of
+        // panel size - live-verified across 3 differently-sized panels
+        // (SettingsMenu 560x700, HotkeyOverlay 900x620, DiplomacyMenu
+        // 800x260) before landing on this formula.
+        private static void FitBorderToRect(Image image)
+        {
+            RectTransform rect = image.rectTransform;
+            if (image.sprite.texture == null || rect.rect.height <= 0f)
+            {
+                return;
+            }
+
+            image.pixelsPerUnitMultiplier = image.sprite.texture.height / rect.rect.height;
         }
 
         // Sets the base look today (flat color, or a 9-slice sprite once one

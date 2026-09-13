@@ -493,7 +493,6 @@ namespace KingdomsOfBharat.UI
             var panelGo = new GameObject("Panel");
             panelGo.transform.SetParent(canvasGo.transform, false);
             var panelImage = panelGo.AddComponent<Image>();
-            UIStyleTheme.Current.ApplyPanel(panelImage);
             var panelRect = panelGo.GetComponent<RectTransform>();
             // Left-anchored side panel, not full-screen - the rest of the
             // screen stays the real game world/camera so placement clicks
@@ -503,6 +502,7 @@ namespace KingdomsOfBharat.UI
             panelRect.pivot = new Vector2(0f, 0.5f);
             panelRect.sizeDelta = new Vector2(300f, 0f);
             panelRect.anchoredPosition = Vector2.zero;
+            UIStyleTheme.Current.ApplyPanel(panelImage);
 
             float y = 500f;
             CreateLabel(panelGo.transform, "Scenario Editor", new Vector2(150f, y), 20, TextAlignmentOptions.Center);

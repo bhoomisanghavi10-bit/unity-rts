@@ -132,13 +132,13 @@ namespace KingdomsOfBharat.UI
             _panel = new GameObject("Panel");
             _panel.transform.SetParent(canvasGo.transform, false);
             var boxImage = _panel.AddComponent<Image>();
-            UIStyleTheme.Current.ApplyPanel(boxImage);
             var boxRect = _panel.GetComponent<RectTransform>();
-            boxRect.anchorMin = new Vector2(0f, 1f);
-            boxRect.anchorMax = new Vector2(0f, 1f);
-            boxRect.pivot = new Vector2(0f, 1f);
+            boxRect.anchorMin = new Vector2(1f, 1f);
+            boxRect.anchorMax = new Vector2(1f, 1f);
+            boxRect.pivot = new Vector2(1f, 1f);
             boxRect.sizeDelta = new Vector2(360f, 140f);
-            boxRect.anchoredPosition = new Vector2(16f, -16f);
+            boxRect.anchoredPosition = new Vector2(-16f, -16f);
+            UIStyleTheme.Current.ApplyPanel(boxImage);
 
             CreateLabel(_panel.transform, "Objectives", new Vector2(12f, -8f), 18, TextAlignmentOptions.TopLeft);
 

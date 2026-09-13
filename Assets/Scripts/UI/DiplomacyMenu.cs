@@ -210,7 +210,6 @@ namespace KingdomsOfBharat.UI
             var boxGo = new GameObject("Box");
             boxGo.transform.SetParent(_panel.transform, false);
             var boxImage = boxGo.AddComponent<Image>();
-            UIStyleTheme.Current.ApplyPanel(boxImage);
             var boxRect = boxGo.GetComponent<RectTransform>();
             boxRect.anchorMin = new Vector2(0.5f, 0.5f);
             boxRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -219,6 +218,7 @@ namespace KingdomsOfBharat.UI
             // War/Allied button - see RebuildRows.
             boxRect.sizeDelta = new Vector2(800f, 260f);
             boxRect.anchoredPosition = Vector2.zero;
+            UIStyleTheme.Current.ApplyPanel(boxImage);
 
             CreateLabel(boxGo.transform, "Diplomacy", new Vector2(0f, 90f), 26, TextAlignmentOptions.Center);
 

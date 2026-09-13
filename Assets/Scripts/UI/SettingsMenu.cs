@@ -313,7 +313,6 @@ namespace KingdomsOfBharat.UI
             var boxGo = new GameObject("Box");
             boxGo.transform.SetParent(_panel.transform, false);
             var boxImage = boxGo.AddComponent<Image>();
-            UIStyleTheme.Current.ApplyPanel(boxImage);
             var boxRect = boxGo.GetComponent<RectTransform>();
             boxRect.anchorMin = new Vector2(0.5f, 0.5f);
             boxRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -329,6 +328,7 @@ namespace KingdomsOfBharat.UI
             // above the list (Difficulty/Colorblind/Time Limit) more room.
             boxRect.sizeDelta = new Vector2(560f, 700f);
             boxRect.anchoredPosition = Vector2.zero;
+            UIStyleTheme.Current.ApplyPanel(boxImage);
 
             float y = 320f;
             CreateLabel(boxGo.transform, "Settings", new Vector2(0f, y), 28, TextAlignmentOptions.Center);

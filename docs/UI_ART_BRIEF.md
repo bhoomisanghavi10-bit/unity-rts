@@ -312,10 +312,10 @@ UnityMCP: all 3 text rows in both panels now render fully clear of both ornament
 with no overlap (screenshotted before/after). No code changes needed — pure
 scene-data change, 510/510 EditMode tests pass unmodified.
 
-**Tier 3 (menu screens)**
-- [ ] Shared modal panel frame
-- [ ] Shared menu-button background × 3 states
-- [ ] 5 civ-select crest/emblem cards
+**Tier 3 (menu screens) — done 2026-09-13**
+- [x] Shared modal panel frame
+- [x] Shared menu-button background × 3 states
+- [x] 5 civ-select crest/emblem cards
 
 **Tier 4 (optional polish)**
 - [ ] Minimap frame
@@ -331,12 +331,24 @@ files.
 
 - Icons: straightforward `Sprite` swap into an `Image` field per button/label —
   additive, existing layout doesn't need to change.
-- 9-slice panels/buttons: import as Sprite (2D and UI), set Border in the Sprite
-  Editor to match the frame's actual bevel width, assign to the `UIStyleTheme.asset`
-  fields (`PanelFrameSprite`/`ButtonBackgroundSprite`) — `UIStyleTheme.ApplyPanel`/
-  `ApplyButton` (`Assets/Scripts/UI/UIStyleTheme.cs`) already check for a non-null
-  sprite and switch every wired panel/button to `Image.Type.Sliced` automatically,
-  no other code change needed.
+- 9-slice panels/buttons: import as Sprite (2D and UI), set **Mesh Type to Full
+  Rect** (never Tight — a Tight/alpha-hugging mesh breaks `Image.Type.Sliced`'s
+  9-slice math outright, discovered the hard way wiring Tier 3's modal frame: it
+  silently produced a warped, crowded render with no flat interior, at every
+  `pixelsPerUnitMultiplier` value tried, until the mesh type itself was fixed),
+  set Border in the Sprite Editor to match the frame's actual bevel width, assign
+  to the `UIStyleTheme.asset` fields (`PanelFrameSprite`/`ButtonBackgroundSprite`)
+  — `UIStyleTheme.ApplyPanel`/`ApplyButton` (`Assets/Scripts/UI/UIStyleTheme.cs`)
+  already check for a non-null sprite and switch every wired panel/button to
+  `Image.Type.Sliced` automatically, no other code change needed.
+  `ApplyPanel` (as of the Tier 3 wiring session) also auto-computes
+  `pixelsPerUnitMultiplier` from the *panel's own RectTransform height* vs. the
+  frame texture's native height, so the border renders at a consistent
+  proportion regardless of how differently sized any given caller's panel is —
+  every `ApplyPanel` call site must set the Image's RectTransform to its final
+  anchors/sizeDelta *before* calling `ApplyPanel`, not after (the order every one
+  of the 5 call sites had it in before this fix, which is exactly why the border
+  rendered wrong).
 - Cursors: **done 2026-08-28.** `HoverTooltip.cs` calls `Cursor.SetCursor(texture,
   hotspot, CursorMode.Auto)` for all 5 states, resolved via the pure/testable
   `HoverTooltip.ResolveCursorState` (see `HoverCursorStateTests.cs`) at

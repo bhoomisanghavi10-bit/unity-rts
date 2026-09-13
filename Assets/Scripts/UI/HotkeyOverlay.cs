@@ -239,12 +239,12 @@ namespace KingdomsOfBharat.UI
             var boxGo = new GameObject("Box");
             boxGo.transform.SetParent(_panel.transform, false);
             var boxImage = boxGo.AddComponent<Image>();
-            UIStyleTheme.Current.ApplyPanel(boxImage);
             var boxRect = boxGo.GetComponent<RectTransform>();
             boxRect.anchorMin = new Vector2(0.5f, 0.5f);
             boxRect.anchorMax = new Vector2(0.5f, 0.5f);
             boxRect.sizeDelta = new Vector2(900f, 620f);
             boxRect.anchoredPosition = Vector2.zero;
+            UIStyleTheme.Current.ApplyPanel(boxImage);
 
             CreateLabel(boxGo.transform, "Hotkey Reference", new Vector2(0f, 280f), 26, TextAlignmentOptions.Center);
 
