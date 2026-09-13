@@ -6,6 +6,40 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Purohita rigged model wired (2026-09-14)** — ad hoc, user-supplied 3D rig
+  ("Meshy AI Sacred Pilgrim biped", 2 `.glb` files: Walking/Running variants of the
+  same mesh), not a numbered roadmap item. Purohita (Wave 4 item 27) previously
+  reused the generic shared Human Character Dummy body; this replaces it with a
+  real rigged model. The repo already had a *different*, unrelated Purohita
+  delivery sitting uncommitted (`Purohita.fbx` + albedo + team mask, a 61-bone
+  "B-" Rigify rig with finger bones and staff/bell/vessel props) — its Humanoid
+  Avatar was fixed first (Unity's auto bone-mapper mis-mapped UpperLeg/LowerLeg/
+  Foot for that rig), then the user was asked directly which delivery to use;
+  they picked the new GLB, so that FBX work was set aside (moved, not deleted, to
+  `Assets/importedmodels/Purohita_OldDelivery/`). The new GLB's skeleton uses bone
+  names that are literally Unity's own `HumanBodyBones` names (a different, simpler
+  convention than the Mixamo-style naming `Assets/Editor/HumanoidGltfRigImporter.cs`
+  already had hardcoded from the female/male Worker glTF swap) — extended that
+  shared tool with a second bone map (`DirectHumanBoneMap`) via a new optional
+  parameter, the one existing call shape unaffected. Built the Avatar + saved
+  prefab at `Assets/Resources/UniqueUnits/Purohita/Purohita.glb`/`.prefab` at the
+  established worker-height convention (1.902692); `PurohitaFactory.cs` now spawns
+  via `prefabPathOverride`, keeping the rig's own embedded material as-is (no
+  `ApplyCustomTexture`, no team-color mask — none authored for this mesh's UV
+  layout yet, flagged directly). 509/511 EditMode tests pass (2 pre-existing,
+  unrelated `BuildingModelFactoryTests` failures, same baseline as every recent
+  session). Live-verified via UnityMCP through the real production path: a real
+  match (`CivilizationSetup.BeginMatch(Maurya)`), a real spawned "Maurya Purohita"
+  with every expected component and a confirmed `Avatar.isHuman`, screenshotted
+  standing in a natural idle pose and again mid-walk-order showing a genuine
+  retargeted walking stride (not T-posed, correctly grounded either way).
+  **Deliberately out of scope**: no team-color mask, no hand-held prop (this rig
+  has none, unlike the discarded delivery), the archived "Running" GLB's baked
+  clip wasn't extracted/wired — the user picked full model replacement, not
+  animation extraction. One scoped commit (`HumanoidGltfRigImporter.cs`,
+  `PurohitaFactory.cs`, the new `Purohita.glb`/`.prefab`/`_Avatar.asset`, and the
+  archived old FBX delivery + Running-glb reference under `Assets/importedmodels/`).
+  Next: whatever the user directs.
 - **Gold Mine art delivery wired (2026-09-14)** — ad hoc, user-supplied 3D model
   (`Gold mine 1.glb`), not a numbered roadmap item. Replaced the old
   `GoldOre1.prefab` placeholder with two new variants under

@@ -49,6 +49,41 @@ namespace KingdomsOfBharat.Editor
             ("RightToeBase", HumanBodyBones.RightToes),
         };
 
+        // A second real naming convention seen from Meshy AI (the Purohita
+        // "Sacred Pilgrim" biped, 2026-09-14): bone names are literally
+        // Unity's own HumanBodyBones names, not Mixamo's - a simpler biped
+        // with no separate Spine node (only Hips -> Chest -> UpperChest ->
+        // Neck -> Head), so Chest maps to the mandatory Spine slot and
+        // UpperChest to the optional Chest slot to keep a valid 4-bone
+        // spine chain. No fingers on this rig (optional in Humanoid, left
+        // unmapped). Pass this explicitly via BuildAndSavePrefab's boneMap
+        // parameter - MixamoBoneMap stays the default so the one existing
+        // caller shape (Female/Male Villager) is unaffected.
+        public static readonly (string boneName, HumanBodyBones bone)[] DirectHumanBoneMap =
+        {
+            ("Hips", HumanBodyBones.Hips),
+            ("Chest", HumanBodyBones.Spine),
+            ("UpperChest", HumanBodyBones.Chest),
+            ("Neck", HumanBodyBones.Neck),
+            ("Head", HumanBodyBones.Head),
+            ("LeftShoulder", HumanBodyBones.LeftShoulder),
+            ("LeftUpperArm", HumanBodyBones.LeftUpperArm),
+            ("LeftLowerArm", HumanBodyBones.LeftLowerArm),
+            ("LeftHand", HumanBodyBones.LeftHand),
+            ("RightShoulder", HumanBodyBones.RightShoulder),
+            ("RightUpperArm", HumanBodyBones.RightUpperArm),
+            ("RightLowerArm", HumanBodyBones.RightLowerArm),
+            ("RightHand", HumanBodyBones.RightHand),
+            ("LeftUpperLeg", HumanBodyBones.LeftUpperLeg),
+            ("LeftLowerLeg", HumanBodyBones.LeftLowerLeg),
+            ("LeftFoot", HumanBodyBones.LeftFoot),
+            ("LeftToes", HumanBodyBones.LeftToes),
+            ("RightUpperLeg", HumanBodyBones.RightUpperLeg),
+            ("RightLowerLeg", HumanBodyBones.RightLowerLeg),
+            ("RightFoot", HumanBodyBones.RightFoot),
+            ("RightToes", HumanBodyBones.RightToes),
+        };
+
         /// <summary>
         /// glbAssetPath: the imported .glb under Assets/Resources/...
         /// prefabDestPath: where to save the final spawnable prefab (must
@@ -60,7 +95,9 @@ namespace KingdomsOfBharat.Editor
         /// measured height) so a swapped-in model doesn't look mismatched
         /// next to buildings/other units.
         /// </summary>
-        public static string BuildAndSavePrefab(string glbAssetPath, string prefabDestPath, float targetHeight)
+        public static string BuildAndSavePrefab(
+            string glbAssetPath, string prefabDestPath, float targetHeight,
+            (string boneName, HumanBodyBones bone)[] boneMap = null)
         {
             GameObject sourcePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(glbAssetPath);
             if (sourcePrefab == null)
@@ -77,7 +114,7 @@ namespace KingdomsOfBharat.Editor
                     return "ERROR: imported model has no Animator component";
                 }
 
-                Avatar avatar = BuildAvatar(animator.gameObject);
+                Avatar avatar = BuildAvatar(animator.gameObject, boneMap ?? MixamoBoneMap);
                 if (!avatar.isValid || !avatar.isHuman)
                 {
                     return $"ERROR: built Avatar invalid (isValid={avatar.isValid}, isHuman={avatar.isHuman})";
@@ -139,7 +176,7 @@ namespace KingdomsOfBharat.Editor
             return bounds.size.y;
         }
 
-        private static Avatar BuildAvatar(GameObject root)
+        private static Avatar BuildAvatar(GameObject root, (string boneName, HumanBodyBones bone)[] boneMap)
         {
             HumanDescription description = new HumanDescription
             {
@@ -154,7 +191,7 @@ namespace KingdomsOfBharat.Editor
             };
 
             List<HumanBone> humanBones = new List<HumanBone>();
-            foreach ((string boneName, HumanBodyBones bone) in MixamoBoneMap)
+            foreach ((string boneName, HumanBodyBones bone) in boneMap)
             {
                 Transform t = FindDeep(root.transform, boneName);
                 if (t == null)

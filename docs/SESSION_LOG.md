@@ -5,6 +5,91 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-14 — Purohita rigged model wired ("Meshy AI Sacred Pilgrim biped")
+
+**Scope**: ad hoc, user-supplied asset delivery, not a numbered roadmap item. User said
+"i have purohita 3d rig model ready" and supplied a zip
+(`Meshy_AI_Sacred_Pilgrim_biped.zip`, two `.glb` files — Walking/Running variants of
+the same rigged mesh). Purohita (Wave 4 item 27) previously reused the generic shared
+Human Character Dummy body, flagged as needing a real model.
+
+**A second, unrelated delivery was already sitting in the tree, discarded**: the repo
+already had a *different* uncommitted Purohita delivery from an earlier session
+(`Assets/Resources/UniqueUnits/Purohita/Purohita.fbx` + albedo + team mask — a 61-bone
+"B-" Rigify-style rig with a full finger skeleton and staff/bell/vessel props, same
+convention as `MavlaRaider.fbx`). Before touching the new zip, that FBX's Humanoid
+Avatar was fixed (its `animationType` shipped as Generic/NoAvatar, and Unity's
+automatic bone-name-matcher mis-mapped `LeftUpperLeg`/`RightUpperLeg` onto `B-foot.L`/
+`.R` for this rig, leaving `LowerLeg`/`Foot` unmapped — the exact correct mapping was
+copied by hand from `MavlaRaider.fbx.meta`'s own already-working meta instead) and
+wired into `PurohitaFactory.cs`. The user then supplied the new zip mid-turn; asked
+directly via `AskUserQuestion` which delivery was authoritative — user picked the new
+"Sacred Pilgrim" GLB, discarding the FBX. The FBX/albedo/team-mask were moved (not
+deleted) to `Assets/importedmodels/Purohita_OldDelivery/` in case they're wanted
+later; the wiring work on `PurohitaFactory.cs` was overwritten with the GLB path
+instead.
+
+**Import**: the new GLB's skeleton (23 nodes, no fingers) uses bone names that are
+literally Unity's own `HumanBodyBones` names (`Hips`/`Chest`/`UpperChest`/`Neck`/
+`Head`/`LeftUpperLeg`/etc.) — a different, simpler convention than the Mixamo-style
+naming `HumanoidGltfRigImporter.cs` (built for the female/male Worker glTF swap) had
+hardcoded. Extended that shared editor tool with a second bone map
+(`DirectHumanBoneMap`, added alongside the existing `MixamoBoneMap` via a new optional
+parameter on `BuildAndSavePrefab`/`BuildAvatar` — the one existing call shape is
+unaffected since it still defaults to `MixamoBoneMap`). This rig has no separate Spine
+node (`Hips -> Chest -> UpperChest -> Neck -> Head`), so `Chest` maps to the mandatory
+`Spine` slot and `UpperChest` to the optional `Chest` slot, keeping a valid 4-bone
+spine chain. Built the Avatar + saved prefab via
+`HumanoidGltfRigImporter.BuildAndSavePrefab` (invoked through reflection from
+`execute_code`, since CodeDom's tuple-array parameter passing didn't resolve as the
+same type as the compiled assembly's `ValueTuple<string,HumanBodyBones>[]` field
+directly) at the established worker-height convention (1.902692) — `Avatar.isHuman`
+confirmed `true` on the first attempt with the new map. Placed the chosen "Walking"
+GLB at `Assets/Resources/UniqueUnits/Purohita/Purohita.glb` (built prefab +
+`_Avatar.asset` alongside it, matching the Female/MaleVillager precedent exactly);
+archived the unused "Running" GLB at `Assets/importedmodels/Purohita/
+Purohita_Running_reference.glb` as raw reference, not wired to anything.
+
+**`PurohitaFactory.cs`**: now spawns via `HumanModelFactory.Spawn(..., prefabPathOverride:
+"UniqueUnits/Purohita/Purohita", applyPaletteMaterial: false, faction: faction)` with no
+`ApplyCustomTexture` call — this rig's own embedded glTF material is kept as-is, same
+"single sourced asset, not a trim-sheet to retint" convention the Villager bodies
+already established. No team-color-unit-tint call either (unlike
+`MarathaMavlaRaiderFactory`'s own pilot) — no Blender-painted mask exists for this
+mesh's UV layout yet, flagged directly per the flag-asset-needs convention rather than
+silently left out. No hand-held prop either (this rig has no staff/bell geometry,
+unlike the discarded delivery) — a plain robed figure for now.
+
+**Tests and verification**: 509/511 EditMode tests pass (the 2 pre-existing, unrelated
+`BuildingModelFactoryTests` failures, same baseline as every recent session). Live-
+verified via UnityMCP through the real production path: a real match
+(`CivilizationSetup.BeginMatch(Maurya)`), a real `PurohitaFactory.Spawn` call producing
+a "Maurya Purohita" with every expected component (`GarrisonSeeker`/`PurohitaConverter`/
+`Attackable`/`AnimationDriver`/etc.), 6 renderers, and a confirmed `Avatar.isHuman`;
+screenshotted the real spawned unit standing in a natural idle pose (not T-posed,
+correctly grounded) and again mid-`NavMeshAgent.SetDestination` walk order showing a
+genuine retargeted walking stride — proving the hand-authored Avatar mapping actually
+retargets the shared human Idle/Walk clip set correctly, not just that `isHuman`
+reports true on paper.
+
+**Not done / out of scope**: no team-color mask, no hand-held prop, and the archived
+"Running" GLB's baked animation clip was not extracted/wired (the user picked "full
+replacement," not "use its baked animations" — a separate, unasked option offered
+during the AskUserQuestion).
+
+One scoped commit: `Assets/Editor/HumanoidGltfRigImporter.cs`,
+`Assets/Scripts/Units/PurohitaFactory.cs`, `Assets/Resources/UniqueUnits/Purohita/`
+(new `Purohita.glb`/`.prefab`/`_Avatar.asset`), `Assets/importedmodels/Purohita/`
+(archived Running-glb reference), `Assets/importedmodels/Purohita_OldDelivery/`
+(archived discarded FBX delivery), `docs/SESSION_LOG.md`, `CLAUDE.md`. Deliberately
+excludes unrelated pre-existing uncommitted work already sitting in the tree at
+session start (`TeamColorUnitTint.cs`, `MarathaMavlaRaiderFactory.cs`,
+`CivilizationSetup.cs`) and a concurrent session's own in-progress edits
+(`TownCenter.cs`, `ResourceHUD.cs`, `AgeResearchReadoutTests.cs`) — not this
+session's work to claim.
+
+---
+
 ## 2026-09-14 — Gold Mine art delivery wired: new model, small (1 unit) / large (3x3 cluster) variants
 
 **Scope**: ad hoc, user-supplied asset delivery, not a numbered roadmap item. User
