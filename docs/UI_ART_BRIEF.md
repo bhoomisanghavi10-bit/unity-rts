@@ -239,10 +239,72 @@ Prompt template: *"...a circular emblem/crest icon, [SUBJECT], rendered mostly i
 ### Unit/building portraits (optional — one per trainable unit type and per
 building type if you want these; text-only labels are fully functional without
 them)
-- Size: 128×128 px each, transparent or simple background
-- Prompt template: *"...a bust/three-quarter portrait icon of [UNIT OR BUILDING
-  NAME], painted illustration style matching the rest of this UI set, square
-  format."*
+- Size: 128×128 px each, transparent or simple background.
+- Prompt template: *"...a bust/three-quarter portrait icon of [SUBJECT], painted
+  illustration style matching the rest of this UI set, square format."*
+- Pick and choose freely — do as many or as few as you want. Recommended order
+  if prioritizing: generic units first (seen by every civ, highest screen time),
+  then buildings, then civ-exclusive units last (rarer on screen, lowest payoff
+  per image). Subject list below is derived directly from
+  `Assets/Design/Data/unit_roster_template.csv` and `BuildingPlacer.BuildingKind`,
+  not guessed — every name matches the actual in-game unit/building exactly.
+
+**Generic units (21) — highest priority, one roster shared by every civ**
+1. Worker — a villager figure carrying a simple farming tool
+2. Soldier — a sword-and-shield infantryman
+3. Spearman — an infantryman gripping a raised spear
+4. Archer — a bowman drawing an arrow
+5. Cavalry — a mounted warrior with a raised sword
+6. Siege (Mangonel) — a wheeled catapult/siege engine with its crew
+7. Fishing Boat — a small wooden fishing vessel
+8. War Galley — an armed war galley with oars and a single sail
+9. Chara (Scout) — a light unarmed rider on a fast horse, no weapon drawn
+10. Skirmisher — a lightly-armored archer with a small buckler shield
+11. Battering Ram — a wheeled ram with a reinforced peaked roof
+12. Cavalry Archer — a mounted archer firing a bow from horseback
+13. Camel Rider — a warrior mounted on a camel, spear in hand
+14. Scorpion — a torsion-powered bolt-throwing siege engine
+15. Fire Ship — a small naval vessel with a burning hull/prow
+16. Vanik (Trader) — a merchant figure with a laden pack-cart
+17. Trade Ship — a merchant cargo vessel, no weapons
+18. Vaidya (Healer) — a robed healer figure holding a medicine pouch
+19. Purohita (Converter) — a robed priest figure with a ceremonial staff
+20. Maharaja (Hero) — an ornately armored royal warrior mounted on horseback
+21. Trebuchet — a large counterweight siege engine
+
+**Buildings (15)**
+1. Town Center — a grand fortified central hall with domes/towers
+2. Barracks — a fortified courtyard building with a training yard
+3. Farm — a plowed, tilled field with a small wooden shelter
+4. House — a modest thatched-roof dwelling
+5. Wall — a stone rampart segment with crenellations
+6. Gate — an arched, reinforced fortified gateway
+7. Tower — a tall stone watchtower
+8. Market — an open bazaar stall with awnings and stacked goods
+9. Dock — a wooden pier with moored boats
+10. Lumber Camp — a timber yard with stacked logs and a sawhorse
+11. Mining Camp — a quarry outpost with pickaxes and an ore cart
+12. Mill — a grain mill with a large grinding wheel
+13. Durg — a hill-fort citadel, the strongest defensive structure
+14. Karmashala — a stone workshop/forge for weapon and armor upgrades
+15. Monastery — a domed shrine/temple complex
+
+**Civ-exclusive unique units (10) — lowest priority, rarest on screen**
+1. Chola Naval Raider — an elite bow-armed raider in Dravidian temple-carved
+   armor
+2. Chola Catamaran — a swift twin-hulled outrigger boat
+3. Vijayanagara War Elephant — an armored war elephant carrying a howdah
+4. Hampi Temple Guard — a heavily armored infantry guard with a temple-carved
+   shield
+5. Rajput Royal Guard — an elite armored cavalryman couching a lance
+6. Rajputani Archer — a mounted archer in Rajput regalia
+7. Maurya War Elephant — the heaviest war elephant, gilded ceremonial harness
+8. Pillar Edict Scholar — a robed Mauryan administrator/scribe figure, no
+   weapon
+9. Maratha Mavla Raider — a light guerrilla cavalry raider with a saffron
+   sash
+10. Maratha Durg Garrison — a fortress-defense infantryman braced behind a
+    shield
 
 ---
 
