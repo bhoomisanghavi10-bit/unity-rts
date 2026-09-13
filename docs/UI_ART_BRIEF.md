@@ -318,8 +318,17 @@ scene-data change, 510/510 EditMode tests pass unmodified.
 - [x] 5 civ-select crest/emblem cards
 
 **Tier 4 (optional polish)**
-- [ ] Minimap frame
-- [ ] Unit/building portraits (as many or few as you want — fully optional)
+- [x] Minimap frame — **already done, reconciled 2026-09-13.** Shipped under the
+  "Ornate HUD reskin" section above (2026-09-12, commit `db9b3b4`), before this Tier
+  4 write-up existed as a separate checklist — the box here was just never checked
+  off. `panel_minimap_frame.png`/`panel_minimap_frame_border.png` are wired via
+  `MinimapController.ApplyDiamondFrame()`
+  (`Assets/Scripts/Camera/MinimapController.cs:106`); confirmed both files present and
+  the wiring intact as of this session. No further action needed.
+- [ ] Unit/building portraits (as many or few as you want — fully optional) — **the
+  only item left open in this entire doc.** No art has been sourced yet (no
+  `Assets/Resources/UI/Portraits/` folder exists) — needs Canva/commissioned images
+  per the prompt template above before any wiring session can start.
 
 **Total for a complete first pass (Tiers 1+2)**: ~34 discrete image files.
 **Total including Tiers 3+4 (excluding optional portraits)**: ~42 discrete image

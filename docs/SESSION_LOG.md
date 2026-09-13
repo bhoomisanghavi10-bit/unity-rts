@@ -5,6 +5,50 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-13 — UI_ART_BRIEF.md Tier 4 reconciled: minimap frame already done, portraits are the only open item
+
+**Scope**: picked up per the user's "start tier 4" request. Before touching anything,
+checked the repo's actual state against `docs/UI_ART_BRIEF.md`'s Tier 4 checklist
+rather than trusting it — found the checklist was stale, not that any real work
+remained undone.
+
+**Findings**:
+- **Minimap frame — already shipped.** `Assets/Resources/UI/Panels/panel_minimap_frame.png`/
+  `panel_minimap_frame_border.png` were delivered and wired into
+  `MinimapController.ApplyDiamondFrame()` (`Assets/Scripts/Camera/MinimapController.cs:106`)
+  back in the 2026-09-12 "Ornate HUD reskin" session (commit `db9b3b4`), confirmed via
+  `git log` on the file and a direct grep of the wiring code. That work predates this
+  doc's Tier 4 write-up as a distinct checklist, so the box was simply never checked off
+  — not a gap needing new work.
+- **Unit/building portraits — the sole remaining open item**, and it's explicitly
+  optional per the doc's own text ("text-only labels are fully functional without
+  them"). No art exists (`Assets/Resources/UI/Portraits/` doesn't exist), so there is
+  nothing to wire until the user sources images via the brief's existing Canva prompt
+  template — asset sourcing stays out of scope for Claude Code per this project's
+  standing rule.
+- **Found unrelated uncommitted work in the tree while checking git status** (not part
+  of Tier 4, not documented anywhere in CLAUDE.md's current status): a new
+  `Purohita.fbx`/`_albedo`/`_teammask` model delivery under
+  `Assets/Resources/UniqueUnits/Purohita/`, a new `TeamColorUnitTint.cs` (unit-side
+  team-color tint pilot, wired into `CivilizationSetup.cs`'s per-match reset and into
+  `MarathaMavlaRaiderFactory.cs` — the latter referencing a
+  `UniqueUnits/MavlaRaider/MavlaRaider_teammask` resource that doesn't exist on disk,
+  so it silently no-ops rather than erroring), and an untracked `corner_ornament.png`.
+  Flagged directly to the user (via AskUserQuestion) rather than committing, discarding,
+  or building on top of any of it — confirmed it's the user's own stale/in-progress
+  work, safe to leave untouched; left it exactly as found, out of scope for this
+  session.
+
+**Result**: `docs/UI_ART_BRIEF.md`'s Tier 4 checklist corrected (minimap frame checked
+off with the cross-reference above; portraits reworded as the one item left open in the
+*entire* doc, art-blocked). No code changes — this closes out the UI_ART_BRIEF.md
+checklist as "done except one optional, art-blocked item." Next: portrait art if the
+user sources it, or any other roadmap item — the unrelated uncommitted
+Purohita/team-color-unit-tint work is still sitting in the tree and untouched, the
+user's call whether/when to pick it back up.
+
+---
+
 ## 2026-09-13 — UI_ART_BRIEF.md Tier 3 art delivery wired, real 9-slice rendering bug found and fixed
 
 **Scope**: picked up mid-task from a prior session's own carryover note. That session had

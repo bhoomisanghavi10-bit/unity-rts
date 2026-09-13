@@ -6,6 +6,27 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **UI_ART_BRIEF.md Tier 4 reconciled (2026-09-13)** — picked up per the user's "start
+  tier 4" request. Checked the repo's actual state rather than trusting the doc's own
+  checklist: the Minimap frame item was already fully shipped (`panel_minimap_frame.png`/
+  `panel_minimap_frame_border.png`, wired via `MinimapController.ApplyDiamondFrame()`)
+  back in the 2026-09-12 Ornate HUD Reskin session (commit `db9b3b4`) — that work
+  predates the Tier 4 write-up as its own checklist, so the box just never got checked.
+  Fixed the doc rather than re-doing the work. The only item left open in the entire
+  `UI_ART_BRIEF.md` doc is unit/building portraits — explicitly optional, and blocked on
+  new art (Canva/commissioned) that doesn't exist yet; nothing to wire until it's
+  sourced. **Also found, flagged, and left untouched**: unrelated uncommitted work
+  already sitting in the working tree at session start — a new
+  `Assets/Resources/UniqueUnits/Purohita/` model delivery (fbx/albedo/teammask), a new
+  `Core/TeamColorUnitTint.cs` (unit-side team-color tint pilot, wired into
+  `CivilizationSetup.cs` and `MarathaMavlaRaiderFactory.cs`, the latter pointing at a
+  `MavlaRaider_teammask` resource that doesn't exist on disk yet), and an untracked
+  `corner_ornament.png` — none of this documented anywhere in this file's own status.
+  Asked the user directly rather than acting on it; confirmed it's their own stale/
+  in-progress work, safe to leave as-is. Docs-only commit (`docs/UI_ART_BRIEF.md`,
+  `docs/SESSION_LOG.md`, this file). Next: portrait art if/when sourced, the
+  still-uncommitted Purohita/team-color-unit-tint work whenever the user wants to pick
+  it back up, or any other roadmap item.
 - **UI_ART_BRIEF.md Tier 3 art delivery wired and its real rendering bug fixed
   (2026-09-13)** — picked up mid-task from a prior session's own carryover note
   (9 Tier 3 files already alpha-keyed/wired into `Assets/Resources/UI/Menu/` with
