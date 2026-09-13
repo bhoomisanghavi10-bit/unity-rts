@@ -5,6 +5,93 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-14 — Gold Mine art delivery wired: new model, small (1 unit) / large (3x3 cluster) variants
+
+**Scope**: ad hoc, user-supplied asset delivery, not a numbered roadmap item. User
+provided a real 3D model (`Gold mine 1.glb`, a glTF binary, single rocky ore mound
+studded with gold nuggets around its base) with explicit sizing instructions: a
+small gold deposit is one unit of the model; a large deposit is multiple units
+arranged per "the general sizing used for gold deposit is 3x3" — read as a literal
+3-row-by-3-column (9-unit) cluster, matching "for large gold deposit use multiple of
+this unit."
+
+**What existed before**: `ResourceNodeSpawner.SpawnGoldMine` already called
+`EnvironmentPropFactory.TrySpawn("GoldMine", ...)`, which does a `Resources.LoadAll`
+over `Environment/GoldMine/` and picks a random variant — the same
+drag-and-drop-variant convention Trees/Bushes/StoneQuarry already use. Only one
+placeholder existed there (`GoldOre1.prefab`, a plain low-poly rock), replaced
+entirely by this delivery.
+
+**Import**: Since the project already has `com.unity.cloud.gltfast` (used previously
+for the female/male Worker body glTF import), used
+`import_model_file`/UnityMCP to bring the `.glb` in directly (no external
+texture/material packing needed — glTF embeds its own materials, unlike the
+FBX+separate-PNG Meshy building pipeline). Measured the raw model at native scale:
+1.00 x 0.44 x 0.90 (X/Y/Z) — a low, flat ore mound, visually confirmed upright and
+correctly oriented at identity rotation via screenshot (gold nuggets ring the base,
+peak at top; no rotation correction needed, unlike every prior civ-building import).
+
+**Two new prefabs** in `Assets/Resources/Environment/GoldMine/`:
+- `GoldMineSmall.prefab` — one instance of the model at 1.5x scale (footprint ~2.0 x
+  2.0 x 0.67 with its baked 35° yaw), comparable in scale to the old placeholder and
+  to `StoneQuarry`'s own rock variants; roughly waist-high next to a 1.9-unit-tall
+  worker, confirmed via a side-by-side screenshot.
+- `GoldMineLarge.prefab` — 9 instances of the same model in a 3x3 grid (1.15-unit
+  spacing), each with hand-varied position jitter (±0.04-0.12), scale (1.30-1.60x),
+  and Y rotation (5°-320°) so the cluster reads as an organic ore vein rather than a
+  repeated grid — confirmed via screenshot. Aggregate footprint ~4.35 x 4.32 x 0.71.
+
+Both variants spawn through `EnvironmentPropFactory.TrySpawn`'s existing generic path
+unchanged (aggregate-bounds `AlignBaseToGround`/`AddBoundsCollider` already handles a
+multi-renderer hierarchy correctly, since `StoneQuarry`'s own prefabs have historically
+been single-mesh only — this is the first environment prop to exercise the
+multi-renderer case, and it worked without any code change). No `EnvironmentPropFactory.
+cs`/`ResourceNodeSpawner.cs` changes were needed at all — purely additive asset content
+using an already-general mechanism.
+
+**A real gotcha hit and fixed**: `Resources.LoadAll` recurses into subfolders, so the
+raw source `.glb` staged at `Environment/GoldMine/_Source/` (mirroring
+`MeshyBuildingImporter`'s own `_Source`-folder convention for buildings) was itself
+being picked up as a spurious 3rd "variant" — confirmed via a direct `LoadAll` call
+returning 3 entries instead of 2. Unlike the building pipeline (which reads `_Source`
+via an exact `Resources.Load` path that a nested folder can't collide with),
+`EnvironmentPropFactory` calls `LoadAll` on the whole category folder, so nesting the
+raw source anywhere under `Environment/GoldMine/` was never actually safe — the
+`_Source` convention doesn't generalize to this factory. Fixed by moving the raw
+`.glb` out to `Assets/importedmodels/GoldMine/GoldMineUnit.glb` (outside any
+`Resources` tree entirely, the same non-Resources staging location the deleted
+Crusader Knight glTF files used) via `AssetDatabase.MoveAsset` — GUID-preserving, so
+both new prefabs' nested references to the source mesh survived the move intact
+(re-verified live after the move). **Lesson for future environment-prop deliveries**:
+never stage a raw source file anywhere under the category folder `EnvironmentPropFactory`
+`LoadAll`s from — stage it outside `Resources` entirely from the start.
+
+**Tests and verification**: 509/511 EditMode tests pass (the 2 failures are the
+pre-existing, already-documented `BuildingModelFactoryTests` Chola-TownCenter
+failures from `a5d2b15`, unrelated to this session — no test covers environment-prop
+content, matching every prior Trees/Bushes/StoneQuarry delivery's own precedent).
+Live-verified via UnityMCP through the real production path, not just isolated
+prefab instantiation: `EnvironmentPropFactory.TrySpawn("GoldMine", ...)` called 10
+times directly showed both variants spawning with correct per-variant aggregate
+`BoxCollider` sizes (small: 2.00x0.67x1.96; large: 4.35x0.71x4.32) and correct
+renderer counts (1 vs. 9); `ResourceNodeSpawner.SpawnGoldMine` (the real private
+method, invoked via reflection) correctly attached a `ResourceNode` configured to
+`ResourceType.Gold` on top of both variants end to end.
+
+**Not done / out of scope**: gold *quantity* per deposit is untouched — both variants
+still draw from the same map-wide `startingAmount`/`GoldCount` `ResourceNodeSpawner`
+already uses; the user's request was read as visual sizing only ("use multiple of
+this unit" for the model composition), not a request to also scale the actual Gold
+yield by deposit size. If a large deposit should also hold more Gold than a small
+one, that's a separate, larger change (a new per-node amount tied to which variant
+spawned) — flagging rather than assuming.
+
+No commit made this session — repo already had unrelated uncommitted work in the
+tree (Purohita model delivery, `TeamColorUnitTint.cs`, etc., per CLAUDE.md's own
+Tier 4 session note) and this session was not asked to commit.
+
+---
+
 ## 2026-09-13 — UI_ART_BRIEF.md Tier 4 reconciled: minimap frame already done, portraits are the only open item
 
 **Scope**: picked up per the user's "start tier 4" request. Before touching anything,

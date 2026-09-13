@@ -6,6 +6,32 @@ punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art directio
 asset requirements, 5. Priority order).
 
 ## Current status (keep current — update every session)
+- **Gold Mine art delivery wired (2026-09-14)** — ad hoc, user-supplied 3D model
+  (`Gold mine 1.glb`), not a numbered roadmap item. Replaced the old
+  `GoldOre1.prefab` placeholder with two new variants under
+  `Assets/Resources/Environment/GoldMine/`: `GoldMineSmall.prefab` (one unit) and
+  `GoldMineLarge.prefab` (a 3x3, 9-unit organic cluster), per the user's own
+  sizing instruction. Both spawn through `EnvironmentPropFactory.TrySpawn`'s
+  existing random-variant mechanism with zero code changes — the multi-renderer
+  aggregate-bounds ground-alignment/collider-sizing logic already generalized to a
+  9-piece cluster correctly. Found and fixed a real gotcha: `EnvironmentPropFactory`
+  uses `Resources.LoadAll` (recursive), so staging the raw source `.glb` under a
+  `_Source` subfolder inside the category folder — the convention
+  `MeshyBuildingImporter` safely uses for buildings, which read by exact path —
+  made it spuriously appear as a 3rd variant; moved the raw source to
+  `Assets/importedmodels/GoldMine/` (outside any Resources tree) via
+  `AssetDatabase.MoveAsset`, confirmed GUID-preserving so both prefabs' nested
+  references stayed intact. 509/511 EditMode tests pass (2 pre-existing, unrelated
+  `BuildingModelFactoryTests` failures, same as every recent session). Live-
+  verified via UnityMCP through the real production path:
+  `EnvironmentPropFactory.TrySpawn`/`ResourceNodeSpawner.SpawnGoldMine` both called
+  directly, confirming correct collider sizing, renderer counts, and
+  `ResourceNode(Gold)` attachment for both variants. **Deliberately out of scope**:
+  gold *quantity* per deposit is untouched (still map-wide `startingAmount`) — this
+  was read as a visual-sizing request only, not a request to also scale Gold yield
+  by deposit size; flagged rather than assumed. No commit made (not asked to
+  commit this session; repo already has unrelated pre-existing uncommitted work in
+  the tree per the Tier 4 session note below). Next: whatever the user directs.
 - **UI_ART_BRIEF.md Tier 4 reconciled (2026-09-13)** — picked up per the user's "start
   tier 4" request. Checked the repo's actual state rather than trusting the doc's own
   checklist: the Minimap frame item was already fully shipped (`panel_minimap_frame.png`/
