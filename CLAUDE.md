@@ -1,11 +1,42 @@
 # Project: Kingdoms of Bharat
 
 Historical RTS across Indian kingdoms/empires, targeting AoE II/IV-level systemic
-depth. Full roadmap: `/docs/ROADMAP.md` (Master Roadmap v3 — sections: 1. Open items
-punch list, 2. Architectural notes to preserve, 3. Process note, 4. Art direction &
-asset requirements, 5. Priority order).
+depth. Full roadmap: `docs/KingdomsOfBharat_Master_Reference.xlsx` — see its
+"Dev Status Overview" sheet first, then the "Roadmap - Open Items & Priority",
+"Roadmap - Architecture Notes", "Roadmap - Process Note", "Roadmap - Art Direction",
+and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
+docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Master reference doc reconciliation (2026-09-14)** — session opened per
+  protocol by reading the "Dev Status Overview" sheet; its own "next steps"
+  pointer named 2 candidates that turned out already closed once checked
+  directly against `Assets/Scripts` rather than trusted from the sheet: (1)
+  SelectedUnitPanel portrait display wiring — already done, commit `42a5a2c`
+  (same day, see the entry immediately below); confirmed live in the repo
+  (`SelectedUnitPanel.cs`'s `SetUpPortrait`/`SetPortrait`, `TradeShipFactory.cs`
+  stamping `IconKey = "train_tradeship"`), not just claimed. (2) The
+  `UniqueTechDefinition.Bonuses` `KeyNotFoundException` for Maurya/Maratha
+  (flagged 2026-09-04 as `task_55dbb0cc`) — already fixed, commit `6c3d21c`
+  ("Fix KeyNotFoundException in UniqueTechDefinition for Maurya/Maratha"),
+  an ancestor of HEAD with its own regression test
+  (`UniqueTechDefinitionTests.For_DoesNotThrow_ForEveryCivilizationId`)
+  already in the suite — but that fix was apparently never logged here or in
+  the sheet, so both stayed reachable as "open" for at least 10 sessions'
+  worth of narrative text. Also spot-checked the other per-civ lookup
+  tables most likely to hide the same class of bug
+  (`CivilizationProfile.Colors`/`CivIds`, `WorkerCombatResponseDefaults.
+  Defaults`) — all 5 civs present in each, no further instances found.
+  Corrected the "Dev Status Overview" sheet's "WHAT IS IN FLIGHT"/"KNOWN
+  OPEN BUGS"/"WHAT'S NEXT" sections to drop both resolved items and point at
+  what's genuinely still open (Wave 6's decision-free items, the Relics/
+  Wonder/game-modes design decision, the stale README, unit-side team
+  colour). Docs-only session, no code changes, no tests affected. **Lesson
+  for future sessions, worth repeating**: a status doc's "still open" claim
+  is not evidence on its own — grep/read the actual file before starting
+  work a doc says is needed, the same standing instruction this project's
+  own "Single-session discipline" gotcha already gives for peer-relayed
+  claims. Next: user's call among the items listed above.
 - **UI_ART_BRIEF.md Tier 4: SelectedUnitPanel portrait display wiring closed
   (2026-09-14)** — closes the display-wiring gap the 2026-09-13 staging
   session left pending (Unity/UnityMCP was unreachable for two sessions in
@@ -4517,13 +4548,15 @@ asset requirements, 5. Priority order).
   generated assets — edit the CSV and regenerate.
 
 ## STRICT SESSION PROTOCOL
-1. On start: read `/docs/ROADMAP.md` Section 5 and this file's "Current status." State
-   the next item and confirm before starting.
+1. On start: read the "Roadmap - Open Items & Priority" and "Implementation Waves 0-6"
+   sheets in `docs/KingdomsOfBharat_Master_Reference.xlsx`, plus this file's "Current
+   status." State the next item and confirm before starting.
 2. One roadmap item per session. Flag adjacent work instead of silently expanding
    scope — ask whether to include it now or log it as a new item.
 3. Plan Mode before nontrivial changes.
 4. Test before calling it done.
-5. Update Section 1/5 of the roadmap (check off/reorder) and this file's status.
+5. Update the relevant Roadmap sheet(s) in `docs/KingdomsOfBharat_Master_Reference.xlsx`
+   (status/priority) and this file's status.
 6. Log to `/docs/SESSION_LOG.md`.
 7. One scoped commit referencing the roadmap item.
 8. Stop — don't roll into the next item without being asked.

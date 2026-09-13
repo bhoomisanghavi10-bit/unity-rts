@@ -10464,3 +10464,78 @@ session work already sitting in the tree (`MarathaMavlaRaiderFactory.cs`,
 `docs/PROJECT_TRACKER.html`, `.mcp.json`, `ProjectSettings/
 ProjectSettings.asset`), left untouched via targeted `git add`. Next:
 whatever the user directs.
+
+---
+
+## 2026-09-14 — Master reference doc reconciliation
+
+Session opened per the standard protocol: read the "Dev Status Overview" sheet in
+`docs/KingdomsOfBharat_Master_Reference.xlsx` first, which named 2 concrete
+candidates in its own "WHAT'S NEXT" pointer. Before starting either, checked
+both directly against the actual repo rather than trusting the sheet -- both
+turned out already closed.
+
+**1. SelectedUnitPanel portrait display wiring** -- the sheet's "WHAT IS IN
+FLIGHT" section said this was not wired ("Unity/UnityMCP was unreachable that
+session"). Grepped `Assets/Scripts/UI/SelectedUnitPanel.cs` directly: `SetUpPortrait()`
+and `SetPortrait(string)` already exist and are wired from `DrawSingle`'s
+`unit.IconKey`, and `Assets/Scripts/Units/TradeShipFactory.cs:37` already stamps
+`IconKey = "train_tradeship"`. `git log` confirms this landed in commit `42a5a2c`
+("Wire Tier 4 generic-unit portraits into SelectedUnitPanel's notch"), the same
+day, and CLAUDE.md's own top status entry already documents it as live-verified
+via UnityMCP. The sheet was simply compiled from a state before that commit and
+never re-synced.
+
+**2. `UniqueTechDefinition.Bonuses` `KeyNotFoundException` for Maurya/Maratha**
+(flagged 2026-09-04 as `task_55dbb0cc`, repeated as still-open in several later
+CLAUDE.md entries and in the sheet's "KNOWN OPEN BUGS AND RISKS" section). Read
+`Assets/Scripts/Core/UniqueTechDefinition.cs` directly: its `Bonuses` dictionary
+already has all 5 `CivilizationId` entries (Chola/Vijayanagara/Rajput/Maurya/
+Maratha). `git log --follow` on the file shows exactly one commit,
+`6c3d21c` ("Fix KeyNotFoundException in UniqueTechDefinition for Maurya/
+Maratha"), already an ancestor of HEAD (66 commits back) -- so the file was
+authored already-fixed and never regressed. `Assets/Tests/EditMode/
+UniqueTechDefinitionTests.cs` has direct regression coverage
+(`For_DoesNotThrow_ForEveryCivilizationId`, plus per-civ bonus-value assertions
+for Maurya/Maratha) proving it. The fix evidently landed without ever being
+logged in CLAUDE.md's own status entries, which is why later sessions (Archer
+line, Spearman line, etc.) kept citing it as a live, unfixed gap for at least 10
+sessions' worth of narrative text.
+
+Spot-checked the other per-civ lookup tables most likely to carry the same class
+of bug (a `Dictionary<CivilizationId, T>` missing an entry): `CivilizationProfile.
+Colors`/`CivIds` and `WorkerCombatResponseDefaults.Defaults`. Both have all 5
+civs. No further instances found.
+
+**Fixed**: corrected `docs/KingdomsOfBharat_Master_Reference.xlsx`'s "Dev Status
+Overview" sheet --
+- "WHAT IS IN FLIGHT": removed the stale portrait-wiring bullet, folded its
+  closure into the existing UI-closed bullet instead.
+- "KNOWN OPEN BUGS AND RISKS": removed the stale UniqueTechDefinition bullet;
+  the 3 remaining bugs/risks (BuildingModelFactoryTests baseline failures, the
+  concurrent-session note, the environment-traps note) are all still accurate
+  and were left untouched.
+- "WHAT'S NEXT": rewrote to drop both resolved items and point at what's
+  genuinely still open -- Wave 6's decision-free items (idle-worker indicator,
+  cheat codes, tutorial content), the Relics/Wonder/game-modes design decision,
+  the confirmed-stale README, and unit-side team colour once Blender masks are
+  sourced.
+
+Docs-only session: no code changes, no test suite run needed (nothing in
+`Assets/Scripts` was touched), no live UnityMCP verification needed (nothing to
+verify -- this was a doc-vs-repo reconciliation, not new functionality). One
+scoped commit: `docs/KingdomsOfBharat_Master_Reference.xlsx`, `CLAUDE.md`,
+`docs/SESSION_LOG.md` -- deliberately excludes the unrelated concurrent-session
+work already sitting in the tree (`MarathaMavlaRaiderFactory.cs`,
+`CivilizationSetup.cs`, `TeamColorUnitTint.cs`, `corner_ornament.png`,
+`docs/PROJECT_TRACKER.html`, `.mcp.json`, `ProjectSettings/ProjectSettings.asset`),
+left untouched via targeted `git add`.
+
+**Lesson for future sessions**: a status doc's "still open" claim is not
+evidence on its own -- grep/read the actual file before starting work a doc says
+is needed. This is the same standing lesson this project's own "single-session
+discipline" gotcha already gives for peer-relayed claims, now shown to apply to
+this project's own status docs too, not just concurrent sessions.
+
+Next: user's call among Wave 6's decision-free items, the Relics/Wonder/game-
+modes design decision, or the README refresh.
