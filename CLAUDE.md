@@ -8,6 +8,144 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Wave 6 item 36 (Score system) closed (2026-09-15)** — picked immediately
+  after closing item 39's live-verification gap in the same session. Four
+  weighted categories modeled on AoE II's own Military/Economy/Technology/
+  Society split — not a byte-for-byte port of AoE II's real (undocumented)
+  weights, just the same shape, same "reuse the closest precedent, not
+  independently balanced" convention every tier line in this project
+  already follows: **Military** = kills×3 + buildings razed×5 + living
+  combat units×1; **Economy** = current stockpile total×0.05 + worker
+  count×3 (a live-computed proxy, not a lifetime-gathered total — no
+  single choke point exists across Gatherer/Farm/LivestockWorker/Trader/
+  BoatTrader/scripted mission grants for that, and adding one would be
+  real new bookkeeping scope beyond this item); **Technology** = Age
+  ordinal×30 + flat Attack/Armor tiers×15 + unique tech researched?50:0
+  (deliberately doesn't also sum the 11 separate per-unit-class tier-line
+  classes — CavalryLineProgress, ArcherLineProgress, etc. — no shared
+  interface exists across them, flagged as a real future refinement, not
+  attempted here to keep this session-sized); **Society** = Population×4
+  + complete buildings×3 (Wonders/Relics don't exist yet — item 35 is
+  unbuilt — so these are the closest available proxies to AoE II's own
+  Society score).
+
+  New `Progression/ScoreProgress.cs` follows this project's established
+  "recompute, don't incrementally track" convention (same as `Population`'s
+  own header comment) for every category except kills/razings — the one
+  genuine exception, since a dead unit can't be recounted after the fact.
+  Those two are credited from a new hook added to `Attackable.TakeDamage`'s
+  existing death branch: `attacker`'s faction (not the victim's) gets
+  `ScoreProgress.RecordKill`, crediting a kill or a razing depending on
+  `unitClass == Building`. New `ScoreProgress.Reset()` wired into
+  `CivilizationSetup.BeginMatchCore` alongside `DiplomacyRegistry.Reset()`/
+  `TeamColorBuildingTint.Reset()`. `GameOverScreen.cs` gained a code-built
+  score-breakdown label (Player vs Enemy, not the optional 3rd faction)
+  shown alongside the existing Victory/Defeat/Draw title — built entirely
+  in `Awake()`, no new scene-wired `[SerializeField]`, avoiding the
+  recurring "new field null in the scene" gotcha several other sessions
+  have hit.
+
+  **Found and fixed a real, previously-unnoticed bug while live-verifying,
+  not caused by this item**: `GameOverScreen`'s own root GameObject was
+  saved `m_IsActive: 0` in the scene — confirmed directly by reading
+  `Assets/Scenes/Main.unity`'s raw YAML, not assumed — meaning its
+  `Awake()`/`Update()` never ran at all (only its child "Panel" was ever
+  meant to toggle via `panelRoot.SetActive(false)`), so the entire
+  Victory/Defeat/Draw screen had apparently never actually shown in a real
+  match before this session, in spite of the status log describing it as
+  an existing working feature. Fixed via `manage_gameobject`
+  (`set_active: true`) against the live Editor scene object — not a raw
+  text edit, since a direct `.unity` file edit while Unity has the scene
+  open doesn't reliably take effect (tried first, confirmed it silently
+  didn't stick) — then `manage_scene(action: save)` to persist it.
+
+  22 new EditMode tests (`ScoreProgressTests.cs`, mirroring
+  `IdleWorkerFinderTests.cs`/`AgeUpRequirementTests.cs`'s own
+  register-directly-into-`Unit.All`/`Building.All` pattern for the OnEnable-
+  timing gotcha, and `BuildingAttackerTests.cs`'s `TickIgnoringVfxLogs`
+  pattern for `Attackable.TakeDamage`'s Editor-only VFX-destroy log). Hit
+  and fixed one real cross-test-leakage issue during the first test run:
+  `UniqueTechProgress.MarkResearched` has no unmark/reset anywhere in this
+  project, so two Technology tests using absolute expected values failed
+  once a different test's `MarkResearched(TestFaction)` call leaked into
+  the same domain — fixed by switching all three Technology tests to
+  before/after delta assertions instead of absolute ones, immune to that
+  leak regardless of NUnit's undefined test execution order. 577/577
+  EditMode tests pass after the fix (2 pre-existing, unrelated
+  `BuildingModelFactoryTests` failures, the standing baseline). Also hit,
+  a second time this same session, this project's own documented "exiting
+  Play Mode doesn't itself trigger a domain reload, so static state
+  briefly bleeds into the next EditMode run" gotcha (a large cascade of
+  unrelated-looking resource-deduction test failures appeared right after
+  exiting Play mode) — resolved the same documented way, forcing a real
+  domain reload (`refresh_unity(mode=force, compile=request)`) before the
+  final, definitive run.
+
+  Live-verified via UnityMCP through the real production path: a real
+  match (`CivilizationSetup.BeginMatch(Maurya)`), `ScoreProgress.Compute`
+  matched hand-computed expectations exactly against real starting state
+  (Maurya's Classical-age start bonus → Technology 30, 4 starting workers
+  → Economy 12, Population×4 + TownCenter×3 → Society 19); a real lethal
+  `Attackable.TakeDamage` call (via `SoldierFactory.Spawn`-spawned units)
+  correctly credited the attacker's faction with exactly +1 kill, and a
+  separate lethal hit on a real `TowerFactory.Place`-spawned, completed
+  Tower correctly credited +1 razing instead; forcing
+  `MatchManager.ForceOutcome(Victory)` after that combat now shows a real,
+  correctly laid-out score panel (Military 4 vs 0, Economy 12 vs 12,
+  Technology 30 vs 0, Society 23 vs 19, Total 69 vs 31 — every number
+  independently verified against the live game state) with no clipping or
+  overlap against the title/Play Again button, screenshot-confirmed. One
+  scoped commit (`ScoreProgress.cs` new, `Attackable.cs`,
+  `CivilizationSetup.cs`, `GameOverScreen.cs`, `Main.unity`, the new
+  `ScoreProgressTests.cs`, docs). Next: tutorial content (40, the last
+  decision-free Wave 6 item), the Relics/Wonder/game-modes design
+  decision, or unit-side team colour once Blender masks are sourced.
+- **Wave 6 item 39 (Cheat codes) live-verification gap closed (2026-09-15,
+  same-day follow-up session)** — the prior session flagged that both
+  `unity`/`UnityMCP` MCP servers were unreachable despite a real Editor +
+  bridge process running, so the EditMode suite was never run and nothing
+  was checked live. Root cause of that gap, confirmed this session: it was
+  this session's own MCP *client* connection, not the bridge — a raw
+  `curl -X POST http://127.0.0.1:8080/mcp` (the bridge's real HTTP
+  endpoint, read from `.mcp.json`) answered `initialize` cleanly, and
+  reconnecting the `unity` tools via `ToolSearch` + a `read_console` call
+  worked immediately. Ran the real EditMode suite: 528/528 pass (2
+  pre-existing, unrelated `BuildingModelFactoryTests` failures, the
+  standing baseline — confirmed the 17 new Cheat* tests from the prior
+  session are included and green). **Found and fixed a second, real gap
+  while live-verifying in Play mode, not before it**: `Cheat*` types
+  weren't resolving via reflection in a running Play session at all —
+  `KingdomsOfBharat.Runtime.dll` on disk was timestamped ~14 hours before
+  the `Cheat*.cs` source files, meaning the prior session's own edits had
+  never actually triggered a real Unity recompile (the EditMode test
+  runner apparently compiles its own test-context assembly independently,
+  which is why 528/528 could pass while Play mode ran a stale DLL) — fixed
+  by forcing one via `refresh_unity(mode=force, compile=request)`,
+  confirmed via the DLL's changed timestamp/size and the types then
+  resolving. Live-verified via UnityMCP through the real production path
+  from there: a real match (`CivilizationSetup.BeginMatch(Maurya)`), the
+  real `CheatConsole` panel force-opened and every command invoked through
+  the real private `OnSubmit` method (not a shortcut, and not the raw
+  `CheatCodes.Execute` call): `wood 500` correctly added to the real
+  `ResourceStockpile` (0→500), `help` printed the command list, `reveal`
+  flipped `FogOfWarManager`'s real `_revealAll` static flag true,
+  `spawn worker 3` added 3 real units to `Unit.All` (8→11), `age imperial`
+  advanced `AgeProgress.CurrentAge(Player)` from Classical to Imperial,
+  `win`/`lose` both correctly set `MatchManager.Outcome` via
+  `ForceOutcome`, an unrecognized command returned "Unknown command: ...",
+  and — the safety-critical case — forcing `NetworkMatch.IsActive` true
+  via reflection correctly refused a `wood` grant with zero stockpile
+  mutation and the disabled-during-LAN message, confirming the console
+  really does refuse to run during a real LAN match. Screenshotted the
+  real in-game console panel rendering cleanly against the HUD (resource
+  bar, Idle Worker indicator, minimap frame, Town Bell button) with no
+  overlap. Updated `docs/KingdomsOfBharat_Master_Reference.xlsx`'s
+  "Implementation Waves 0-6" and "Dev Status Overview" sheets to reflect
+  the closure — no code changes this pass beyond what the prior session
+  already committed (the stale-DLL issue was an environment state problem,
+  not a source bug). **This closes item 39 the same way every other Wave 6
+  item has been closed.** Immediately followed by starting Wave 6 item 36
+  (Score system) in the same session — see the entry below.
 - **Wave 6 item 39 (Cheat codes) closed (2026-09-15) — not live-verified,
   see below.** Picked per the user's "take wave 6 next item" request;
   confirmed against the Master Reference workbook that items 35/37/38 all

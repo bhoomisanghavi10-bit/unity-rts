@@ -5,6 +5,97 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-15 — Wave 6 item 39 live-verification gap closed; item 36 (Score system) closed
+
+**Scope**: Continuation of the same-day item 39 session immediately below. That
+session's own gap: both `unity`/`UnityMCP` MCP servers stayed unreachable all session
+despite a real Unity Editor + MCP bridge process running, so the EditMode suite was
+never run and nothing was checked live in Play mode.
+
+Root cause found and fixed: a raw `curl -X POST http://127.0.0.1:8080/mcp` (the
+bridge's real HTTP endpoint, read from `.mcp.json`) answered `initialize` cleanly on
+the very first try this session - the bridge was never the problem. Reconnecting the
+`unity` MCP tools via `ToolSearch` worked immediately. The prior session's
+unreachability was its own client-side connection issue, not a dead server, exactly
+as flagged.
+
+Ran the real EditMode suite: 528/528 pass (2 pre-existing, unrelated
+`BuildingModelFactoryTests` failures, the standing baseline - confirmed the 17 new
+`Cheat*` tests from the prior session are included and green). **Found and fixed a
+second, real gap while live-verifying in Play mode, not before it**: `Cheat*` types
+weren't resolving via reflection in a running Play session at all -
+`KingdomsOfBharat.Runtime.dll` on disk was timestamped ~14 hours before the
+`Cheat*.cs` source files, meaning the prior session's own edits had never actually
+triggered a real Unity recompile (the EditMode test runner apparently compiles its
+own test-context assembly independently, which is why 528/528 could pass while Play
+mode ran a stale DLL). Fixed via `refresh_unity(mode=force, compile=request)`,
+confirmed via the DLL's changed timestamp/size and the types then resolving.
+
+Live-verified via UnityMCP through the real production path: a real match
+(`CivilizationSetup.BeginMatch(Maurya)`), the real `CheatConsole` panel force-opened
+and every command invoked through the real private `OnSubmit` method: `wood 500`
+correctly added to the real `ResourceStockpile` (0->500), `help` printed the command
+list, `reveal` flipped `FogOfWarManager`'s real `_revealAll` flag true, `spawn worker
+3` added 3 real units to `Unit.All` (8->11), `age imperial` advanced
+`AgeProgress.CurrentAge(Player)` from Classical to Imperial, `win`/`lose` both
+correctly set `MatchManager.Outcome`, an unrecognized command returned "Unknown
+command: ...", and forcing `NetworkMatch.IsActive` true via reflection correctly
+refused a `wood` grant with zero stockpile mutation and the disabled-during-LAN
+message. Screenshotted the real in-game console panel rendering cleanly against the
+HUD with no overlap. This closes item 39 the same way every other Wave 6 item has
+been closed.
+
+**Immediately continued into Wave 6 item 36 (Score system)**, same session. Four
+weighted categories modeled on AoE II's own Military/Economy/Technology/Society
+split - see `CLAUDE.md`'s matching status entry for the exact per-category formulas
+and their reasoning. New `Progression/ScoreProgress.cs` follows this project's
+"recompute, don't incrementally track" convention for every category except
+kills/razings (credited from a new hook in `Attackable.TakeDamage`'s death branch,
+crediting the attacker's faction). New `ScoreProgress.Reset()` wired into
+`CivilizationSetup.BeginMatchCore`. `GameOverScreen.cs` gained a code-built
+score-breakdown label.
+
+**Found and fixed a real, previously-unnoticed bug while live-verifying, not caused
+by this item**: `GameOverScreen`'s own root GameObject was saved `m_IsActive: 0` in
+`Assets/Scenes/Main.unity` - confirmed by reading the raw YAML directly - meaning its
+`Awake()`/`Update()` never ran at all (only its child "Panel" was ever meant to
+toggle), so the entire Victory/Defeat/Draw screen had apparently never actually shown
+in a real match before this session. A direct `.unity` file text edit was tried
+first and confirmed NOT to take effect while Unity had the scene open (the Editor's
+in-memory copy wins); fixed properly via `manage_gameobject(set_active: true)`
+against the live Editor scene object, then `manage_scene(action: save)`.
+
+22 new EditMode tests (`ScoreProgressTests.cs`). Hit and fixed a real cross-test
+static-state leak during the first run: `UniqueTechProgress.MarkResearched` has no
+unmark anywhere in this project, so two Technology tests using absolute expected
+values failed once a sibling test's `MarkResearched` call leaked into the same
+domain - fixed by switching all three Technology tests to before/after delta
+assertions. Also hit, a second time this session, the documented "exiting Play Mode
+doesn't itself trigger a domain reload" gotcha (a cascade of unrelated-looking
+resource-deduction test failures right after exiting Play mode) - resolved the same
+documented way, forcing `refresh_unity(mode=force, compile=request)` before the
+final run. 577/577 EditMode tests pass after both fixes (2 pre-existing, unrelated
+`BuildingModelFactoryTests` failures).
+
+Live-verified via UnityMCP through the real production path: a real match, the live
+formula matched hand-computed expectations exactly against real starting state; a
+real lethal `Attackable.TakeDamage` call correctly credited +1 kill (unit victim) and
++1 razing (building victim) to the attacker's faction; forcing
+`MatchManager.ForceOutcome(Victory)` showed a real, correctly laid-out score panel
+(Military 4 vs 0, Economy 12 vs 12, Technology 30 vs 0, Society 23 vs 19, Total 69 vs
+31, every number independently checked against live game state) with no
+clipping/overlap, screenshot-confirmed.
+
+Two logical changes, kept as one scoped commit since the second directly continued
+from the first in the same session: `Progression/ScoreProgress.cs` (new),
+`Combat/Attackable.cs`, `Core/CivilizationSetup.cs`, `UI/GameOverScreen.cs`,
+`Assets/Scenes/Main.unity`, `Tests/EditMode/ScoreProgressTests.cs` (new), docs.
+
+Next: tutorial content (40, the last decision-free Wave 6 item), the Relics/Wonder/
+game-modes design decision, or unit-side team colour once Blender masks are sourced.
+
+---
+
 ## 2026-09-15 — Wave 6 item 39 (Cheat codes) closed, no live UnityMCP verification this session
 
 **Scope**: Wave 6 item 39, "Cheat codes - genuinely useful for testing your own

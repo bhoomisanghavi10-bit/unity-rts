@@ -222,6 +222,16 @@ namespace KingdomsOfBharat.Combat
                     SfxPlayer.PlayUnitDeath(transform.position);
                     RajputDefianceHook.TrySpawnSurvivor(this);
                 }
+
+                // Wave 6 item 36 (Score system): credit whoever landed the
+                // killing blow, not the victim - a no-op if the attacker
+                // has no FactionMember (shouldn't happen for any real
+                // combat unit).
+                if (attacker != null && attacker.TryGetComponent(out FactionMember attackerMember))
+                {
+                    ScoreProgress.RecordKill(attackerMember.Faction, unitClass == UnitClass.Building);
+                }
+
                 Destroy(gameObject);
                 return;
             }
