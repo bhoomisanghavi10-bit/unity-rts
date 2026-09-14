@@ -8,6 +8,67 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Critical regression fixed (2026-09-15): every building's visual model was
+  broken project-wide — not just starting-age TownCenter as first reported.**
+  Root cause: commit `a5d2b15` ("Remove leftover raw _Source FBX exports...",
+  2026-09-13) deleted the entire `_Source/` folder tree (raw FBX + materials +
+  textures) for every civ/age-tier building, on the mistaken assumption that
+  `BuildingMeshDecimator`'s decimated meshes were already baked directly into
+  the consumed prefabs. They weren't — every consumed building prefab
+  (TownCenter/Tower/Wall/Barracks/Market/Farm/House/Gate/Dock, all 5 civs, all
+  age tiers) is a **Prefab Variant** built on top of those now-deleted source
+  files, so deleting `_Source` turned every one of them into a "Missing
+  Prefab" with zero geometry — confirmed live via UnityMCP across all 56
+  civ/building/age-tier combinations, not assumed from the one symptom
+  reported (starting-age TownCenter). The `_Decimated/*.asset` mesh assets
+  (45 of them, one per civ-specific Imperial building) exist independently
+  but were never wired into `BuildingModelFactory`'s spawn path at all —
+  a separate, still-open gap (see below).
+
+  Fixed by reverting `a5d2b15`'s asset deletion (the files are Git LFS-
+  tracked and the LFS blobs were still cached locally, so no re-download was
+  needed — confirmed byte-identical via checksum against the original LFS
+  oid). Kept `a5d2b15`'s own screenshot-cleanup/`.gitignore` change intact
+  (that part was legitimate, unrelated to the bug) rather than blanket-
+  reverting. Disk space was the real obstacle throughout this fix — the
+  ~6.5GB restore plus Unity's own Library-cache growth during reimport hit
+  actual `ENOSPC` twice (145MB and then 217MB free), causing 7 of the
+  restored FBX imports to genuinely crash mid-import and produce a "default
+  asset" placeholder (0 vertices) that **persisted through repeated plain
+  reimports** — traced to a corrupted import-cache entry keyed to that exact
+  filename (confirmed by reimporting a byte-identical copy under a new
+  filename, which produced correct geometry immediately). Fixed those 7 by
+  renaming the affected source FBX to a fresh filename (forcing a new cache
+  key) and repointing the one consuming prefab's GUID reference via text
+  edit — `TownCenter_Ancient_model.fbx`/`Tower_Ancient_model.fbx`/
+  `Wall_Ancient_model.fbx`/`TownCenter_Classical_model.fbx` (all now suffixed
+  `_v2` on disk — cosmetic only, deliberately not renamed back to avoid
+  re-triggering the same cache corruption) and Chola/Maurya/Maratha's
+  `TownCenter_Durg_model.fbx` (same fix, same reason).
+
+  Live-verified via UnityMCP through the real `BuildingModelFactory.Spawn`
+  path (not just raw `Resources.Load`) across all 5 civs × all 4 ages for
+  TownCenter specifically (the reported symptom) and all 56 civ/building/
+  age-tier combinations generally — 56/56 now resolve real geometry (verts
+  in the hundreds of thousands to ~2M range, matching pre-regression
+  expectations). **EditMode test suite was NOT run this session** — disk
+  space stayed critical (as low as ~210MB free) throughout, and the user
+  explicitly chose to skip the test run rather than risk another crash;
+  verification relied on live in-Unity geometry checks only. Flagging this
+  directly: run the EditMode suite first thing next session, once there's
+  real disk headroom, to catch anything the live checks didn't cover.
+
+  **Still open, not attempted this session**: wiring the 45 existing
+  `_Decimated/*.asset` meshes into `BuildingModelFactory`'s actual spawn path
+  so buildings render at their intended ~500,000-tri decimated count instead
+  of the raw ~1-2M-tri source meshes now back in play — this was the original
+  intent of the 2026-09-02 decimation session and is the right permanent fix,
+  but is real follow-up scope, not a same-session fix. Also: the
+  `_Source` folders for Durg-tier Rajput/Vijayanagara TownCenter never had a
+  matching git-history deletion to revert from (they were restored cleanly,
+  no cache-corruption fix needed for those two). Next: wire `_Decimated`
+  meshes into the spawn path, or run the EditMode suite once disk space is
+  comfortably free, user's call.
 - **Relics/Wonder/game-modes design decision RESOLVED (2026-09-15) — no code
   written this session, decision-only per the user's explicit "resolve the
   Relics/Wonder/game-modes design decision" request.** This was the one
