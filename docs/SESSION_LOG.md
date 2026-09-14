@@ -10578,3 +10578,82 @@ unrelated concurrent-session work already sitting in the tree
 Next: user's call among Wave 6's decision-free items (idle-worker indicator,
 cheat codes, tutorial content), the Relics/Wonder/game-modes design decision,
 or unit-side team colour once Blender masks are sourced.
+
+---
+
+## 2026-09-14 -- Wave 6 item 34 (idle-worker indicator) closed
+
+Picked up per the users "idle-worker indicator" request, right after the
+README refresh. Decision-free per the roadmaps own note ("a small UI addition
+near the minimap").
+
+New UI/IdleWorkerFinder.cs: a pure, directly-testable FindAll(FactionId) that
+scans Unit.All for units with a Gatherer component -- the same "Worker" marker
+TownBell.Ring already uses (exclusive to WorkerFactorys spawn) -- owned by
+that faction and currently idle. Added UnitStatus.IsIdle(Unit) (reuses the
+existing Describe priority chain rather than a second definition of "doing
+nothing" -- a worker mid-walk to a resource node is correctly NOT idle, since
+Gatherer.IsWorking already covers the walk, not just the harvest). A
+garrisoned worker is automatically excluded -- Unit.OnDisable already removes
+it from Unit.All the instant GarrisonPoint deactivates it.
+
+New UI/IdleWorkerIndicator.cs: built entirely in code (no [SerializeField]s)
+and self-attached via MinimapController.gameObject.AddComponent<IdleWorkerIndicator>()
+-- same convention the Age/research readout row already used to avoid the
+recurring new-field-null-in-the-scene gotcha. Shows a live "Idle Workers: N"
+panel (train_worker icon + count) positioned directly above the minimap;
+click or the new F6 hotkey ("SelectIdleWorker") selects the next idle worker
+and pans the camera to it, round-robin through the current idle set -- the
+same cycling behavior AoEs own idle-villager button has, not always
+reselecting the first. Wired into SettingsMenu.Actions/HotkeyOverlays
+GlobalGroup next to TownBells F8. Local-only, un-networked (same
+reasoning as Town Bell -- it only changes local selection/camera state, not
+game state that needs to replicate).
+
+**Found and fixed a real bug live, not before it**: the first attempt
+positioned the new panel by reading `transform` on the same GameObject the
+indicator self-attaches to (MinimapControllers own) -- but
+MinimapController.ApplyDiamondFrame() (from the 2026-09-12 ornate-HUD-reskin
+session) reparents and re-stretches that SAME RectTransform under a new
+"MinimapDiamondMask" GameObject as part of building the diamond mask. By the
+time AddComponent ran, `transform` no longer described the minimaps real
+bottom-right position/size at all -- read back live as
+anchorMin=(0,0)/anchorMax=(1,1)/sizeDelta=(0,0), stretched to fill the mask
+instead -- so the panel landed at (0,0) with zero width, confirmed via a live
+execute_code read before assuming the naive version was correct. Root-caused
+by comparing the live runtime RectTransform values against the exact numbers
+read directly from Assets/Scenes/Main.unitys own YAML for the
+MinimapController GameObject (anchorMin/Max=(1,0), anchoredPosition=(-10,10),
+sizeDelta=(220,220)) -- confirming the scene data was fine and the bug was in
+when the code read it. Fixed by having MinimapController.Awake() snapshot its
+own anchor/position/size BEFORE calling ApplyDiamondFrame() and passing that
+snapshot explicitly into a new IdleWorkerIndicator.Configure(...), rather
+than the indicator ever reading `transform` itself post-reparent.
+
+6 new EditMode tests (IdleWorkerFinderTests.cs, mirroring TownBellTests.cs
+own Gatherer/FactionMember test-setup pattern -- 528 total, up from 522, all
+pass; the 2 pre-existing, unrelated BuildingModelFactoryTests failures are
+the same baseline as every recent session). Live-verified via UnityMCP
+through the real production path, twice (before and after the position fix):
+a real match (CivilizationSetup.BeginMatch(Maurya)), pre-match overlays
+deactivated, the real panel screenshot-confirmed rendering cleanly directly
+above the minimap with no overlap ("Idle Workers: 4" for the 4 real starting
+Workers); 5 real Button.onClick.Invoke() calls correctly cycled through all 4
+distinct real Worker GameObjects and wrapped back to the first on the 5th; a
+real Gatherer.GatherFrom() call on one worker correctly dropped the live
+count from 4 to 3. Re-ran the full EditMode suite once more after a forced
+EditorUtility.RequestScriptReload() post-Play-mode-exit, per this projects
+own documented "exiting Play mode doesnt itself trigger a domain reload"
+gotcha -- still 528/528 (2 known baseline failures) clean.
+
+One scoped commit: UnitStatus.cs, MinimapController.cs, SettingsMenu.cs,
+HotkeyOverlay.cs, the 2 new IdleWorkerFinder.cs/IdleWorkerIndicator.cs files,
+and IdleWorkerFinderTests.cs -- deliberately excludes the unrelated
+concurrent-session work already sitting in the tree
+(MarathaMavlaRaiderFactory.cs, CivilizationSetup.cs, TeamColorUnitTint.cs,
+corner_ornament.png, docs/PROJECT_TRACKER.html, .mcp.json,
+ProjectSettings/ProjectSettings.asset), left untouched via targeted git add.
+
+Next: another Wave 6 decision-free item (cheat codes, tutorial content), the
+Relics/Wonder/game-modes design decision, or unit-side team colour once
+Blender masks are sourced.

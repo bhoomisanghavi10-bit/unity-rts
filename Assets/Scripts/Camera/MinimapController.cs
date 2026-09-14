@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using KingdomsOfBharat.Core;
+using KingdomsOfBharat.UI;
 
 namespace KingdomsOfBharat.Camera
 {
@@ -40,7 +41,26 @@ namespace KingdomsOfBharat.Camera
             _renderTexture = new RenderTexture(textureSize, textureSize, 16);
             display.texture = _renderTexture;
 
+            // Wave 6 item 34: snapshot this panel's own bottom-right
+            // anchor/position/size BEFORE ApplyDiamondFrame() reparents and
+            // re-stretches this same RectTransform to fill its new mask
+            // parent - see IdleWorkerIndicator.Configure's own comment for
+            // why reading `transform` after that call would be wrong.
+            RectTransform selfRect = GetComponent<RectTransform>();
+            Transform originalParent = selfRect.parent;
+            Vector2 originalAnchorMin = selfRect.anchorMin;
+            Vector2 originalAnchorMax = selfRect.anchorMax;
+            Vector2 originalPivot = selfRect.pivot;
+            Vector2 originalAnchoredPosition = selfRect.anchoredPosition;
+            Vector2 originalSizeDelta = selfRect.sizeDelta;
+
             ApplyDiamondFrame();
+
+            // Self-attached rather than scene-wired (see
+            // IdleWorkerIndicator's own header comment) - positioned via
+            // the snapshot above, directly above the minimap.
+            gameObject.AddComponent<IdleWorkerIndicator>().Configure(
+                originalParent, originalAnchorMin, originalAnchorMax, originalPivot, originalAnchoredPosition, originalSizeDelta);
 
             var camGo = new GameObject("MinimapCamera");
             camGo.transform.SetParent(transform, false);

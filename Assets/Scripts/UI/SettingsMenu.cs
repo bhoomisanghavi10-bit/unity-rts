@@ -121,6 +121,7 @@ namespace KingdomsOfBharat.UI
             new RebindableAction("TrainPurohita", "Train Purohita (Monastery)", KeyCode.C),
             new RebindableAction("Ungarrison", "Ungarrison", KeyCode.U),
             new RebindableAction("TownBell", "Ring Town Bell (Send Workers Home)", KeyCode.F8),
+            new RebindableAction("SelectIdleWorker", "Select Next Idle Worker", KeyCode.F6),
             new RebindableAction("ToggleHotkeyOverlay", "Toggle Hotkey Reference (Overlay)", KeyCode.F1),
             new RebindableAction("SaveGame", "Quicksave", KeyCode.F5),
             new RebindableAction("LoadGame", "Quickload", KeyCode.F9),

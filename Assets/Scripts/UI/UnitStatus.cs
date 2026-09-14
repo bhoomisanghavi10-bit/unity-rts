@@ -56,5 +56,16 @@ namespace KingdomsOfBharat.UI
 
             return "Idle";
         }
+
+        // Wave 6 item 34 (idle-worker indicator): a unit is "idle" exactly
+        // when Describe would fall through to that final default - reuses
+        // the same priority chain rather than a second, potentially
+        // drifting definition of "doing nothing" (e.g. a worker mid-walk to
+        // a resource node is NOT idle, since Gatherer.IsWorking already
+        // covers the walk, not just the harvest itself).
+        public static bool IsIdle(Unit unit)
+        {
+            return Describe(unit) == "Idle";
+        }
     }
 }
