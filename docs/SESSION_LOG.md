@@ -5,6 +5,80 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-15 — Wave 6 item 40 (Tutorial content) closed - every decision-free Wave 6 item is done
+
+**Scope**: Picked up right after item 36 (Score system) closed in the same session, per the user's
+"start tutorial content" request. Read the roadmap sheet's own note: "Rides the existing
+MissionObjective/MissionTrigger system - pure content authoring, no new system needed."
+
+Surveyed the existing mission infrastructure first (`ScenarioDefinition.cs`, `MissionObjective.cs`,
+`MissionTrigger.cs`, `ScenarioManager.cs`, `ScenarioRegistry.cs`'s 3 hand-coded missions,
+`MissionCsvLoader.cs`'s CSV-authored path) rather than assuming. Found `MissionCsvLoader` already
+supports exactly 5 `ObjectiveKind` values (SurviveSeconds/BuildingCountThreshold/ResourceThreshold/
+PopulationThreshold/DestroyScriptedTarget) and 2 `TriggerKind` values, sized off the 3 hand-coded
+missions plus this exact item's own already-scoped needs. Designed "The First Lesson"
+(`tutorial_basics`) to exercise all 5 objective kinds once each - a natural fit for teaching content,
+and a genuine test of the multi-objective AND-victory-logic path (every existing mission has exactly
+1 objective; this is the first with 5). Authored purely as 3 new CSV rows
+(`mission_definitions.csv`/`mission_objectives.csv`/`mission_triggers.csv`), no new C# game logic.
+Player=Maurya (its "Houses cost no Wood" bonus pairs naturally with the "Build a House" lesson),
+AI=Maratha, Map=RiverValley. The `DestroyScriptedTarget` practice Barracks is placed near the
+*player's own* starting TownCenter (`(0,1,20)` on RiverValley), not the enemy's, for an easy first
+combat lesson rather than a raid into enemy territory.
+
+Kept objective `Description` text terse (matching every existing mission's own brevity convention,
+e.g. "Muster a population of 8") after an initial draft used full instructional sentences that would
+have wrapped across 3+ lines and overlapped adjacent rows in `ObjectivePanel`'s fixed-height,
+unmasked row layout - caught by doing the actual row-position math before shipping, not by trial and
+error live. Moved the instructional detail into each objective's `CompleteText` (shown once, as a
+`MissionToast`, which has more room) instead.
+
+**Found and fixed a real, previously-unnoticed cosmetic bug while authoring this, not before it**:
+`ObjectivePanel.cs`'s box was a fixed 140-tall rect - fine for every existing mission's own single-
+objective checklist, but the math showed a genuine 5-objective mission would overflow it by ~22
+units with no mask to clip the spillover. Fixed by having the panel grow to fit its actual row count
+(`Mathf.Max(140, header + rows*26 + margin)`), the same "resize to content" precedent
+`SelectedUnitPanel`/`BuildMenu` already established elsewhere - a small, generic, low-risk UI fix
+that benefits any future multi-objective mission.
+
+3 new EditMode tests (`TutorialMissionTests.cs`) - the project's first tests to exercise the *real*
+Resources-loaded mission CSV files directly (`MissionCsvLoader.LoadAll()`/`ReadCsv` against the
+actual files on disk, not synthetic in-memory strings like `MissionCsvLoaderTests.cs`/
+`MissionRowsTests.cs`), catching the class of real formatting mistake (a bad quote, a stray comma, a
+mis-typed enum) synthetic tests structurally can't. Also had to force a real domain reload
+(`refresh_unity(mode=force, compile=request)`) before running the definitive suite, per this
+project's own documented "exiting Play Mode doesn't itself trigger a domain reload" gotcha (hit
+again this same session, now twice in a row). 580/580 EditMode tests pass (2 pre-existing, unrelated
+`BuildingModelFactoryTests` failures, the standing baseline).
+
+Live-verified via UnityMCP through the real production path: a real match via
+`CivilizationSetup.BeginScenarioMatch` against the real `tutorial_basics` `ScenarioDefinition` loaded
+from `ScenarioRegistry.All` (confirmed present among the real registry's contents, not assumed); the
+real `ObjectivePanel` rendered all 5 lessons with the grown box and no overflow, screenshot-confirmed;
+the real `MissionToast` showed the FlavorText on mission start; granting 100 real Wood, spawning 2
+real Workers, completing a real House, and killing a real spawned "practice Barracks" (confirmed
+spawned at the exact authored position `(8,1,20)`) via a real `Attackable.TakeDamage` call each
+correctly flipped their objective to complete (strikethrough, screenshot-confirmed) and fired the
+matching toast `CompleteText`; the real trigger correctly granted 100 Gold at t=20s; real
+`MatchManager.Outcome` correctly stayed `Ongoing` with 4/5 objectives complete - the first live
+confirmation that `ScenarioManager.EvaluateOutcome`'s AND-across-all-objectives victory logic
+(previously only ever exercised by single-objective missions) genuinely works for a multi-objective
+mission. The 5th objective (`SurviveSeconds`) was deliberately not run to its full 90-second
+completion live - a scoping call, not a gap, since it shares the exact code path `DefendHampi`'s own
+`SurviveSeconds` objective already uses (previously live-verified) and has its own dedicated passing
+unit test.
+
+One scoped commit: `ObjectivePanel.cs`, `mission_definitions.csv`/`mission_objectives.csv`/
+`mission_triggers.csv`, the new `TutorialMissionTests.cs`, docs.
+
+**This closes every decision-free Wave 6 item** - Town Bell, idle-worker indicator, cheat codes,
+Score system, and Tutorial content are all done. Next: the Relics/Wonder-KotH-victory-conditions/
+game-modes design decision (the only remaining Wave 6 items, all gated on a design decision first),
+unit-side team colour once Blender masks are sourced, or further UI/art polish/balance work, user's
+call.
+
+---
+
 ## 2026-09-15 — Wave 6 item 39 live-verification gap closed; item 36 (Score system) closed
 
 **Scope**: Continuation of the same-day item 39 session immediately below. That

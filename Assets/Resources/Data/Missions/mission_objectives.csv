@@ -1,2 +1,7 @@
 MissionId,Kind,Param1,Param2,Param3,Description,CompleteText
 the_muster,PopulationThreshold,8,Player,,Muster a population of 8,"The muster is complete. Warriors stand ready to answer the call."
+tutorial_basics,ResourceThreshold,Wood,100,Player,"Gather 100 Wood","Well done. Select a Worker and right-click a tree to gather - resources are the foundation of every strategy."
+tutorial_basics,BuildingCountThreshold,House,1,Player,"Build a House","Your population cap just grew. Pick House from the build menu, then click the ground to place one."
+tutorial_basics,PopulationThreshold,6,Player,,"Grow your population to 6","A growing population means a growing kingdom - train Workers from your Town Center."
+tutorial_basics,SurviveSeconds,90,,,"Hold your ground for 90 seconds","Patience paid off. Not every victory comes from rushing forward."
+tutorial_basics,DestroyScriptedTarget,Barracks,Enemy,"8,1,20","Destroy the practice Barracks","The structure falls. Select a military unit, then right-click an enemy building to attack it."

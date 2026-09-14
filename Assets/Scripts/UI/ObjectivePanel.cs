@@ -18,9 +18,15 @@ namespace KingdomsOfBharat.UI
     public class ObjectivePanel : MonoBehaviour
     {
         private GameObject _panel;
+        private RectTransform _panelRect;
         private Transform _listParent;
         private readonly List<TMP_Text> _rows = new List<TMP_Text>();
         private ScenarioDefinition _builtFor;
+
+        private const float HeaderHeight = 34f;
+        private const float RowHeight = 26f;
+        private const float BottomMargin = 12f;
+        private const float MinPanelHeight = 140f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -87,13 +93,23 @@ namespace KingdomsOfBharat.UI
                 return;
             }
 
-            float y = -34f;
+            // Wave 6 item 40 (Tutorial content): the 3 original hand-coded
+            // missions all have exactly 1 objective, which is what the
+            // panel's previous fixed 140-tall box was sized for - a
+            // multi-objective mission (the new tutorial has 5, teaching one
+            // mechanic per row) needs the box to grow to fit, same
+            // "resize to content" precedent this project already applies
+            // elsewhere (SelectedUnitPanel/BuildMenu).
+            float y = -HeaderHeight;
             foreach (MissionObjective _ in objectives)
             {
                 TMP_Text row = CreateRow(_listParent, y);
                 _rows.Add(row);
-                y -= 26f;
+                y -= RowHeight;
             }
+
+            float neededHeight = HeaderHeight + objectives.Count * RowHeight + BottomMargin;
+            _panelRect.sizeDelta = new Vector2(_panelRect.sizeDelta.x, Mathf.Max(MinPanelHeight, neededHeight));
 
             _builtFor = scenario;
         }
@@ -136,9 +152,10 @@ namespace KingdomsOfBharat.UI
             boxRect.anchorMin = new Vector2(1f, 1f);
             boxRect.anchorMax = new Vector2(1f, 1f);
             boxRect.pivot = new Vector2(1f, 1f);
-            boxRect.sizeDelta = new Vector2(360f, 140f);
+            boxRect.sizeDelta = new Vector2(360f, MinPanelHeight);
             boxRect.anchoredPosition = new Vector2(-16f, -16f);
             UIStyleTheme.Current.ApplyPanel(boxImage);
+            _panelRect = boxRect;
 
             CreateLabel(_panel.transform, "Objectives", new Vector2(12f, -8f), 18, TextAlignmentOptions.TopLeft);
 

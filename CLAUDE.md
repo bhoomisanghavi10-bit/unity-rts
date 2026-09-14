@@ -8,6 +8,79 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Wave 6 item 40 (Tutorial content) closed (2026-09-15) — this closes every
+  decision-free Wave 6 item.** Picked right after item 36 closed, per the
+  user's "start tutorial content" request. New CSV-authored mission "The
+  First Lesson" (`tutorial_basics`), riding the existing `MissionCsvLoader`/
+  `MissionObjective`/`MissionTrigger`/`ScenarioManager` system per this
+  item's own roadmap text ("no new system needed") — purely 3 new rows
+  added to the existing `mission_definitions`/`mission_objectives`/
+  `mission_triggers` CSVs, no new C# game logic. 5 objectives, deliberately
+  one of each existing `ObjectiveKind` (teaching gather/build/grow-
+  population/hold-ground/attack in that order): `ResourceThreshold`
+  ("Gather 100 Wood"), `BuildingCountThreshold` ("Build a House"),
+  `PopulationThreshold` ("Grow your population to 6"), `SurviveSeconds`
+  ("Hold your ground for 90 seconds"), `DestroyScriptedTarget` (a practice
+  Barracks spawned near the *player's own* base, not the enemy's — an easy
+  first combat lesson, not a raid into enemy territory). Player=Maurya
+  (its "Houses cost no Wood" bonus and Classical-age start both pair
+  naturally with the lesson content), AI=Maratha, Map=RiverValley. One
+  `GrantResourceAtTime` trigger (100 Gold at t=20s) exercises the trigger
+  pipeline too, matching every other mission's own precedent.
+
+  **Found and fixed a real, previously-unnoticed cosmetic bug while
+  authoring this, not before it**: `ObjectivePanel.cs`'s box was a fixed
+  140-tall rect, sized for the 3 original hand-coded missions' own
+  single-objective checklists — this tutorial is the first mission in the
+  project with more than 1 objective, and 5 objectives would have
+  overflowed the box by ~22 units with no mask to clip it (confirmed by
+  the exact row-position math before touching anything). Fixed by having
+  the panel grow to fit its actual row count
+  (`Mathf.Max(140, header + rows×26 + margin)`), the same "resize to
+  content" precedent `SelectedUnitPanel`/`BuildMenu` already established
+  elsewhere in this project — a small, generic, low-risk UI fix that
+  benefits any future multi-objective mission, not new game logic.
+
+  3 new EditMode tests (`TutorialMissionTests.cs`) — unlike
+  `MissionCsvLoaderTests.cs`/`MissionRowsTests.cs` (which drive the shared
+  interpreter with small synthetic in-memory CSV strings), these are the
+  project's first tests to exercise the *real* Resources-loaded mission
+  CSV files directly (`MissionCsvLoader.LoadAll()`/`ReadCsv` against the
+  actual files on disk), catching the class of real formatting mistake —
+  a bad quote, a stray comma, a mis-typed enum value — that synthetic
+  tests structurally can't. 580/580 EditMode tests pass (2 pre-existing,
+  unrelated `BuildingModelFactoryTests` failures, the standing baseline).
+
+  Live-verified via UnityMCP through the real production path: a real
+  match via `CivilizationSetup.BeginScenarioMatch` against the *real*
+  `tutorial_basics` `ScenarioDefinition` loaded from
+  `ScenarioRegistry.All` (not a synthetic one) — the real `ObjectivePanel`
+  rendered all 5 lessons with the grown box and no overflow, the real
+  `MissionToast` showed the FlavorText on mission start; granting 100
+  Wood, spawning 2 Workers, completing a real House, and killing a real
+  spawned "practice Barracks" via a real `Attackable.TakeDamage` call each
+  correctly flipped their objective to complete (strikethrough,
+  screenshot-confirmed) and fired the matching toast `CompleteText`; the
+  real trigger correctly granted 100 Gold at t=20s; `MatchManager.Outcome`
+  correctly stayed `Ongoing` with 4/5 objectives complete — the first live
+  confirmation that `ScenarioManager.EvaluateOutcome`'s AND-across-all-
+  objectives victory logic (previously only ever exercised by single-
+  objective missions) works correctly for a genuinely multi-objective
+  mission. The 5th objective (`SurviveSeconds`) was deliberately not run
+  to its full 90-second completion live — not a gap, since it shares the
+  exact code path `DefendHampi`'s own `SurviveSeconds` objective already
+  uses (previously live-verified in an earlier session) and has its own
+  dedicated passing unit test; a full real-time wait wouldn't have added
+  meaningful confidence for the budget it would cost.
+
+  One scoped commit (`ObjectivePanel.cs`, the 3 mission CSVs, the new
+  `TutorialMissionTests.cs`, docs). **This closes every decision-free
+  Wave 6 item** — Town Bell, idle-worker indicator, cheat codes, Score
+  system, and now Tutorial content are all done. Next: the Relics/Wonder-
+  KotH-victory-conditions/game-modes design decision (the only remaining
+  Wave 6 items, all gated on a design decision first), unit-side team
+  colour once Blender masks are sourced, or further UI/art polish/balance
+  work — user's call.
 - **Wave 6 item 36 (Score system) closed (2026-09-15)** — picked immediately
   after closing item 39's live-verification gap in the same session. Four
   weighted categories modeled on AoE II's own Military/Economy/Technology/
