@@ -10921,3 +10921,61 @@ ProjectSettings/ProjectSettings.asset), left untouched via targeted git add.
 Next: another Wave 6 decision-free item (cheat codes, tutorial content), the
 Relics/Wonder/game-modes design decision, or unit-side team colour once
 Blender masks are sourced.
+
+## 2026-09-15 -- Relics/Wonder/game-modes design decision resolved (no code)
+
+Picked up per the user's explicit "resolve the Relics/Wonder/game-modes
+design decision" request -- the one remaining blocker on Wave 6 items
+35/37/38, each of which was flagged in its own roadmap text as needing a
+design decision before any implementation could start. This session was
+decision-only, no code/tests touched, per the user's literal ask.
+
+Resolved via two rounds of AskUserQuestion rather than picked unilaterally,
+given how much this affects downstream Wave 6 scope:
+
+Round 1 -- top-level scope: offered "Relics + Monastery collection", "Wonder
++ KotH-style victory", "Extra game modes (Deathmatch/KotH)", or "close Wave 6
+without them". User picked Relics+Monastery AND Extra game modes, explicitly
+NOT Wonder.
+
+Round 2 -- specifics: (a) should Relic collection also drive a victory
+condition, or stay purely economic? User picked economic-only (gold trickle),
+declining a Relic-count win condition -- keeps that item's scope smaller. (b)
+Which game modes this wave -- Deathmatch, King of the Hill, or both? User
+picked both.
+
+Final resolved scope:
+- Item 35 (Relics + Monastery): BUILD, economic only. Relics spawn on the
+  map / drop from destroyed scripted targets, carried by any land unit to a
+  Monastery (Wave 4 item 27's existing building -- no new building needed)
+  for a passive Gold trickle, matching AoE II's own base-case relic
+  mechanic. No new victory condition.
+- Item 37 (Victory conditions beyond Conquest): Wonder DECLINED entirely (no
+  Wonder building, no Wonder-triggered countdown). Relic-count victory also
+  declined (folded into item 35's economic-only call). Time Limit +
+  Regicide were already closed prior sessions. King of the Hill IS approved
+  as a new victory condition, but scoped under item 38 rather than as a
+  Wonder-KotH hybrid, since that's how the user picked it.
+- Item 38 (Game modes): BUILD Deathmatch (opt-in GameSettings toggle, same
+  pattern as RegicideEnabled -- large starting stockpiles + higher starting
+  Age, reusing existing resource-grant/age-set code, skips the early
+  economy game) and King of the Hill (a map-marked zone; the faction
+  holding it uncontested for N minutes wins -- a new zone-control tracker +
+  countdown, similar in shape to the existing SurviveSeconds mission-
+  objective kind but faction-vs-faction and area-based, not tied to one
+  scripted mission).
+
+Updated docs/KingdomsOfBharat_Master_Reference.xlsx's "Dev Status Overview"
+sheet (A47/A61/A70) and "Implementation Waves 0-6" sheet (rows 39/41/42,
+items 35/37/38) to record the resolved decision and its rationale, so a
+future session reads the actual decision rather than re-litigating it.
+
+No commit made -- nothing to build/test yet, this was a docs-only decision
+session (workbook + CLAUDE.md only, no code). Each of Relics+Monastery,
+Deathmatch, and King of the Hill is now unblocked and is its own future
+one-item-per-session pickup, per this project's own protocol -- not
+attempted together in one session.
+
+Next: user's call among Relics+Monastery (35), Deathmatch (38), or King of
+the Hill (37/38), plus unit-side team colour once Blender masks are
+sourced, or UI/art/balance polish.

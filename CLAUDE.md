@@ -8,6 +8,42 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Relics/Wonder/game-modes design decision RESOLVED (2026-09-15) — no code
+  written this session, decision-only per the user's explicit "resolve the
+  Relics/Wonder/game-modes design decision" request.** This was the one
+  remaining blocker on Wave 6 items 35/37/38 (all 3 needed a design decision
+  before any implementation, per their own roadmap text). Resolved via 2
+  rounds of AskUserQuestion: **(1) Relics + Monastery collection: build it,
+  economic only.** Relics spawn on the map (or drop from destroyed scripted
+  targets), carried by any land unit to a Monastery (the existing Wave 4 item
+  27 building — no new building needed) for a passive Gold trickle, AoE II's
+  own base-case mechanic. Explicitly declined a Relic-count victory condition
+  (user picked "Economic only" over "also add a Relic-count victory option")
+  — keeps this item's scope smaller, no new win-condition plumbing needed.
+  **(2) Wonder is declined entirely** — the user did not pick "Wonder +
+  King-of-the-Hill-style victory" from the first round's option set. No
+  Wonder building, no Wonder-triggered victory countdown; item 37's own
+  roadmap text is now closed-as-declined for the Wonder/Relic-victory half
+  (Time Limit + Regicide were already closed). **(3) Game modes: build
+  Deathmatch + King of the Hill.** Deathmatch is an opt-in `GameSettings`
+  toggle (same pattern as `RegicideEnabled`) — match starts with large
+  stockpiles of every resource and a higher starting Age, reusing existing
+  resource-grant/age-set code paths, skipping the early economy game. King of
+  the Hill is a genuinely new victory condition (a map-marked zone; the
+  faction holding it uncontested for N minutes wins — needs a new
+  zone-control tracker and countdown, similar in shape to the existing
+  `SurviveSeconds` mission-objective kind but faction-vs-faction and
+  area-based rather than tied to a single scripted mission). Updated
+  `docs/KingdomsOfBharat_Master_Reference.xlsx`'s "Dev Status Overview" and
+  "Implementation Waves 0-6" sheets (items 35/37/38, rows 39/41/42) to
+  reflect all of the above — docs-only session, no code/tests touched, no
+  commit needed (nothing to build/test yet). Each of Relics+Monastery,
+  Deathmatch, and King of the Hill is now unblocked and is its own future
+  one-item-per-session pickup, per this project's own "one roadmap item per
+  session" protocol — not attempted together in one session. Next: user's
+  call among those 3, plus item 36's already-closed Score system giving KotH
+  and Deathmatch something to interact with once built, unit-side team
+  colour once Blender masks are sourced, or UI/art/balance polish.
 - **Wave 6 item 40 (Tutorial content) closed (2026-09-15) — this closes every
   decision-free Wave 6 item.** Picked right after item 36 closed, per the
   user's "start tutorial content" request. New CSV-authored mission "The
