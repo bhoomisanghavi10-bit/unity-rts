@@ -55,6 +55,7 @@ namespace KingdomsOfBharat.UI
             new Entry("Hotkey Reference", "ToggleHotkeyOverlay", KeyCode.F1),
             new Entry("Ring Town Bell (Send Workers Home)", "TownBell", KeyCode.F8),
             new Entry("Select Next Idle Worker", "SelectIdleWorker", KeyCode.F6),
+            new Entry("Toggle Cheat Console", "ToggleCheatConsole", KeyCode.BackQuote),
         });
 
         private static readonly Group PlacementGroup = new Group("Placement (Builder Selected)", new[]

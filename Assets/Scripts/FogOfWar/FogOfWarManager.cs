@@ -30,6 +30,20 @@ namespace KingdomsOfBharat.FogOfWar
         private float _timer;
         private bool _wasMatchStarted;
 
+        // Wave 6 item 39 (Cheat codes): a static flag rather than an
+        // instance method, since the cheat console has no scene reference
+        // to this component (same reasoning ResourceStockpile.For's own
+        // registry comment gives - only one real instance ever exists).
+        // Off by default so every match that never touches the cheat
+        // console is completely unaffected.
+        private static bool _revealAll;
+
+        public static bool ToggleRevealAll()
+        {
+            _revealAll = !_revealAll;
+            return _revealAll;
+        }
+
         // Phase 6 gap-close: Maratha's "scouted/discovered enemy positions
         // are remembered permanently" bonus. Terrain memory is already
         // permanent for everyone (Explored cells never revert to
@@ -108,17 +122,27 @@ namespace KingdomsOfBharat.FogOfWar
 
         private void Recompute()
         {
-            for (int i = 0; i < _cells.Length; i++)
+            if (_revealAll)
             {
-                if (_cells[i] == CellState.Visible)
+                for (int i = 0; i < _cells.Length; i++)
                 {
-                    _cells[i] = CellState.Explored;
+                    _cells[i] = CellState.Visible;
                 }
             }
-
-            foreach (VisionSource source in VisionSource.All)
+            else
             {
-                RevealAround(source.transform.position, source.VisionRadius);
+                for (int i = 0; i < _cells.Length; i++)
+                {
+                    if (_cells[i] == CellState.Visible)
+                    {
+                        _cells[i] = CellState.Explored;
+                    }
+                }
+
+                foreach (VisionSource source in VisionSource.All)
+                {
+                    RevealAround(source.transform.position, source.VisionRadius);
+                }
             }
 
             RepaintTexture();

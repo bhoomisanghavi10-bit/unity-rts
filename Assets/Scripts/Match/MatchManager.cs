@@ -255,5 +255,15 @@ namespace KingdomsOfBharat.Match
             Outcome = outcome;
             Time.timeScale = 0f;
         }
+
+        // Wave 6 item 39 (Cheat codes): the one public entry point a cheat
+        // console needs - everything else in this file only ever reaches
+        // Declare() through Evaluate()'s own elimination/time-limit/
+        // scenario logic. Reuses Declare() rather than duplicating its
+        // Time.timeScale-freeze side effect.
+        public static void ForceOutcome(MatchOutcome outcome)
+        {
+            Declare(outcome);
+        }
     }
 }

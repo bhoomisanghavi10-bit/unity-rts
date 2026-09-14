@@ -126,6 +126,7 @@ namespace KingdomsOfBharat.UI
             new RebindableAction("SaveGame", "Quicksave", KeyCode.F5),
             new RebindableAction("LoadGame", "Quickload", KeyCode.F9),
             new RebindableAction("ToggleDiplomacy", "Toggle Diplomacy", KeyCode.F11),
+            new RebindableAction("ToggleCheatConsole", "Toggle Cheat Console", KeyCode.BackQuote),
         };
 
         private const string ToggleActionId = "ToggleSettings";

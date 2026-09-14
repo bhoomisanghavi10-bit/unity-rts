@@ -5,6 +5,105 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-15 — Wave 6 item 39 (Cheat codes) closed, no live UnityMCP verification this session
+
+**Scope**: Wave 6 item 39, "Cheat codes - genuinely useful for testing your own
+scenarios." Picked per the user's "take wave 6 next item" request; confirmed against
+`docs/KingdomsOfBharat_Master_Reference.xlsx`'s "Implementation Waves 0-6" and "Dev
+Status Overview" sheets that items 35/37/38 all need a design decision first (Relics,
+Wonder/KotH victory conditions, game modes), leaving 36 (Score system)/39/40 as the only
+decision-free Wave 6 items. Asked the user which one via AskUserQuestion, flagging that
+both `unity`/`UnityMCP` MCP servers were unreachable this session (confirmed via `ps
+aux` that a real Unity Editor + its MCP bridge process were actually running against
+this exact project, and `curl localhost:8080` got a 404 - i.e. the bridge itself was
+alive - but this session's own MCP client still couldn't connect; likely a
+this-session-only registration issue, not something fixable from inside the
+conversation). User picked Cheat codes anyway.
+
+**Design**: no existing console/command-parsing precedent anywhere in the project
+(confirmed via an Explore-agent survey first). Built a small Quake-style typed-command
+console rather than a hotkey-per-cheat scheme, split cleanly into a pure parser and a
+side-effecting executor:
+
+- New `Core/CheatCommandParser.cs`: a pure `string -> CheatCommand` parser (`CheatCommand`
+  is a readonly struct with an `IsValid`/`Error` pair, never throws) - fully
+  EditMode-testable with zero scene dependency, same "pure/testable seam" convention as
+  `MatchManager.EvaluateSkirmishOutcome`/`CommandBus.EnqueueAt`. Commands: `resources
+  <n>` (grants all 4 types), `wood|food|gold|stone <n>` (single type), `age
+  <ancient|classical|durg|imperial>`, `reveal` (toggle), `spawn <unitType> [count]`
+  (reuses `EntitySpawner.UnitTypes`' existing restricted roster, count clamped 1-20),
+  `win`/`lose`, `help`.
+- New `Core/CheatCodes.cs`: executes a parsed `CheatCommand` against real state, always
+  targeting `FactionId.Player` (a single-player testing tool, not something a network
+  peer could issue) - `ResourceStockpile.For(Player).Add(...)`, `AgeProgress.Advance`,
+  a new `FogOfWarManager.ToggleRevealAll()`, `EntitySpawner.SpawnUnit` near the Player's
+  TownCenter (or world origin if none exists yet), and a new `MatchManager.ForceOutcome`.
+- **Two small additive public hooks needed adding, since neither existed before**:
+  `FogOfWarManager` had no reveal-all/per-faction toggle at all - added a static
+  `_revealAll` flag (off by default) that `Recompute()` checks before its normal
+  vision-source-driven cell logic; once every cell is forced `Visible`, the existing
+  `UpdateEnemyVisibility()`/`SetVisibilityByCell`/scout-memory-ghost code paths all
+  correctly show everything with no further changes needed (confirmed by tracing the
+  logic, not assumed - `IsCellVisible` reads the now-all-`Visible` cell array). Also
+  `MatchManager.Outcome` had a `private set` with no way to force it externally - added
+  a one-line public `ForceOutcome(MatchOutcome)` wrapping the existing private
+  `Declare(...)`, reusing its `Time.timeScale = 0f` freeze rather than duplicating it.
+  Both changes are purely additive; every existing call site is untouched.
+- New `UI/CheatConsole.cs`: same self-bootstrapping runtime-built-Canvas +
+  `GameSettings`-driven-hotkey pattern as `SettingsMenu`/`HotkeyOverlay`, toggled by a
+  new `BackQuote` (`` ` ``) hotkey (the traditional dev-console key in this genre,
+  confirmed unused anywhere in the project via grep) registered as
+  `"ToggleCheatConsole"` in both `SettingsMenu.Actions` (rebinding) and
+  `HotkeyOverlay.GlobalGroup` (the F1 reference panel), plus Escape to close. Reuses
+  `ScenarioEditorMenu.CreateInputField`'s exact shape (the project's only other
+  `TMP_InputField`, inlined rather than shared since both are private per-file UI
+  helpers) for the `TMP_InputField`, wired to its real `onSubmit` event (confirmed to
+  exist in this project's TMPro package version by reading
+  `Library/PackageCache/.../TMP_InputField.cs` directly rather than assumed).
+  **Deliberately refuses to execute anything while `NetworkMatch.IsActive`** (checked
+  both when opening the panel and again on submit) - every cheat mutates state outside
+  `CommandBus`, which would desync a real 2-human LAN match instantly if only one peer's
+  console fired.
+
+**Tests**: 17 new EditMode tests - `CheatCommandParserTests.cs` (16 cases, pure parser
+logic, zero scene dependency) and `CheatCodesTests.cs` (9 cases covering
+resources/age/reveal/win-lose execution against a real `ResourceStockpile`/
+`AgeProgress`/`FogOfWarManager`/`MatchManager`, mirroring `KarmashalaTests.cs`'s own
+`CreateStockpile` convention). **Spawn execution is deliberately NOT exercised in
+EditMode** - this project's own prior sessions already documented that
+`EntitySpawner.SpawnUnit`/building factories hard-error outside Play mode (no baked
+NavMesh); Spawn's parsing is covered by `CheatCommandParserTests.cs` instead, and its
+actual execution needs the same live Play-mode verification every other
+`EntitySpawner`/factory caller in this codebase relies on.
+
+**Not verified this session, disclosed rather than glossed over**: no EditMode test run
+was executed (both MCP servers unreachable, and a second `-batchmode` Unity instance
+against the same already-open project risked a lock conflict, so this wasn't attempted
+either) and nothing was verified live via UnityMCP through a real running match - this
+breaks the pattern every closed Wave 6/prior-wave item in this log otherwise followed.
+The code was read back carefully end-to-end for compile-correctness (namespaces,
+existing API signatures for `ResourceStockpile`/`AgeProgress`/`EntitySpawner`/
+`NetworkMatch`/`GameSettings`/`UIStyleTheme`/`TMP_InputField` all confirmed by reading
+the real source files first, not guessed), but **the next session (or the user,
+directly) should run the EditMode suite and live-verify the console once
+Unity/UnityMCP is reachable** before treating this as fully closed the way every other
+Wave 6 item was.
+
+One scoped commit: `CheatCommandParser.cs`/`CheatCodes.cs` (new, `Core/`),
+`CheatConsole.cs` (new, `UI/`), `FogOfWarManager.cs`, `MatchManager.cs`,
+`HotkeyOverlay.cs`, `SettingsMenu.cs`, and the 2 new test files - deliberately excludes
+the unrelated concurrent-session work already sitting in the tree
+(`MarathaMavlaRaiderFactory.cs`, `CivilizationSetup.cs`, `TeamColorUnitTint.cs`,
+`corner_ornament.png`, `docs/PROJECT_TRACKER.html`, `.mcp.json`,
+`ProjectSettings/ProjectSettings.asset`), left untouched via targeted `git add`.
+
+Next: run the EditMode suite and live-verify the cheat console once Unity/UnityMCP is
+reachable; otherwise Wave 6 item 40 (Tutorial content) or item 36 (Score system), the
+Relics/Wonder/game-modes design decision, or unit-side team colour once Blender masks
+are sourced.
+
+---
+
 ## 2026-09-14 — Vaidya rigged model wired, plus a real HumanoidGltfRigImporter scale bug found and fixed (affects Purohita too)
 
 **Scope**: ad hoc, user-supplied asset delivery, not a numbered roadmap item. User said

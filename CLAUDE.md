@@ -8,6 +8,57 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Wave 6 item 39 (Cheat codes) closed (2026-09-15) — not live-verified,
+  see below.** Picked per the user's "take wave 6 next item" request;
+  confirmed against the Master Reference workbook that items 35/37/38 all
+  need a design decision first (Relics, Wonder/KotH, game modes), leaving
+  36 (Score)/39/40 as the only decision-free Wave 6 items — user picked
+  Cheat codes via AskUserQuestion. New `Core/CheatCommandParser.cs` (pure
+  string→command parser, zero scene dependency) + `Core/CheatCodes.cs`
+  (executes against real state, always targeting `FactionId.Player`):
+  `resources <n>`, `wood/food/gold/stone <n>`, `age <name>`, `reveal`,
+  `spawn <unitType> [count]`, `win`/`lose`, `help`. Two small additive
+  public hooks added since neither existed: `FogOfWarManager.
+  ToggleRevealAll()` (a static flag `Recompute()` checks before its normal
+  vision-source logic — once all cells are forced Visible, the existing
+  enemy-visibility code already shows everything correctly with no further
+  change) and `MatchManager.ForceOutcome(MatchOutcome)` (wraps the
+  existing private `Declare`). New `UI/CheatConsole.cs`: same
+  self-bootstrapping runtime-Canvas + `GameSettings`-hotkey pattern as
+  `SettingsMenu`/`HotkeyOverlay`, toggled by a new BackQuote hotkey
+  (confirmed unused via grep), reuses `ScenarioEditorMenu.CreateInputField`'s
+  shape for the `TMP_InputField`. Refuses to execute anything while
+  `NetworkMatch.IsActive` — every cheat bypasses `CommandBus`, which would
+  desync a real LAN match. 17 new EditMode tests
+  (`CheatCommandParserTests.cs`/`CheatCodesTests.cs`) — Spawn execution
+  deliberately not exercised in EditMode (this project's own documented
+  `EntitySpawner`/factory hard-error-outside-Play-mode limitation), covered
+  by parser tests only. **Not verified this session, flagged directly, not
+  glossed over**: both `unity`/`UnityMCP` MCP servers were unreachable
+  (confirmed via `ps aux` that a real Editor + its MCP bridge process were
+  actually running against this exact project, and the bridge's HTTP port
+  answered — the failure was this session's own MCP client, not a dead
+  server) — so no EditMode test run and no live Play-mode verification
+  happened, breaking the pattern every other closed Wave 6 item followed.
+  Code was read back carefully for compile-correctness against the real
+  source of every API it touches (`ResourceStockpile`/`AgeProgress`/
+  `EntitySpawner`/`NetworkMatch`/`GameSettings`/`UIStyleTheme`/
+  `TMP_InputField.onSubmit`, each confirmed by reading the actual file, not
+  guessed) but this is not a substitute for running the suite. One scoped
+  commit (`CheatCommandParser.cs`/`CheatCodes.cs`/`CheatConsole.cs` new,
+  `FogOfWarManager.cs`/`MatchManager.cs`/`HotkeyOverlay.cs`/
+  `SettingsMenu.cs`, 2 new test files) — deliberately excludes the
+  unrelated concurrent-session work already sitting in the tree
+  (`MarathaMavlaRaiderFactory.cs`, `CivilizationSetup.cs`,
+  `TeamColorUnitTint.cs`, `corner_ornament.png`,
+  `docs/PROJECT_TRACKER.html`, `.mcp.json`,
+  `ProjectSettings/ProjectSettings.asset`), left untouched via targeted
+  `git add`. Next: **run the EditMode suite and live-verify the cheat
+  console once Unity/UnityMCP is reachable** before treating this as fully
+  closed the way every other Wave 6 item was; otherwise Wave 6 item 40
+  (Tutorial content) or item 36 (Score system), the Relics/Wonder/
+  game-modes design decision, or unit-side team colour once Blender masks
+  are sourced.
 - **Wave 6 item 34 (idle-worker indicator) closed (2026-09-14)** — picked
   up per the user's "idle-worker indicator" request, right after the
   README refresh. Decision-free per the roadmap's own note ("a small UI
