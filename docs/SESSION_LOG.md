@@ -11045,3 +11045,94 @@ attempted together in one session.
 Next: user's call among Relics+Monastery (35), Deathmatch (38), or King of
 the Hill (37/38), plus unit-side team colour once Blender masks are
 sourced, or UI/art/balance polish.
+
+---
+
+## 2026-09-16: Age-tiered building mesh decimation closed
+
+Follow-up to the 2026-09-15 critical building-visual-regression fix's own
+flagged remaining gap: the 2026-09-02 mesh-decimation pass ("Building mesh
+decimation pass closed") only ever covered the 45 Imperial-tier civ-specific
+building prefabs. TownCenter/Tower/Wall's age-tiered variants
+(Ancient/Classical/Durg -- a wholly separate system resolved via
+AgeTieredBuildingVisual/BuildingModelFactory's age-suffixed Resources paths)
+were never in that decimator's scope and shipped un-decimated (~1.9-3.0M
+tris each) both before and after the Imperial-tier pass, including when the
+2026-09-15 session restored the deleted _Source folders.
+
+Session opened per protocol (read Dev Status Overview + Implementation
+Waves sheets). Disk space, the blocker flagged by the 2026-09-15 session, was
+healthy this session (7.6Gi free vs. the ~150-220MB crisis during that one).
+But the working tree already had substantial uncommitted work matching this
+exact gap -- BuildingMeshDecimator.cs extended with a DecimateAllAgeTiered
+path, and decimated assets already generated for 5 of 13 age-tiered targets
+(the 5 civs' TownCenter_Durg). Flagged to the user via AskUserQuestion rather
+than guessed at or silently continued/discarded; user confirmed finishing
+it.
+
+### What was already done (found in the tree)
+- `BuildingMeshDecimator.cs`: existing per-civ `DecimateBuilding` refactored
+  into a shared, path-agnostic `DecimateBuildingAt(fbxFolder, prefabPath,
+  decimatedFolder, assetBaseName, targetTriangleCount)`, used by both the
+  original Imperial-tier call sites and a new `AgeTieredTargets` table (13
+  entries: TownCenter/Tower/Wall x Ancient/Classical, TownCenter_Durg per
+  civ x 5, one shared Tower_Durg/Wall_Durg).
+- Source-folder scanning generalized (scans the folder for any *.fbx rather
+  than assuming an exact filename) to handle the `_v2`-suffixed source files
+  the 2026-09-15 session's cache-corruption workaround left behind.
+- A real corrupted-source case caught explicitly: Wall_Durg's shared FBX
+  reports 0 vertices/bounds while `triangles.Length` still claims ~3.08M
+  stale indices -- reproduced identically on a fresh-GUID copy and under
+  forced `isReadable=true`/`indexFormat=UInt32`, ruling out cache/import-
+  setting causes. `DecimateBuildingAt` now detects `vertexCount == 0` with
+  nonzero stale triangles and skips gracefully (logs an error, leaves that
+  one building un-decimated) instead of crashing the whole batch loop --
+  which is exactly what happened the first time this was hit, silently
+  aborting every target after it.
+- `BuildingPolycountTests.cs` extended with
+  `AgeTieredBuildingModels_StayUnderTriangleCeiling_ForEveryCivAndAge`,
+  spawning every civ x TownCenter/Tower/Wall x Ancient/Classical/Durg
+  combination through the real `BuildingModelFactory.Spawn` path and
+  asserting under the same 500,000-tri ceiling the Imperial-tier test
+  already uses -- Wall/Durg deliberately excluded, with the corrupted-source
+  reason documented inline.
+
+### What this session did
+1. Forced a Unity recompile (`refresh_unity(mode=force, compile=request)`)
+   and confirmed zero compile errors via `read_console`.
+2. Ran the full EditMode suite: **581/581 pass** -- notably, the 2
+   previously-standing `BuildingModelFactoryTests` failures (the stable
+   baseline through every recent session, per CLAUDE.md) are gone too,
+   apparently resolved as a side effect of the concurrent session's own
+   restore-and-repair work on Chola's TownCenter, not by anything in this
+   session's own diff.
+3. Live-verified via UnityMCP through the real `BuildingModelFactory.Spawn`
+   production path (not just the test suite) -- spawned every civ x
+   TownCenter/Tower/Wall x age combination and summed real `MeshFilter`
+   triangle counts:
+
+   - All 12 reachable age-tiered targets (every civ, every building, every
+     age except Wall/Durg): ~499,999-500,000 tris each, down from their
+     original ~1.9-3.0M.
+   - Wall_Durg (all 5 civs, shared model): ~3,080,834 tris, unchanged --
+     confirmed it still spawns cleanly via the existing fallback chain with
+     no exception, exactly as designed.
+
+### Commit
+One scoped commit: `BuildingMeshDecimator.cs`, `BuildingPolycountTests.cs`,
+the 12 modified age-tiered prefabs (TownCenter_Ancient/Classical, 5x
+TownCenter_Durg, Tower_Ancient/Classical/Durg, Wall_Ancient/Classical) plus
+their newly-generated `_Decimated/*.asset` meshes, and 3 incidentally-touched
+`.mat` LFS pointer files (Chola/Maurya/Vijayanagara's TownCenter_Durg
+materials, touched by the same prefab reimport). Deliberately excludes
+unrelated concurrent-session work already sitting in the tree
+(`MarathaMavlaRaiderFactory.cs`, `TeamColorUnitTint.cs`,
+`corner_ornament.png`, `docs/PROJECT_TRACKER.html`, `.mcp.json`, and
+`ProjectSettings/ProjectSettings.asset`'s unrelated Unity Cloud project-ID
+change), left untouched via targeted `git add`.
+
+This closes the last flagged follow-up from the 2026-09-15 critical
+building-visual-regression fix. Next: Wave 6's 3 remaining design-decided-
+but-unbuilt items (Relics + Monastery collection, Deathmatch, King of the
+Hill), unit-side team colour once Blender masks are sourced, or UI/art/
+balance polish -- user's call.

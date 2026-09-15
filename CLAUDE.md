@@ -8,6 +8,62 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Age-tiered building mesh decimation closed (2026-09-16)** — follow-up to
+  the 2026-09-15 critical-regression fix's own flagged gap: the original
+  2026-09-02 mesh-decimation pass only ever covered the 45 Imperial-tier
+  civ-specific building prefabs, never the age-tiered TownCenter/Tower/Wall
+  variants (Ancient/Classical/Durg — a wholly separate system, resolved via
+  `AgeTieredBuildingVisual`/`BuildingModelFactory`'s age-suffixed Resources
+  paths) — those shipped at their original ~1.9-3.0M un-decimated triangles
+  even after the Imperial-tier pass landed, and got restored at that same
+  raw triangle count again during the 2026-09-15 regression fix. Picked up
+  mid-flight: this session found substantial uncommitted work already in
+  the tree from a concurrent session (`BuildingMeshDecimator.cs` extended
+  with a new `DecimateAllAgeTiered`/`DecimateBuildingAt` path, decimated
+  assets already generated for 5 of 13 age-tiered targets) — flagged to the
+  user via AskUserQuestion rather than guessed at; user confirmed finishing
+  it. Extended `BuildingMeshDecimator`'s existing per-building decimation
+  method into a shared `DecimateBuildingAt` used by both the original
+  civ-rooted Imperial-tier call sites and a new `AgeTieredTargets` table (13
+  entries: TownCenter/Tower/Wall × Ancient/Classical, plus TownCenter Durg
+  per civ and one shared Tower/Wall Durg) — same 500,000-tri target the
+  original pass already established as the real, screenshot-verified-clean
+  ceiling. Source-folder scanning generalized to handle the `_v2`-suffixed
+  filenames the September regression fix's cache-corruption workaround left
+  behind, and a real corrupted-source case (Wall_Durg's shared FBX reports
+  0 vertices/bounds while `triangles.Length` still claims ~3.08M stale
+  indices — reproduced identically on a fresh-GUID copy and under forced
+  `isReadable=true`/`indexFormat=UInt32`, ruling out every cache/import-
+  setting explanation) is caught explicitly and skipped rather than crashing
+  the whole batch — that one building correctly still spawns un-decimated
+  via `BuildingModelFactory`'s existing fallback chain, flagged as a real
+  asset-sourcing gap, not silently patched over. Extended
+  `BuildingPolycountTests.cs` with a matching
+  `AgeTieredBuildingModels_StayUnderTriangleCeiling_ForEveryCivAndAge` test
+  (deliberately excluding Wall/Durg, with the reason documented inline) so a
+  future regression back to multi-million-triangle age-tiered models fails
+  loudly the same way the Imperial-tier one already does. 581/581 EditMode
+  tests pass (the 2 previously-standing `BuildingModelFactoryTests`
+  failures are gone too — apparently fixed by the concurrent session's own
+  restore-and-repair work, not by anything touched here). Live-verified via
+  UnityMCP through the real `BuildingModelFactory.Spawn` production path
+  (not just the test suite): all 12 reachable age-tiered targets across all
+  5 civs now measure ~500,000 tris (was ~1.9-3.0M), and Wall_Durg correctly
+  still spawns at its original ~3.08M tris with no exception thrown — exact
+  numbers logged in `docs/SESSION_LOG.md`. One scoped commit
+  (`BuildingMeshDecimator.cs`, `BuildingPolycountTests.cs`, the 12 modified
+  age-tiered prefabs + their now-decimated meshes, 3 incidentally-touched
+  `.mat` LFS pointers on Chola/Maurya/Vijayanagara's `TownCenter_Durg`
+  materials from the same reimport) — deliberately excludes unrelated
+  concurrent-session work already sitting in the tree
+  (`MarathaMavlaRaiderFactory.cs`, `TeamColorUnitTint.cs`,
+  `corner_ornament.png`, `docs/PROJECT_TRACKER.html`, `.mcp.json`,
+  `ProjectSettings/ProjectSettings.asset`'s unrelated Cloud-project-ID
+  change), left untouched via targeted `git add`. This closes the
+  building-visual-regression saga's last flagged follow-up item. Next:
+  Wave 6's 3 remaining design-decided-but-unbuilt items (Relics + Monastery
+  collection, Deathmatch, King of the Hill), unit-side team colour once
+  Blender masks are sourced, or UI/art/balance polish — user's call.
 - **Worker (villager) Idle/Walk/Gather/Farm/Attack clips swapped to a new
   shared UAL clip pack (2026-09-16)** — ad hoc, not a numbered roadmap item.
   Imported `UAL1_Standard.fbx` (Idle_Loop, Walk_Loop) and `UAL2_Standard.fbx`
