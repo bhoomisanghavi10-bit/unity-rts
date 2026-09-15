@@ -217,6 +217,38 @@ namespace KingdomsOfBharat.Editor
                     Mesh decimated = simplifier.ToMesh();
                     decimated.name = sourceFilters.Length == 1 ? $"{buildingName}_decimated" : $"{buildingName}_decimated_{i}";
 
+                    // Real, observed failure mode (Wall_Ancient/Wall_Classical, 2026-09):
+                    // MeshSimplifier.ToMesh() can silently return a mesh with a
+                    // populated triangle index buffer but a 0 (or near-0, collapsed-
+                    // to-a-point) vertex buffer, with no exception thrown - the pre-
+                    // decimation source-corruption check above can't catch this since
+                    // the SOURCE mesh was fine; only the simplifier's OUTPUT was bad.
+                    // A re-run of the identical input reliably produced a correct
+                    // mesh, suggesting a one-off write/asset-corruption rather than a
+                    // deterministic algorithm bug - but ship no silent bad output
+                    // either way. Recalculate bounds first since a fresh ToMesh()
+                    // result doesn't always carry a bounds already reflecting its
+                    // real vertex extents.
+                    decimated.RecalculateBounds();
+                    if (decimated.vertexCount == 0 || decimated.bounds.size.sqrMagnitude < 1e-6f)
+                    {
+                        Debug.LogError($"BuildingMeshDecimator: {prefabPath} simplification produced a degenerate " +
+                            $"mesh (vertexCount={decimated.vertexCount}, bounds={decimated.bounds}) - retrying once");
+                        var retrySimplifier = new MeshSimplifier();
+                        retrySimplifier.Initialize(sourceMesh);
+                        retrySimplifier.SimplifyMesh(quality);
+                        Mesh retryMesh = retrySimplifier.ToMesh();
+                        retryMesh.RecalculateBounds();
+                        if (retryMesh.vertexCount == 0 || retryMesh.bounds.size.sqrMagnitude < 1e-6f)
+                        {
+                            Debug.LogError($"BuildingMeshDecimator: {prefabPath} retry also produced a degenerate " +
+                                "mesh - skipping this building, keeping its current mesh untouched");
+                            continue;
+                        }
+                        retryMesh.name = decimated.name;
+                        decimated = retryMesh;
+                    }
+
                     string meshAssetPath = $"{decimatedFolder}/{decimated.name}.asset";
                     if (AssetDatabase.LoadAssetAtPath<Mesh>(meshAssetPath) != null)
                     {

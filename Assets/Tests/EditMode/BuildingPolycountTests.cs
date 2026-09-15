@@ -91,17 +91,31 @@ namespace KingdomsOfBharat.Tests
         // future regression back to multi-million-triangle age-tiered models
         // fails loudly the same way the Imperial-tier one already does.
         //
-        // Wall/Durg (shared across all 5 civs) is deliberately excluded:
-        // its source FBX (Buildings/_Source/Wall_Durg/Wall_Durg_model.fbx)
-        // has a genuinely corrupted mesh - vertexCount/bounds both read 0
-        // while triangles.Length still reports ~3.08M stale indices,
-        // reproduced identically on a byte-identical fresh-GUID copy and
-        // under forced isReadable=true/indexFormat=UInt32, ruling out
-        // every import-setting/cache explanation. Not fixable without a
-        // re-exported source file - flagged as a real asset-sourcing gap,
-        // not silently asserted against here. Wall/Durg still spawns (via
-        // BuildingModelFactory's existing fallback chain) at its original
-        // ~3.06M triangles, unchanged by this session.
+        // Wall/Durg was previously excluded here: its old source FBX
+        // (Buildings/_Source/Wall_Durg/Wall_Durg_model.fbx) appeared to have
+        // a corrupted mesh - vertexCount/bounds both read 0 while
+        // triangles.Length still reported ~3.08M stale indices. Re-diagnosed
+        // 2026-09-16 after the user supplied a fresh source delivery that
+        // showed the exact same symptom: manually parsing the raw FBX binary
+        // (walking the node tree, zlib-inflating every Geometry data block -
+        // Vertices/PolygonVertexIndex/Normals/UV) proved the file itself was
+        // never corrupted - every block decompresses cleanly to its declared
+        // size with sane, finite vertex data. The real cause was Unity's own
+        // FBX importer: with the default isReadable=false/indexFormat=Auto/
+        // weldVertices=true/optimizeMesh*=true settings, this particular
+        // ~1.5M-vertex mesh imported with a populated triangle index buffer
+        // but a 0-length vertex buffer. Forcing isReadable=true,
+        // indexFormat=UInt32, and disabling weldVertices/optimizeMeshPolygons/
+        // optimizeMeshVertices on the ModelImporter fixed it completely (real
+        // geometry, correct world-space bounds, confirmed live). The prior
+        // session's "confirmed via a fresh-GUID copy" conclusion only ever
+        // re-tested the corrupted import result, not this importer-setting
+        // combination together. BuildingMeshDecimator.cs itself was also
+        // hardened (see its own comment) since MeshSimplifier.ToMesh() can
+        // separately produce degenerate output with no thrown exception -
+        // a second, independent failure mode hit on the very first re-run of
+        // Wall_Ancient/Wall_Classical this same session, before Wall_Durg's
+        // source was ever touched.
         [Test]
         public void AgeTieredBuildingModels_StayUnderTriangleCeiling_ForEveryCivAndAge()
         {
@@ -118,7 +132,7 @@ namespace KingdomsOfBharat.Tests
                     AssertAgeTieredUnderCeiling(civ, "Tower", AgeId.Durg);
                     AssertAgeTieredUnderCeiling(civ, "Wall", AgeId.Ancient);
                     AssertAgeTieredUnderCeiling(civ, "Wall", AgeId.Classical);
-                    // Wall/Durg intentionally omitted - see comment above.
+                    AssertAgeTieredUnderCeiling(civ, "Wall", AgeId.Durg);
                 }
             }
             finally
