@@ -5,6 +5,72 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-16 — Worker Idle/Walk/Gather/Farm/Attack clips swapped to new UAL clip pack
+
+**Scope**: Ad hoc, user-directed, not a numbered roadmap item. Import `UAL1_Standard.fbx`
+(Idle_Loop, Walk_Loop) and `UAL2_Standard.fbx` (TreeChopping_Loop → Gather, Farm_Harvest → Farm,
+a Sword_Regular clip → Attack) as Humanoid, non-root-motion, into
+`Assets/Resources/human/Human Animations/`, alongside the existing Kevin Iglesias clips. Update
+`HumanAnimationSet.cs` to point Idle/Walk/Gather/Farm/Attack at the new clips, leaving Mine and
+Build on the current clips per the user's own instruction.
+
+Both source FBX files were found already staged in a prior session's scratchpad directory (a
+different session ID under the same `/private/tmp/claude-501/...unity-rts/` prefix) and copied
+into this session's own scratchpad before use, to avoid depending on another session's temp
+storage surviving.
+
+Inspected both FBX files' real clip inventory before touching anything (43 takes each, not the
+literal names named in the task - confirmed `Armature|Idle_Loop`/`Armature|Walk_Loop` in
+UAL1_Standard, and `Armature|TreeChopping_Loop`/`Armature|Farm_Harvest`/4 separate
+`Sword_Regular_*` variants in UAL2_Standard - no single clip literally named `Sword_Regular`).
+Picked `Armature|Sword_Regular_A` (a single 0.43s swing, not the multi-hit `_Combo` variant) as
+the closest match to the existing single-swing Attack clip's own shape. Set both FBX imports to
+`ModelImporterAnimationType.Human` with `avatarSetup = CreateFromThisModel`, and every clip's
+`lockRootRotation`/`lockRootHeightY`/`lockRootPositionXZ` true (non-root-motion) plus
+`keepOriginal*` true - both produced a valid `isHuman=true` Avatar, confirmed live via
+`AssetDatabase.LoadAllAssetsAtPath`, not assumed.
+
+**A real wiring gotcha, not present in the existing pack**: every clip in the project's existing
+Kevin Iglesias pack ships as its own single-clip FBX, so `Resources.Load<AnimationClip>(path)`
+"just works" (the FBX's one meaningful sub-asset is the clip itself). UAL1/UAL2 each bundle 43
+takes into ONE multi-clip FBX with an embedded mesh - `Resources.Load<AnimationClip>` on that
+path resolves ambiguously (returns whichever clip happens to load first, confirmed live: it
+returned `Armature|A_TPose`, not the intended clip). Fixed with a new `HumanAnimationSet.LoadNamed`
+helper (`Resources.LoadAll<AnimationClip>(path)` + exact-name filter, skipping the `__preview__`-
+prefixed duplicates every multi-clip FBX also carries) instead of the existing single-clip `Load`
+helper for these 5.
+
+581/581 EditMode tests pass (0 failures this run, no test changes needed - pure asset + a small
+loader-method change, no new branching logic to cover). Live-verified via UnityMCP: entered Play
+mode, spawned a real Worker via `WorkerFactory.Spawn`, confirmed its `AnimationDriver`'s `_clips`
+field resolved all 5 new clips correctly (non-null, `isHumanMotion=true`, matching names/lengths).
+
+**Hit and worked through a real verification trap while forcing individual clips for screenshots**:
+forcing a clip + a specific playback time via reflection appeared to silently do nothing - every
+screenshot kept showing an Idle-looking pose regardless of which clip or time was forced, even
+after disabling the `AnimationDriver` component (to stop its own `Update()`/`ResolveClip()` from
+re-overriding the forced clip every frame). Root cause: `PlayableGraph`'s default
+`DirectorUpdateMode` (GameTime) keeps auto-advancing the graph's internal clock every real Editor
+frame independent of the driving MonoBehaviour's `enabled` state or `Update()` - disabling the
+script only stops the C# override, not the underlying Playables graph's own per-frame advance, so
+any forced time got overwritten by normal playback within the same or next frame, before the
+screenshot rendered (confirmed live: the clip's own tracked time had already reached ~50s of
+real-time accumulation despite forcing `SetTime(0.3)` moments before). Fixed by calling
+`graph.SetTimeUpdateMode(DirectorUpdateMode.Manual)` before forcing a time - only then did
+`SetTime`+`Evaluate(0)` actually hold. Once fixed, all 5 clips were confirmed via screenshot to
+genuinely pose (not T-pose): Idle (relaxed weight-shifted stance), Walk (mid-stride leg crossing,
+arm swing), Gather (chopping-swing lunge, wide braced stance), Farm (bent-forward harvest reach),
+Attack (dynamic sword-swing lunge with a lifted leg). Cleaned up the test GameObject and exited
+Play mode afterward.
+
+One scoped commit (`HumanAnimationSet.cs`, `UAL1_Standard.fbx`/`.meta`, `UAL2_Standard.fbx`/`.meta`)
+- deliberately excludes substantial unrelated uncommitted work already sitting in the working tree
+from other sessions (`Assets/Editor/BuildingMeshDecimator.cs`, 6 `TownCenter_Durg` prefab/material
+files across 4 civs, `MarathaMavlaRaiderFactory.cs`, new `_Decimated/` mesh assets,
+`corner_ornament.png`, `.mcp.json`), left untouched via targeted `git add`.
+
+---
+
 ## 2026-09-15 — Wave 6 item 40 (Tutorial content) closed - every decision-free Wave 6 item is done
 
 **Scope**: Picked up right after item 36 (Score system) closed in the same session, per the user's

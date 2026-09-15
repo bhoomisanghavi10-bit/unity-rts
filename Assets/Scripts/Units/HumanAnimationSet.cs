@@ -2,15 +2,17 @@ using UnityEngine;
 
 namespace KingdomsOfBharat.Units
 {
-    // Loads the specific Kevin Iglesias animation clips (Assets/Resources/human/)
-    // this project
-    // actually uses (Idle, Walk, Gather, Mine, Farm, Build, Attack), for
-    // whichever gender's dummy body a unit was spawned with. Deliberately
-    // narrow - seven clips, not the whole pack - can extend later as more
-    // unit roles/actions need their own animation. "Build" reuses a
-    // Hammering clip (the pack ships no dedicated construction
-    // animation); "Milking" (Livestock) has no dedicated clip either and
-    // falls back to Farm in AnimationDriver.
+    // Loads the animation clips this project actually uses (Idle, Walk,
+    // Gather, Mine, Farm, Build, Attack). Idle/Walk/Gather/Farm/Attack come
+    // from a shared, gender-agnostic UAL clip pack (UAL1_Standard.fbx /
+    // UAL2_Standard.fbx, both under Assets/Resources/human/Human
+    // Animations/) retargeted via each clip's own Humanoid Avatar - this
+    // project's retargeting is Avatar-based, not skeleton-name-based, so
+    // the same clip plays correctly on both the Male and Female dummy
+    // bodies. Mine and Build stay on the original per-gender Kevin
+    // Iglesias clips (no equivalent exists in the UAL pack). "Milking"
+    // (Livestock) has no dedicated clip either and falls back to Farm in
+    // AnimationDriver.
     public static class HumanAnimationSet
     {
         public readonly struct Clips
@@ -35,19 +37,22 @@ namespace KingdomsOfBharat.Units
             }
         }
 
+        private const string Ual1Path = "human/Human Animations/UAL1_Standard";
+        private const string Ual2Path = "human/Human Animations/UAL2_Standard";
+
         public static Clips LoadFor(HumanModelFactory.Gender gender)
         {
             string genderFolder = gender == HumanModelFactory.Gender.Male ? "Male" : "Female";
             string tag = gender == HumanModelFactory.Gender.Male ? "HumanM" : "HumanF";
             string basePath = $"human/Human Animations/Animations/{genderFolder}";
 
-            AnimationClip idle = Load($"{basePath}/Idles/{tag}@Idle01");
-            AnimationClip walk = Load($"{basePath}/Movement/Walk/{tag}@Walk01_Forward");
-            AnimationClip gather = Load($"{basePath}/Work/Gathering/{tag}@Gathering01");
+            AnimationClip idle = LoadNamed(Ual1Path, "Armature|Idle_Loop");
+            AnimationClip walk = LoadNamed(Ual1Path, "Armature|Walk_Loop");
+            AnimationClip gather = LoadNamed(Ual2Path, "Armature|TreeChopping_Loop");
             AnimationClip mine = Load($"{basePath}/Work/Mining/{tag}@MiningOneHand01_R - Ground");
-            AnimationClip farm = Load($"{basePath}/Work/Farming/{tag}@FarmingWithPlow01_R - Loop");
+            AnimationClip farm = LoadNamed(Ual2Path, "Armature|Farm_Harvest");
             AnimationClip build = Load($"{basePath}/Work/Hammering/{tag}@HammeringGround01_R - Loop");
-            AnimationClip attack = Load($"{basePath}/Combat/1H/{tag}@Attack1H01_R");
+            AnimationClip attack = LoadNamed(Ual2Path, "Armature|Sword_Regular_A");
 
             return new Clips(idle, walk, gather, mine, farm, build, attack);
         }
@@ -67,6 +72,27 @@ namespace KingdomsOfBharat.Units
 
             clip.wrapMode = WrapMode.Loop;
             return clip;
+        }
+
+        // UAL1_Standard.fbx / UAL2_Standard.fbx each bundle dozens of takes
+        // into one multi-clip FBX, so a plain Resources.Load<AnimationClip>
+        // on the FBX path resolves ambiguously (it picks whichever clip
+        // happens to load first, not the one we want) - this loads every
+        // clip at that path and picks the exact-named one instead.
+        private static AnimationClip LoadNamed(string path, string clipName)
+        {
+            AnimationClip[] clips = Resources.LoadAll<AnimationClip>(path);
+            foreach (AnimationClip clip in clips)
+            {
+                if (clip.name == clipName)
+                {
+                    clip.wrapMode = WrapMode.Loop;
+                    return clip;
+                }
+            }
+
+            Debug.LogWarning($"HumanAnimationSet: failed to find clip '{clipName}' at Resources path '{path}'");
+            return null;
         }
     }
 }

@@ -8,6 +8,48 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Worker (villager) Idle/Walk/Gather/Farm/Attack clips swapped to a new
+  shared UAL clip pack (2026-09-16)** — ad hoc, not a numbered roadmap item.
+  Imported `UAL1_Standard.fbx` (Idle_Loop, Walk_Loop) and `UAL2_Standard.fbx`
+  (TreeChopping_Loop → Gather, Farm_Harvest → Farm, Sword_Regular_A → Attack)
+  into `Assets/Resources/human/Human Animations/`, both set to Humanoid/
+  non-root-motion (`lockRoot*`/`keepOriginal*` all true) — both produced a
+  valid `isHuman=true` Avatar on import, confirmed live, not assumed. Unlike
+  every existing clip in that folder (each shipped as its own single-clip
+  FBX, so a plain `Resources.Load<AnimationClip>(path)` just works), these
+  two source files each bundle 43 takes into one FBX — `Resources.Load`
+  on the FBX path resolves ambiguously (picks whichever clip happens to load
+  first, not the one wanted), so `HumanAnimationSet.cs` gained a new
+  `LoadNamed(path, clipName)` helper (`Resources.LoadAll<AnimationClip>` +
+  exact-name filter) instead. Mine and Build stay on the original per-gender
+  Kevin Iglesias clips (no equivalent in the UAL pack) — genuinely shared
+  across both Male/Female dummy bodies now for the other 5, since this
+  project's retargeting is Avatar-based, not skeleton-name-based, confirmed
+  by live-forcing each clip onto a real spawned Worker. 581/581 EditMode
+  tests pass (0 pre-existing failures this run — an improvement on the prior
+  session's own 2-failure `BuildingModelFactoryTests` baseline, unrelated to
+  this change either way). Live-verified via UnityMCP: spawned a real Worker
+  via `WorkerFactory.Spawn`, force-set each of the 5 new clips directly on
+  its `AnimationDriver`'s `PlayableGraph` and screenshotted. **Found and
+  worked around a real verification trap along the way**: forcing a clip via
+  reflection while the graph's default `DirectorUpdateMode` (GameTime) was
+  still active looked like it silently failed — the pose kept reading as
+  Idle no matter which clip/time was forced — because the graph auto-
+  advances every real frame independent of the `AnimationDriver`
+  MonoBehaviour's own `enabled`/`Update()` state; disabling the driver only
+  stops the C# script's own per-frame `ResolveClip()` override, it doesn't
+  freeze the underlying Playables graph. Fixed by calling
+  `graph.SetTimeUpdateMode(DirectorUpdateMode.Manual)` before forcing a time,
+  which is what actually let the screenshots hold a specific frame. Once
+  fixed, all 5 clips confirmed genuinely posing (not T-posed): Idle (relaxed
+  stance), Walk (mid-stride leg crossing), Gather (chopping swing, braced
+  stance), Farm (bent-forward harvest reach), Attack (dynamic sword lunge).
+  One scoped commit (`HumanAnimationSet.cs`, the 2 new FBX + `.meta` files) —
+  deliberately excludes substantial unrelated uncommitted work already
+  sitting in the tree from other sessions (`BuildingMeshDecimator.cs`, 6
+  `TownCenter_Durg` prefabs/materials, `MarathaMavlaRaiderFactory.cs`, the
+  new `_Decimated/` assets, `corner_ornament.png`, `.mcp.json`), left
+  untouched via targeted `git add`. Next: whatever the user directs.
 - **Critical regression fixed (2026-09-15): every building's visual model was
   broken project-wide — not just starting-age TownCenter as first reported.**
   Root cause: commit `a5d2b15` ("Remove leftover raw _Source FBX exports...",
