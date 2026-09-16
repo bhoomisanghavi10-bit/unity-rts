@@ -5,6 +5,87 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-16/17 — Shared gearless combat body: sourced, decimated, rigged, gear-attachment pipeline proven
+
+**Scope**: Ad hoc, not a numbered roadmap item. Started from a review of the "Art
+Generation Prompts" sheet's Wave 4 new-unit sourcing prompts, which found a real logic
+bug: the Skirmisher and Maharaja hero prompts baked helmet/shield/weapon directly onto
+the character mesh, defeating the point of item 5's per-civ gear-attachment system.
+Corrected both prompts to gearless bodies, restructured the Maharaja section into one
+shared gearless hero body + a new per-civ "Royal tier" gear row (mirroring the existing
+Durg/Imperial gear table shape), and saved a standing rule note in the sheet plus a new
+cross-session memory (`feedback_modular_unit_modeling_rigging.md`) capturing the fuller
+AoE modular-construction/rigging convention (separable body/weapon/shield meshes,
+separate rider/mount meshes, socket-bone attachment, saddle-bone rider constraint) the
+user supplied. Also corrected the per-civ gear table's Ancient tier to weapon-only (no
+helmet/shield until Classical) per a same-day user decision - see CLAUDE.md's matching
+entry for the full before/after of both fixes.
+
+User then supplied two real sourced assets to validate the corrected pipeline against:
+`Meshy_AI_Anatomical_Figure_Running.glb` (a gearless infantry body - misleadingly named,
+its actual bind pose is a clean standing T-pose, confirmed live via UnityMCP screenshot,
+not a frozen running pose) and a 3-piece generic gear set. The gear pieces came with
+meaningless generator filenames (3 UUID-named folders, each one file) - identified by
+extracting each mesh's bounding-box shape (flat disc / thin rod / blocky dome) and its
+actual baked PBR base-color texture (riveted metal+leather / wood+metal blade / metal+
+leather strap) via a raw glTF-JSON parse, not trusted from folder names. All 3 matched
+the sheet's "Shared - Classical" tier exactly (riveted bronze/iron, round wood-and-hide
+shield with metal boss, leather-wrapped grip) - no reclassification needed once the
+Ancient-tier rule was clarified.
+
+**Built the real pipeline, not just inspected the assets.** Imported the infantry glb
+to `Assets/importedmodels/InfantryBase/` (outside Resources, this project's own
+established raw-source convention). Confirmed via Unity reflection: 6,515 tris, 27
+bones, no Avatar (glTFast doesn't auto-build one). The rig's bone names (Hips/Chest/
+UpperChest/Neck/Head/LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/...) matched
+`HumanoidGltfRigImporter.DirectHumanBoneMap` - the same map already proven on Vaidya/
+Purohita - exactly, so it was reused unmodified via a scratch `[MenuItem]` script (same
+"CodeDom can't round-trip a ValueTuple[] argument across execute_code" workaround prior
+sessions already documented, deleted after use) to build a valid Humanoid Avatar
+(`isHuman=true`) and scale to the 1.902692 worker-height convention. Then decimated the
+saved prefab's `SkinnedMeshRenderer` mesh 6,515 -> 2,199 tris via the same
+`UnityMeshSimplifier` package `BuildingMeshDecimator` already uses for buildings -
+confirmed live that bone weights (3,276) and bindposes (27) both survive simplification
+intact, not just the triangle count. Saved to `Assets/Resources/human/SharedCombatBody/
+SharedCombatBody.prefab` (+ `_Avatar.asset` + the decimated mesh asset). The 3 gear
+pieces moved to `Assets/Resources/Gear/Shared_Classical/{Helmet,Shield,Weapon}.glb` -
+correctly kept directly under Resources (no `Resources.LoadAll` ambiguous-collision
+risk the way character/building raw sources have, since `WeaponAttachment.
+AttachToBone`'s `Resources.Load` call is an exact single-path lookup, not a recursive
+scan).
+
+Live-verified via UnityMCP through the real production path: a real `HumanModelFactory.
+Spawn(..., prefabPathOverride: "human/SharedCombatBody/SharedCombatBody",
+applyPaletteMaterial: false)` spawn, real `WeaponAttachment.AttachToBone` calls for all
+3 gear pieces at the RightHand/LeftLowerArm/Head sockets this session's gearless-body
+design assumes, and the real shared `HumanAnimationSet` Idle/Walk clips forced onto the
+spawned rig's own `PlayableGraph` - confirmed genuine retargeting (real mid-stride/idle
+leg and arm articulation, not T-posed). Found and fixed 2 real placement bugs live, not
+shipped blind: (1) the helmet's initial zero-offset attachment left it floating at neck
+height - measured the real bone-to-head-top delta (~0.245-0.267 world units across two
+poses) and corrected the socket offset so it sits on the skull; (2) the sword's blade
+pointed up out of the hand - flagged by the user from a live screenshot mid-session,
+fixed with a 180-degree X-axis rotation on the weapon's socket offset so the tip now
+hangs down correctly. 590/590 EditMode tests pass unmodified (asset-pipeline-only
+session; the temp Editor script was deleted after use, no script changes survive).
+
+One scoped commit (`docs/KingdomsOfBharat_Master_Reference.xlsx`, `Assets/Resources/
+Gear/`, `Assets/Resources/human/SharedCombatBody/`, `Assets/importedmodels/
+InfantryBase/`) - deliberately excludes unrelated concurrent-session work already
+sitting in the tree (`MarathaMavlaRaiderFactory.cs`, `TeamColorUnitTint.cs`,
+`corner_ornament.png`, `ProjectSettings.asset`, `.mcp.json`, `docs/PROJECT_TRACKER.
+html`), left untouched via targeted `git add`.
+
+**Not done yet, flagged directly**: no unit factory yet reads `SharedCombatBody`
+instead of the original Human Character Dummy - this session proved the body+gear
+pipeline works via direct `HumanModelFactory`/`WeaponAttachment` calls, not through any
+real unit's spawn path. Only the Shared-Classical gear tier has real sourced art
+(Shared-Ancient weapon-only, and 10 civ-specific Durg/Imperial sets, remain unsourced
+per the gear table). Next: source/wire the remaining gear tiers, decide which real unit
+factories should switch to `SharedCombatBody`, or any other item, user's call.
+
+---
+
 ## 2026-09-16 — Wall system Session B: auto-tiling corner-piece mesh splitting (in progress)
 
 **Scope**: Ad hoc, user-directed, second session of the 4-part wall epic (see Session A

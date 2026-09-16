@@ -8,6 +8,86 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Shared gearless combat body sourced, decimated, rigged, and gear-attachment
+  pipeline proven end-to-end (2026-09-16/17)** — ad hoc, not a numbered roadmap
+  item, picked up from a design correction to the "Art Generation Prompts"
+  sheet's new-unit sourcing prompts (a Skirmisher/Maharaja prompt review found
+  they baked helmet/shield/weapon directly onto the character mesh, which
+  defeats the whole point of item 5's per-civ gear-attachment system — fixed
+  the prompt logic first: every new humanoid unit body must be sourced
+  GEARLESS, with helmet/shield/weapon always separate equippable props
+  attached via bone sockets, matching a fuller AoE modular-construction/
+  rigging convention the user supplied and asked to be kept in memory — see
+  `feedback_modular_unit_modeling_rigging.md`). Also corrected the per-civ
+  gear table's Ancient tier to weapon-only (no helmet/shield until Classical),
+  per a same-day user decision.
+
+  User then supplied 2 real sourced assets to validate the corrected pipeline
+  against: a gearless "Anatomical Figure" infantry body (`Meshy_AI_
+  Anatomical_Figure_Running.glb`, misleadingly named — its bind pose is a
+  clean standing T-pose, confirmed live via UnityMCP screenshot, not a frozen
+  running pose) and a 3-piece generic gear set (helmet/shield/weapon,
+  identified by bounding-box shape + actual baked PBR texture content, not
+  filename — riveted metal + leather, matching the sheet's "Shared - Classical"
+  tier exactly, no reclassification needed).
+
+  **Built the real pipeline, not just inspected the assets**: imported the
+  infantry glb (`Assets/importedmodels/InfantryBase/`, outside Resources per
+  this project's own established raw-source convention), confirmed via Unity
+  reflection it was 6,515 tris / 27 bones / no Avatar yet (glTFast doesn't
+  auto-build one). Reused `HumanoidGltfRigImporter.DirectHumanBoneMap`
+  **unmodified** — this rig's bone names (Hips/Chest/UpperChest/Neck/Head/
+  LeftShoulder/LeftUpperArm/LeftLowerArm/LeftHand/...) matched that existing
+  Vaidya/Purohita bone map exactly — to build a valid Humanoid Avatar
+  (`isHuman=true`) and scale to the established 1.902692 worker-height
+  convention, via a scratch `[MenuItem]` script (same "CodeDom can't
+  round-trip a ValueTuple[] argument" workaround prior sessions already
+  documented, deleted after use). Then decimated the saved prefab's
+  `SkinnedMeshRenderer` mesh 6,515 → 2,199 tris via the same
+  `UnityMeshSimplifier` package `BuildingMeshDecimator` already uses for
+  buildings — confirmed bone weights (3,276) and bindposes (27) both survive
+  the simplification intact, not just the triangle count. Saved to
+  `Assets/Resources/human/SharedCombatBody/SharedCombatBody.prefab` (+ its
+  `_Avatar.asset` and decimated mesh asset). The 3 gear pieces moved to
+  `Assets/Resources/Gear/Shared_Classical/{Helmet,Shield,Weapon}.glb` —
+  simple static props, correctly kept directly under Resources (no
+  `Resources.LoadAll` ambiguous-collision risk the way character/building
+  raw sources have, since `WeaponAttachment.AttachToBone`'s `Resources.Load`
+  is an exact single-path lookup).
+
+  Live-verified via UnityMCP through the real production path: a real
+  `HumanModelFactory.Spawn(..., prefabPathOverride: "human/SharedCombatBody/
+  SharedCombatBody", applyPaletteMaterial: false)` spawn, real
+  `WeaponAttachment.AttachToBone` calls for all 3 gear pieces (RightHand/
+  LeftLowerArm/Head sockets — the exact sockets this session's own
+  gearless-body design assumes), and the real shared `HumanAnimationSet`
+  Idle/Walk clips forced onto the spawned rig's own `PlayableGraph` —
+  confirmed genuine retargeting (real mid-stride/idle articulation, not
+  T-posed). Found and fixed 2 real placement bugs live, not shipped blind:
+  the helmet's initial zero-offset attachment left it floating at neck
+  height (measured the real bone-to-head-top delta, ~0.245-0.267 world
+  units, and corrected the socket offset so it now sits on top of the
+  skull); and the sword's blade pointed up out of the hand until the user
+  flagged it from a live screenshot mid-session — fixed with a 180°
+  X-axis rotation on the weapon's socket offset, tip now hangs down
+  correctly. 590/590 EditMode tests pass unmodified (asset-pipeline-only
+  session, no script changes survive - the temp Editor script was deleted
+  after use). One scoped commit (`docs/KingdomsOfBharat_Master_Reference.xlsx`,
+  `Assets/Resources/Gear/`, `Assets/Resources/human/SharedCombatBody/`,
+  `Assets/importedmodels/InfantryBase/`) — deliberately excludes unrelated
+  concurrent-session work already sitting in the tree
+  (`MarathaMavlaRaiderFactory.cs`, `TeamColorUnitTint.cs`,
+  `corner_ornament.png`, `ProjectSettings.asset`, `.mcp.json`,
+  `docs/PROJECT_TRACKER.html`), left untouched via targeted `git add`. **Not
+  done yet, flagged directly**: no factory (e.g. a `SoldierFactory`-style
+  wiring) yet reads `SharedCombatBody` instead of the original Human
+  Character Dummy — this session proved the body+gear pipeline works via
+  direct `HumanModelFactory`/`WeaponAttachment` calls, not through any real
+  unit's spawn path; only the Shared-Classical gear tier has real sourced
+  art (Shared-Ancient weapon-only, and 10 civ-specific Durg/Imperial sets,
+  remain unsourced per the gear table). Next: source/wire the remaining gear
+  tiers, decide which real unit factories should switch to
+  `SharedCombatBody`, or any other item, user's call.
 - **Wall system, Session B (auto-tiling corner/end pieces) IN PROGRESS
   (2026-09-16)** — second session of the 4-part wall epic (see Session A
   below). User is generating Meshy AI corner-piece GLBs one tier at a time;
