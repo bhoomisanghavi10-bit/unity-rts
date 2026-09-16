@@ -66,17 +66,41 @@ docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those shee
   defect at all. Lesson for future tiers: compare against the unclipped
   source mesh at the same camera angle before diagnosing an odd-looking
   feature as a split artifact — the model may just be visually confusing
-  from an angle no gameplay camera will ever actually use. **Not yet
-  done**: Classical tier,
-  the 5 civs' Imperial-tier corners, the actual auto-tiling placement logic
-  that consumes these split pieces, and End-Cap pieces (pending the question
-  above). This session's work (mid-flight) is committed alongside Session A
-  per explicit user confirmation, rather than held until more tiers land.
-  Next: split whichever tier the user generates next (Classical, or the 5
-  civs' Imperial corners), following the same "inspect geometry, don't reuse
-  a prior tier's thresholds blind" method — then eventually the auto-tiling
-  placement logic itself, gate-interlocking (Session C), and the
-  construction-rise shader (Session D).
+  from an angle no gameplay camera will ever actually use.
+  **Classical tier ("Weathered Stone Corner") split and verified this
+  session**: `Wall_Classical_Corner.glb` (1735 verts/2958 tris, Y extent
+  only 0.24 vs. Ancient's 0.41 - a lower masonry wall profile). Same
+  "continuous base spans the full tile" shape as Ancient (doesn't separate
+  by Y-band), so the split boundary was again found via XZ vertex-density
+  scanning: Arm A (extending in -X) confined to `x<0.25`, z-band
+  `[-0.46,0.10]`; Arm B (extending in +Z) confined to `z>0.10`, x-band
+  `[0.25,0.44]`. Unlike the wooden-stake tiers, this asset's pillar block
+  is a substantial masonry buttress (not a compact post) that itself spans
+  most of the negative-Z half of the tile, and each arm's far end carries
+  its own small crenellated tower-cap rather than being a plain straight
+  run - split at `pillarMinX=0.25, pillarMaxZ=0.10` (both exact, found by
+  binary-searching the threshold where the confined side's opposite-axis
+  range jumps discontinuously). Screenshot-verified both individually and
+  composed (Pillar+ArmA+ArmB reassembled at the origin): a clean 90-degree
+  crenellated stone corner with continuous battlements across all 3 pieces,
+  no gaps/overlaps/spikes. One candidate "artifact" (a thin pole near Arm
+  A's far end) was checked against the unsplit source mesh at the identical
+  camera angle before flagging anything, per the lesson just above -
+  confirmed present identically in the original source (a genuine
+  flagpole/torch-mount detail on the tower cap, not a splitting defect).
+  **Not yet done**: the 5 civs' Imperial-tier corners, the actual
+  auto-tiling placement logic that consumes these split pieces, and
+  End-Cap-reuse confirmation for Classical specifically (Durg's and
+  Ancient's Pillars already confirmed reusable as End-Caps - Classical's
+  Pillar looks even more clearly like a complete standalone structure given
+  its own crenellated-tower-cap shape, but hasn't been explicitly spawned
+  and checked that way yet). This session's work (mid-flight) is committed
+  alongside Session A per explicit user confirmation, rather than held
+  until more tiers land. Next: split whichever tier the user generates next
+  (most likely the 5 civs' Imperial corners), following the same "inspect
+  geometry per-asset, don't reuse a prior tier's thresholds blind" method -
+  then eventually the auto-tiling placement logic itself, gate-interlocking
+  (Session C), and the construction-rise shader (Session D).
 - **Wall system, Session A (free-angle drag placement) closed (2026-09-16)** —
   first session of a new 4-part epic (drag-placement, auto-tiling corner/end
   pieces, gate-interlocking, a construction-rise shader), scoped in response

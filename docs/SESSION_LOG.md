@@ -41,11 +41,26 @@ into the asset's own design - not a splitting defect. Re-verified Durg's output 
 still clean post-fix (no regression). Lesson: compare against the unclipped source
 mesh before diagnosing an odd-looking feature as a split artifact.
 
-Not yet done: Classical tier, the 5 civs' Imperial-tier corners, the auto-tiling
-placement logic that will consume these pieces. Committed mid-flight alongside
-Session A per explicit user confirmation. Next: split whichever tier arrives next,
-using the same per-asset geometry-inspection method (never reuse a prior tier's
-thresholds blind).
+**Classical tier ("Weathered Stone Corner", 1735 verts/2958 tris) split and verified**:
+same "continuous base spans the whole tile" shape as Ancient, so split via XZ
+vertex-density scanning again - Arm A confined to `x<0.25` (z-band [-0.46,0.10]), Arm B
+confined to `z>0.10` (x-band [0.25,0.44]), split at `pillarMinX=0.25, pillarMaxZ=0.10`
+(both exact thresholds, found by locating the discontinuous jump in the opposite
+axis's range as the candidate threshold crosses it). Unlike the wooden-stake tiers,
+this asset's pillar is a substantial masonry buttress spanning most of the tile's
+negative-Z half, and each arm's far end carries its own small crenellated tower cap.
+Screenshot-verified individually and composed (all 3 pieces reassembled at the
+origin): a clean continuous 90-degree battlement corner, no gaps/overlaps/spikes.
+A candidate "artifact" (a thin pole near Arm A's far end) was checked against the
+unsplit source mesh at the identical angle before flagging it, per the lesson just
+established - confirmed present identically in the original source (a genuine
+flagpole/torch-mount prop, not a defect).
+
+Not yet done: the 5 civs' Imperial-tier corners, the auto-tiling placement logic that
+will consume these pieces, explicit End-Cap-reuse confirmation for Classical (Durg's
+and Ancient's already confirmed). Committed mid-flight alongside Session A per
+explicit user confirmation. Next: split whichever tier arrives next, using the same
+per-asset geometry-inspection method (never reuse a prior tier's thresholds blind).
 
 ## 2026-09-16 — Wall system Session A: free-angle drag placement
 
