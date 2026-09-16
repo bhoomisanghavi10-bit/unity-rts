@@ -46,10 +46,28 @@ docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those shee
   assets for both tiers live alongside their source GLB under
   `Assets/Resources/buildings/_Source/Wall_{Tier}_Corner/` as
   `{baseName}_Pillar_split.asset`/`_ArmA_split.asset`/`_ArmB_split.asset`.
-  **Open design question, not yet checked**: once more tiers exist, check
-  whether a tier's own Pillar piece could double as a generic End-Cap (same
-  post, but with only one Arm attached instead of two) — could avoid needing
-  to source separate End-Cap art entirely. **Not yet done**: Classical tier,
+  **End-Cap reuse question, checked (2026-09-16)**: yes, both tiers' Pillar
+  pieces double as a usable End-Cap (post + one Arm attached, other side
+  left bare) — no separate End-Cap art needed. Durg's Pillar is unconditionally
+  clean from any angle (its split boundary was a pure height cut that never
+  touches the turret's own surface, so the piece is a complete radially-
+  symmetric standalone tower regardless of how many arms attach). Ancient's
+  Pillar is clean from every realistic gameplay-camera angle (top-down,
+  elevated 3/4 outward view); a session first *mis-flagged* a diagonal
+  element visible only from an atypical ground-level interior angle as a
+  splitter defect, added real cap-filling geometry to
+  `WallPieceMeshSplitter.cs` to fix it (chains each cut's open boundary loop
+  into closed per-cross-section loops, ear-clip triangulates, seals with a
+  flat outward-facing cap — a genuine correctness improvement, kept), then
+  found the "artifact" was completely unchanged after that fix and, on
+  re-inspection, present identically in the *original unsplit* source
+  mesh — it's a real diagonal cross-brace strut baked into the asset's own
+  design (architecturally sensible for a wooden palisade), not a splitting
+  defect at all. Lesson for future tiers: compare against the unclipped
+  source mesh at the same camera angle before diagnosing an odd-looking
+  feature as a split artifact — the model may just be visually confusing
+  from an angle no gameplay camera will ever actually use. **Not yet
+  done**: Classical tier,
   the 5 civs' Imperial-tier corners, the actual auto-tiling placement logic
   that consumes these split pieces, and End-Cap pieces (pending the question
   above). This session's work (mid-flight) is committed alongside Session A

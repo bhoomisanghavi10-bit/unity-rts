@@ -120,6 +120,17 @@ namespace KingdomsOfBharat.Editor
         //   3 kept -> triangle kept unchanged
         //   1 kept -> clipped down to one smaller triangle (2 new interpolated verts)
         //   2 kept -> clipped down to a quad, emitted as 2 triangles (2 new interpolated verts)
+        //
+        // The cut always leaves a hole where material was removed - every triangle that
+        // straddles the plane contributes exactly one boundary edge lying exactly on the
+        // plane. Those edges are collected and, at the end, chained into closed loops
+        // (one per disjoint cross-section - e.g. one loop per stake pole, since each is
+        // a separate small solid) and each loop is flat-triangulated to seal the hole.
+        // Without this, a curved decorative element straddling the cut (e.g. a rope
+        // lashing wrapped around a post) leaves its own interior tube wall exposed
+        // through the new opening, which reads as jagged, sliver-shaped "spike" geometry
+        // from odd angles even though the clip itself is geometrically exact - found and
+        // confirmed via live screenshot on the Ancient-tier corner's Pillar piece.
         private static Mesh ClipByPlane(Mesh source, Vector3 planePoint, Vector3 planeNormal, bool keepPositiveSide)
         {
             Vector3[] verts = source.vertices;
@@ -129,6 +140,7 @@ namespace KingdomsOfBharat.Editor
             var outVerts = new List<Vector3>();
             var outNormals = new List<Vector3>();
             var outTris = new List<int>();
+            var boundaryEdges = new List<(Vector3 from, Vector3 to)>();
 
             float Side(Vector3 v)
             {
@@ -200,6 +212,7 @@ namespace KingdomsOfBharat.Editor
                     int v1 = AddVertex(loneEdge1Pos, loneEdge1Normal);
                     int v2 = AddVertex(loneEdge2Pos, loneEdge2Normal);
                     outTris.Add(v0); outTris.Add(v1); outTris.Add(v2);
+                    boundaryEdges.Add((loneEdge1Pos, loneEdge2Pos));
                 }
                 else
                 {
@@ -210,14 +223,198 @@ namespace KingdomsOfBharat.Editor
                     int v3 = AddVertex(loneEdge1Pos, loneEdge1Normal);
                     outTris.Add(v0); outTris.Add(v1); outTris.Add(v2);
                     outTris.Add(v0); outTris.Add(v2); outTris.Add(v3);
+                    boundaryEdges.Add((loneEdge2Pos, loneEdge1Pos));
                 }
             }
+
+            Vector3 capNormal = keepPositiveSide ? -planeNormal : planeNormal;
+            CapBoundary(boundaryEdges, planeNormal, capNormal, outVerts, outNormals, outTris);
 
             Mesh result = new Mesh();
             result.SetVertices(outVerts);
             result.SetNormals(outNormals);
             result.SetTriangles(outTris, 0);
             return result;
+        }
+
+        private const float LoopMatchEpsilon = 1e-4f;
+
+        // Chains directed boundary-edge segments (each exactly on the cut plane) into
+        // closed loops, then flat-triangulates and appends each loop as new cap
+        // geometry facing capNormal. planeAxis is the raw plane normal (Vector3.right
+        // or Vector3.forward) used only to pick which two coordinates to project onto
+        // for 2D triangulation - the cut plane is always axis-aligned.
+        private static void CapBoundary(List<(Vector3 from, Vector3 to)> edges, Vector3 planeAxis, Vector3 capNormal, List<Vector3> outVerts, List<Vector3> outNormals, List<int> outTris)
+        {
+            if (edges.Count == 0) return;
+
+            List<List<Vector3>> loops = BuildLoops(edges);
+            bool axisIsX = Mathf.Abs(planeAxis.x) > Mathf.Abs(planeAxis.z);
+
+            foreach (List<Vector3> rawLoop in loops)
+            {
+                List<Vector3> pts = DedupeLoop(rawLoop);
+                if (pts.Count < 3) continue;
+
+                var poly2D = new List<Vector2>(pts.Count);
+                foreach (Vector3 p in pts)
+                    poly2D.Add(axisIsX ? new Vector2(p.y, p.z) : new Vector2(p.x, p.y));
+
+                List<int> earTris = EarClipTriangulate(poly2D);
+                if (earTris.Count == 0) continue;
+
+                int baseIndex = outVerts.Count;
+                foreach (Vector3 p in pts)
+                {
+                    outVerts.Add(p);
+                    outNormals.Add(capNormal);
+                }
+
+                for (int i = 0; i < earTris.Count; i += 3)
+                {
+                    int ia = earTris[i], ib = earTris[i + 1], ic = earTris[i + 2];
+                    Vector3 a = pts[ia], b = pts[ib], c = pts[ic];
+                    Vector3 n = Vector3.Cross(b - a, c - a);
+                    // Ear-clipping's own winding is only consistent per-loop, not
+                    // guaranteed to match capNormal's direction - checked and, if
+                    // needed, flipped per triangle rather than assuming the whole
+                    // loop shares one orientation.
+                    if (Vector3.Dot(n, capNormal) < 0f)
+                    {
+                        outTris.Add(baseIndex + ia); outTris.Add(baseIndex + ic); outTris.Add(baseIndex + ib);
+                    }
+                    else
+                    {
+                        outTris.Add(baseIndex + ia); outTris.Add(baseIndex + ib); outTris.Add(baseIndex + ic);
+                    }
+                }
+            }
+        }
+
+        // A watertight mesh's intersection with a plane is a set of disjoint closed
+        // loops (one per separate solid crossing the plane - e.g. one per stake pole).
+        // Greedily chains directed edges head-to-tail by matching endpoint positions.
+        // An edge with no match (a non-manifold source mesh, or a loop that doesn't
+        // close cleanly) simply ends that loop early rather than throwing - a partial
+        // cap is still strictly better than the open hole this replaces.
+        private static List<List<Vector3>> BuildLoops(List<(Vector3 from, Vector3 to)> edges)
+        {
+            var remaining = new List<(Vector3 from, Vector3 to)>(edges);
+            var loops = new List<List<Vector3>>();
+
+            while (remaining.Count > 0)
+            {
+                var loop = new List<Vector3>();
+                (Vector3 from, Vector3 to) edge = remaining[0];
+                remaining.RemoveAt(0);
+                Vector3 start = edge.from;
+                Vector3 current = edge.to;
+                loop.Add(start);
+                loop.Add(current);
+
+                int guard = remaining.Count + 1;
+                while (Vector3.Distance(current, start) > LoopMatchEpsilon && guard-- > 0)
+                {
+                    int idx = remaining.FindIndex(e => Vector3.Distance(e.from, current) < LoopMatchEpsilon);
+                    if (idx < 0) break;
+                    current = remaining[idx].to;
+                    remaining.RemoveAt(idx);
+                    loop.Add(current);
+                }
+
+                loops.Add(loop);
+            }
+
+            return loops;
+        }
+
+        // Removes consecutive (and the closing) near-duplicate points a chained loop
+        // accumulates at its shared start/end vertex and at any collinear noise.
+        private static List<Vector3> DedupeLoop(List<Vector3> loop)
+        {
+            var result = new List<Vector3>();
+            foreach (Vector3 p in loop)
+            {
+                if (result.Count == 0 || Vector3.Distance(result[result.Count - 1], p) > LoopMatchEpsilon)
+                    result.Add(p);
+            }
+            if (result.Count > 1 && Vector3.Distance(result[0], result[result.Count - 1]) <= LoopMatchEpsilon)
+                result.RemoveAt(result.Count - 1);
+            return result;
+        }
+
+        // Standard O(n^2) ear-clipping triangulation for a simple (non-self-
+        // intersecting) 2D polygon. Good enough for the small, near-convex loops a
+        // stake/post cross-section produces. Normalizes to CCW winding first so the
+        // convexity/point-in-triangle tests below have a consistent sign convention;
+        // gives up gracefully (returns whatever ears were already found) rather than
+        // looping forever on a degenerate input.
+        private static List<int> EarClipTriangulate(List<Vector2> poly)
+        {
+            var result = new List<int>();
+            if (poly.Count < 3) return result;
+
+            var order = new List<int>(poly.Count);
+            for (int i = 0; i < poly.Count; i++) order.Add(i);
+            if (SignedArea2D(poly, order) < 0f) order.Reverse();
+
+            int guard = poly.Count * poly.Count + 8;
+            while (order.Count > 3 && guard-- > 0)
+            {
+                bool earFound = false;
+                for (int i = 0; i < order.Count; i++)
+                {
+                    int iPrev = order[(i - 1 + order.Count) % order.Count];
+                    int iCurr = order[i];
+                    int iNext = order[(i + 1) % order.Count];
+                    Vector2 a = poly[iPrev], b = poly[iCurr], c = poly[iNext];
+                    if (Cross2D(b - a, c - b) <= 0f) continue; // reflex vertex, can't be an ear
+
+                    bool anyInside = false;
+                    for (int j = 0; j < order.Count; j++)
+                    {
+                        int vi = order[j];
+                        if (vi == iPrev || vi == iCurr || vi == iNext) continue;
+                        if (PointInTriangle(poly[vi], a, b, c)) { anyInside = true; break; }
+                    }
+                    if (anyInside) continue;
+
+                    result.Add(iPrev); result.Add(iCurr); result.Add(iNext);
+                    order.RemoveAt(i);
+                    earFound = true;
+                    break;
+                }
+                if (!earFound) break;
+            }
+            if (order.Count == 3)
+            {
+                result.Add(order[0]); result.Add(order[1]); result.Add(order[2]);
+            }
+            return result;
+        }
+
+        private static float Cross2D(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
+
+        private static float SignedArea2D(List<Vector2> poly, List<int> order)
+        {
+            float area = 0f;
+            for (int i = 0; i < order.Count; i++)
+            {
+                Vector2 p0 = poly[order[i]];
+                Vector2 p1 = poly[order[(i + 1) % order.Count]];
+                area += p0.x * p1.y - p1.x * p0.y;
+            }
+            return area * 0.5f;
+        }
+
+        private static bool PointInTriangle(Vector2 p, Vector2 a, Vector2 b, Vector2 c)
+        {
+            float d1 = Cross2D(b - a, p - a);
+            float d2 = Cross2D(c - b, p - b);
+            float d3 = Cross2D(a - c, p - c);
+            bool hasNeg = d1 < 0f || d2 < 0f || d3 < 0f;
+            bool hasPos = d1 > 0f || d2 > 0f || d3 > 0f;
+            return !(hasNeg && hasPos);
         }
     }
 }

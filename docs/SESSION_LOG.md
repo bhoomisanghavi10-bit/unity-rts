@@ -26,13 +26,26 @@ clean Pillar/Arm pieces, no spike artifacts, correct wooden-palisade style on th
 Ancient pieces (sharpened stakes, rope lashings, rubble base). Output assets live at
 `Assets/Resources/buildings/_Source/Wall_{Tier}_Corner/{baseName}_{Pillar|ArmA|ArmB}_split.asset`.
 
+**End-Cap reuse checked**: both tiers' Pillar pieces work as a generic End-Cap (post +
+one Arm, other side bare) — no separate End-Cap art needed. Durg unconditionally
+clean (split boundary is a pure height cut that never touches the turret's own
+surface). Ancient clean from every realistic gameplay-camera angle; a follow-up in
+this same session initially mis-diagnosed a diagonal element (visible only from an
+atypical ground-level interior angle) as a splitter defect, added genuine cap-filling
+geometry to `WallPieceMeshSplitter.cs` (closes each cut's open boundary loop per
+disjoint cross-section, ear-clip triangulates, seals with a flat outward-facing cap -
+a real correctness improvement, kept regardless), then found the "artifact" was
+unchanged by that fix and, on comparing against the original unsplit source mesh at
+the identical camera angle, is actually a genuine diagonal cross-brace strut baked
+into the asset's own design - not a splitting defect. Re-verified Durg's output is
+still clean post-fix (no regression). Lesson: compare against the unclipped source
+mesh before diagnosing an odd-looking feature as a split artifact.
+
 Not yet done: Classical tier, the 5 civs' Imperial-tier corners, the auto-tiling
-placement logic that will consume these pieces, End-Cap pieces. Open question flagged
-for later: check whether a tier's Pillar piece could double as a generic End-Cap
-(same post, one Arm instead of two) once more real corner geometry exists, potentially
-skipping separate End-Cap art sourcing. Committed mid-flight alongside Session A per
-explicit user confirmation. Next: split whichever tier arrives next, using the same
-per-asset geometry-inspection method (never reuse a prior tier's thresholds blind).
+placement logic that will consume these pieces. Committed mid-flight alongside
+Session A per explicit user confirmation. Next: split whichever tier arrives next,
+using the same per-asset geometry-inspection method (never reuse a prior tier's
+thresholds blind).
 
 ## 2026-09-16 — Wall system Session A: free-angle drag placement
 
