@@ -6,6 +6,7 @@ using KingdomsOfBharat.Core;
 using KingdomsOfBharat.FogOfWar;
 using KingdomsOfBharat.Progression;
 using KingdomsOfBharat.Buildings;
+using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.Combat
 {
@@ -85,6 +86,7 @@ namespace KingdomsOfBharat.Combat
             // ordered to walk to and enter a friendly GarrisonPoint - see
             // GarrisonSeeker.
             root.AddComponent<GarrisonSeeker>();
+            root.AddComponent<RelicCarrier>();
             var attackable = root.AddComponent<Attackable>();
             attackable.Configure(((def != null ? def.maxHP : 100f) + tier.HpBonus) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(

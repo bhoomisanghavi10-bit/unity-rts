@@ -438,8 +438,17 @@ namespace KingdomsOfBharat.Selection
                 && hit.collider.TryGetComponent(out dockTarget)
                 && dockTarget.IsComplete
                 && IsFriendlyToPlayer(dockTarget);
+            // Wave 6 item 35 (Relics + Monastery collection): right-clicking
+            // an unclaimed Relic with any RelicCarrier-capable land unit
+            // selected picks it up - neutral, so no friendly-gate (any
+            // faction's unit can grab it, matching AoE's own "first to
+            // reach it" rule).
+            Relic relicTarget = null;
+            bool hitRelic = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable && !hitHealable && !hitMarket && !hitDock
+                && hit.collider.TryGetComponent(out relicTarget)
+                && !relicTarget.IsHeld;
             Attackable attackable = null;
-            bool hitAttackable = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable && !hitHealable && !hitMarket && !hitDock
+            bool hitAttackable = !hitNode && !hitSite && !hitFarm && !hitLivestock && !hitGarrison && !hitRepairable && !hitHealable && !hitMarket && !hitDock && !hitRelic
                 && hit.collider.TryGetComponent(out attackable)
                 && !attackable.IsDead;
 
@@ -498,6 +507,8 @@ namespace KingdomsOfBharat.Selection
                 // Wave 4 item 27.
                 unit.TryGetComponent(out VaidyaHealer healer);
                 unit.TryGetComponent(out PurohitaConverter purohita);
+                // Wave 6 item 35.
+                unit.TryGetComponent(out RelicCarrier relicCarrier);
 
                 if (hitNode)
                 {
@@ -508,6 +519,7 @@ namespace KingdomsOfBharat.Selection
                     repairer?.CancelRepair();
                     healer?.CancelHeal();
                     purohita?.CancelConvert();
+                    relicCarrier?.CancelCarry();
                     gatherer?.GatherFrom(node);
                     boatAttacker?.CancelAttack();
                     boatGatherer?.GatherFrom(node);
@@ -521,6 +533,7 @@ namespace KingdomsOfBharat.Selection
                     repairer?.CancelRepair();
                     healer?.CancelHeal();
                     purohita?.CancelConvert();
+                    relicCarrier?.CancelCarry();
                     builder?.BuildAt(site);
                 }
                 else if (hitFarm && farmWorker != null && IsSameFaction(unit, farm))
@@ -532,6 +545,7 @@ namespace KingdomsOfBharat.Selection
                     repairer?.CancelRepair();
                     healer?.CancelHeal();
                     purohita?.CancelConvert();
+                    relicCarrier?.CancelCarry();
                     farmWorker.StaffAt(farm);
                 }
                 else if (hitLivestock && livestockWorker != null)
@@ -543,6 +557,7 @@ namespace KingdomsOfBharat.Selection
                     repairer?.CancelRepair();
                     healer?.CancelHeal();
                     purohita?.CancelConvert();
+                    relicCarrier?.CancelCarry();
                     livestockWorker.StaffAt(livestock);
                 }
                 else if (hitGarrison && garrisonSeeker != null && IsSameFaction(unit, garrisonPoint))
@@ -555,6 +570,7 @@ namespace KingdomsOfBharat.Selection
                     repairer?.CancelRepair();
                     healer?.CancelHeal();
                     purohita?.CancelConvert();
+                    relicCarrier?.CancelCarry();
                     garrisonSeeker.GarrisonAt(garrisonPoint);
                 }
                 else if (hitRepairable && repairer != null && IsSameFaction(unit, repairable))
@@ -566,6 +582,7 @@ namespace KingdomsOfBharat.Selection
                     livestockWorker?.CancelWork();
                     healer?.CancelHeal();
                     purohita?.CancelConvert();
+                    relicCarrier?.CancelCarry();
                     repairer.RepairAt(repairable);
                 }
                 else if (hitHealable && healer != null)
@@ -577,6 +594,7 @@ namespace KingdomsOfBharat.Selection
                     livestockWorker?.CancelWork();
                     repairer?.CancelRepair();
                     purohita?.CancelConvert();
+                    relicCarrier?.CancelCarry();
                     FactionId healFaction = unit.TryGetComponent(out FactionMember healUnitFaction)
                         ? healUnitFaction.Faction
                         : NetworkMatch.LocalFaction;
@@ -593,6 +611,7 @@ namespace KingdomsOfBharat.Selection
                     repairer?.CancelRepair();
                     healer?.CancelHeal();
                     purohita?.CancelConvert();
+                    relicCarrier?.CancelCarry();
                     FactionId tradeFaction = unit.TryGetComponent(out FactionMember tradeUnitFaction)
                         ? tradeUnitFaction.Faction
                         : NetworkMatch.LocalFaction;
@@ -609,6 +628,18 @@ namespace KingdomsOfBharat.Selection
                     int tradeTick = CommandBus.Enqueue(new TradeRouteCommand(tradeFaction, unit, () => boatTrader.SetTradeRoute(dockTarget)));
                     SendNetworkCommand(CommandSerializer.ForTradeRoute(tradeTick, tradeFaction, unit, dockTarget));
                 }
+                else if (hitRelic && relicCarrier != null)
+                {
+                    gatherer?.CancelGather();
+                    builder?.CancelBuild();
+                    attacker?.CancelAttack();
+                    farmWorker?.CancelWork();
+                    livestockWorker?.CancelWork();
+                    repairer?.CancelRepair();
+                    healer?.CancelHeal();
+                    purohita?.CancelConvert();
+                    relicCarrier.PickUp(relicTarget);
+                }
                 else if (hitAttackable && attacker != null && IsHostileTarget(unit, attackable))
                 {
                     gatherer?.CancelGather();
@@ -618,6 +649,7 @@ namespace KingdomsOfBharat.Selection
                     repairer?.CancelRepair();
                     healer?.CancelHeal();
                     purohita?.CancelConvert();
+                    relicCarrier?.CancelCarry();
                     FactionId attackFaction = unit.TryGetComponent(out FactionMember attackUnitFaction)
                         ? attackUnitFaction.Faction
                         : NetworkMatch.LocalFaction;
@@ -636,6 +668,7 @@ namespace KingdomsOfBharat.Selection
                 else if (hitAttackable && purohita != null && IsHostileTarget(unit, attackable) && PurohitaConverter.CanConvert(attackable))
                 {
                     healer?.CancelHeal();
+                    relicCarrier?.CancelCarry();
                     FactionId convertFaction = unit.TryGetComponent(out FactionMember convertUnitFaction)
                         ? convertUnitFaction.Faction
                         : NetworkMatch.LocalFaction;
@@ -656,6 +689,7 @@ namespace KingdomsOfBharat.Selection
                     boatTrader?.CancelRoute();
                     healer?.CancelHeal();
                     purohita?.CancelConvert();
+                    relicCarrier?.CancelCarry();
                     if (unit.TryGetComponent(out UnitMover mover))
                     {
                         Vector3 offset = composedOffsets != null && composedOffsets.TryGetValue(unit.gameObject, out Vector3 composedOffset)

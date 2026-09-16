@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Buildings;
+using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.FogOfWar;
@@ -43,6 +44,16 @@ namespace KingdomsOfBharat.Combat
                 HumanModelFactory.Gender.Male, position, civilization,
                 prefabPathOverride: "UniqueUnits/MavlaRaider/MavlaRaider", applyPaletteMaterial: false, faction: faction);
             HumanModelFactory.ApplyCustomTexture(go, "UniqueUnits/MavlaRaider/MavlaRaider_albedo");
+            // Roadmap Section 1 (per-civ soldier visual differentiation /
+            // Wave 5 item 29 follow-up): pilot of the unit-side team-color
+            // mask (docs/TEAM_COLOR_ART_BRIEF.md) - a Blender-painted
+            // white/black mask isolating the sash so it tints toward this
+            // faction's TeamColor. No-ops if the mask resource is ever
+            // missing, same convention as the building-side feature.
+            foreach (Renderer renderer in go.GetComponentsInChildren<Renderer>(true))
+            {
+                TeamColorUnitTint.TryApplyTeamMask(renderer, "UniqueUnits/MavlaRaider/MavlaRaider_teammask", faction);
+            }
             // Wave 3 item 16: Elite tier (Maha Mavla Raider), Durg->Imperial,
             // baked in at spawn like every other tier line - not retroactive.
             string tierName = UniqueUnitEliteProgress.DisplayName(faction, "maratha_mavla_raider", "Mavla Raider");
@@ -63,6 +74,7 @@ namespace KingdomsOfBharat.Combat
             // be ordered to walk to and enter a friendly GarrisonPoint -
             // see GarrisonSeeker.
             go.AddComponent<GarrisonSeeker>();
+            go.AddComponent<RelicCarrier>();
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure(((def != null ? def.maxHP : 32f) + UniqueUnitEliteProgress.HpBonus(faction, "maratha_mavla_raider")) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(

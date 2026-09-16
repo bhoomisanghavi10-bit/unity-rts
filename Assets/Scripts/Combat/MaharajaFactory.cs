@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using KingdomsOfBharat.Units;
 using KingdomsOfBharat.Buildings;
+using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Selection;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.FogOfWar;
@@ -56,6 +57,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             go.AddComponent<GarrisonSeeker>();
+            go.AddComponent<RelicCarrier>();
             var attackable = go.AddComponent<Attackable>();
             attackable.Configure((def != null ? def.maxHP : 220f) * profile.MaxHealthMultiplier * age.MaxHealthMultiplier);
             attackable.ConfigureArmor(

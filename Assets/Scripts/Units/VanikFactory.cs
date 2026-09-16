@@ -52,6 +52,7 @@ namespace KingdomsOfBharat.Units
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             go.AddComponent<GarrisonSeeker>();
+            go.AddComponent<RelicCarrier>();
             go.AddComponent<Trader>();
 
             var attackable = go.AddComponent<Attackable>();

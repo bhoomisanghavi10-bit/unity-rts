@@ -87,6 +87,7 @@ namespace KingdomsOfBharat.Units
             // ordered to walk to and enter a friendly GarrisonPoint - see
             // GarrisonSeeker.
             go.AddComponent<GarrisonSeeker>();
+            go.AddComponent<RelicCarrier>();
             // Phase 6 gap-close: EconomyTechProgress's ImprovedTools/
             // PackMules techs layer on top of the civ/age multipliers
             // already here, same "multiply everything relevant together"

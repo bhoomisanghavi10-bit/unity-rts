@@ -8,6 +8,83 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Wave 6 item 35 (Relics + Monastery collection, economic only) closed
+  (2026-09-17)** — picked up per the user's "Let's do Relics + Monastery"
+  request, following the design decision resolved 2026-09-15 (build it,
+  economic only, no new victory condition; Monastery, Wave 4 item 27,
+  already exists as the carrier building). New `Resources/Relic.cs`
+  (neutral world prop, a plain held/unheld flag) and `Resources/
+  RelicCarrier.cs` (walk/act one-shot pickup-then-deliver, same shape as
+  `Trader`'s own walk/act/walk-back state machine but not an endless
+  shuttle — a Relic is consumed into whichever Monastery it's delivered
+  to). `RelicCarrier` was added to every land unit factory that already
+  carries `GarrisonSeeker` (20 factories: Worker, every Barracks/Durg
+  combat unit, Vaidya/Purohita/Vanik, every civ's unique unit except the
+  two War Elephant factories and every Siege-class unit) — mirrors that
+  item's own "any eligible land unit, not a dedicated collector type"
+  precedent, matching this item's own "carried by any land unit" wording.
+  Picking up reparents the Relic onto the carrying unit (no dedicated
+  carried-Relic art exists yet — flagging per the flag-asset-needs
+  convention — so this is a reparent-not-hide stand-in, same idiom
+  `WeaponAttachment` already uses) rather than hiding it; a carrier that
+  dies mid-carry drops the Relic at its exact death position
+  (`RelicCarrier.OnDestroy` unparents it, live-verified). `Monastery.cs`
+  gained `RelicCount`/`AddRelic()`/a passive Gold trickle (0.5 Gold/sec per
+  Relic while complete — a first-pass rate, not independently balanced,
+  same disclosed convention as `Trader.ComputeTradeGold`'s own rate) via a
+  new `internal Tick(float deltaTime)` (same testability convention as
+  `Farm.Tick`) and a pure `RelicGoldPerTick` formula. Relics spawn on the
+  map via a new `ResourceNodeSpawner.SpawnRelic` (reuses that spawner's
+  existing RNG/ring-placement machinery — no dedicated "Relics" art
+  category exists yet either, so this always falls through to a plain
+  primitive-sphere fallback, also flagged); new `MapDefinitionData.
+  RelicCount = 5` on every map, deliberately NOT scaled with map area the
+  way resource counts are — Relics are meant to stay scarce and contested
+  regardless of map size. `SelectionManager` gained a `hitRelic` branch
+  (neutral — no friendly-gate, any faction's unit can grab an unclaimed
+  Relic first, matching AoE's own "first to reach it" rule) plus
+  `relicCarrier?.CancelCarry()` wired into every other order branch's
+  existing cancel chain, same convention every prior Wave 4 ability (Heal/
+  Convert/TradeRoute) already established there. 10 new EditMode tests
+  (`RelicTests.cs`: `Relic`'s held-state flag, `RelicCarrier.
+  FindNearestOwnedMonastery`'s same-faction/exclude-other-factions/
+  none-exist routing rule — mirroring `TraderTests.cs`'s own pattern for
+  `FindNearestOwnedMarket` — the pure `RelicGoldPerTick` formula, and
+  `Monastery.Tick`'s actual gold-deposit behavior against a real
+  `ResourceStockpile` — 601/601 total, up from 591, all pass). Live-
+  verified via UnityMCP through the real production path: a real match
+  (`CivilizationSetup.BeginMatch(Maurya)`) spawned 5 real Relics on
+  RiverValley (matching the new `RelicCount`); a real `MonasteryFactory.
+  Place`-spawned, `ConstructionSite.CompleteImmediately()`-completed
+  Monastery; a real Player Worker's `RelicCarrier.PickUp()` reparented a
+  real Relic onto it (`IsHeld=true`, `parent=Worker`) — then, left
+  entirely to its own real `Update()`/`NavMeshAgent` loop with no further
+  scripted intervention between tool calls, the worker auto-walked ~38
+  real world units to the Monastery and deposited on its own
+  (`Monastery.RelicCount` 0→1, the Relic `GameObject` destroyed, 4 Relics
+  correctly remaining in the scene); the real Player Gold stockpile was
+  independently confirmed climbing on its own between unrelated tool calls
+  with no code driving it in that window (17.6 → 21.0 → 24.2 over
+  consecutive real wall-clock gaps, consistent with 0.5 Gold/sec for the 1
+  held Relic and no other active Gold source in that fresh match) —
+  proving the live gold-trickle `Update()` loop actually runs, not just
+  the isolated unit test. Separately live-verified the death-drop case: a
+  second Relic was picked up, the carrying Worker was destroyed mid-route,
+  and the Relic correctly reappeared unparented and `IsHeld=false` at the
+  Worker's exact death position. Full EditMode suite re-confirmed 601/601
+  after exiting Play mode. **No AI-side use of Relics** (no AI
+  pickup/delivery hook) — new capability, not existing behavior moved off
+  something the AI used before, matching every other Wave 4/6 item's own
+  precedent for why skipping the AI hook isn't a regression. One scoped
+  commit (`Relic.cs`/`RelicCarrier.cs` new, `Monastery.cs`,
+  `ResourceNodeSpawner.cs`, `MapDefinition.cs`, `SelectionManager.cs`, the
+  20 factory files, `RelicTests.cs` new, docs) — deliberately excludes
+  the unrelated concurrent-session work already sitting in the tree
+  (`TeamColorUnitTint.cs`, `corner_ornament.png`, `docs/PROJECT_TRACKER.html`,
+  `.mcp.json`, `ProjectSettings/ProjectSettings.asset`), left untouched via
+  targeted `git add`. Next: Deathmatch mode (item 38), King of the Hill
+  zone-control victory (items 37/38), unit-side team colour once Blender
+  masks are sourced, or UI/art polish/balance passes, user's call.
 - **Shared gearless combat body sourced, decimated, rigged, and gear-attachment
   pipeline proven end-to-end (2026-09-16/17)** — ad hoc, not a numbered roadmap
   item, picked up from a design correction to the "Art Generation Prompts"

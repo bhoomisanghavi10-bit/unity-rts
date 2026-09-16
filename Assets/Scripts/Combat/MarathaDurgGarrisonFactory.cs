@@ -6,6 +6,7 @@ using KingdomsOfBharat.Core;
 using KingdomsOfBharat.FogOfWar;
 using KingdomsOfBharat.Progression;
 using KingdomsOfBharat.Buildings;
+using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.Combat
 {
@@ -86,6 +87,7 @@ namespace KingdomsOfBharat.Combat
             // like Wall's, and flips Attackable.SiegeImmune on whatever
             // building it enters.
             go.AddComponent<GarrisonSeeker>().Configure(true);
+            go.AddComponent<RelicCarrier>();
 
             if (faction == FactionId.Player)
             {

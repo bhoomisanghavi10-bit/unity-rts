@@ -26,6 +26,11 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float purohitaGoldCost = 120f;
         [SerializeField] private float trainTime = 30f;
         [SerializeField] private float rallyDistance = 3f;
+        // Wave 6 item 35: passive Gold trickle per Relic currently stored
+        // here - a first-pass rate (30 Gold/min per Relic), not
+        // independently balanced, same disclosed convention as Trader's own
+        // ComputeTradeGold rate.
+        [SerializeField] private float relicGoldPerSecond = 0.5f;
         private Vector3 _rallyOffset;
         private RallyPoint _rally;
 
@@ -34,6 +39,7 @@ namespace KingdomsOfBharat.Buildings
         private FactionMember _factionMember;
         private float _remaining = -1f;
         private TrainingUnit _trainingUnit;
+        private int _relicCount;
 
         private ConstructionSite Site
         {
@@ -69,13 +75,42 @@ namespace KingdomsOfBharat.Buildings
 
         public bool IsComplete => Site == null || Site.IsComplete;
         public bool IsTraining => _remaining >= 0f;
+        public int RelicCount => _relicCount;
 
         private void Update()
         {
+            Tick(Time.deltaTime);
+        }
+
+        // internal (not private) so EditMode tests can drive the relic
+        // trickle deterministically without waiting on a real Update() loop
+        // - same convention as Farm.Tick.
+        internal void Tick(float deltaTime)
+        {
             if (IsTraining)
             {
-                TickTraining();
+                TickTraining(deltaTime);
             }
+
+            if (IsComplete && _relicCount > 0)
+            {
+                ResourceStockpile.For(Faction).Add(ResourceType.Gold, RelicGoldPerTick(relicGoldPerSecond, _relicCount, deltaTime));
+            }
+        }
+
+        // Pure so it's directly EditMode-testable - same reasoning as
+        // Trader.ComputeTradeGold's own pure-function split.
+        internal static float RelicGoldPerTick(float goldPerSecond, int relicCount, float deltaTime)
+        {
+            return goldPerSecond * relicCount * deltaTime;
+        }
+
+        // Called by RelicCarrier.Deposit once a carried Relic reaches this
+        // Monastery - permanent (no un-delivery), matches AoE's own "stored
+        // relics stay stored" convention.
+        public void AddRelic()
+        {
+            _relicCount++;
         }
 
         public void RequestTrainVaidya()
@@ -121,9 +156,9 @@ namespace KingdomsOfBharat.Buildings
                 * ageTrainMultiplier;
         }
 
-        private void TickTraining()
+        private void TickTraining(float deltaTime)
         {
-            _remaining -= Time.deltaTime;
+            _remaining -= deltaTime;
             if (_remaining <= 0f)
             {
                 GameObject spawned = _trainingUnit switch

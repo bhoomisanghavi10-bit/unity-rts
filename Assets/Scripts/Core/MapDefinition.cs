@@ -41,6 +41,11 @@ namespace KingdomsOfBharat.Core
         public int FruitBushCount;
         public float ResourceMinRadius;
         public float ResourceMaxRadius;
+        // Wave 6 item 35 (Relics): deliberately NOT scaled with map area
+        // the way resource counts are (see the Phase-5 map-scale-up note
+        // below) - Relics are meant to stay scarce and contested regardless
+        // of map size, so every map gets the same fixed count.
+        public int RelicCount;
 
         // -1 means "pick a fresh seed every match" (System.Environment.
         // TickCount) instead of the old fixed-seed-forever behavior - see
@@ -120,6 +125,7 @@ namespace KingdomsOfBharat.Core
                 ResourceMinRadius = 15f,
                 ResourceMaxRadius = 40f,
                 ResourceSeed = -1,
+                RelicCount = 5,
                 PlayerTownCenter = new Vector3(0f, 1f, 20f),
                 EnemyTownCenter = new Vector3(0f, 1f, -20f),
                 Enemy2TownCenter = new Vector3(25f, 1f, 0f),
@@ -139,6 +145,7 @@ namespace KingdomsOfBharat.Core
                 ResourceMinRadius = 17.5f,
                 ResourceMaxRadius = 52.5f,
                 ResourceSeed = -1,
+                RelicCount = 5,
                 PlayerTownCenter = new Vector3(0f, 1f, 27.5f),
                 EnemyTownCenter = new Vector3(0f, 1f, -27.5f),
                 Enemy2TownCenter = new Vector3(35f, 1f, 0f),
@@ -165,6 +172,7 @@ namespace KingdomsOfBharat.Core
                 ResourceMinRadius = 15f,
                 ResourceMaxRadius = 32.5f,
                 ResourceSeed = -1,
+                RelicCount = 5,
                 PlayerTownCenter = new Vector3(0f, 1f, 25f),
                 EnemyTownCenter = new Vector3(0f, 1f, -25f),
                 Enemy2TownCenter = new Vector3(-25f, 1f, 0f),

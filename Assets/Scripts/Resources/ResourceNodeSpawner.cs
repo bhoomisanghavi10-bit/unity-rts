@@ -23,6 +23,7 @@ namespace KingdomsOfBharat.ResourceGathering
         [SerializeField] private int randomSeed = 12345;
         [SerializeField] private int fishCount;
         [SerializeField] private float fishAmount = 60f;
+        [SerializeField] private int relicCount = 5;
 
         // Item 51: a locally-owned DeterministicRandom rather than the
         // shared DeterministicRandom.Match singleton - this runs in Start(),
@@ -69,6 +70,11 @@ namespace KingdomsOfBharat.ResourceGathering
             {
                 SpawnFish(RandomPointInWater());
             }
+
+            for (int i = 0; i < relicCount; i++)
+            {
+                SpawnRelic(RandomPointInRing());
+            }
         }
 
         // Item 44: same pattern as ProceduralGround.ApplyMapDefinition -
@@ -90,6 +96,7 @@ namespace KingdomsOfBharat.ResourceGathering
             maxRadius = map.ResourceMaxRadius;
             randomSeed = map.ResourceSeed;
             fishCount = map.FishCount;
+            relicCount = map.RelicCount;
         }
 
         private Vector3 RandomPointInRing()
@@ -190,6 +197,28 @@ namespace KingdomsOfBharat.ResourceGathering
 
             var node = go.AddComponent<ResourceNode>();
             node.Configure(ResourceType.Food, fruitBushAmount);
+        }
+
+        // Wave 6 item 35: a Relic isn't a ResourceNode (no depletion, no
+        // ResourceType, a held/unheld pick-up state instead - see Relic.cs/
+        // RelicCarrier.cs), so this attaches a Relic component rather than
+        // calling ResourceNode.Configure like every SpawnX above it. No
+        // dedicated "Relics" art category exists yet - flagging per the
+        // flag-asset-needs convention - so this always falls through to the
+        // primitive fallback for now.
+        private void SpawnRelic(Vector3 position)
+        {
+            GameObject go = EnvironmentPropFactory.TrySpawn("Relics", ResolveGroundPoint(position));
+            if (go == null)
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                go.name = "Relic";
+                go.transform.position = position + Vector3.up * 0.6f;
+                go.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+                Colorize(go, new Color(0.9f, 0.8f, 0.3f));
+            }
+
+            go.AddComponent<Relic>();
         }
 
         // Item 49: unlike every other node, deliberately NOT run through

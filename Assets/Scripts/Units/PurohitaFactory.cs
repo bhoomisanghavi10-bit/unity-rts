@@ -66,6 +66,7 @@ namespace KingdomsOfBharat.Units
             go.AddComponent<UnitMover>();
             go.AddComponent<SelectionIndicator>();
             go.AddComponent<GarrisonSeeker>();
+            go.AddComponent<RelicCarrier>();
             go.AddComponent<PurohitaConverter>();
 
             var attackable = go.AddComponent<Attackable>();
