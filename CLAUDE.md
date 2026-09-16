@@ -8,6 +8,132 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Wall system, Session B (auto-tiling corner/end pieces) IN PROGRESS
+  (2026-09-16)** — second session of the 4-part wall epic (see Session A
+  below). User is generating Meshy AI corner-piece GLBs one tier at a time;
+  each fused corner mesh (a right-angle turn combining a post/pillar with two
+  wall arms extending away from it) needs splitting into reusable Pillar +
+  Arm sub-meshes so the auto-tiling logic (not yet written) can compose
+  arbitrary wall runs from a small kit of parts instead of needing a bespoke
+  mesh per corner configuration. New reusable
+  `Assets/Editor/WallPieceMeshSplitter.cs` — real geometric plane-clipping
+  (`SplitCorner(sourceMeshResourcePath, pillarMinX, pillarMaxZ, destFolder,
+  baseName)`), not naive triangle-vote bucketing (an early attempt at the
+  latter produced spike artifacts on a low-poly test file). **Durg tier
+  split, done and verified**: `Wall_Durg_Corner.glb` (583 verts/920 tris)
+  split at `pillarMinX=0.28, pillarMaxZ=-0.28` — found by scanning per-Y-band
+  XZ bounding boxes (the taller turret-cap geometry, y>0.08, is confined to
+  that XZ square; the flat wall-arm bodies extend the rest of the length at
+  y<0.08). Screenshots confirmed a clean octagonal turret Pillar and two Arms
+  with clean flat cut faces, no spikes. **Ancient (wooden palisade) tier
+  split, done and verified this session**: `Wall_Ancient_Corner.glb` (1788
+  verts/3024 tris — a notably more detailed mesh than Durg's, so Durg's
+  threshold was NOT reused blind). This asset's geometry doesn't cleanly
+  separate by Y-band the way Durg's did — a continuous rubble base spans the
+  *entire* tile footprint at low Y, with sharpened-stake tips of varying
+  height scattered across both arms and the pillar alike (no single "tall
+  cap" cluster) — so the split boundary was instead derived by scanning
+  vertex density directly in the XZ plane: Arm A (extending in -X) is
+  confined to `x<0.15`, z-band `[-0.5,-0.22]`; Arm B (extending in +Z) is
+  confined to `z>0.25`, x-band `[0.21,0.48]`; the pillar's own post cluster
+  sits at roughly `(x=0.35, z=-0.35)`, diagonally between the two arms.
+  Split at `pillarMinX=0.18, pillarMaxZ=0.22` (both values sit inside the
+  confirmed-empty gaps between each arm's stake band and the pillar
+  cluster). Screenshot-verified: Pillar is a bundled cluster of sharpened
+  stakes with rope lashings on a rubble base; both Arms are clean fence-line
+  sections with sharpened stakes, rope rails, and clean angled cut faces
+  where they'd join the pillar — no spike artifacts on any piece. Output
+  assets for both tiers live alongside their source GLB under
+  `Assets/Resources/buildings/_Source/Wall_{Tier}_Corner/` as
+  `{baseName}_Pillar_split.asset`/`_ArmA_split.asset`/`_ArmB_split.asset`.
+  **Open design question, not yet checked**: once more tiers exist, check
+  whether a tier's own Pillar piece could double as a generic End-Cap (same
+  post, but with only one Arm attached instead of two) — could avoid needing
+  to source separate End-Cap art entirely. **Not yet done**: Classical tier,
+  the 5 civs' Imperial-tier corners, the actual auto-tiling placement logic
+  that consumes these split pieces, and End-Cap pieces (pending the question
+  above). This session's work (mid-flight) is committed alongside Session A
+  per explicit user confirmation, rather than held until more tiers land.
+  Next: split whichever tier the user generates next (Classical, or the 5
+  civs' Imperial corners), following the same "inspect geometry, don't reuse
+  a prior tier's thresholds blind" method — then eventually the auto-tiling
+  placement logic itself, gate-interlocking (Session C), and the
+  construction-rise shader (Session D).
+- **Wall system, Session A (free-angle drag placement) closed (2026-09-16)** —
+  first session of a new 4-part epic (drag-placement, auto-tiling corner/end
+  pieces, gate-interlocking, a construction-rise shader), scoped in response
+  to the user asking for AoE IV-style click-drag wall building. Investigated
+  first: wall placement was click-once-per-segment only
+  (`WallFactory.cs`'s own header comment already said so), with zero grid
+  system, zero drag/multi-segment support, and no corner/end-piece art at
+  all — auto-tiling/gate-interlocking are explicitly deferred to later
+  sessions pending sourced art (user's own call via AskUserQuestion). This
+  session delivers the prerequisite: mouse-down/drag/mouse-up placement of a
+  free-angle (not axis-snapped — user's explicit choice over the cheaper
+  axis-aligned-only option) chain of the *existing* Wall segment prefab, no
+  new art needed. One pure function drives everything:
+  `BuildingPlacer.ComputeWallChain(anchor, current, segmentSpacing,
+  maxSegments)` — before the mouse is even pressed, anchor==current, which
+  trivially degrades to a single segment at the cursor, so a plain
+  click-without-drag is completely unaffected (same behavior as before this
+  session). Rotation uses `Quaternion.FromToRotation(Vector3.right, dir)`,
+  not `LookRotation`, since the Wall model's long axis is local +X (its
+  `Size.x = 2.4`, the largest horizontal dimension). New `WallFactory.Place`
+  overload takes an explicit rotation (the 3-arg original becomes a thin
+  wrapper passing `Quaternion.identity` - every other call site untouched);
+  `BuildingModelFactory.Spawn`'s root is confirmed (via direct code reading)
+  to always return at identity rotation, so setting it afterward in
+  `WallFactory.Place` doesn't fight anything Spawn itself does, and needed
+  zero changes to `BuildingModelFactory.cs`. `BuildingPlacer.IsClearForKind`
+  already used a rotation-agnostic circular-distance check for Wall (not the
+  AABB-based `BuildingFootprint.IsClear` every other kind uses), and
+  `NavMeshObstacle`'s Box shape inherits orientation from its own transform
+  automatically — both needed zero changes for rotated segments to work
+  correctly. **Known, accepted limitation, not fixed this session**:
+  `BuildingFootprint` (used by every *other* building kind's own placement
+  check to avoid overlapping a Wall) only stores an axis-aligned size with
+  no rotation awareness — a building placed near a diagonal wall segment
+  could get a slightly wrong overlap result. Pre-existing limitation of the
+  whole footprint system (nothing today supports oriented-bounding-box
+  checks), not newly introduced here. Multiplayer: `NetMessageEnvelope`
+  gained one new field (`buildRotationY`, a single Y-axis Euler angle - a
+  full quaternion over the wire is unnecessary for a ground-plane
+  structure), `CommandSerializer.ForBuild` gained an additive overload -
+  every other BuildingKind's existing call sites are untouched, passing 0.
+  Per-segment affordability preview (a long drag's tail reddens once the
+  running cost would exceed the live stockpile, mirroring AoE's own
+  "greys out what you can't afford" chain cue) reuses the exact same cost
+  formula `CanAfford` already computes for one Wall - no new pricing logic.
+  9 new EditMode tests (`WallChainPlacementTests.cs`, 590 total, up from
+  581, all pass) covering the zero-distance/click-without-drag degenerate
+  case, exact segment spacing, diagonal rotation alignment, and the
+  max-chain-length clamp. Live-verified via UnityMCP through the real
+  production path (not just the unit tests): a real match
+  (`CivilizationSetup.BeginMatch(Maurya)`), a real diagonal drag (10 units
+  along both X and Z) confirmed via reflection into
+  `BuildingPlacer.ComputeWallChain`/`ConfirmWallChain` produced exactly the
+  predicted 7 segments, each spawned via the real `CommandBus`-deferred
+  `WallFactory.Place` path at the correct evenly-spaced positions with the
+  correct shared 315° rotation and each segment's own real per-point ground
+  height (not a flat approximation - confirmed by the Y coordinates varying
+  slightly per segment, matching actual terrain); screenshotted both a
+  top-down and an oblique view showing a clean, correctly-oriented diagonal
+  wall line, crenellations up, no upside-down/sideways issues. Separately
+  confirmed a plain click-without-drag still places exactly one identity-
+  rotated Wall segment, byte-for-byte the same as before this session. Hit
+  and worked around one real test-setup mistake along the way (not a code
+  bug): a first live-drag attempt was anchored at the exact corner of the
+  map's 100x100 ground collider, so most of the chain's segments landed
+  off the playable ground entirely and were correctly skipped by
+  `ConfirmWallChain`'s own ground-check guard - re-anchored from a properly
+  central point and it worked as expected. Full EditMode suite re-confirmed
+  590/590 after exiting Play mode. **This closes Session A** — corner/
+  end-piece auto-tiling (Session B, needs sourced or generated art matching
+  the per-age Wall reference images already delivered this project),
+  gate-interlocking (Session C), and the construction-rise shader
+  (Session D, fully independent, could be done anytime) remain open, per
+  the scoped 4-session plan. Next: user's call among those, or any other
+  item.
 - **Age-tiered building mesh decimation closed (2026-09-16)** — follow-up to
   the 2026-09-15 critical-regression fix's own flagged gap: the original
   2026-09-02 mesh-decimation pass only ever covered the 45 Imperial-tier

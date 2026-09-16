@@ -51,6 +51,15 @@ namespace KingdomsOfBharat.Multiplayer
 
         public static NetMessageEnvelope ForBuild(int tick, FactionId faction, NetBuildKind buildKind, Vector3 point)
         {
+            return ForBuild(tick, faction, buildKind, point, rotationY: 0f);
+        }
+
+        // Wall system Session A: carries the segment's Y-axis rotation for
+        // free-angle drag-placed Wall chains. Every other BuildingKind
+        // keeps calling the 4-arg overload above, which passes 0 here -
+        // unaffected.
+        public static NetMessageEnvelope ForBuild(int tick, FactionId faction, NetBuildKind buildKind, Vector3 point, float rotationY)
+        {
             return new NetMessageEnvelope
             {
                 kind = NetMessageKind.Build,
@@ -58,6 +67,7 @@ namespace KingdomsOfBharat.Multiplayer
                 faction = (int)faction,
                 buildKind = buildKind,
                 point = point,
+                buildRotationY = rotationY,
             };
         }
 
@@ -347,7 +357,7 @@ namespace KingdomsOfBharat.Multiplayer
                 return null;
             }
 
-            return new BuildCommand(faction, placer, () => placer.ExecuteBuildFromNetwork(envelope.buildKind, envelope.point));
+            return new BuildCommand(faction, placer, () => placer.ExecuteBuildFromNetwork(envelope.buildKind, envelope.point, envelope.buildRotationY));
         }
 
         private static Command ToAttackCommand(NetMessageEnvelope envelope, FactionId faction)

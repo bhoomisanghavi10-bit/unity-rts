@@ -116,6 +116,11 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         // Build
         public NetBuildKind buildKind;
         public Vector3 point;
+        // Wall system Session A: the segment's Y-axis rotation in degrees
+        // (a single float is sufficient - walls are ground-plane
+        // structures with no pitch/roll). Unused (stays 0) for every
+        // other BuildingKind, which all spawn at identity rotation.
+        public float buildRotationY;
 
         // Attack. Also reused, unchanged shape, by TradeRoute (Wave 4 item
         // 26): attackerNetId = the trader unit, targetNetId = the

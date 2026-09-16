@@ -58,6 +58,12 @@ namespace KingdomsOfBharat.Buildings
         // (used by every other kind below) would otherwise leave gaps
         // between wall segments wide enough to walk through.
         [SerializeField] private float wallClearance = 1.5f;
+        // Wall system Session A: drag-placement chain tuning. Spacing
+        // matches wallSize.x so segments sit flush edge-to-edge along the
+        // drag line, same as the pre-existing manual one-at-a-time
+        // edge-to-edge convention. The cap is a sane batch-size limit for
+        // one drag, not a foundational design choice - tunable later.
+        private const int MaxWallChainSegments = 30;
 
         [Header("Gate")]
         [SerializeField] private KeyCode placeGateKey = KeyCode.K;
@@ -155,6 +161,14 @@ namespace KingdomsOfBharat.Buildings
         private GameObject _ghost;
         private bool _placing;
         private BuildingKind _kind;
+
+        // Wall system Session A: drag-placement state. _wallGhosts is a
+        // pool reused across frames (grown as needed, extras deactivated
+        // rather than destroyed) since a live drag recomputes the chain
+        // every frame.
+        private bool _wallDragActive;
+        private Vector3 _wallDragAnchor;
+        private readonly System.Collections.Generic.List<GameObject> _wallGhosts = new System.Collections.Generic.List<GameObject>();
 
         private void Awake()
         {
@@ -404,6 +418,12 @@ namespace KingdomsOfBharat.Buildings
                 return;
             }
 
+            if (_kind == BuildingKind.Wall)
+            {
+                UpdateWallDrag();
+                return;
+            }
+
             UpdateGhost();
 
             if (Input.GetMouseButtonDown(0))
@@ -417,13 +437,19 @@ namespace KingdomsOfBharat.Buildings
             _kind = kind;
             _placing = true;
             IsPlacing = true;
-            _ghost = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            _ghost.name = "PlacementGhost";
-            _ghost.transform.localScale = CurrentSize();
-            Destroy(_ghost.GetComponent<Collider>());
+            // Wall uses its own ghost pool (_wallGhosts) instead of the
+            // single shared _ghost every other kind uses - see
+            // UpdateWallDrag.
+            if (kind != BuildingKind.Wall)
+            {
+                _ghost = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                _ghost.name = "PlacementGhost";
+                _ghost.transform.localScale = CurrentSize();
+                Destroy(_ghost.GetComponent<Collider>());
 
-            var renderer = _ghost.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = GameplayMaterial.CreateTransparent(Color.white);
+                var renderer = _ghost.GetComponent<MeshRenderer>();
+                renderer.sharedMaterial = GameplayMaterial.CreateTransparent(Color.white);
+            }
         }
 
         private void CancelPlacing()
@@ -431,6 +457,14 @@ namespace KingdomsOfBharat.Buildings
             _placing = false;
             IsPlacing = false;
             Destroy(_ghost);
+            _ghost = null;
+
+            _wallDragActive = false;
+            foreach (GameObject ghost in _wallGhosts)
+            {
+                Destroy(ghost);
+            }
+            _wallGhosts.Clear();
         }
 
         private void UpdateGhost()
@@ -510,9 +544,22 @@ namespace KingdomsOfBharat.Buildings
                 return;
             }
 
-            BuildingKind kind = _kind;
+            IssueBuildCommand(_kind, point, Quaternion.identity);
+            CancelPlacing();
+        }
+
+        // Shared by TryConfirmPlacement (every non-Wall kind, one point per
+        // placement session) and UpdateWallDrag's mouse-up handler (Wall,
+        // one call per chain segment) - enqueues the local command and
+        // sends the matching network message, unchanged from what
+        // TryConfirmPlacement always did inline. Doesn't call
+        // CancelPlacing() itself - callers decide when the placement
+        // session actually ends (a chain confirms all its segments before
+        // exiting placement mode once).
+        private void IssueBuildCommand(BuildingKind kind, Vector3 point, Quaternion rotation)
+        {
             FactionId faction = NetworkMatch.LocalFaction;
-            int tick = CommandBus.Enqueue(new BuildCommand(faction, this, () => ExecuteBuild(kind, point)));
+            int tick = CommandBus.Enqueue(new BuildCommand(faction, this, () => ExecuteBuild(kind, point, rotation)));
 
             // Phase 5 LAN transport MVP: the remote peer needs this exact
             // order too, scheduled for the exact same tick - see
@@ -520,10 +567,148 @@ namespace KingdomsOfBharat.Buildings
             // (NetworkMatch.IsActive stays false).
             if (NetworkMatch.IsActive)
             {
-                NetworkMatch.Transport.Send(CommandSerializer.ForBuild(tick, faction, ToNetBuildKind(kind), point));
+                NetworkMatch.Transport.Send(CommandSerializer.ForBuild(tick, faction, ToNetBuildKind(kind), point, rotation.eulerAngles.y));
+            }
+        }
+
+        // Wall system Session A: mouse-down/drag/mouse-up chain placement.
+        // Before the mouse is pressed, anchor == the live cursor point, so
+        // ComputeWallChain trivially returns a single segment at the
+        // cursor - identical to the old single-ghost preview, meaning a
+        // plain click-without-drag is completely unaffected by this path.
+        private void UpdateWallDrag()
+        {
+            bool hasGround = TryGetGroundPoint(out Vector3 current);
+
+            if (!_wallDragActive && Input.GetMouseButtonDown(0) && hasGround)
+            {
+                _wallDragAnchor = current;
+                _wallDragActive = true;
             }
 
-            CancelPlacing();
+            if (!hasGround)
+            {
+                return;
+            }
+
+            Vector3 anchor = _wallDragActive ? _wallDragAnchor : current;
+            var chain = ComputeWallChain(anchor, current, wallSize.x, MaxWallChainSegments);
+            UpdateWallGhosts(chain);
+
+            if (_wallDragActive && Input.GetMouseButtonUp(0))
+            {
+                ConfirmWallChain(chain);
+                CancelPlacing();
+            }
+        }
+
+        // Pure/testable - see WallChainPlacementTests.cs. FromToRotation
+        // (not LookRotation) because the Wall model's long axis is local
+        // +X (its Size.x, 2.4, is the largest horizontal dimension), not
+        // the +Z axis LookRotation aligns.
+        internal static System.Collections.Generic.List<(Vector3 position, Quaternion rotation)> ComputeWallChain(
+            Vector3 anchor, Vector3 current, float segmentSpacing, int maxSegments)
+        {
+            var result = new System.Collections.Generic.List<(Vector3, Quaternion)>();
+
+            Vector3 flatDelta = new Vector3(current.x - anchor.x, 0f, current.z - anchor.z);
+            float length = flatDelta.magnitude;
+            int count = Mathf.Clamp(Mathf.RoundToInt(length / segmentSpacing) + 1, 1, maxSegments);
+
+            Vector3 dir = length > 0.001f ? flatDelta.normalized : Vector3.right;
+            Quaternion rotation = count > 1 ? Quaternion.FromToRotation(Vector3.right, dir) : Quaternion.identity;
+
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 position = anchor + dir * (segmentSpacing * i);
+                result.Add((position, rotation));
+            }
+
+            return result;
+        }
+
+        private void UpdateWallGhosts(System.Collections.Generic.List<(Vector3 position, Quaternion rotation)> chain)
+        {
+            while (_wallGhosts.Count < chain.Count)
+            {
+                GameObject ghost = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                ghost.name = "WallPlacementGhost";
+                Destroy(ghost.GetComponent<Collider>());
+                ghost.GetComponent<MeshRenderer>().sharedMaterial = GameplayMaterial.CreateTransparent(Color.white);
+                _wallGhosts.Add(ghost);
+            }
+
+            for (int i = 0; i < _wallGhosts.Count; i++)
+            {
+                bool active = i < chain.Count;
+                _wallGhosts[i].SetActive(active);
+                if (!active)
+                {
+                    continue;
+                }
+
+                (Vector3 position, Quaternion rotation) = chain[i];
+                if (!TryGetGroundHeightAt(position, out Vector3 grounded))
+                {
+                    grounded = position;
+                }
+
+                GameObject ghost = _wallGhosts[i];
+                ghost.transform.SetPositionAndRotation(grounded + Vector3.up * (wallSize.y * 0.5f), rotation);
+                ghost.transform.localScale = wallSize;
+
+                // Cumulative affordability preview: the tail of a long
+                // drag reddens once the running cost would exceed the
+                // live stockpile, mirroring AoE's own "greys out what you
+                // can't afford" chain-drag cue. The authoritative check
+                // still happens per-segment at confirm/execute time
+                // (IsClearForKind/CanAfford), so this is preview-only and
+                // can't itself let an unaffordable segment through.
+                bool clear = IsClearForKind(BuildingKind.Wall, grounded);
+                bool affordableSoFar = CanAffordWallCount(i + 1);
+                ghost.GetComponent<MeshRenderer>().sharedMaterial.color = clear && affordableSoFar
+                    ? new Color(0.3f, 1f, 0.3f, 0.5f)
+                    : new Color(1f, 0.3f, 0.3f, 0.5f);
+            }
+        }
+
+        // How many of the first N wall segments in a chain the current
+        // live stockpile could cover, given Wall's own per-segment Stone
+        // cost/multipliers - reuses the exact same cost formula CanAfford
+        // already computes for a single Wall, just checked against N times
+        // the cost instead of asserting a boolean once.
+        private bool CanAffordWallCount(int segmentIndex)
+        {
+            ResourceStockpile stockpile = ResourceStockpile.For(NetworkMatch.LocalFaction);
+            float multiplier = CivilizationProfile.For(CivilizationRegistry.For(NetworkMatch.LocalFaction)).BuildCostMultiplier
+                * (EconomyTechProgress.HasResearched(NetworkMatch.LocalFaction, EconomyTech.TradeDiscounts) ? EconomyTechDefinition.For(EconomyTech.TradeDiscounts).Bonus : 1f);
+            float perSegmentCost = wallStoneCost * multiplier * StoneMultiplierFor(BuildingKind.Wall);
+            return stockpile.GetTotal(ResourceType.Stone) >= perSegmentCost * segmentIndex;
+        }
+
+        // Issues one BuildCommand per chain segment, skipping (not
+        // enqueuing) any segment that fails clearance/affordability at
+        // confirm time - matches "build as many as currently valid" rather
+        // than an all-or-nothing chain. Each segment's own deferred
+        // ExecuteBuild call re-validates again anyway (see ExecuteBuild's
+        // own comment), so this is a courtesy pre-check, not the only
+        // guard.
+        private void ConfirmWallChain(System.Collections.Generic.List<(Vector3 position, Quaternion rotation)> chain)
+        {
+            foreach ((Vector3 position, Quaternion rotation) in chain)
+            {
+                if (!TryGetGroundHeightAt(position, out Vector3 grounded))
+                {
+                    continue;
+                }
+
+                if (!IsClearForKind(BuildingKind.Wall, grounded) || !CanAfford(BuildingKind.Wall))
+                {
+                    continue;
+                }
+
+                IssueBuildCommand(BuildingKind.Wall, grounded, rotation);
+            }
         }
 
         // The receiving peer's counterpart to TryConfirmPlacement's local
@@ -532,9 +717,9 @@ namespace KingdomsOfBharat.Buildings
         // (internal rather than the private ExecuteBuild it forwards to,
         // exactly as much visibility as the network layer needs and no
         // more).
-        internal void ExecuteBuildFromNetwork(NetBuildKind netKind, Vector3 point)
+        internal void ExecuteBuildFromNetwork(NetBuildKind netKind, Vector3 point, float rotationY)
         {
-            ExecuteBuild(ToBuildingKind(netKind), point);
+            ExecuteBuild(ToBuildingKind(netKind), point, Quaternion.Euler(0f, rotationY, 0f));
         }
 
         private static NetBuildKind ToNetBuildKind(BuildingKind kind)
@@ -587,7 +772,7 @@ namespace KingdomsOfBharat.Buildings
         // reason Barracks.RequestTrain re-validates instead of trusting
         // TrainCommand's enqueue-time state. Silently no-ops if either check
         // now fails, matching RequestTrain's own convention.
-        private void ExecuteBuild(BuildingKind kind, Vector3 point)
+        private void ExecuteBuild(BuildingKind kind, Vector3 point, Quaternion rotation)
         {
             if (!IsClearForKind(kind, point) || !CanAfford(kind))
             {
@@ -619,7 +804,7 @@ namespace KingdomsOfBharat.Buildings
                     break;
                 case BuildingKind.Wall:
                     stockpile.Add(ResourceType.Stone, -wallStoneCost * multiplier * StoneMultiplierFor(kind));
-                    WallFactory.Place(point, NetworkMatch.LocalFaction, wallBuildTime);
+                    WallFactory.Place(point, NetworkMatch.LocalFaction, wallBuildTime, rotation);
                     break;
                 case BuildingKind.Gate:
                     stockpile.Add(ResourceType.Stone, -gateStoneCost * multiplier * StoneMultiplierFor(kind));
@@ -798,6 +983,24 @@ namespace KingdomsOfBharat.Buildings
         {
             Ray ray = _camera.ScreenPointToRay(Input.mousePosition);
             if (Physics.Raycast(ray, out RaycastHit hit, 500f))
+            {
+                point = hit.point;
+                return true;
+            }
+
+            point = Vector3.zero;
+            return false;
+        }
+
+        // Wall system Session A: TryGetGroundPoint above raycasts from the
+        // camera through the mouse, which only makes sense for the
+        // cursor's own point. A wall chain's other segments are at fixed
+        // XZ positions computed from the drag line, so their ground height
+        // needs a straight-down raycast from above that XZ column instead.
+        private bool TryGetGroundHeightAt(Vector3 xzPoint, out Vector3 point)
+        {
+            Vector3 origin = new Vector3(xzPoint.x, 500f, xzPoint.z);
+            if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 1000f))
             {
                 point = hit.point;
                 return true;

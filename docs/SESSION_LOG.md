@@ -5,6 +5,59 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-16 — Wall system Session B: auto-tiling corner-piece mesh splitting (in progress)
+
+**Scope**: Ad hoc, user-directed, second session of the 4-part wall epic (see Session A
+below). User is generating Meshy AI corner-piece GLBs one tier at a time; each fused
+corner mesh needs splitting into reusable Pillar + Arm sub-meshes. Full detail in
+CLAUDE.md's matching status entry — summary here for the chronological record.
+
+New reusable `Assets/Editor/WallPieceMeshSplitter.cs`, doing real geometric
+plane-clipping (not naive triangle-vote bucketing, which produced spike artifacts on a
+low-poly test). Durg tier (583 verts/920 tris) split at `pillarMinX=0.28,
+pillarMaxZ=-0.28`, found via per-Y-band XZ bounding-box scan (tall turret cap confined
+to a small XZ square at y>0.08, flat arms extend below it) — done and verified in a
+prior part of this session. Ancient/wooden-palisade tier (1788 verts/3024 tris) split
+this session at `pillarMinX=0.18, pillarMaxZ=0.22`, found via direct XZ vertex-density
+scanning instead (this asset's geometry doesn't separate cleanly by Y-band — a
+continuous rubble base spans the whole tile, and stake heights vary across both arms
+and the pillar with no single "tall cap" cluster). Screenshot-verified both tiers:
+clean Pillar/Arm pieces, no spike artifacts, correct wooden-palisade style on the
+Ancient pieces (sharpened stakes, rope lashings, rubble base). Output assets live at
+`Assets/Resources/buildings/_Source/Wall_{Tier}_Corner/{baseName}_{Pillar|ArmA|ArmB}_split.asset`.
+
+Not yet done: Classical tier, the 5 civs' Imperial-tier corners, the auto-tiling
+placement logic that will consume these pieces, End-Cap pieces. Open question flagged
+for later: check whether a tier's Pillar piece could double as a generic End-Cap
+(same post, one Arm instead of two) once more real corner geometry exists, potentially
+skipping separate End-Cap art sourcing. Committed mid-flight alongside Session A per
+explicit user confirmation. Next: split whichever tier arrives next, using the same
+per-asset geometry-inspection method (never reuse a prior tier's thresholds blind).
+
+## 2026-09-16 — Wall system Session A: free-angle drag placement
+
+**Scope**: Ad hoc, user-directed ("start Session A drag-placement foundation"), first
+session of a new 4-part wall epic scoped earlier the same day (drag-placement/
+auto-tiling/gate-interlocking/construction-rise-shader). Full detail in CLAUDE.md's
+matching status entry — summary here for the chronological record.
+
+Delivered: mouse-down/drag/mouse-up placement of a free-angle chain of the existing
+Wall segment prefab, via one pure function (`BuildingPlacer.ComputeWallChain`). New
+`WallFactory.Place` rotation overload, `NetMessageEnvelope.buildRotationY` wire field,
+`CommandSerializer.ForBuild` additive overload — every other BuildingKind's call sites
+unaffected. 9 new EditMode tests (`WallChainPlacementTests.cs`, 590 total, all pass).
+Live-verified via UnityMCP: a real diagonal 7-segment chain spawned correctly through
+the real `CommandBus`-deferred path with correct rotation/spacing/per-segment ground
+height, screenshotted; a plain click-without-drag confirmed unaffected (still places
+exactly one identity-rotated segment). Plan Mode used (approved before implementation)
+given the multi-file scope (BuildingPlacer/WallFactory/NetMessage/CommandSerializer).
+One real test-setup mistake caught and corrected mid-session (not a code bug): an
+initial drag was anchored exactly at the ground collider's corner, walking most of the
+chain off the map - re-anchored centrally and it worked as predicted. Not committed
+this session pending user confirmation. Next: Session B (auto-tiling, needs sourced
+corner/end-piece art), Session C (gate-interlocking), or Session D (construction-rise
+shader, independent of the others).
+
 ## 2026-09-16 — Worker Idle/Walk/Gather/Farm/Attack clips swapped to new UAL clip pack
 
 **Scope**: Ad hoc, user-directed, not a numbered roadmap item. Import `UAL1_Standard.fbx`

@@ -21,10 +21,26 @@ namespace KingdomsOfBharat.Buildings
 
         public static GameObject Place(Vector3 point, FactionId faction, float buildTime)
         {
+            return Place(point, faction, buildTime, Quaternion.identity);
+        }
+
+        // Wall system Session A: an overload carrying the segment's
+        // rotation, for free-angle drag-placed chains (see
+        // BuildingPlacer.ComputeWallChain). BuildingModelFactory.Spawn
+        // always returns its root at identity rotation - only the
+        // model's own child gets any rotation correction (Tower-specific) -
+        // so setting the root's rotation here is safe and doesn't fight
+        // anything Spawn itself does. NavMeshObstacle (Box shape) inherits
+        // orientation from this same transform automatically, and
+        // IsClearForKind's Wall/Gate overlap check is already a rotation-
+        // agnostic circular distance test - both need no further changes.
+        public static GameObject Place(Vector3 point, FactionId faction, float buildTime, Quaternion rotation)
+        {
             CivilizationId civ = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civ);
 
             GameObject go = BuildingModelFactory.Spawn("Wall", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor, AgeProgress.CurrentAge(faction), faction: faction);
+            go.transform.rotation = rotation;
             go.name = faction == FactionId.Player ? "Wall" : "EnemyWall";
             go.AddComponent<AgeTieredBuildingVisual>().Configure("Wall", Size);
             // Wall is exempt from BuildingFootprint's square-tile/margin
