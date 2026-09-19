@@ -11412,3 +11412,13 @@ building-visual-regression fix. Next: Wave 6's 3 remaining design-decided-
 but-unbuilt items (Relics + Monastery collection, Deathmatch, King of the
 Hill), unit-side team colour once Blender masks are sourced, or UI/art/
 balance polish -- user's call.
+
+## 2026-09-20 — Terrain migration (Option B) verified and closed
+
+Picked up the previous session's unverified `ProceduralGround` -> `ProceduralTerrain` migration (plan: `docs/MAP_VISUAL_UPGRADE_PLAN.md`).
+- Unity MCP reachable; forced compile clean; EditMode suite 601/601.
+- Play-mode checks via UnityMCP through the real `CivilizationSetup.BeginMatch(Maurya)` path: "Ground" has Terrain + TerrainCollider + ProceduralTerrain (scene GUID hand-edit loaded fine); 3 terrain layers; Normal.png imported as Normal Map.
+- **Real bug found and fixed**: terrain rendered solid magenta — URP has no default terrain material. `ProceduralTerrain.Rebuild` now assigns `materialTemplate` from `Universal Render Pipeline/Terrain/Lit` if null. Afterwards grass/dirt/rock blend renders correctly (tileSize 4 looked fine, no tuning needed).
+- Worker spawned on terrain sits at ground height (0.67 vs sampled 0.62); NavMeshAgent `isOnNavMesh`, `SetDestination` ok, AI workers walk with non-zero velocity; NavMeshBaker bakes on the terrain.
+- Coastal (`BeginMatchCore(..., Coastal)` after RiverValley, single Terrain, no error): hole covers ~20% of cells, screenshot shows a clean water edge, no ground poking through; a point inside the hole has no NavMesh and no physics hit (units cannot enter).
+- **Not done / flagged**: `Shader.Find` for the terrain shader will fail in a player build unless "Universal Render Pipeline/Terrain/Lit" is added to Always Included Shaders (editor is fine). Sand layer unused (no beach layer yet); mask maps deliberately not wired; slope walkability not stress-tested beyond the ~1 unit height range. Terrain PNGs (~107 MB) now go through Git LFS (`.gitattributes`).

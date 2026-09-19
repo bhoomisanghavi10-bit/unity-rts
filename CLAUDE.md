@@ -8,6 +8,7 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Terrain migration (Option B) closed (2026-09-20)** — `ProceduralGround` replaced by `ProceduralTerrain` (Terrain + TerrainCollider, heightmap 257 from the old `HeightAt`, water hole via `SetHoles`, 3 TerrainLayers Grass/Dirt/Rock, same water quad). Verified live: 601/601 EditMode; grass/dirt blend renders; worker aligns to ground; NavMesh bakes and agents walk; Coastal water hole clean and unwalkable; RiverValley->Coastal rebuild has no errors. Fixed a real bug found live: terrain rendered magenta because URP has no default terrain material — now assigns `Universal Render Pipeline/Terrain/Lit`. **Flagged**: add that shader to Always Included Shaders before any player build; Sand layer/beach and mask maps unused. Terrain PNGs tracked via Git LFS. Out of scope still: clutter (T3), water shader (T2), skirmish map-select UI.
 - **Wave 6 item 35 (Relics + Monastery collection, economic only) closed
   (2026-09-17)** — picked up per the user's "Let's do Relics + Monastery"
   request, following the design decision resolved 2026-09-15 (build it,

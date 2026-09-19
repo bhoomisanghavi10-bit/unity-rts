@@ -416,19 +416,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 100020}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1abdad9160c34aaeb1c611db51e0ae3d, type: 3}
+  m_Script: {fileID: 11500000, guid: 8d14d0dd75278495c9a5a4ff293a6790, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   mapSize: 40
-  resolution: 40
   noiseHeight: 0.6
   noiseScale: 0.15
   waterColor: {r: 0.15, g: 0.35, b: 0.55, a: 0.85}
   waterSurfaceY: 0.25
-  groundColor: {r: 0.36, g: 0.5, b: 0.28, a: 1}
+  grassColor: {r: 0.36, g: 0.5, b: 0.28, a: 1}
   dirtColor: {r: 0.5, g: 0.4, b: 0.26, a: 1}
-  rockColor: {r: 0.42, g: 0.38, b: 0.34, a: 1}
-  splatTextureSize: 256
 --- !u!1 &100030
 GameObject:
   m_ObjectHideFlags: 0

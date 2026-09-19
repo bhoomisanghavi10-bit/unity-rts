@@ -186,7 +186,9 @@ namespace KingdomsOfBharat.Core
             // (TownCenterSpawner, ResourceNodeSpawner, UnitSpawner,
             // AiController) all assume both are already correct by the
             // time they activate.
-            ProceduralGround ground = FindFirstObjectByType<ProceduralGround>();
+            // ProceduralTerrain replaced ProceduralGround (terrain migration,
+            // docs/MAP_VISUAL_UPGRADE_PLAN.md) - same Rebuild() contract.
+            ProceduralTerrain ground = FindFirstObjectByType<ProceduralTerrain>();
             if (ground != null)
             {
                 ground.Rebuild();
