@@ -243,15 +243,20 @@ namespace KingdomsOfBharat.Core
                 return -10000f;
             }
 
+            // Real east/west shorelines wobble inward (see
+            // WaterProximity.ShoreInsetAt); sides extended to the map edge don't.
+            float wobble = WaterProximity.ShoreInsetAt(z);
+            float xMin = _waterRect.x > -1000f ? _waterRect.x + wobble : _waterRect.x;
+            float xMax = _waterRect.y < 1000f ? _waterRect.y - wobble : _waterRect.y;
             float inside = Mathf.Min(
-                Mathf.Min(x - _waterRect.x, _waterRect.y - x),
+                Mathf.Min(x - xMin, xMax - x),
                 Mathf.Min(z - _waterRect.z, _waterRect.w - z));
             if (inside >= 0f)
             {
                 return inside;
             }
 
-            float dx = Mathf.Max(0f, Mathf.Max(_waterRect.x - x, x - _waterRect.y));
+            float dx = Mathf.Max(0f, Mathf.Max(xMin - x, x - xMax));
             float dz = Mathf.Max(0f, Mathf.Max(_waterRect.z - z, z - _waterRect.w));
             return -Mathf.Sqrt(dx * dx + dz * dz);
         }
@@ -434,16 +439,42 @@ namespace KingdomsOfBharat.Core
             // original code.
             waterGo.transform.position = new Vector3(_waterCenter.x, waterSurfaceY, _waterCenter.z);
 
-            var mesh = new Mesh { name = "WaterPlane" };
+            // Grid (not a single quad) so the shader's vertex swell has
+            // vertices to move. World-XZ drives the ripple UVs, so mesh UVs
+            // are unused.
             float hx = _waterHalfExtents.x;
             float hz = _waterHalfExtents.z;
-            mesh.vertices = new[]
+            const float cell = 2.5f;
+            int nx = Mathf.Max(1, Mathf.CeilToInt(hx * 2f / cell));
+            int nz = Mathf.Max(1, Mathf.CeilToInt(hz * 2f / cell));
+            var vertices = new Vector3[(nx + 1) * (nz + 1)];
+            for (int iz = 0; iz <= nz; iz++)
             {
-                new Vector3(-hx, 0f, -hz), new Vector3(hx, 0f, -hz),
-                new Vector3(-hx, 0f, hz), new Vector3(hx, 0f, hz),
-            };
-            mesh.uv = new[] { new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 1), new Vector2(1, 1) };
-            mesh.triangles = new[] { 0, 2, 1, 1, 2, 3 };
+                for (int ix = 0; ix <= nx; ix++)
+                {
+                    vertices[iz * (nx + 1) + ix] = new Vector3(
+                        Mathf.Lerp(-hx, hx, (float)ix / nx), 0f, Mathf.Lerp(-hz, hz, (float)iz / nz));
+                }
+            }
+
+            var triangles = new int[nx * nz * 6];
+            int t = 0;
+            for (int iz = 0; iz < nz; iz++)
+            {
+                for (int ix = 0; ix < nx; ix++)
+                {
+                    int i0 = iz * (nx + 1) + ix;
+                    int i1 = i0 + 1;
+                    int i2 = i0 + (nx + 1);
+                    int i3 = i2 + 1;
+                    triangles[t++] = i0; triangles[t++] = i2; triangles[t++] = i1;
+                    triangles[t++] = i1; triangles[t++] = i2; triangles[t++] = i3;
+                }
+            }
+
+            var mesh = new Mesh { name = "WaterPlane", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            mesh.vertices = vertices;
+            mesh.triangles = triangles;
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
 

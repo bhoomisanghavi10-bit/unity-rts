@@ -39,6 +39,46 @@ namespace KingdomsOfBharat.Core
             Bake();
         }
 
+        // One thin not-walkable strip per metre of z, each following the
+        // wobbling waterline (WaterProximity.ShoreInsetAt) so units are
+        // blocked exactly where the terrain meets the water. Sides at the
+        // map edge aren't wobbled (matches ProceduralTerrain). Uses
+        // ModifierBox: a plain Box source is geometry and doesn't override
+        // the area.
+        private static void AddWaterModifiers(List<NavMeshBuildSource> sources)
+        {
+            MapDefinitionData map = MapRegistry.Current;
+            float half = map.GroundSize * 0.5f;
+            float xMin = map.WaterCenter.x - map.WaterHalfExtents.x;
+            float xMax = map.WaterCenter.x + map.WaterHalfExtents.x;
+            float zMin = map.WaterCenter.z - map.WaterHalfExtents.z;
+            float zMax = map.WaterCenter.z + map.WaterHalfExtents.z;
+            bool wobbleWest = xMin > -half + 0.01f;
+            bool wobbleEast = xMax < half - 0.01f;
+
+            const float strip = 1f;
+            for (float z0 = zMin; z0 < zMax; z0 += strip)
+            {
+                float depth = Mathf.Min(strip, zMax - z0);
+                float zc = z0 + depth * 0.5f;
+                float wobble = WaterProximity.ShoreInsetAt(zc);
+                float x0 = xMin + (wobbleWest ? wobble : 0f);
+                float x1 = xMax - (wobbleEast ? wobble : 0f);
+                if (x1 <= x0)
+                {
+                    continue;
+                }
+
+                sources.Add(new NavMeshBuildSource
+                {
+                    shape = NavMeshBuildSourceShape.ModifierBox,
+                    size = new Vector3(x1 - x0, 20f, depth + 0.05f),
+                    transform = Matrix4x4.TRS(new Vector3((x0 + x1) * 0.5f, 0f, zc), Quaternion.identity, Vector3.one),
+                    area = 1,
+                });
+            }
+        }
+
         private void Bake()
         {
             // Item 44: bounds must match the selected map's ground extent
@@ -59,14 +99,7 @@ namespace KingdomsOfBharat.Core
             // rectangle - units can't wade. Its edge is the waterline.
             if (WaterProximity.HasWater)
             {
-                MapDefinitionData map = MapRegistry.Current;
-                sources.Add(new NavMeshBuildSource
-                {
-                    shape = NavMeshBuildSourceShape.ModifierBox,
-                    size = new Vector3(map.WaterHalfExtents.x * 2f, 20f, map.WaterHalfExtents.z * 2f),
-                    transform = Matrix4x4.TRS(new Vector3(map.WaterCenter.x, 0f, map.WaterCenter.z), Quaternion.identity, Vector3.one),
-                    area = 1,
-                });
+                AddWaterModifiers(sources);
             }
 
             NavMeshBuildSettings settings = NavMesh.GetSettingsByID(0);

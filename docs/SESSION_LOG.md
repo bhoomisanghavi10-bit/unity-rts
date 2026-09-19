@@ -11440,3 +11440,11 @@ Follow-up to the Terrain migration, per the AoE IV shoreline reference. Session 
 - Added `Universal Render Pipeline/Terrain/Lit` to Always Included Shaders (session-1 flag closed).
 - Verified: 601/601 EditMode; screenshots show teal shallow band, foam edge and soft ripples.
 - Not done: no refraction (no opaque texture), water is one flat quad (no waves/vertex motion), shoreline still straight, no boats/docks play-test on the new water, other quality-level URP assets not touched.
+
+## 2026-09-20 — Shoreline follow-ups (the "not done" list from session 2)
+
+- **Boats/docks play-tested** on Coastal: dock on the beach, fishing boat floats and sails correctly on the new water. Found boats could be sent to the rect edge (now sand); `WaterMover` now clamps with an inset (`WaterProximity.ClampToWater(point, inset)`; the 1-arg overload and its tests are unchanged). Inset = `MaxShoreInset + 1`.
+- **Curved shoreline**: `WaterProximity.ShoreInsetAt(z)` (0..2 units, Perlin) moves the waterline inward on real east/west edges, never outward, so water always stays inside the gameplay rect. `ProceduralTerrain` (heights, beach) and `NavMeshBaker` both use it; the baker now adds one `ModifierBox` strip per metre of z following the wobble. Verified live: nav edge = 37.5 + inset at several z. Fish spawns are inset so they can't land on a bulge.
+- **Water shader**: tessellated 2.5-unit water grid + vertex swell; refraction via the opaque texture (falls back to the undistorted sample when the bent one hits something in front of the water, e.g. a hull). Requires URP Opaque Texture on (small perf cost).
+- **All quality tiers**: Depth + Opaque texture on and `Copy Depth Mode = AfterOpaques` applied to every URP asset/renderer (the Default_Forward_Renderer used by the 5 lower tiers was still AfterTransparents).
+- 601/601 EditMode. Not done: N/S water edges still straight; no real waves/shore breakers; refraction cost not profiled.

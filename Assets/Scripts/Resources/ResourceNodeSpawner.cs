@@ -114,7 +114,7 @@ namespace KingdomsOfBharat.ResourceGathering
         private Vector3 RandomPointInWater()
         {
             MapDefinitionData map = MapRegistry.Current;
-            float x = map.WaterCenter.x + _rng.Range(-map.WaterHalfExtents.x, map.WaterHalfExtents.x);
+            float x = map.WaterCenter.x + _rng.Range(-(map.WaterHalfExtents.x - WaterProximity.MaxShoreInset - 1f), map.WaterHalfExtents.x - WaterProximity.MaxShoreInset - 1f);
             float z = map.WaterCenter.z + _rng.Range(-map.WaterHalfExtents.z, map.WaterHalfExtents.z);
             return new Vector3(x, 0f, z);
         }

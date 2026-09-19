@@ -23,6 +23,8 @@ Shader "KingdomsOfBharat/Water"
         _SkyColor ("Fresnel Sky Tint", Color) = (0.62, 0.78, 0.86, 1)
         _FoamColor ("Foam Color", Color) = (0.95, 0.98, 1, 1)
         _FoamWidth ("Foam Width", Float) = 0.35
+        _WaveHeight ("Vertex Wave Height", Float) = 0.04
+        _RefractStrength ("Refraction Strength", Float) = 0.04
     }
 
     SubShader
@@ -45,6 +47,7 @@ Shader "KingdomsOfBharat/Water"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareOpaqueTexture.hlsl"
 
             TEXTURE2D(_NormalMap);
             SAMPLER(sampler_NormalMap);
@@ -65,6 +68,8 @@ Shader "KingdomsOfBharat/Water"
                 float4 _SkyColor;
                 float4 _FoamColor;
                 float _FoamWidth;
+                float _WaveHeight;
+                float _RefractStrength;
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; };
@@ -79,6 +84,10 @@ Shader "KingdomsOfBharat/Water"
             {
                 Varyings o;
                 o.positionWS = TransformObjectToWorld(input.positionOS.xyz);
+                // Gentle vertex swell (mesh is a 2.5-unit grid, see
+                // ProceduralTerrain.BuildWaterPlane) - mostly reads as the
+                // foam line breathing in and out along the shore.
+                o.positionWS.y += (sin(o.positionWS.x * 0.55 + _Time.y * 1.1) + sin(o.positionWS.z * 0.7 - _Time.y * 0.9)) * 0.5 * _WaveHeight;
                 o.positionCS = TransformWorldToHClip(o.positionWS);
                 return o;
             }
@@ -123,7 +132,16 @@ Shader "KingdomsOfBharat/Water"
                 // Soft fade to nothing where water meets ground.
                 alpha *= saturate(depth / max(_EdgeFade, 0.001)) * 0.85 + 0.15 * foamMask;
 
-                return half4(col, alpha);
+                // Refraction: bend where we look up the scene colour by the
+                // ripple normal, but fall back to the undistorted sample if
+                // the bent one lands on something in front of the water
+                // (a boat hull), which would smear it into the surface.
+                float2 refractUV = screenUV + nTS.xy * _RefractStrength * saturate(depth);
+                float refractEye = LinearEyeDepth(SampleSceneDepth(refractUV), _ZBufferParams);
+                refractUV = refractEye < surfaceEye ? screenUV : refractUV;
+                float3 bed = SampleSceneColor(refractUV);
+
+                return half4(lerp(bed, col, alpha), 1);
             }
             ENDHLSL
         }

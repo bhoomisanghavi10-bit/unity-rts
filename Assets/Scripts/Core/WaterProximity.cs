@@ -9,6 +9,21 @@ namespace KingdomsOfBharat.Core
     // rectangle math ProceduralGround already uses to punch its hole.
     public static class WaterProximity
     {
+        // The visible shoreline wobbles: along each real (non-map-edge)
+        // east/west edge the waterline sits 0..MaxShoreInset units INSIDE the
+        // gameplay rectangle, varying smoothly with z. It only ever moves
+        // inward, so water is always within the rectangle - buildings, boats
+        // and fish keyed off the rectangle can never end up in the wet part
+        // that is outside it. ProceduralTerrain (heights/beach) and
+        // NavMeshBaker (unwalkable strips) both read this, so what you see,
+        // what units can walk and what blocks them all agree.
+        public const float MaxShoreInset = 2f;
+
+        public static float ShoreInsetAt(float z)
+        {
+            return MaxShoreInset * Mathf.PerlinNoise(z * 0.09f + 31.7f, 7.3f);
+        }
+
         public static bool HasWater => MapRegistry.Current.WaterHalfExtents.x > 0f && MapRegistry.Current.WaterHalfExtents.z > 0f;
 
         public static bool IsInsideWater(Vector3 point)
@@ -65,14 +80,26 @@ namespace KingdomsOfBharat.Core
         // unchanged if the map has no water at all.
         public static Vector3 ClampToWater(Vector3 point)
         {
+            return ClampToWater(point, 0f);
+        }
+
+        // Same clamp pulled `inset` units in from every edge of the water
+        // rectangle. The rectangle's edge is the waterline, where the
+        // terrain bed is now sand at the surface - boats told to sail to the
+        // very edge would sit on the beach, so WaterMover keeps them a hull
+        // length off it.
+        public static Vector3 ClampToWater(Vector3 point, float inset)
+        {
             if (!HasWater)
             {
                 return point;
             }
 
             MapDefinitionData map = MapRegistry.Current;
-            float clampedX = Mathf.Clamp(point.x, map.WaterCenter.x - map.WaterHalfExtents.x, map.WaterCenter.x + map.WaterHalfExtents.x);
-            float clampedZ = Mathf.Clamp(point.z, map.WaterCenter.z - map.WaterHalfExtents.z, map.WaterCenter.z + map.WaterHalfExtents.z);
+            float hx = Mathf.Max(map.WaterHalfExtents.x - inset, 0f);
+            float hz = Mathf.Max(map.WaterHalfExtents.z - inset, 0f);
+            float clampedX = Mathf.Clamp(point.x, map.WaterCenter.x - hx, map.WaterCenter.x + hx);
+            float clampedZ = Mathf.Clamp(point.z, map.WaterCenter.z - hz, map.WaterCenter.z + hz);
             return new Vector3(clampedX, point.y, clampedZ);
         }
     }

@@ -24,12 +24,15 @@ namespace KingdomsOfBharat.Units
         [SerializeField] private float turnSpeed = 180f;
         [SerializeField] private float arrivalDistance = 0.3f;
 
+        // Keep boats off the sand at the waterline (see ClampToWater).
+        private static readonly float ShoreInset = WaterProximity.MaxShoreInset + 1f;
+
         private Vector3 _destination;
         private bool _hasDestination;
 
         public void MoveTo(Vector3 destination)
         {
-            _destination = WaterProximity.ClampToWater(destination);
+            _destination = WaterProximity.ClampToWater(destination, ShoreInset);
             _hasDestination = true;
         }
 
