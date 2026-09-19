@@ -1,10 +1,12 @@
 # Map/Terrain Visual Upgrade Plan — Toward AoE IV Fidelity
 
-Status: planning only, nothing implemented yet. Written 2026-09-17 per user request
-("create a plan to reach the visual level of AoE 4 for maps with all the asset
-sourcing needed"). Follows this project's usual asset-brief convention
-(`docs/UI_ART_BRIEF.md`, `docs/TEAM_COLOR_ART_BRIEF.md`) — a plan the user sources
-art against, that Claude Code then wires in.
+Status (updated 2026-09-20): **T1 (Option B, Unity Terrain) and T2 (water + shoreline)
+are implemented and committed; T3/T4/T5 and the polish list in section 7 remain.**
+Originally written 2026-09-17 per user request ("create a plan to reach the visual level
+of AoE 4 for maps with all the asset sourcing needed"). Follows this project's usual
+asset-brief convention (`docs/UI_ART_BRIEF.md`, `docs/TEAM_COLOR_ART_BRIEF.md`) — a plan
+the user sources art against, that Claude Code then wires in. Sections 1-2 are the
+original 2026-09-17 baseline, kept for history; section 0 is the current state.
 
 This is deliberately a *separate* initiative from the map-layout work discussed the
 same session (new `MapId` presets inspired by the downloaded AoE II/III map names,
@@ -12,7 +14,94 @@ a skirmish map-select UI). That work is data/UI. This is rendering quality — c
 the gap between "a flat-shaded procedural blob" and something that reads as a real
 battlefield.
 
-## 1. Current state (confirmed against the actual code, not assumed)
+
+## 0. Current state and progress (2026-09-20)
+
+Commits (branch `claude/scaffold-kingdoms-of-bharat`, **not yet pushed** — GitHub auth
+failed with a 403 on the token; needs a token with write access to the repo):
+`3a1917c` Terrain migration, `ecc0fc4` riverbed/beach/unwalkable water, `c692168`
+water shader, `6fd8174` curved shore/refraction/waves/quality tiers. 601/601 EditMode
+tests at every step.
+
+**Done**
+- **T1, Option B chosen and built**: `ProceduralGround` replaced by `ProceduralTerrain`
+  (`Assets/Scripts/Core/ProceduralTerrain.cs`): a real `Terrain` + `TerrainCollider` on the
+  "Ground" object, 257 heightmap from the old `HeightAt` noise, 4 TerrainLayers
+  (Grass/Dirt/Rock/Sand) from `Resources/Terrain/<Layer>/{Albedo,Normal}.png`
+  (ambientCG Grass005/Ground103/Ground093C + the owned PolishedSurfaces rock set).
+  tileSize 4 looked fine, no tuning was needed. Mask maps deliberately not wired
+  (channel packing unconfirmed). PNGs are Git LFS-tracked (`.gitattributes`).
+- **T2, water and shoreline**:
+  - Riverbed is real terrain, no hole: land eases to the waterline over 5 units, drops
+    1.5 below it over 8; terrain transform sits at negative Y. Sand beach layer of noisy
+    ~3.5-unit width; grass/dirt/rock weights come from the base noise so the bank slope
+    doesn't paint as rock.
+  - **Curved shoreline**: `WaterProximity.ShoreInsetAt(z)` (0..2 units, Perlin) moves the
+    east/west waterline inward only, so water always stays inside the gameplay rectangle.
+    Terrain, beach, NavMesh strips, boat clamp and fish spawns all read this one function.
+  - **Units can't wade**: `NavMeshBaker` adds one `NavMeshBuildSourceShape.ModifierBox`
+    (area 1) strip per metre of z following the shoreline. Non-Dock buildings are rejected
+    inside the water rectangle (`BuildingPlacer.IsClearForKind`).
+  - **Water shader** `Resources/Shaders/KobWater.shader` (`KingdomsOfBharat/Water`):
+    depth-fade colour and opacity, two scrolling ripple normal layers, sun glint,
+    flat-normal fresnel sky tint, foam line at the waterline, soft edge fade, vertex swell
+    on a 2.5-unit grid mesh, refraction via the opaque texture (falls back to the
+    undistorted sample when the bent one lands on something in front of the water).
+  - Boats/docks play-tested; `WaterMover` keeps boats `MaxShoreInset + 1` off the sand
+    (`WaterProximity.ClampToWater(point, inset)`, 1-arg overload unchanged).
+  - Shipped in `Always Included Shaders`: URP Terrain/Lit.
+
+**Findings worth keeping (each cost real debugging time)**
+1. URP has **no default terrain material**: the terrain renders solid magenta until
+   `terrain.materialTemplate` is set to `Universal Render Pipeline/Terrain/Lit`.
+2. **ambientCG has no water material** (a "water" query returns Ice/Ground/
+   SurfaceImperfections). The ripple normal map (`Resources/Terrain/Water/Normal.png`) is
+   procedurally generated (band-limited FFT noise, tileable) — no licence question.
+3. A plain `NavMeshBuildSourceShape.Box` is treated as **geometry and does NOT override
+   the area**. Use `ModifierBox` with `area = 1` for not-walkable volumes.
+4. The URP renderer's **Copy Depth Mode was `AfterTransparents`**, so transparent shaders
+   read "far" depth everywhere. Now `AfterOpaques` on every renderer; Depth Texture and
+   Opaque Texture are on for every quality-tier URP asset. Any transparent shader that
+   reads scene depth/colour relies on this. (Diagnosed by outputting depth as colour.)
+5. Depth-fade only works if there is ground under the water — the reason the hole was
+   replaced with a real carved bed.
+6. Fog of war (`FogOfWarManager`, plus the Canvases) hides the terrain in screenshots;
+   disable both for verification shots.
+
+## 7. Remaining work toward the AoE IV reference (prioritised)
+
+Gap analysis against the user's AoE IV shoreline screenshot (translucent shallows showing
+a pebbly bed, dark wet pebble strip, breaking foam, sky/building reflections, warm
+lighting with depth haze). The biggest remaining gap is **lighting and post-processing**,
+not water code. In payoff order:
+
+| # | Item | Needs new art? | Notes |
+|---|---|---|---|
+| 1 | **Lighting + post-processing (T4)**: URP Volume with tone mapping, colour grading, bloom, SSAO; sun colour/angle/soft shadows; distance haze | No | Unused `DefaultVolumeProfile.asset` is the start; cheapest and biggest visual change |
+| 2 | **Wet-sand band + pebble layer** | Pebble/gravel PBR set (ambientCG Gravel/Rocks) | Darken the sand just above the waterline via the same distance function; 5th terrain layer |
+| 3 | **Shore clutter (T3)**: pebbles, reeds, driftwood, grass tufts, rocks | Meshes (Poly Haven / Kenney / Asset Store) | New instancing/scatter system; `EnvironmentPropFactory` has no rock/tuft category |
+| 4 | **Water reflections** | No | Reflection probe/skybox cubemap with fresnel, or planar reflection on the single water plane |
+| 5 | **Caustics on the seabed** | Caustic texture | Animated projection in the shallows |
+| 6 | **Better foam** | Foam texture | Advancing/retreating breakers; current foam is one static line |
+| 7 | **Curve the north/south edges** | No | Same wobble idea as east/west; today only the x-edges wobble |
+| 8 | **Boat wakes and splashes** | No (particles) | Trail on `WaterMover` |
+| 9 | **River flow direction** | No | Scroll ripples along a flow vector instead of two fixed directions |
+| 10 | **Terrain macro variation / anti-tiling** | Higher-quality or extra ground sets | Visible tiling on the grass/dirt blend from a distance |
+| 11 | **T5 resolution check** | No | Re-check the 257 heightmap/256 alphamap density up close now that it's a real Terrain |
+
+Also open: profile the refraction/opaque-texture cost and put refraction behind a
+quality tier; the map-layout work (new `MapId` presets, skirmish map-select UI,
+multi-region water) is still separate and unstarted.
+
+**Updated recommended order**: (1) T4 lighting/post-processing, (2) wet-sand band, then
+source the pebble set and do (2)'s pebble layer, (3) T3 clutter, (4) reflections and
+foam, (5) the small items 7-9, (6) T5.
+
+**Decisions still open**: source pebble/gravel textures and clutter meshes (user's job,
+per project convention); whether reflections should be planar (better, costs a render)
+or probe-based (cheaper); which quality tier gets refraction/reflection.
+
+## 1. Original baseline, 2026-09-17 (historical — superseded by section 0)
 
 - **Ground**: one procedural mesh (`Assets/Scripts/Core/ProceduralGround.cs`),
   textured by a single 256×256 texture painted at runtime with 3 flat colors
@@ -57,7 +146,7 @@ Each phase below is scoped to be its own session (or two), per this project's
 "one item per session" protocol. Order is priority-ranked by visual impact per
 effort, not by dependency — they're mostly independent and could be reordered.
 
-### Phase T1 — Real ground textures + multi-layer terrain shader (highest impact)
+### Phase T1 — Real ground textures + multi-layer terrain shader (highest impact) — DONE 2026-09-20 (Option B, see section 0)
 
 **Code work**: replace `ProceduralGround.BuildSplatTexture`'s runtime flat-color
 painting with a real multi-texture blend. Two implementation options, decide before
@@ -93,7 +182,7 @@ starting:
   worked for the SFX/music pass (Kenney.nl) — a genuinely doable "go download 3-4
   texture sets" task, not a blocker.
 
-### Phase T2 — Real water shader
+### Phase T2 — Real water shader — DONE 2026-09-20 (custom shader, not the Unity Water System; see section 0)
 
 **Code work**: replace `GameplayMaterial.CreateTransparent`'s flat quad with a
 proper water material/shader on the existing water-rectangle mesh in
@@ -111,7 +200,7 @@ only if the sample doesn't fit this project's flat-water-rectangle setup.
 water normal map and a foam texture — both easily CC0-sourceable from the same
 ambientCG/Poly Haven sites above.
 
-### Phase T3 — Ground clutter (grass tufts, rocks, debris)
+### Phase T3 — OPEN, see section 7 — Ground clutter (grass tufts, rocks, debris)
 
 **Code work**: a new lightweight scatter system — GPU-instanced (`Graphics.
 DrawMeshInstanced` or a `Rendering.RenderMeshUtility` batch) small props
@@ -134,7 +223,7 @@ GameObjects) — worth a design decision at the start of this phase.
   Kenney.nl (already used for audio) has a nature/foliage asset pack, since it's
   a known-good, license-clean source for this project.
 
-### Phase T4 — Lighting & post-processing pass
+### Phase T4 — Lighting & post-processing pass — OPEN, now the top priority (section 7)
 
 **Code work**: wire an actual `Volume`/`VolumeProfile` into the scene's Camera
 (the unused `DefaultVolumeProfile.asset` is a starting point), tune shadow
@@ -147,7 +236,7 @@ asset sourcing — the cheapest phase in this whole plan.
 sourceable free from Poly Haven's HDRI section if wanted — optional, not
 required for the core visual jump.
 
-### Phase T5 — Mesh/texture resolution check
+### Phase T5 — Mesh/texture resolution check — OPEN (now about the Terrain heightmap, not a mesh)
 
 **Code work**: verify `ProceduralGround`'s current `GroundResolution` values
 (100-130, matching `GroundSize`) don't look faceted up close once real textures
@@ -188,7 +277,7 @@ multi-region water for "7 Islands"-style maps) — neither blocks the other.
 | Grass-tuft/clump clutter meshes | Poly Haven, Unity Asset Store free packs, or Kenney.nl | CC0 / free | No |
 | Skybox/HDRI (optional) | Poly Haven HDRI section | CC0 | No |
 
-## 6. Open decisions before starting T1
+## 6. Open decisions before starting T1 (resolved: Option B, one shared Grass/Dirt/Rock/Sand set)
 
 - Confirm Option A (shader-only, keep procedural mesh) vs. Option B (migrate to
   Unity `Terrain`) — recommendation is Option A, but this is the one real
