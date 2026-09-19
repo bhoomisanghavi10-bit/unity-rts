@@ -397,6 +397,28 @@ namespace KingdomsOfBharat.Core
             data.SetAlphamaps(0, 0, map);
         }
 
+        // Depth-fade water shader + generated tileable ripple normal map
+        // (Resources/Terrain/Water/Normal - ambientCG has no water material,
+        // so it's a procedurally generated CC0 asset). Falls back to the old
+        // flat transparent material if the shader can't be found, so a
+        // missing shader degrades to the previous look instead of magenta.
+        private Material BuildWaterMaterial()
+        {
+            Shader shader = Shader.Find("KingdomsOfBharat/Water");
+            if (shader == null)
+            {
+                return GameplayMaterial.CreateTransparent(waterColor);
+            }
+
+            var material = new Material(shader) { name = "KobWater" };
+            Texture2D normal = Resources.Load<Texture2D>("Terrain/Water/Normal");
+            if (normal != null)
+            {
+                material.SetTexture("_NormalMap", normal);
+            }
+            return material;
+        }
+
         // Byte-for-byte the same mechanism ProceduralGround used: a flat,
         // semi-transparent quad over the water rectangle, no collider (boats
         // use WaterMover/WaterProximity, not NavMeshAgent). Untouched by this
@@ -427,7 +449,9 @@ namespace KingdomsOfBharat.Core
 
             waterGo.AddComponent<MeshFilter>().sharedMesh = mesh;
             var renderer = waterGo.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = GameplayMaterial.CreateTransparent(waterColor);
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.sharedMaterial = BuildWaterMaterial();
         }
     }
 }

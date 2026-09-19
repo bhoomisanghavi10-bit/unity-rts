@@ -11431,3 +11431,12 @@ Follow-up to the Terrain migration, per the AoE IV shoreline reference. Session 
 - `BuildingPlacer.IsClearForKind`: non-Dock buildings rejected inside the water rect (the bed has a collider now, so a click on water used to hit ground).
 - Verified: 601/601 EditMode; Coastal profile sampled (0.31 -> 0.25 at waterline -> -1.25 bed); screenshot shows a sloped sand beach into the water.
 - Not done: water is still the flat opaque quad (session 2: depth-fade/translucent shader, CC0 ambientCG water normal map, foam, and Terrain/Lit in Always Included Shaders); shoreline is a straight line (gameplay rect must match the waterline) — only beach width is noisy; no gameplay test of boats/docks against the new bed beyond the unchanged rect logic.
+
+## 2026-09-20 — Shoreline session 2: water shader
+
+- New `Resources/Shaders/KobWater.shader` (`KingdomsOfBharat/Water`): colour/opacity fade by water depth over the terrain bed (URP depth texture), two counter-scrolling world-space ripple normal layers, main-light glint, flat-normal fresnel sky tint, foam line at the waterline, soft edge fade. `ProceduralTerrain.BuildWaterMaterial` uses it, falling back to the old flat transparent material if the shader is missing; water no longer casts/receives shadows.
+- Water normal map: **ambientCG has no water material** (query returned Ice/Ground/SurfaceImperfections), so `Resources/Terrain/Water/Normal.png` is a tileable 512px normal map generated procedurally (band-limited FFT noise) — no licence question. Imported as Normal Map.
+- **Real bug found live**: the depth fade read "far" everywhere because the URP renderer's `Copy Depth Mode` was `After Transparents`, so transparents couldn't sample depth. Changed to `After Opaques` on `URP-KingdomsOfBharat_Renderer` (also enabled Depth Texture on the URP asset). Any future transparent shader reading scene depth relies on this. Found by temporarily outputting depth as colour.
+- Added `Universal Render Pipeline/Terrain/Lit` to Always Included Shaders (session-1 flag closed).
+- Verified: 601/601 EditMode; screenshots show teal shallow band, foam edge and soft ripples.
+- Not done: no refraction (no opaque texture), water is one flat quad (no waves/vertex motion), shoreline still straight, no boats/docks play-test on the new water, other quality-level URP assets not touched.
