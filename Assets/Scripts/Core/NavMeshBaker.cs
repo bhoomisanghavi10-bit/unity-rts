@@ -54,6 +54,21 @@ namespace KingdomsOfBharat.Core
                 groundRoot, ~0, NavMeshCollectGeometry.PhysicsColliders, 0,
                 new List<NavMeshBuildMarkup>(), sources);
 
+            // The water bed is real terrain (sloped, sunken), so keep it
+            // unwalkable with a Not Walkable (area 1) box over the water
+            // rectangle - units can't wade. Its edge is the waterline.
+            if (WaterProximity.HasWater)
+            {
+                MapDefinitionData map = MapRegistry.Current;
+                sources.Add(new NavMeshBuildSource
+                {
+                    shape = NavMeshBuildSourceShape.ModifierBox,
+                    size = new Vector3(map.WaterHalfExtents.x * 2f, 20f, map.WaterHalfExtents.z * 2f),
+                    transform = Matrix4x4.TRS(new Vector3(map.WaterCenter.x, 0f, map.WaterCenter.z), Quaternion.identity, Vector3.one),
+                    area = 1,
+                });
+            }
+
             NavMeshBuildSettings settings = NavMesh.GetSettingsByID(0);
             NavMeshData data = NavMeshBuilder.BuildNavMeshData(
                 settings, sources, bounds, Vector3.zero, Quaternion.identity);

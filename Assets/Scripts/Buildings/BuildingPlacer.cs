@@ -971,7 +971,9 @@ namespace KingdomsOfBharat.Buildings
 
             if (kind != BuildingKind.Dock)
             {
-                return clear;
+                // The water bed has a collider now (it used to be a hole),
+                // so a click on water hits ground - keep land buildings out.
+                return clear && !WaterProximity.IsInsideWater(point);
             }
 
             return clear

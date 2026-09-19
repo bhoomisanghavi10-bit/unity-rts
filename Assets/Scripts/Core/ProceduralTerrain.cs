@@ -35,6 +35,19 @@ namespace KingdomsOfBharat.Core
         [SerializeField] private Color grassColor = new Color(0.36f, 0.5f, 0.28f);
         [SerializeField] private Color dirtColor = new Color(0.5f, 0.4f, 0.26f);
 
+        // Shoreline profile (world units). Land blends down to the waterline
+        // over BankWidth, then drops to the bed over BedDropWidth; the
+        // waterline (terrain height == waterSurfaceY) sits exactly on the
+        // gameplay water rectangle's edge so WaterProximity/WaterMover and
+        // the NavMesh exclusion all agree with what the player sees.
+        private const float BankWidth = 5f;
+        private const float BedDropWidth = 8f;
+        private const float BedDepth = 1.5f;
+        private const float BeachWidth = 3.5f;
+        private const int SandLayerIndex = 3;
+
+        private float _bedBelowZero;
+        private Vector4 _waterRect; // xMin, xMax, zMin, zMax (sides at the map edge extended to infinity)
         private Vector3 _waterCenter;
         private Vector3 _waterHalfExtents;
         private bool HasWater => _waterHalfExtents.x > 0f && _waterHalfExtents.z > 0f;
@@ -104,7 +117,9 @@ namespace KingdomsOfBharat.Core
             // transform so world-space still spans -half..+half on X/Z,
             // matching every existing town-center/resource-position constant
             // in MapDefinitionData exactly.
-            transform.position = new Vector3(-half, 0f, -half);
+            _bedBelowZero = HasWater ? Mathf.Max(0f, BedDepth - waterSurfaceY) : 0f;
+            transform.position = new Vector3(-half, -_bedBelowZero, -half);
+            ComputeWaterRect(half);
 
             // Two-octave sum's theoretical max is noiseHeight*1.3 - give a
             // little headroom so a full-amplitude peak never clips against
@@ -112,11 +127,12 @@ namespace KingdomsOfBharat.Core
             float terrainHeightScale = Mathf.Max(noiseHeight * 1.3f, 0.01f) * 1.25f;
 
             data.heightmapResolution = HeightmapResolution;
+            terrainHeightScale += _bedBelowZero;
             data.size = new Vector3(mapSize, terrainHeightScale, mapSize);
             data.alphamapResolution = AlphamapResolution;
 
             ApplyHeights(data, terrainHeightScale, half);
-            ApplyHoles(data, half);
+            ClearHoles(data);
             ApplyLayers(data);
             ApplyAlphamaps(data);
 
@@ -169,43 +185,100 @@ namespace KingdomsOfBharat.Core
                 for (int x = 0; x < HeightmapResolution; x++)
                 {
                     float worldX = -half + (float)x / (HeightmapResolution - 1) * mapSize;
-                    heights[z, x] = HeightAt(worldX, worldZ) / terrainHeightScale;
+                    heights[z, x] = (ShapedHeightAt(worldX, worldZ) + _bedBelowZero) / terrainHeightScale;
                 }
             }
 
             data.SetHeights(0, 0, heights);
         }
 
-        // True in the holes[,] array means "solid ground" (Unity's own
-        // convention); false is a hole - same "no ground geometry here" as
-        // ProceduralGround's own triangle-skipping IsWaterCell check, so
-        // collision/NavMesh naturally exclude the water rectangle exactly as
-        // before.
-        private void ApplyHoles(TerrainData data, float half)
+        // The riverbed is now real terrain (sloped banks, sunken bed) instead
+        // of a hole, so the shoreline can be a gradient. Water is kept
+        // unwalkable by NavMeshBaker (a not-walkable box over the water
+        // rectangle), not by missing geometry. TerrainData is reused across
+        // Rebuild() calls, so clear any holes an earlier build left behind.
+        private void ClearHoles(TerrainData data)
         {
             var holes = new bool[HolesResolution, HolesResolution];
             for (int z = 0; z < HolesResolution; z++)
             {
-                float cellCenterZ = -half + (z + 0.5f) / HolesResolution * mapSize;
                 for (int x = 0; x < HolesResolution; x++)
                 {
-                    float cellCenterX = -half + (x + 0.5f) / HolesResolution * mapSize;
-                    holes[z, x] = !IsWaterCell(cellCenterX, cellCenterZ);
+                    holes[z, x] = true;
                 }
             }
 
             data.SetHoles(0, 0, holes);
         }
 
-        private bool IsWaterCell(float worldX, float worldZ)
+        // Water rectangle with any side that reaches the map edge extended
+        // far outward, so the bank only forms along real shorelines and not
+        // along the map border.
+        private void ComputeWaterRect(float half)
         {
             if (!HasWater)
             {
-                return false;
+                _waterRect = Vector4.zero;
+                return;
             }
 
-            return Mathf.Abs(worldX - _waterCenter.x) <= _waterHalfExtents.x
-                && Mathf.Abs(worldZ - _waterCenter.z) <= _waterHalfExtents.z;
+            const float far = 10000f;
+            float xMin = _waterCenter.x - _waterHalfExtents.x;
+            float xMax = _waterCenter.x + _waterHalfExtents.x;
+            float zMin = _waterCenter.z - _waterHalfExtents.z;
+            float zMax = _waterCenter.z + _waterHalfExtents.z;
+            if (xMin <= -half + 0.01f) xMin = -far;
+            if (xMax >= half - 0.01f) xMax = far;
+            if (zMin <= -half + 0.01f) zMin = -far;
+            if (zMax >= half - 0.01f) zMax = far;
+            _waterRect = new Vector4(xMin, xMax, zMin, zMax);
+        }
+
+        // Positive inside the water rectangle (distance to the nearest
+        // shoreline edge), negative outside (distance to the rectangle).
+        private float SignedWaterDistance(float x, float z)
+        {
+            if (!HasWater)
+            {
+                return -10000f;
+            }
+
+            float inside = Mathf.Min(
+                Mathf.Min(x - _waterRect.x, _waterRect.y - x),
+                Mathf.Min(z - _waterRect.z, _waterRect.w - z));
+            if (inside >= 0f)
+            {
+                return inside;
+            }
+
+            float dx = Mathf.Max(0f, Mathf.Max(_waterRect.x - x, x - _waterRect.y));
+            float dz = Mathf.Max(0f, Mathf.Max(_waterRect.z - z, z - _waterRect.w));
+            return -Mathf.Sqrt(dx * dx + dz * dz);
+        }
+
+        // Base rolling noise plus the carved bank/bed around the water.
+        private float ShapedHeightAt(float worldX, float worldZ)
+        {
+            float land = HeightAt(worldX, worldZ);
+            if (!HasWater)
+            {
+                return land;
+            }
+
+            float s = SignedWaterDistance(worldX, worldZ);
+            if (s <= -BankWidth)
+            {
+                return land;
+            }
+
+            if (s <= 0f)
+            {
+                // Land eases down to exactly the waterline at the edge.
+                return Mathf.Lerp(land, waterSurfaceY, Mathf.SmoothStep(0f, 1f, (s + BankWidth) / BankWidth));
+            }
+
+            float bed = waterSurfaceY - BedDepth;
+            return Mathf.Lerp(waterSurfaceY, bed, Mathf.SmoothStep(0f, 1f, s / BedDropWidth));
         }
 
         private void ApplyLayers(TerrainData data)
@@ -217,6 +290,7 @@ namespace KingdomsOfBharat.Core
                     BuildLayer("Terrain/Grass", grassColor),
                     BuildLayer("Terrain/Dirt", dirtColor),
                     BuildLayer("Terrain/Rock", Color.gray),
+                    BuildLayer("Terrain/Sand", new Color(0.6f, 0.53f, 0.4f)),
                 };
             }
 
@@ -275,7 +349,7 @@ namespace KingdomsOfBharat.Core
         // visual variation already.
         private void ApplyAlphamaps(TerrainData data)
         {
-            var map = new float[AlphamapResolution, AlphamapResolution, 3];
+            var map = new float[AlphamapResolution, AlphamapResolution, 4];
             float half = mapSize * 0.5f;
             float sampleStep = mapSize / AlphamapResolution;
 
@@ -285,6 +359,8 @@ namespace KingdomsOfBharat.Core
                 for (int x = 0; x < AlphamapResolution; x++)
                 {
                     float worldX = -half + x * sampleStep;
+                    // Grass/dirt/rock are driven by the *base* noise so the
+                    // carved bank's slope doesn't paint itself as rock.
                     float height = HeightAt(worldX, worldZ);
 
                     float dHeightX = HeightAt(worldX + sampleStep, worldZ) - height;
@@ -295,9 +371,26 @@ namespace KingdomsOfBharat.Core
                     float rockWeight = Mathf.Clamp01(slope * 6f);
                     float remaining = 1f - rockWeight;
 
-                    map[z, x, 0] = remaining * (1f - dirtWeight); // grass
-                    map[z, x, 1] = remaining * dirtWeight; // dirt
-                    map[z, x, 2] = rockWeight; // rock
+                    float grass = remaining * (1f - dirtWeight);
+                    float dirt = remaining * dirtWeight;
+                    float rock = rockWeight;
+
+                    // Beach: sand from the waterline out to a noisy width
+                    // (so the strip isn't a ruler-straight band), solid sand
+                    // under water.
+                    float sand = 0f;
+                    if (HasWater)
+                    {
+                        float s = SignedWaterDistance(worldX, worldZ);
+                        float width = BeachWidth * (0.6f + 0.8f * Mathf.PerlinNoise(worldX * 0.35f + 91f, worldZ * 0.35f + 17f));
+                        sand = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-width, -0.3f, s));
+                    }
+
+                    float keep = 1f - sand;
+                    map[z, x, 0] = grass * keep;
+                    map[z, x, 1] = dirt * keep;
+                    map[z, x, 2] = rock * keep;
+                    map[z, x, SandLayerIndex] = sand;
                 }
             }
 
