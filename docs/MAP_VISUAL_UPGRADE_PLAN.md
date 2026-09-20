@@ -51,6 +51,13 @@ tests at every step.
     (`WaterProximity.ClampToWater(point, inset)`, 1-arg overload unchanged).
   - Shipped in `Always Included Shaders`: URP Terrain/Lit.
 
+- **T4, lighting and post-processing** (`Assets/Settings/MapPostProcess.asset` + `MapSky.mat`,
+  `MapPostProcessVolume` in `Main.unity`): ACES tonemapping, bloom, colour adjustments
+  (exposure +0.1, contrast +6, saturation -4), split-toned shadows/highlights, vignette,
+  SMAA; sun at 38 deg pitch, warm, intensity 1.15; trilight ambient; tuned procedural sky;
+  exp2 fog 0.0035; shadow distance 90; SSAO on the top-tier renderer only. Tuned from
+  before/after screenshots (the first, stronger grade made grass neon and the horizon mustard).
+
 **Findings worth keeping (each cost real debugging time)**
 1. URP has **no default terrain material**: the terrain renders solid magenta until
    `terrain.materialTemplate` is set to `Universal Render Pipeline/Terrain/Lit`.
@@ -77,7 +84,7 @@ not water code. In payoff order:
 
 | # | Item | Needs new art? | Notes |
 |---|---|---|---|
-| 1 | **Lighting + post-processing (T4)**: URP Volume with tone mapping, colour grading, bloom, SSAO; sun colour/angle/soft shadows; distance haze | No | Unused `DefaultVolumeProfile.asset` is the start; cheapest and biggest visual change |
+| 1 | ~~**Lighting + post-processing (T4)**~~ DONE 2026-09-20: URP Volume with tone mapping, colour grading, bloom, SSAO; sun colour/angle/soft shadows; distance haze | No | Unused `DefaultVolumeProfile.asset` is the start; cheapest and biggest visual change |
 | 2 | **Wet-sand band + pebble layer** | Pebble/gravel PBR set (ambientCG Gravel/Rocks) | Darken the sand just above the waterline via the same distance function; 5th terrain layer |
 | 3 | **Shore clutter (T3)**: pebbles, reeds, driftwood, grass tufts, rocks | Meshes (Poly Haven / Kenney / Asset Store) | New instancing/scatter system; `EnvironmentPropFactory` has no rock/tuft category |
 | 4 | **Water reflections** | No | Reflection probe/skybox cubemap with fresnel, or planar reflection on the single water plane |
@@ -93,7 +100,7 @@ Also open: profile the refraction/opaque-texture cost and put refraction behind 
 quality tier; the map-layout work (new `MapId` presets, skirmish map-select UI,
 multi-region water) is still separate and unstarted.
 
-**Updated recommended order**: (1) T4 lighting/post-processing, (2) wet-sand band, then
+**Updated recommended order** (T4 now done): (2) wet-sand band, then
 source the pebble set and do (2)'s pebble layer, (3) T3 clutter, (4) reflections and
 foam, (5) the small items 7-9, (6) T5.
 
@@ -223,7 +230,7 @@ GameObjects) — worth a design decision at the start of this phase.
   Kenney.nl (already used for audio) has a nature/foliage asset pack, since it's
   a known-good, license-clean source for this project.
 
-### Phase T4 — Lighting & post-processing pass — OPEN, now the top priority (section 7)
+### Phase T4 — Lighting & post-processing pass — DONE 2026-09-20 (see section 0)
 
 **Code work**: wire an actual `Volume`/`VolumeProfile` into the scene's Camera
 (the unused `DefaultVolumeProfile.asset` is a starting point), tune shadow

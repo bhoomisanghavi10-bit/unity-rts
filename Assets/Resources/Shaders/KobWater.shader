@@ -8,7 +8,7 @@ Shader "KingdomsOfBharat/Water"
     Properties
     {
         _ShallowColor ("Shallow Color", Color) = (0.32, 0.62, 0.58, 1)
-        _DeepColor ("Deep Color", Color) = (0.05, 0.22, 0.32, 1)
+        _DeepColor ("Deep Color", Color) = (0.08, 0.30, 0.42, 1)
         _ShallowAlpha ("Shallow Alpha", Range(0,1)) = 0.35
         _DeepAlpha ("Deep Alpha", Range(0,1)) = 0.92
         _DepthMax ("Depth For Full Deep Color", Float) = 3.0

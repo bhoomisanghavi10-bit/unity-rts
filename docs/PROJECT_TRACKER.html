@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kingdoms of Bharat — Project Tracker</title>
+<style>
+  :root {
+    --bg: #f5efe3;
+    --bg-alt: #ffffff;
+    --ink: #2b241a;
+    --ink-dim: #6b5f4d;
+    --border: #ddd0b4;
+    --accent: #9c6b1f;
+    --accent-ink: #ffffff;
+    --gold: #b8860b;
+    --done-bg: #dff0da; --done-ink: #2f6b2f; --done-border: #b6d9ac;
+    --prog-bg: #fdeecb; --prog-ink: #9a6a00; --prog-border: #f0d38f;
+    --partial-bg: #eadcf7; --partial-ink: #6b3fa0; --partial-border: #d3b7ec;
+    --open-bg: #f1ece0; --open-ink: #7a6f5a; --open-border: #ddd0b4;
+    --blocked-bg: #fbdede; --blocked-ink: #a13a3a; --blocked-border: #eeb8b8;
+    --shadow: 0 1px 2px rgba(43,36,26,0.06), 0 4px 14px rgba(43,36,26,0.05);
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1c1812;
+      --bg-alt: #262019;
+      --ink: #ecdfc4;
+      --ink-dim: #b6a687;
+      --border: #40352380;
+      --accent: #d8a24a;
+      --accent-ink: #1c1812;
+      --gold: #e0b04a;
+      --done-bg: #1f3320; --done-ink: #8fd48a; --done-border: #345a35;
+      --prog-bg: #3a2f12; --prog-ink: #f0c56a; --prog-border: #6b551f;
+      --partial-bg: #2e2440; --partial-ink: #c9a6ec; --partial-border: #4d3a6e;
+      --open-bg: #2a251c; --open-ink: #a99a7d; --open-border: #40352a;
+      --blocked-bg: #3a2222; --blocked-ink: #e08a8a; --blocked-border: #603030;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 14px rgba(0,0,0,0.25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1c1812; --bg-alt: #262019; --ink: #ecdfc4; --ink-dim: #b6a687;
+    --border: #40352380; --accent: #d8a24a; --accent-ink: #1c1812; --gold: #e0b04a;
+    --done-bg: #1f3320; --done-ink: #8fd48a; --done-border: #345a35;
+    --prog-bg: #3a2f12; --prog-ink: #f0c56a; --prog-border: #6b551f;
+    --partial-bg: #2e2440; --partial-ink: #c9a6ec; --partial-border: #4d3a6e;
+    --open-bg: #2a251c; --open-ink: #a99a7d; --open-border: #40352a;
+    --blocked-bg: #3a2222; --blocked-ink: #e08a8a; --blocked-border: #603030;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: -apple-system, "Segoe UI", Georgia, serif; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  header.top { margin-bottom: 22px; }
+  header.top h1 { font-size: 1.7rem; margin: 0 0 4px; letter-spacing: 0.2px; }
+  header.top .sub { color: var(--ink-dim); font-size: 0.92rem; margin: 0; }
+  header.top .sub b { color: var(--ink); }
+
+  .stat-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 18px 0 22px; }
+  .stat { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; box-shadow: var(--shadow); }
+  .stat .n { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+  .stat .l { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-dim); margin-top: 5px; }
+  .stat.done .n { color: var(--done-ink); }
+  .stat.prog .n { color: var(--prog-ink); }
+  .stat.partial .n { color: var(--partial-ink); }
+  .stat.open .n { color: var(--ink-dim); }
+  .stat.blocked .n { color: var(--blocked-ink); }
+
+  .overall-bar { height: 10px; border-radius: 6px; background: var(--open-bg); overflow: hidden; display: flex; margin-bottom: 26px; border: 1px solid var(--border); }
+  .overall-bar div { height: 100%; }
+  .overall-bar .seg-done { background: var(--done-ink); }
+  .overall-bar .seg-prog { background: var(--prog-ink); }
+  .overall-bar .seg-partial { background: var(--partial-ink); }
+
+  nav.tabs { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 18px; padding-bottom: 0; }
+  nav.tabs button { background: none; border: none; font: inherit; font-weight: 600; font-size: 0.88rem; color: var(--ink-dim); padding: 9px 14px; cursor: pointer; border-bottom: 2px solid transparent; transition: color .15s, border-color .15s; }
+  nav.tabs button:hover { color: var(--ink); }
+  nav.tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .toolbar input[type="search"] {
+    flex: 1; min-width: 180px; background: var(--bg-alt); border: 1px solid var(--border); color: var(--ink);
+    border-radius: 8px; padding: 8px 12px; font: inherit; font-size: 0.88rem;
+  }
+  .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    font-size: 0.76rem; font-weight: 600; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--bg-alt); color: var(--ink-dim); user-select: none;
+    transition: all .12s;
+  }
+  .chip.active { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+
+  section.panel { display: none; }
+  section.panel.active { display: block; }
+
+  .wave-group { margin-bottom: 22px; }
+  .wave-head { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px 2px; }
+  .wave-head h2 { font-size: 1.02rem; margin: 0; flex: 1; }
+  .wave-head .count { font-size: 0.78rem; color: var(--ink-dim); }
+  .wave-head .chev { font-size: 0.7rem; color: var(--ink-dim); transition: transform .15s; }
+  .wave-group.collapsed .chev { transform: rotate(-90deg); }
+  .wave-progress { height: 6px; border-radius: 4px; background: var(--open-bg); overflow: hidden; margin: 0 2px 10px; }
+  .wave-progress div { height: 100%; background: var(--done-ink); }
+  .wave-group.collapsed .items { display: none; }
+
+  .items { display: flex; flex-direction: column; gap: 8px; }
+  .card {
+    background: var(--bg-alt); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; box-shadow: var(--shadow); display: flex; gap: 12px; align-items: flex-start;
+  }
+  .card .idx { font-size: 0.72rem; color: var(--ink-dim); font-weight: 700; min-width: 26px; padding-top: 2px; }
+  .card .body { flex: 1; min-width: 0; }
+  .card .title-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .card .title { font-weight: 600; font-size: 0.94rem; }
+  .card .size-tag { font-size: 0.68rem; color: var(--ink-dim); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; }
+  .card .note { font-size: 0.82rem; color: var(--ink-dim); margin-top: 4px; line-height: 1.45; }
+  .card .meta { font-size: 0.72rem; color: var(--ink-dim); margin-top: 5px; }
+  .pill {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+    padding: 3px 9px; border-radius: 999px; white-space: nowrap; border: 1px solid transparent;
+  }
+  .pill.done { background: var(--done-bg); color: var(--done-ink); border-color: var(--done-border); }
+  .pill.progress { background: var(--prog-bg); color: var(--prog-ink); border-color: var(--prog-border); }
+  .pill.partial { background: var(--partial-bg); color: var(--partial-ink); border-color: var(--partial-border); }
+  .pill.open { background: var(--open-bg); color: var(--open-ink); border-color: var(--open-border); }
+  .pill.blocked { background: var(--blocked-bg); color: var(--blocked-ink); border-color: var(--blocked-border); }
+
+  .empty-msg { text-align: center; color: var(--ink-dim); font-size: 0.88rem; padding: 30px 0; }
+
+  footer.note { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 0.78rem; color: var(--ink-dim); line-height: 1.6; }
+  footer.note code { background: var(--open-bg); padding: 1px 5px; border-radius: 4px; }
+
+  @media (max-width: 700px) {
+    .stat-row { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>🏹 Kingdoms of Bharat — Project Tracker</h1>
+    <p class="sub">Snapshot as of <b>2026-09-14</b>. Sources: <code>IMPLEMENTATION_ROADMAP.md</code>, <code>Roadmap.md</code>, <code>UI_ART_BRIEF.md</code>, <code>TEAM_COLOR_ART_BRIEF.md</code>, <code>CLAUDE.md</code>, <code>KingdomsOfBharat_Model_Spec.xlsx</code>, <code>AoE_vs_KingdomsOfBharat_Comparison.xlsx</code>, and the live git working tree. This is a manually-generated summary, not a live sync — regenerate it by asking Claude to refresh the tracker after a batch of sessions.</p>
+  </header>
+
+  <div class="stat-row" id="statRow"></div>
+  <div class="overall-bar" id="overallBar" title="Overall completion across every tracked item"></div>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="roadmap" class="active">Roadmap Waves</button>
+    <button data-tab="art">Art &amp; Asset Pipeline</button>
+    <button data-tab="parity">AoE Feature Parity</button>
+    <button data-tab="bugs">Known Bugs</button>
+    <button data-tab="now">In Progress Right Now</button>
+    <button data-tab="backlog">Backlog / Later</button>
+  </nav>
+
+  <div class="toolbar">
+    <input type="search" id="search" placeholder="Search titles and notes…">
+    <div class="chip-row" id="statusChips">
+      <div class="chip active" data-status="all">All</div>
+      <div class="chip" data-status="done">Done</div>
+      <div class="chip" data-status="progress">In Progress</div>
+      <div class="chip" data-status="partial">Partial</div>
+      <div class="chip" data-status="open">Open</div>
+      <div class="chip" data-status="blocked">Blocked</div>
+    </div>
+  </div>
+
+  <section class="panel active" id="panel-roadmap"></section>
+  <section class="panel" id="panel-art"></section>
+  <section class="panel" id="panel-parity">
+    <p class="parity-intro"></p>
+  </section>
+  <section class="panel" id="panel-bugs"></section>
+  <section class="panel" id="panel-now"></section>
+  <section class="panel" id="panel-backlog"></section>
+
+  <footer class="note">
+    Status legend — <b>Done</b>: shipped, tested, live-verified. <b>In Progress</b>: actively being worked, code may exist uncommitted. <b>Partial</b>: part of the item shipped, a real sub-scope remains. <b>Open</b>: not started. <b>Blocked</b>: can't proceed without something outside Claude Code's control (usually new art/model sourcing, or a second physical machine).<br>
+    The 40-item wave plan is the current source of truth for new feature work (per <code>CLAUDE.md</code>'s own note: "new work picks up from <code>IMPLEMENTATION_ROADMAP.md</code>"). <code>Roadmap.md</code>'s own Section 5 priority order is the prior, superseded plan — kept for history only.
+  </footer>
+
+</div>
+
+<script>
+const ROADMAP = [
+  // Wave 0 — Foundation
+  {n:'1', wave:0, size:'S', title:'Reconcile UnitClass vs UnitCategory', status:'done', date:'2026-09-04',
+    note:'Unified the two overlapping "what kind of combatant is this" enums into one shared KingdomsOfBharat.Combat.UnitClass (added Support/Hero). Global UnitCategory enum deleted.'},
+  {n:'2', wave:0, size:'S', title:'Verify the retroactive upgrade rule', status:'done', date:'2026-09-04',
+    note:'Confirmed bonuses were baked in at spawn, not retroactive. Fixed to live-read at damage-resolution time via opt-in EnableUpgrade*Scaling(), scoped to the 13 factories that already baked it in.'},
+  {n:'3', wave:0, size:'S', title:'Confirm the minimum-damage clamp', status:'done', date:'2026-09-04',
+    note:'Verify-only — confirmed Attackable.TakeDamage already floors at 1 damage after armor subtraction, can never floor a hit at 0. 4 new tests.'},
+  {n:'4', wave:0, size:'S', title:'Wire DamageType.Trample and DamageType.Fire', status:'done', date:'2026-09-04',
+    note:'Collapsed the duplicate global DamageType enum into one shared type. Trample wired onto both War Elephant factories with splash. Fire correctly deferred to its real Wave 4 consumer (Fire Ship, item 25) rather than wired without one — and that item is now done too.'},
+
+  // Wave 1 — The 4th Age (Durg)
+  {n:'5', wave:1, size:'M', title:'Add AgeId.Durg', status:'done', date:'2026-09-04',
+    note:'4th age added to AgeProfile (250 Wood/150 Stone, 40s research, gather/HP/train multiplier row).'},
+  {n:'6', wave:1, size:'S', title:'Age-up building-count requirement', status:'done', date:'2026-09-04',
+    note:'2 completed non-TownCenter buildings required for Classical→Durg onward (Ancient→Classical stays cost-only).'},
+
+  // Wave 2 — Durg + Karmashala
+  {n:'7', wave:2, size:'M', title:'Durg building', status:'done', date:'2026-09-04',
+    note:'Strongest defensive building (700 HP, 12 garrison capacity, 6 max shots). Trains unique units, relocated off Barracks. AI-side building/training hook added to avoid a regression.'},
+  {n:'8', wave:2, size:'M', title:'Karmashala (Blacksmith-equivalent)', status:'done', date:'2026-09-04',
+    note:'150 Wood, Classical-gated. Flat Attack/Armor research tracks moved off Barracks onto it. Closed Wave 2.'},
+
+  // Wave 3 — Upgrade ladders
+  {n:'9', wave:3, size:'S', title:'Infantry line (5 tiers)', status:'done', date:'2026-09-04', note:'First Wave 3 item — research on Barracks, not retroactive.'},
+  {n:'10', wave:3, size:'S', title:'Spearman line (3 tiers)', status:'done', date:'2026-09-04'},
+  {n:'11', wave:3, size:'S', title:'Archer line (3 tiers)', status:'done', date:'2026-09-04'},
+  {n:'12', wave:3, size:'S', title:'Knight/Cavalry line (3 tiers)', status:'done', date:'2026-09-04'},
+  {n:'13', wave:3, size:'S', title:'Elephant line (2 tiers)', status:'done', date:'2026-09-04',
+    note:'One shared ladder for Maurya + Vijayanagara. Research lives on Durg (not Barracks) since War Elephants train there — deliberately doubles as this line\'s own "elite tier," so item 16 excludes both Elephant factories from its list.'},
+  {n:'14', wave:3, size:'S', title:'Mangonel/Siege line (3 tiers)', status:'done', date:'2026-09-05'},
+  {n:'15', wave:3, size:'S', title:'Galley/Naval line (3 tiers)', status:'done', date:'2026-09-05', note:'Research lives on Dock, not Barracks.'},
+  {n:'16', wave:3, size:'M', title:'Unique-unit Elite tier (2 tiers × 5 units)', status:'done', date:'2026-09-05',
+    note:'Naval Raider, Royal Guard, Pillar Edict Scholar, Mavla Raider, Durg Garrison. Keyed by unitId, research on Durg.'},
+  {n:'17', wave:3, size:'S', title:'Blacksmith-style stat upgrade steps (age-gate)', status:'done', date:'2026-09-05',
+    note:'Found and fixed a real gap: Karmashala\'s 3 tiers had no age gate at all, so all 3 were researchable in one Age. Age-gated Classical/Durg/Imperial. Closes Wave 3.'},
+
+  // Wave 4 — New units
+  {n:'18', wave:4, size:'M', title:'Scout (Chara), 3-tier line', status:'done', date:'2026-09-05',
+    note:'First Wave 4 item. Vision/speed growth per tier instead of HP/damage. First live combat user of UnitClass.Support.'},
+  {n:'19', wave:4, size:'S', title:'Skirmisher (anti-archer specialist), 2 tiers', status:'done', date:'2026-09-05', note:'Closes the counter web\'s last gap.'},
+  {n:'20', wave:4, size:'S', title:'Battering Ram, 3 tiers', status:'done', date:'2026-09-05', note:'Anti-building only (hard block, not a weak multiplier), no splash, garrisonable.'},
+  {n:'21', wave:4, size:'S', title:'Cavalry Archer, 2 tiers', status:'done', date:'2026-09-05'},
+  {n:'22', wave:4, size:'S', title:'Camel Rider, 2 tiers', status:'done', date:'2026-09-05', note:'Design-decision item — user confirmed build. New UnitClass.Camel.'},
+  {n:'23', wave:4, size:'S', title:'Scorpion, 2 tiers', status:'done', date:'2026-09-05', note:'First real pass-through/pierce-line mechanic (MeleeAttacker.SetPierceThrough).'},
+  {n:'24', wave:4, size:'S', title:'Trebuchet, 1 tier', status:'done', date:'2026-09-07', note:'First single-tier trainable combat unit; new minimum-range mechanic.'},
+  {n:'25', wave:4, size:'S', title:'Fire Ship, 3 tiers', status:'done', date:'2026-09-05', note:'First live consumer of DamageType.Fire. Found and fixed a serious pre-existing regression (a null scorpionButton silently broke every onClick wired after it, project-wide).'},
+  {n:'26', wave:4, size:'M', title:'Trader — Vanik (land) + Trade Ship (naval)', status:'done', date:'2026-09-06', note:'New Market training queue. Enemy/unallied trade routes deliberately out of scope for v1.'},
+  {n:'27', wave:4, size:'M', title:'Support units — Vaidya (healer) + Purohita (converter)', status:'done', date:'2026-09-06', note:'New Monastery building. Full AoE-style conversion chance roll, not guaranteed.'},
+  {n:'28', wave:4, size:'M', title:'Hero unit — Maharaja (per civ) + Regicide', status:'done', date:'2026-09-07', note:'Regicide pulled forward from Wave 6 item 37. Maharaja is the strongest unit in the game (user\'s own call), retrainable after death when Regicide is off. Closes Wave 4.'},
+
+  // Wave 5 — Cross-cutting systems
+  {n:'29', wave:5, size:'M', title:'Player/team colour system', status:'progress', date:'reopened 2026-09-12',
+    note:'Shipped 2026-09-07 as small banner/pennant flags — REOPENED 2026-09-12 from live play, the banner approach doesn\'t read as a real team-color system. Buildings: a metallic-trim tint shader (TeamColorBuildingTint) shipped and visual-passed across all 45 civ/building combos — works cleanly on Chola, partially on Maurya (dome only), invisible on Vijayanagara + Maurya Tower/Barracks (no metallic art there, tracked as a content gap). Rajput/Maratha builds + non-civ buildings (Durg/Karmashala/Monastery/resource drop-offs) still need individual visual review. Units: a parallel TeamColorUnitTint mechanism exists in the working tree UNCOMMITTED — wired onto the Maratha Mavla Raider, but pointing at a MavlaRaider_teammask resource that doesn\'t actually exist on disk yet (currently a silent no-op at runtime, per the mechanism\'s own documented convention for a missing mask). The one real teammask that had been delivered (for an earlier Purohita FBX rig) is now moot — the user picked a different, newer Purohita GLB rig on 2026-09-14 that has no team mask at all, and the old delivery was archived, not wired. As of 2026-09-14, no unit anywhere has a working team-color mask. Confirmed with the user (2026-09-13) the Mavla Raider pilot wiring is their own stale/in-progress work, safe to leave as-is. Needs Blender-authored masks per unit body before it can roll out further (docs/TEAM_COLOR_ART_BRIEF.md). Note: KingdomsOfBharat_Model_Spec.xlsx\'s "Player Color" sheet (2026-09-03) framed the real core gap precisely — the project tinted per-CIVILIZATION only, so two players on the same civ would be visually identical; a true per-PLAYER-SLOT colour independent of civ identity was "the core gap." That exact gap was closed 2026-09-07 by Core/TeamColor.cs (FactionId→Color, deliberately independent of CivilizationProfile.PrimaryColor) — everything since has been extending that slot-color onto more surfaces (buildings, then units), not re-solving the original ask.'},
+  {n:'30', wave:5, size:'L', title:'UI layout re-anchor — bottom bar', status:'done', date:'2026-09-05', note:'Re-touched multiple times since (HUD-horizontal pass 2026-09-12, BuildMenu column retune 2026-09-13) but the core re-anchor is shipped.'},
+  {n:'31', wave:5, size:'M', title:'BuildMenu command-panel grid redesign', status:'done', date:'2026-09-06', note:'Icon grid + pagination + hover tooltips replaced the 60-button vertical stack. Column count retuned 8→7 on 2026-09-13 to fix a real BuildMenu/SelectedUnitPanel overlap.'},
+  {n:'32', wave:5, size:'S', title:'Age/research always-visible readout', status:'done', date:'2026-09-14',
+    note:'Closes Wave 5. Civilization/Population/Age labels were already always-on (2026-09-12 HUD pass) — this added the research-in-progress meter, deliberately scoped to Age-up only (not every concurrent research track), matching real AoE II\'s own top-center "torch" readout. A second ResourceHUD row (label + fill bar reusing SelectedUnitPanel\'s existing HP-bar art), hidden by default, shown and auto-resized only while a TownCenter is actually aging up.'},
+
+  // Wave 6 — Economy, meta and remaining systems
+  {n:'33', wave:6, size:'S', title:'Town Bell (one-click garrison-all-workers)', status:'open', date:'—'},
+  {n:'34', wave:6, size:'S', title:'Idle-worker indicator', status:'open', date:'—'},
+  {n:'35', wave:6, size:'M', title:'Relics + Monastery-equivalent', status:'open', date:'—',
+    note:'The Monastery building this would need already exists (built for item 27\'s Vaidya/Purohita) — the relic mechanic itself (carrier unit, storage, victory countdown) is not built.'},
+  {n:'36', wave:6, size:'M', title:'Score system', status:'open', date:'—', note:'Military/Economy/Technology/Society weighted categories.'},
+  {n:'37', wave:6, size:'M', title:'Victory conditions beyond Conquest', status:'partial', date:'—',
+    note:'Time Limit and Regicide are both done (Regicide shipped alongside item 28). Wonder and Relic remain unbuilt — needs a design decision on whether they\'re wanted at all.'},
+  {n:'38', wave:6, size:'M', title:'Game modes (Skirmish/Deathmatch/Regicide/Empire Wars)', status:'open', date:'—'},
+  {n:'39', wave:6, size:'S', title:'Cheat codes', status:'open', date:'—'},
+  {n:'40', wave:6, size:'S', title:'Tutorial content', status:'open', date:'—', note:'Rides the existing MissionObjective/MissionTrigger system — pure content authoring, no new engine work needed.'},
+  {n:'40b', wave:6, size:'S', title:'Soundtrack', status:'blocked', date:'—', note:'Asset-blocked — self-serve CC0 sourcing plan already scoped (Kenney.nl, same approach as the existing SFX pass). Needs the user to actually pull tracks; wiring is cheap once they exist.'},
+];
+
+const ART = [
+  {n:'Building models', size:'', title:'Civ-specific building models — all 5 civs', status:'done', date:'2026-09-03',
+    note:'45/45 complete (9 buildings × 5 civs). Every rotation/scale bug found along the way (Rajput TownCenter/Barracks, Maurya Tower, Vijayanagara\'s 9/9, Maratha\'s Wall) is fixed and live-verified.'},
+  {n:'Building polycount', size:'', title:'Building mesh decimation pass', status:'done', date:'2026-09-02',
+    note:'44/45 buildings decimated from ~1.7-2.0M raw triangles down to ~500,000 each via UnityMeshSimplifier. Still well above the spec\'s original 8,000-20,000 target — that target proved unreachable without visible carved-relief artifacts on this un-retopologized source geometry; 500k is the real, evidence-backed practical ceiling.'},
+  {n:'Visual quality audit', size:'', title:'Civ-by-civ visual quality audit vs. AoE IV standard', status:'partial', date:'2026-09-02',
+    note:'Texture resolution and shader workflow both pass. Two real style gaps flagged, not fixed: Chola/Vijayanagara TownCenters read as the same architectural family, and Maurya\'s gilded-dome TownCenter reads more Mughal/colonial than authentically Mauryan. No further code work possible without new art direction.'},
+  {n:'UI Art — Tier 1', size:'', title:'Command-card buttons, 19 action icons, 4 resource icons, resource-bar frame', status:'done', date:'2026-09-12'},
+  {n:'UI Art — Tier 2', size:'', title:'Selected-unit panel frame, HP bar, tooltip frame, 5+ cursor states', status:'done', date:'2026-09-12',
+    note:'Includes a bonus delivery: 4 additional per-resource gather cursors (Wood/Food/Gold/Stone), beyond the original single spec\'d "Gather" icon. Text/crown-ornament overlap follow-up also closed same day.'},
+  {n:'UI Art — Tier 3', size:'', title:'Shared modal frame, menu-button states, 5 civ-select crest cards', status:'done', date:'2026-09-13', note:'Wired, then a real rendering bug found and fixed: all 4 new sprites imported with Sprite Mesh Type = Tight, which breaks Image.Type.Sliced\'s 9-slice math outright (fixed to Full Rect). A second bug found while re-verifying: UIStyleTheme.ApplyPanel never set pixelsPerUnitMultiplier, so borders rendered wildly disproportionate on every panel except one sized exactly like the source texture — fixed centrally with a new UIStyleTheme.FitBorderToRect, applied at all 5 real call sites (SettingsMenu/HotkeyOverlay/DiplomacyMenu/ObjectivePanel/ScenarioEditorMenu). Closes Tier 3.'},
+  {n:'UI Art — Tier 4', size:'', title:'Minimap frame/border, unit/building portraits', status:'done', date:'2026-09-13', note:'Minimap frame was actually already shipped back in the 2026-09-12 Ornate HUD Reskin session — just never checked off in the doc\'s own list; reconciled rather than re-done. Unit/building portraits remain genuinely unbuilt — explicitly optional and blocked on new art that doesn\'t exist yet. This closes every non-optional item in UI_ART_BRIEF.md.'},
+  {n:'Team color — buildings', size:'', title:'Team-color trim tint (metallic-map shader)', status:'partial', date:'2026-09-12',
+    note:'Shipped and visual-passed across all 45 civ/building combos. Real signal only where genuine metallic PBR art exists (clean on Chola; partial on Maurya\'s dome; none on Vijayanagara or Maurya\'s Tower/Barracks — those fall back to the existing pennant). Rajput/Maratha builds and the 6 non-civ buildings (Durg, Karmashala, Monastery, Lumber Camp, Mining Camp, Mill) still need individual review, not just the group pass.'},
+  {n:'Team color — units', size:'', title:'Team-color mask tint for unit bodies', status:'progress', date:'uncommitted WIP',
+    note:'TeamColorUnitTint.cs exists in the working tree, UNCOMMITTED. Wired onto the Maratha Mavla Raider, but the mask file it points at (MavlaRaider_teammask) doesn\'t exist on disk — currently a no-op. A real teammask was delivered for Purohita instead, unwired. Needs Blender-authored white/black masks per unit body (~15 unit types) before it can extend further — tracked in docs/TEAM_COLOR_ART_BRIEF.md\'s per-asset checklist, all still unchecked.'},
+  {n:'Soldier body model', size:'', title:'Per-civ soldier body differentiation (Crusader Knight swap)', status:'blocked', date:'—',
+    note:'All 5 civs still share one Human Character Dummy body (tint only). A rig-compatible replacement (Crusader Knight) was verified positive 2026-08-28, but its 2 source glTF files were deleted the same day as "confirmed-unused asset scrap" and are not recoverable from git history. Blocked on the user re-sourcing new model files — not resumable as pure code work.'},
+  {n:'Soldier gear variants', size:'', title:'Per-civ gear/prop variants (helmet, shield, weapon style)', status:'open', date:'—', note:'Spec written 2026-09-01. Needs the user to source; not implemented.'},
+  {n:'Female/male worker bodies', size:'', title:'Worker body swap (female + male rigged models)', status:'done', date:'2026-09-04', note:'Both wired across all 5 civs with random per-spawn selection. Closes the Model Spec workbook\'s "Villager appearance" gap (that sheet, dated 2026-09-03, still listed it as To build (asset) — stale as of this swap.'},
+  {n:'Purohita rigged model', size:'', title:'Real rigged glTF body ("Meshy AI Sacred Pilgrim")', status:'done', date:'2026-09-14',
+    note:'Replaces the shared Human Character Dummy body. Note: an earlier, different Purohita delivery (FBX + albedo + a real team-color teammask) had already landed and was sitting unwired — when asked which to use, the user picked this new GLB instead, so that FBX+teammask work was archived (Assets/importedmodels/Purohita_OldDelivery/), not used. This rig has no team mask and no hand-held prop. HumanoidGltfRigImporter.cs gained a second bone-name map (DirectHumanBoneMap) for rigs using Unity\'s own HumanBodyBones names directly instead of Mixamo-style naming.'},
+  {n:'Vaidya rigged model', size:'', title:'Real rigged glTF body ("Meshy AI Wandering Sage")', status:'progress', date:'uncommitted',
+    note:'Mirrors the Purohita approach above (same DirectHumanBoneMap path) — VaidyaFactory.cs edited, Vaidya.prefab + Vaidya_Avatar.asset built on disk, but none of it is committed or logged in a session yet as of this snapshot. Also no team mask, no hand-held prop.'},
+  {n:'Rig-import scale bug', size:'', title:'HumanoidGltfRigImporter scale-correction fix (Purohita re-baked)', status:'progress', date:'uncommitted',
+    note:'Found while wiring Vaidya: the importer\'s height-correction was applied to the wrong transform (the root, which HumanModelFactory.Spawn unconditionally resets to scale 1 at runtime — silently discarding the correction). Vaidya\'s case made it obvious (worldHeight 2.22 instead of the 1.902692 target); Purohita had the identical latent bug, just unnoticed because its own correction factor happened to be close to 1. Fixed to apply to each direct child\'s scale instead, and Purohita\'s prefab was re-baked with the corrected value — both uncommitted.'},
+  {n:'Gold Mine art delivery', size:'', title:'Small (1-unit) + large (3×3 cluster) Gold Mine models', status:'done', date:'2026-09-14',
+    note:'Replaced the old GoldOre1.prefab placeholder. Both variants spawn through the existing EnvironmentPropFactory random-variant mechanism with zero code changes needed. Gold yield amount is untouched — this was a visual-sizing request only, not a request to scale Gold quantity by deposit size.'},
+  {n:'Building Age-tier visual variants', size:'', title:'Per-Age building re-skins (TownCenter/Wall/Tower/Gate)', status:'open', date:'—',
+    note:'From KingdomsOfBharat_Model_Spec.xlsx\'s "Visual Progression" sheet — flagged as "the single highest-value visual upgrade in the project." Every civ building is currently one static model reused unchanged across all 4 ages. Full scope: up to 60 additional models (4 age-sensitive building types × 5 civs × 3 additional age tiers beyond the first). Genuinely large, not yet scoped as a roadmap item.'},
+  {n:'Wall/Tower defensive upgrade tiers', size:'', title:'Palisade→Stone→Fortified Wall, Watch→Guard→Keep Tower', status:'open', date:'—',
+    note:'Distinct from the Age-tier row above — a dedicated defensive-tech upgrade chain, each tier its own model. ~20-30 additional models (2-3 tiers × Wall + Tower × 5 civs). Proposed names in the spec: Prakara→Shila Prakara→Maha Prakara (Wall), Attalaka→Maha Attalaka→Agni Attalaka (Tower).'},
+  {n:'Lower-priority cosmetic variants', size:'', title:'House random variants + Wall end-piece adjacency meshes', status:'open', date:'—',
+    note:'From the same Visual Progression sheet, explicitly called the lowest priority of the visual-asset items: 3 House variants per civ (10 additional models, purely to break up repetition) and 2-6 Wall end-piece meshes so wall runs don\'t terminate in a visibly cut segment (a cheap detail AoE II also does).'},
+];
+
+// Sourced from AoE_vs_KingdomsOfBharat_Comparison.xlsx's "Comparison" sheet
+// (dated 2026-09-03, audited against the session log) and corrected/updated
+// against KingdomsOfBharat_Model_Spec.xlsx (same date, audited by reading the
+// actual codebase — its own README explicitly lists several Comparison rows
+// it disproves) plus everything closed since in Waves 0-6 (through
+// 2026-09-13). Rows marked "⟳" carry a status this tracker overrode from
+// what the spreadsheet originally said, with the reason why.
+const PARITY = [
+  // Core Progression
+  {cat:'Core Progression', title:'Age / Age-up', status:'done', note:'AgeProfile/UpgradeProgress hardcoded tier system; BuildMenu items age-gated.'},
+  {cat:'Core Progression', title:'Technology / Tech tree', status:'done', note:'CSV-driven tech data → ScriptableObjects via DataRegistry; UniqueTechDefinition for civ-specific techs.'},
+  {cat:'Core Progression', title:'Civilization (distinct playable factions)', status:'done', note:'5 civs — Chola, Vijayanagara, Rajput, Maurya, Maratha. Roster deliberately closed at 5, not an AoE-style 30+ roster.'},
+  {cat:'Core Progression', title:'Civilization bonus', status:'done', note:'Per-civ passive bonuses (CivPassiveBonusTests) — Market spread, cavalry bonuses, etc.'},
+  {cat:'Core Progression', title:'Unique technology', status:'done', note:'UniqueTechDefinition, one per civ. Known open bug: throws for Maurya/Maratha — see Known Bugs tab.'},
+  {cat:'Core Progression', title:'Score', status:'open', note:'No scoring system exists. Matches Wave 6 item 36 in the Roadmap tab. AoE II reference weighting: Military 20% of destroyed value, Economy 10%+20%, Technology 20%, Society 20% (Castle/Wonder cost).'},
+  {cat:'Core Progression', title:'Victory conditions beyond Conquest', status:'partial', note:'⟳ Conquest + Time Limit were already done when this sheet was written (2026-09-03); Regicide has since shipped too (Wave 4 item 28, 2026-09-07). Wonder, Relic, King of the Hill, and Score-based victory remain unbuilt.'},
+  {cat:'Core Progression', title:'Game modes (Skirmish/Deathmatch/Regicide/Empire Wars)', status:'open', note:'Only scripted single missions + skirmish exist. Matches Wave 6 item 38.'},
+
+  // Economy
+  {cat:'Economy', title:'Resource (Wood/Food/Gold/Stone)', status:'done'},
+  {cat:'Economy', title:'Gather Point / Rally Point', status:'done', note:'RallyPoint system, bug-fixed for raycast/soft-lock issues.'},
+  {cat:'Economy', title:'Resource-specific drop-off buildings', status:'partial', note:'Lumber Camp/Mining Camp/Mill implemented (Phase 3.1) and gate correctly by resource type — but all 3 still use procedural-shape silhouettes, not sourced civ art. Needs 15 real models (3 buildings × 5 civs) to match the rest of the roster\'s visual bar.'},
+  {cat:'Economy', title:'Villager Priority / idle-worker indicator', status:'open', note:'No idle-worker queue/UI exists. Matches Wave 6 item 34.'},
+  {cat:'Economy', title:'Population cap', status:'done'},
+  {cat:'Economy', title:'Trade (caravans / trade routes)', status:'done', note:'⟳ Sheet said Missing (written 2026-09-03) — closed 3 days later by Wave 4 item 26 (Vanik land trader + Trade Ship naval trader, 2026-09-06). Enemy/unallied trade routes still explicitly out of scope for v1.'},
+  {cat:'Economy', title:'Tribute', status:'done', note:'⟳ This sheet\'s own Economy row said Missing, but its Multiplayer row (and the Model Spec workbook) already had it right: Tribute.Send, 20% tax, stance-independent per real AoE II rule — closed 2026-09-03 (PARTIAL_ELEMENTS_FIX_PLAN item 4), same day this sheet was generated.'},
+  {cat:'Economy', title:'Renewable resource (Farms / Fish Traps)', status:'partial', note:'Farm has real depletion + Wood-costed reseed (closed 2026-09-03). Fish Trap still doesn\'t exist — asset-blocked, matches the Backlog tab.'},
+  {cat:'Economy', title:'Auto Scout', status:'open', note:'No auto-explore behavior exists. Not yet on any wave/backlog list — new candidate item, pure AI/pathing code.'},
+
+  // Buildings
+  {cat:'Buildings', title:'Building (general)', status:'done', note:'9 building kinds × 5 civs, 45/45 models complete.'},
+  {cat:'Buildings', title:'Architecture set (civ-distinct style)', status:'partial', note:'Each civ\'s 9 buildings are separately modeled, not palette-swapped — civs read as visually distinct at a single tier. See the next row for the Age-tier dimension this doesn\'t cover.'},
+  {cat:'Buildings', title:'Building Age-tier visual upgrade', status:'open', note:'Real, previously unflagged gap: every building is one static model reused across all ages. See "Building Age-tier visual variants" in the Art & Asset Pipeline tab for the full scope (~60 models).'},
+  {cat:'Buildings', title:'Wall / Tower defensive tier progression', status:'open', note:'Distinct from the Age-tier gap — a dedicated upgrade chain (Palisade→Stone→Fortified Wall, Watch→Guard→Keep Tower). See the Art & Asset Pipeline tab.'},
+  {cat:'Buildings', title:'Multi-builder construction (diminishing returns)', status:'done', note:'ConstructionSite.SpeedMultiplier: 1x/1.6x/1.9x/2.2x for 1-4 workers.'},
+  {cat:'Buildings', title:'Repairing', status:'done', note:'Repairable/Repairer, flat Wood-per-HP rate by unit class, all 9 building kinds + Siege + naval.'},
+  {cat:'Buildings', title:'Garrison', status:'done', note:'GarrisonPoint — pooled capacity, any eligible land unit, generalized from the old single-slot Durg mechanic.'},
+  {cat:'Buildings', title:'Mobile building (pack/unpack siege)', status:'open', note:'No pack/unpack mechanic on Siege units. Needs a 2nd mesh state or fold/unfold rig per civ-specific siege model. Not yet on any wave/backlog list.'},
+  {cat:'Buildings', title:'Town Bell (garrison-all-workers)', status:'open', note:'Matches Wave 6 item 33.'},
+  {cat:'Buildings', title:'Damage-state visuals (rubble/smoke at low HP)', status:'open', note:'Needs verification against the live scene — not confirmed to exist either way. Not yet on any wave/backlog list.'},
+
+  // Units & Combat
+  {cat:'Units & Combat', title:'Unit (general)', status:'done'},
+  {cat:'Units & Combat', title:'Unit type / armor class', status:'done', note:'UnitClass drives CombatBonus/CounterMatrix. Simpler than AoE II\'s 28 armor classes (closer to AoE IV\'s explicit multiplier table) — a deliberate simplification per the Model Spec\'s Counters sheet, not a deficiency.'},
+  {cat:'Units & Combat', title:'Counter system (rock-paper-scissors bonuses)', status:'done', note:'CombatBonus.Multiplier + CounterMatrix. Archer vs Cavalry tuned 1.5x→2.0x after a numeric audit found the old value was a near coin-flip.'},
+  {cat:'Units & Combat', title:'Armor (melee/pierce split)', status:'done', note:'⟳ Sheet marked this Unclear — the Model Spec\'s direct code read confirms it: meleeArmor + pierceArmor both exist on UnitDefinition, DamageType separates Melee from Pierce.'},
+  {cat:'Units & Combat', title:'Area of Effect / Trample damage', status:'done', note:'Siege splash + Cavalry trample, both live-verified through the real production Tick path.'},
+  {cat:'Units & Combat', title:'Unit formation', status:'done', note:'GroupFormation (Line/Staggered). Model Spec notes ours is smarter than AoE II\'s — preferredFrontRow/preferredBackRow auto-places armored classes front, Archer/Siege back; AoE II leaves that to the player.'},
+  {cat:'Units & Combat', title:'Unit stance (Aggressive/Defensive/Stand Ground)', status:'done', note:'⟳ Comparison sheet said Missing — the Model Spec workbook explicitly disproves this: Combat/StanceController.cs implements all 3 (AoE\'s 4th, No Attack, is omitted). Deliberately not attached to Workers.'},
+  {cat:'Units & Combat', title:'Worker self-defense', status:'done', note:'Attackable.OnDamaged + CombatResponse(Fight/Flee); every civ fights back except Maratha, which flees by design.'},
+  {cat:'Units & Combat', title:'Healing (unit HP recovery)', status:'done', note:'⟳ Sheet said Missing — closed 3 days later by Wave 4 item 27\'s Vaidya healer (2026-09-06), an active near-target heal, not passive regen (see the next row).'},
+  {cat:'Units & Combat', title:'Regeneration (passive HP recovery outside combat)', status:'open', note:'Distinct from Vaidya\'s active heal above — still not built. Not yet on any wave/backlog list.'},
+  {cat:'Units & Combat', title:'Conversion (Monk-style)', status:'done', note:'⟳ Sheet said Missing — closed 3 days later by Wave 4 item 27\'s Purohita (2026-09-06): a full AoE-style per-second chance roll scaled by missing-HP%, excluding Buildings/Siege/Support/Hero targets.'},
+  {cat:'Units & Combat', title:'Attack ground', status:'open', note:'Manual ground-point targeting for siege/AoE weapons doesn\'t exist. Not yet on any wave/backlog list — cheap, one cursor icon.'},
+  {cat:'Units & Combat', title:'Elevation bonus', status:'open', note:'No terrain-height combat interaction. Genuinely optional — AoE III/IV dropped it too. Pure code, no new assets.'},
+  {cat:'Units & Combat', title:'Snare (root/immobilize ability)', status:'open', note:'Not built — no ability system exists at all yet (see "Ability" row below).'},
+  {cat:'Units & Combat', title:'Stealth mode', status:'open', note:'Not built. Likely achievable with a URP transparency/dissolve shader without much new art.'},
+  {cat:'Units & Combat', title:'Land mine', status:'open', note:'Not built. Low priority.'},
+  {cat:'Units & Combat', title:'Pass-through damage (projectile hits units behind target)', status:'done', note:'⟳ Sheet said Missing — this is exactly what Wave 4 item 23\'s Scorpion already does: MeleeAttacker.SetPierceThrough, a real line-segment pass-through hit test (closed 2026-09-05, before this sheet was even written the next day).'},
+  {cat:'Units & Combat', title:'Ability (active hero/special-unit abilities)', status:'open', note:'No active-ability system exists — only passive team/civ bonuses. Scope depends entirely on which abilities get designed.'},
+  {cat:'Units & Combat', title:'Aura (passive proximity buffs)', status:'partial', note:'⟳ Sheet said Missing — Model Spec corrects to partial: Units/PillarEdictAura.cs exists for Maurya\'s Pillar Edict Scholar specifically. No general/reusable aura system.'},
+  {cat:'Units & Combat', title:'Rate of Fire / Range / Speed / Hit Points / Spawning', status:'done', note:'Core combat stats, all implemented and tuned per-unit.'},
+  {cat:'Units & Combat', title:'Taunt (cosmetic voice-line command)', status:'open', note:'Not built. The Model Spec\'s own Meta & UI sheet marks this Out of Scope ("meaningful only with an active multiplayer community") — listed here for completeness, not recommended.'},
+  {cat:'Units & Combat', title:'Per-civ gear/prop variants (helmet/shield/weapon)', status:'open', note:'See the Art & Asset Pipeline tab — already tracked there.'},
+  {cat:'Units & Combat', title:'Crusader Knight body-swap (base soldier model)', status:'blocked', note:'See the Art & Asset Pipeline tab — already tracked there as blocked on asset re-sourcing.'},
+
+  // Naval
+  {cat:'Naval', title:'Naval units / Docks', status:'done', note:'Dock, War Galley, BoatAttacker; naval balance pass applied class armor/damage bonuses to match land factories.'},
+  {cat:'Naval', title:'Naval unit variety (Fishing Boat / Transport / Fire Ship tiers)', status:'partial', note:'⟳ Sheet said Missing — Fishing Boat already existed (Model Spec confirms Units/FishingBoatFactory.cs) and Fire Ship (3 tiers) shipped Wave 4 item 25 the day after this sheet was written. A dedicated Transport Ship still doesn\'t exist.'},
+
+  // Multiplayer & Tech
+  {cat:'Multiplayer & Tech', title:'Multiplayer (LAN/online)', status:'partial', note:'LAN-only deterministic lockstep transport, live-verified over real TCP sockets. Online/matchmaking deferred to end of project; true cross-machine determinism testing needs a 2nd physical machine — see Backlog tab.'},
+  {cat:'Multiplayer & Tech', title:'Diplomacy (ally/neutral/enemy, tribute, shared vision)', status:'partial', note:'Stance UI (DiplomacyMenu, F11) + Tribute both done. Shared vision between allies still unbuilt — originally reasoned as blocked on Fog of War, but FoW is confirmed implemented (see UI/UX below), so that blocker is stale; shared vision is simply not built yet.'},
+  {cat:'Multiplayer & Tech', title:'Signal Allies / Flare (minimap ping)', status:'open', note:'Originally reasoned as blocked on a minimap existing at all — but the Minimap is confirmed implemented (see UI/UX below), so that blocker is stale too; just not built yet.'},
+  {cat:'Multiplayer & Tech', title:'Artificial intelligence', status:'done', note:'⟳ Sheet said Unclear — Model Spec corrects to Implemented: AiController.cs (61KB) + AiDifficulty.cs, a substantial AI, though its behavioral depth wasn\'t independently re-verified.'},
+  {cat:'Multiplayer & Tech', title:'Cheat codes', status:'open', note:'Matches Wave 6 item 39.'},
+
+  // UI / UX
+  {cat:'UI / UX', title:'User interface (HUD, menus)', status:'done', note:'ResourceHUD, SelectedUnitPanel, BuildMenu, HoverTooltip, CivPicker, MissionSelectMenu, Settings — full art pass done and pixel-verified.'},
+  {cat:'UI / UX', title:'Hotkeys', status:'done', note:'Full coverage centralized into BuildMenu.Update(); optional F1 reference overlay (HotkeyOverlay.cs) — more than AoE II itself natively offers here.'},
+  {cat:'UI / UX', title:'Cursor states', status:'done', note:'⟳ Sheet noted these were generic Asset-Store substitutes, not purpose-made art — since then, the 2026-09-12 Tier 2 UI art delivery replaced all of them with real bespoke cursor art, plus 4 bonus per-resource gather cursors.'},
+  {cat:'UI / UX', title:'Player / Team colour coding', status:'progress', note:'See Wave 5 item 29 in the Roadmap tab and the Team-color rows in Art & Asset Pipeline — this sheet\'s "Player Color" analysis is folded into those entries rather than restated here.'},
+  {cat:'UI / UX', title:'Mini map', status:'done', note:'⟳ The Comparison sheet flagged this as "a real, notable gap" — WRONG, per the Model Spec workbook\'s direct code read: Camera/MinimapController.cs exists. One of two rows where the two source spreadsheets flatly disagreed; the code-verified one wins.'},
+  {cat:'UI / UX', title:'Fog of War / Line of Sight', status:'done', note:'⟳ Same story as Mini map — Comparison sheet called this Missing, Model Spec corrects it: FogOfWar/FogOfWarManager.cs + VisionSource.cs both exist. Also matches later session notes (e.g. Scout\'s VisionSource radius, and a 2026-09-12 HUD session disabling FogOfWarManager\'s own MeshRenderer for clean screenshots).'},
+  {cat:'UI / UX', title:'Scenario Editor', status:'done', note:'A real in-game player-facing editor — palette, Objectives/Triggers authoring, Save/Load/Play, saved-scenario browse list, multiplayer LAN play of a custom scenario. Full 6-session epic closed 2026-09-03.'},
+
+  // Content & Meta
+  {cat:'Content & Meta', title:'Soundtrack / Music', status:'blocked', note:'Matches the Backlog tab — self-serve CC0 sourcing plan scoped, needs the user to pull tracks.'},
+  {cat:'Content & Meta', title:'Sound effects', status:'done', note:'SfxPlayer.cs wired and used as the precedent for the Music sourcing plan.'},
+  {cat:'Content & Meta', title:'Tutorial', status:'open', note:'Matches Wave 6 item 40 / the Backlog tab.'},
+  {cat:'Content & Meta', title:'Performance profiling', status:'open', note:'Matches the Backlog tab — tool is ready, just needs a run against a realistic large match.'},
+  {cat:'Content & Meta', title:'Store / marketing assets', status:'blocked', note:'Matches the Backlog tab — blocked on an explicit user decision about public release intent.'},
+  {cat:'Content & Meta', title:'README / documentation accuracy', status:'open', note:'Matches the Backlog tab — confirmed badly stale, fix scoped, zero blocker.'},
+  {cat:'Content & Meta', title:'Dialogue lines', status:'open', note:'Not addressed anywhere in the session log — likely absent but never explicitly audited. Low priority.'},
+];
+
+const BUGS = [
+  {n:'!', size:'', title:'UniqueTechDefinition.For throws KeyNotFoundException for Maurya/Maratha', status:'open', date:'flagged 2026-09-04',
+    note:'Its Bonuses dictionary only covers Chola/Vijayanagara/Rajput. Selecting a Maurya or Maratha Barracks and driving BuildMenu.Update() crashes on this lookup. Flagged via spawn_task (task_55dbb0cc) — no session log entry since shows it closed. Real, reachable, unfixed defect.'},
+];
+
+const NOW = [
+  {n:'•', size:'', title:'Vaidya rigged model wiring', status:'progress', date:'uncommitted',
+    note:'VaidyaFactory.cs, Vaidya.prefab, and Vaidya_Avatar.asset all exist on disk (mirrors the Purohita rig-wiring approach, done and committed 2026-09-14) but none of it is committed yet, and no session has logged it in CLAUDE.md as of this snapshot — caught directly from the git diff, not from a written status entry. See the Art & Asset Pipeline tab.'},
+  {n:'•', size:'', title:'HumanoidGltfRigImporter scale-correction fix, uncommitted', status:'progress', date:'uncommitted',
+    note:'A real bug (height-correction applied to the wrong transform, silently discarded at runtime) was found and fixed while wiring Vaidya above, and Purohita\'s already-shipped prefab was re-baked with the corrected scale — but the fix itself, and that re-bake, are both still uncommitted. See the Art & Asset Pipeline tab.'},
+  {n:'•', size:'', title:'Unit-side team-color tint pilot (Maratha Mavla Raider)', status:'progress', date:'uncommitted, confirmed OK to leave 2026-09-13',
+    note:'MarathaMavlaRaiderFactory.cs, CivilizationSetup.cs, and the new TeamColorUnitTint.cs/.meta are all still uncommitted, unchanged since 2026-09-13. Points at a mask file that doesn\'t exist (MavlaRaider_teammask — currently a no-op). The one real teammask that existed for any unit (an earlier Purohita delivery) is now moot too — that whole delivery was archived in favor of a different, mask-less Purohita model on 2026-09-14. Confirmed with the user this is their own stale/in-progress work, safe to leave as-is.'},
+  {n:'•', size:'', title:'_BlenderPreviews/ and .mcp.json, untracked', status:'open', date:'uncommitted',
+    note:'New untracked folder/file in the working tree — _BlenderPreviews/ is likely scratch render output from the Blender mask-authoring workflow docs/TEAM_COLOR_ART_BRIEF.md specifies for unit team-color masks. Neither is committed; low-stakes, just noting it exists.'},
+];
+
+const BACKLOG = [
+  {n:'•', title:'Multiplayer — cross-machine determinism testing', status:'blocked', date:'—',
+    note:'LAN transport MVP, cross-peer desync detection, and resync-under-real-network-conditions are all done and live-verified (2026-09-02) — but only within one machine/process using two real sockets. True cross-machine NavMeshAgent/physics determinism needs a second physical machine to actually run. Nothing further to do here without that.'},
+  {n:'•', title:'Online play / matchmaking / NAT traversal', status:'open', date:'—', note:'Explicitly deferred by the user to "the end of the project."'},
+  {n:'•', title:'Music', status:'open', date:'—', note:'Zero coverage. Self-serve CC0 sourcing plan already scoped (Kenney.nl) — zero blocker, cheapest remaining "everything else" item.'},
+  {n:'•', title:'Profiling / optimization pass at real scale', status:'open', date:'—', note:'Tool is ready (manage_profiler) — just needs someone to run it against a realistic large match.'},
+  {n:'•', title:'Store / marketing assets', status:'blocked', date:'—', note:'Genuinely blocked on an explicit user decision: whether public release is even a goal.'},
+  {n:'•', title:'README.md drift', status:'open', date:'—', note:'Badly stale — still describes the original single-map/3-civ/no-naval prototype and stops its milestone list well short of everything shipped since. Pure doc-writing, zero blocker.'},
+  {n:'•', title:'Fish Trap (renewable naval resource)', status:'open', date:'—', note:'Farm\'s land-side depletion/reseed was closed 2026-09-03; the naval Fish Trap half stayed deferred/asset-blocked.'},
+];
+
+// ---- rendering ----
+const PILL_LABEL = { done: 'Done', progress: 'In Progress', partial: 'Partial', open: 'Open', blocked: 'Blocked' };
+const WAVE_TITLES = {
+  0: 'Wave 0 — Foundation',
+  1: 'Wave 1 — The 4th Age (Durg)',
+  2: 'Wave 2 — Durg building & Karmashala',
+  3: 'Wave 3 — Upgrade ladders',
+  4: 'Wave 4 — New units',
+  5: 'Wave 5 — Cross-cutting systems',
+  6: 'Wave 6 — Economy, meta & remaining systems',
+};
+
+function card(item) {
+  const size = item.size ? `<span class="size-tag">${item.size}</span>` : '';
+  const note = item.note ? `<div class="note">${item.note}</div>` : '';
+  const date = item.date && item.date !== '—' ? `<div class="meta">${item.date}</div>` : '';
+  return `<div class="card" data-status="${item.status}" data-text="${(item.title + ' ' + (item.note||'')).toLowerCase().replace(/"/g,'&quot;')}">
+    <div class="idx">${item.n}</div>
+    <div class="body">
+      <div class="title-row">
+        <span class="title">${item.title}</span>
+        ${size}
+        <span class="pill ${item.status}">${PILL_LABEL[item.status]}</span>
+      </div>
+      ${note}
+      ${date}
+    </div>
+  </div>`;
+}
+
+function renderRoadmap() {
+  const waves = [0,1,2,3,4,5,6];
+  let html = '';
+  waves.forEach(w => {
+    const items = ROADMAP.filter(i => i.wave === w);
+    const doneCount = items.filter(i => i.status === 'done').length;
+    const pct = Math.round((doneCount / items.length) * 100);
+    html += `<div class="wave-group" data-wave="${w}">
+      <div class="wave-head" onclick="this.parentElement.classList.toggle('collapsed')">
+        <span class="chev">▾</span>
+        <h2>${WAVE_TITLES[w]}</h2>
+        <span class="count">${doneCount}/${items.length} done</span>
+      </div>
+      <div class="wave-progress"><div style="width:${pct}%"></div></div>
+      <div class="items">${items.map(card).join('')}</div>
+    </div>`;
+  });
+  document.getElementById('panel-roadmap').innerHTML = html;
+}
+
+function renderFlat(panelId, items) {
+  document.getElementById(panelId).innerHTML = `<div class="items">${items.map(card).join('')}</div>`;
+}
+
+const PARITY_CATEGORIES = ['Core Progression','Economy','Buildings','Units & Combat','Naval','Multiplayer & Tech','UI / UX','Content & Meta'];
+
+function renderParity() {
+  const counts = { done: 0, progress: 0, partial: 0, open: 0, blocked: 0 };
+  PARITY.forEach(i => counts[i.status]++);
+  const intro = `
+    <p class="note" style="font-size:0.86rem; color:var(--ink-dim); line-height:1.55; margin-bottom:16px;">
+      A full AoE II/IV feature-by-feature comparison, sourced from <code>AoE_vs_KingdomsOfBharat_Comparison.xlsx</code>
+      (a session-log-based audit, 2026-09-03) and corrected against <code>KingdomsOfBharat_Model_Spec.xlsx</code>
+      (a direct-code-read audit, same date — its own README lists several rows it disproves, marked ⟳ below),
+      then further overridden wherever Wave 0-6 work closed a gap since. This tab is a broader
+      cross-reference — it overlaps with the Roadmap/Art tabs above by design, so its counts are
+      <b>not</b> included in the page's top summary stats to avoid double-counting.
+      <span style="display:inline-flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+        <span class="pill done">${counts.done} Implemented</span>
+        <span class="pill progress">${counts.progress} In Progress</span>
+        <span class="pill partial">${counts.partial} Partial</span>
+        <span class="pill open">${counts.open} Missing / To Build</span>
+        <span class="pill blocked">${counts.blocked} Blocked</span>
+      </span>
+    </p>`;
+  let html = intro;
+  PARITY_CATEGORIES.forEach(cat => {
+    const items = PARITY.filter(i => i.cat === cat);
+    if (!items.length) return;
+    const doneCount = items.filter(i => i.status === 'done').length;
+    const pct = Math.round((doneCount / items.length) * 100);
+    html += `<div class="wave-group" data-wave="${cat}">
+      <div class="wave-head" onclick="this.parentElement.classList.toggle('collapsed')">
+        <span class="chev">▾</span>
+        <h2>${cat}</h2>
+        <span class="count">${doneCount}/${items.length} implemented</span>
+      </div>
+      <div class="wave-progress"><div style="width:${pct}%"></div></div>
+      <div class="items">${items.map(i => card({...i, n:'', size:''})).join('')}</div>
+    </div>`;
+  });
+  document.getElementById('panel-parity').innerHTML = html;
+}
+
+function computeStats() {
+  const all = [...ROADMAP, ...ART, ...BUGS, ...NOW, ...BACKLOG];
+  const counts = { done: 0, progress: 0, partial: 0, open: 0, blocked: 0 };
+  all.forEach(i => counts[i.status]++);
+  const total = all.length;
+
+  const statRow = document.getElementById('statRow');
+  statRow.innerHTML = `
+    <div class="stat done"><div class="n">${counts.done}</div><div class="l">Done</div></div>
+    <div class="stat prog"><div class="n">${counts.progress}</div><div class="l">In Progress</div></div>
+    <div class="stat partial"><div class="n">${counts.partial}</div><div class="l">Partial</div></div>
+    <div class="stat open"><div class="n">${counts.open}</div><div class="l">Open</div></div>
+    <div class="stat blocked"><div class="n">${counts.blocked}</div><div class="l">Blocked</div></div>
+  `;
+
+  const bar = document.getElementById('overallBar');
+  const pct = k => (counts[k] / total * 100).toFixed(1);
+  bar.innerHTML = `
+    <div class="seg-done" style="width:${pct('done')}%"></div>
+    <div class="seg-prog" style="width:${pct('progress')}%"></div>
+    <div class="seg-partial" style="width:${pct('partial')}%"></div>
+  `;
+  bar.title = `${counts.done} done / ${total} total tracked items (${pct('done')}%)`;
+}
+
+function applyFilters() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const activeStatus = document.querySelector('.chip.active').dataset.status;
+  document.querySelectorAll('.card').forEach(c => {
+    const matchesStatus = activeStatus === 'all' || c.dataset.status === activeStatus;
+    const matchesQuery = !q || c.dataset.text.includes(q);
+    c.style.display = (matchesStatus && matchesQuery) ? '' : 'none';
+  });
+  // hide empty wave groups
+  document.querySelectorAll('.wave-group').forEach(g => {
+    const visibleCards = g.querySelectorAll('.card:not([style*="display: none"])').length;
+    g.style.display = visibleCards === 0 ? 'none' : '';
+  });
+}
+
+document.getElementById('search').addEventListener('input', applyFilters);
+document.getElementById('statusChips').addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  applyFilters();
+});
+document.getElementById('tabs').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('section.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  applyFilters();
+});
+
+renderRoadmap();
+renderFlat('panel-art', ART);
+renderParity();
+renderFlat('panel-bugs', BUGS);
+renderFlat('panel-now', NOW);
+renderFlat('panel-backlog', BACKLOG);
+computeStats();
+</script>
+</body>
+</html>

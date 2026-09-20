@@ -11448,3 +11448,15 @@ Follow-up to the Terrain migration, per the AoE IV shoreline reference. Session 
 - **Water shader**: tessellated 2.5-unit water grid + vertex swell; refraction via the opaque texture (falls back to the undistorted sample when the bent one hits something in front of the water, e.g. a hull). Requires URP Opaque Texture on (small perf cost).
 - **All quality tiers**: Depth + Opaque texture on and `Copy Depth Mode = AfterOpaques` applied to every URP asset/renderer (the Default_Forward_Renderer used by the 5 lower tiers was still AfterTransparents).
 - 601/601 EditMode. Not done: N/S water edges still straight; no real waves/shore breakers; refraction cost not profiled.
+
+## 2026-09-20 — T4: lighting and post-processing (Map Visual Upgrade Plan)
+
+Baseline: camera post-processing off, no Volume, no fog, default procedural sky, no AA, no AO, flat-lit.
+- **Post-processing**: new `Assets/Settings/MapPostProcess.asset` (ACES tonemapping, bloom threshold 1.0/intensity 0.22, colour adjustments exposure +0.1/contrast +6/saturation -4, subtle cool-shadow/warm-highlight split, vignette 0.18) on a global `MapPostProcessVolume` in `Main.unity`; camera `renderPostProcessing` on, SMAA High.
+- **Lighting**: sun lowered to 38 deg pitch (longer shadows), warm (1, 0.92, 0.80), intensity 1.15, shadow strength 0.9; trilight gradient ambient (sky-blue / neutral / warm-brown) instead of the near-black default; shadow distance 60 -> 90.
+- **Sky/haze**: `Assets/Settings/MapSky.mat` (procedural, blue tint, ground colour tuned so the area past the map edge reads as soft haze rather than ochre); exp2 fog 0.0035 (light distance haze).
+- **SSAO**: `ScreenSpaceAmbientOcclusion` renderer feature added to `URP-KingdomsOfBharat_Renderer` **only** (the top tier). The 5 lower-quality tiers' `Default_Forward_Renderer` deliberately has none.
+- Water deep colour brightened slightly (post contrast was darkening it).
+- Tuning finding: first pass (saturation +10, contrast +14, exposure +0.15, sun 1.35) made the grass neon and the horizon mustard; the values above came from before/after screenshots on Coastal and RiverValley.
+- Verified: 601/601; before/after Coastal shots and a RiverValley gameplay-camera shot with the HUD on.
+- **Flags / not done**: the screenshot tool dropped the overlay HUD in one capture with post-processing on (later captures showed it, so treated as a capture quirk, but I can't see the real Game view); fog haze isn't applied by the water shader; a few blocky notches in the beach edge were visible in the baseline Coastal shot (not investigated); no depth-of-field/colour LUT; SSAO cost not profiled; no HDRI.
