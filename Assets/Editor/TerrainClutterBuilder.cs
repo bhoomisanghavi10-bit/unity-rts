@@ -8,16 +8,14 @@ namespace KingdomsOfBharat.EditorTools
 {
     // Builds everything the terrain clutter scatter (Core/TerrainClutter.cs)
     // needs, reproducibly: a crossed-quad grass tuft mesh + alpha-clipped URP
-    // Lit material + prefab (from Resources/Terrain/Detail/Tuft.png), a
-    // decimated rock mesh from the owned PolishedSurfaces rock set on a
-    // plain instancing-enabled URP Lit material (the set's own Shader Graph
-    // material isn't suitable for instanced detail meshes), and the
-    // TerrainClutterSet asset tying them together. Safe to re-run: it
-    // overwrites its own outputs only.
+    // Lit material + prefab (from Resources/Terrain/Detail/Tuft.png) and the
+    // TerrainClutterSet asset tying everything together. Rocks and pebbles
+    // have their own menus below (Build Moss Rock Clutter / Build Pebble
+    // Clutter), which fill in those entries. Safe to re-run: it overwrites
+    // its own outputs only.
     public static class TerrainClutterBuilder
     {
         private const string Folder = "Assets/Resources/Terrain/Detail";
-        private const string RockSource = "Assets/PolishedSurfaces/System_RockSet_Sample/Art";
 
         [MenuItem("BharatRTS/Build Terrain Clutter Set")]
         public static void Build()
@@ -50,28 +48,6 @@ namespace KingdomsOfBharat.EditorTools
             });
             GameObject tuftPrefab = SavePrefab("Tuft", tuftMesh, tuftMat);
 
-            // --- Rock / pebble: decimated LOD from the owned rock set.
-            Mesh rockMesh = BuildRockMesh();
-            Material rockMat = SaveMaterial(Folder + "/RockClutterMat.mat", m =>
-            {
-                m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(RockSource + "/Textures/1. Small/T_RockSet_01_Small_01_A.png"));
-                m.SetTexture("_BumpMap", AssetDatabase.LoadAssetAtPath<Texture2D>(RockSource + "/Textures/1. Small/T_RockSet_01_Small_01_N.png"));
-                m.EnableKeyword("_NORMALMAP");
-                m.SetFloat("_Smoothness", 0.25f);
-                m.SetFloat("_Metallic", 0f);
-            });
-            Material pebbleMat = SaveMaterial(Folder + "/PebbleClutterMat.mat", m =>
-            {
-                m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(RockSource + "/Textures/1. Small/T_RockSet_01_Small_01_A.png"));
-                m.SetTexture("_BumpMap", AssetDatabase.LoadAssetAtPath<Texture2D>(RockSource + "/Textures/1. Small/T_RockSet_01_Small_01_N.png"));
-                m.EnableKeyword("_NORMALMAP");
-                m.SetColor("_BaseColor", new Color(0.62f, 0.58f, 0.52f)); // wet: darker
-                m.SetFloat("_Smoothness", 0.55f);
-                m.SetFloat("_Metallic", 0f);
-            });
-            GameObject rockPrefab = SavePrefab("RockClutter", rockMesh, rockMat);
-            GameObject pebblePrefab = SavePrefab("PebbleClutter", rockMesh, pebbleMat);
-
             string setPath = "Assets/Resources/Terrain/ClutterSet.asset";
             var set = AssetDatabase.LoadAssetAtPath<TerrainClutterSet>(setPath);
             if (set == null)
@@ -88,8 +64,10 @@ namespace KingdomsOfBharat.EditorTools
                 set.entries = new[]
                 {
                     new TerrainClutterSet.Entry { name = "Grass tuft", prefab = tuftPrefab, kind = TerrainClutterSet.ClutterKind.Grass, minScale = 0.28f, maxScale = 0.6f, density = 1.3f },
-                    new TerrainClutterSet.Entry { name = "Small rock", prefab = rockPrefab, kind = TerrainClutterSet.ClutterKind.Rock, minScale = 0.5f, maxScale = 1.1f, density = 1f },
-                    new TerrainClutterSet.Entry { name = "Shore pebble", prefab = pebblePrefab, kind = TerrainClutterSet.ClutterKind.Pebble, minScale = 0.15f, maxScale = 0.4f, density = 1f },
+                    // Filled in by "Build Moss Rock Clutter" / "Build Pebble Clutter";
+                    // entries without a usable prefab are simply skipped at runtime.
+                    new TerrainClutterSet.Entry { name = "Small rock", kind = TerrainClutterSet.ClutterKind.Rock, minScale = 0.3f, maxScale = 0.55f, density = 1f },
+                    new TerrainClutterSet.Entry { name = "Shore pebble", kind = TerrainClutterSet.ClutterKind.Pebble, minScale = 1.2f, maxScale = 2.6f, density = 2.4f },
                 };
             }
 
@@ -128,23 +106,6 @@ namespace KingdomsOfBharat.EditorTools
             mesh.normals = normals;
             mesh.RecalculateBounds();
             return mesh;
-        }
-
-        private static Mesh BuildRockMesh()
-        {
-            string fbx = RockSource + "/Meshes/1. Small/SM_Small_01_Sample.fbx";
-            Mesh source = null;
-            foreach (var o in AssetDatabase.LoadAllAssetsAtPath(fbx))
-            {
-                if (o is Mesh m && m.name == "Small_01_LOD2") source = m;
-            }
-
-            var simplifier = new MeshSimplifier(source);
-            simplifier.SimplifyMesh(0.3f);
-            Mesh result = simplifier.ToMesh();
-            result.name = "RockClutterMesh";
-            result.RecalculateBounds();
-            return SaveMesh(result, Folder + "/RockClutterMesh.asset");
         }
 
         private static Mesh SaveMesh(Mesh mesh, string path)

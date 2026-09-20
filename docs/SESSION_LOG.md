@@ -11522,3 +11522,10 @@ Baseline: camera post-processing off, no Volume, no fog, default procedural sky,
 - Tuning from screenshots: first colours (near-white / near-black) were too high-contrast against the sand; narrowed to a mid-tone range.
 - Verified: Coastal shoreline close-ups show pebbles along the waterline and in the shallows. 601/601.
 - Not done / flags: obsolete placeholder `PebbleClutter*` assets (old PolishedSurfaces rock) still on disk, unused now; pebbles are smooth ovals with no texture detail; no pebble clusters on the beach berm beyond the terrain's pebble band; licence to confirm.
+
+## 2026-09-21 — Removed the old placeholder clutter files
+
+- Deleted the PolishedSurfaces-based placeholders from `Resources/Terrain/Detail/`: `RockClutter.prefab`, `PebbleClutter.prefab`, `RockClutterMat.mat`, `PebbleClutterMat.mat`, `RockClutterMesh.asset` (+ metas). Checked first: nothing referenced them except each other (the `ClutterSet` entries already point at the moss rocks / pebble FBX variants).
+- `TerrainClutterBuilder.Build()` no longer creates rock/pebble placeholders (otherwise a re-run would have recreated the deleted files); it now seeds empty "Small rock" / "Shore pebble" entries that `Build Moss Rock Clutter` / `Build Pebble Clutter` fill in; entries with no usable prefab are skipped at runtime. Removed the unused `BuildRockMesh`.
+- The owned PolishedSurfaces package itself is untouched (the StoneQuarry resource-node rocks still use it).
+- Verified: Play mode still builds ~20.7k clutter instances on Coastal with all three entries and no errors. 601/601.
