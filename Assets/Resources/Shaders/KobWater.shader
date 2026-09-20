@@ -42,6 +42,7 @@ Shader "KingdomsOfBharat/Water"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_fog
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -78,6 +79,7 @@ Shader "KingdomsOfBharat/Water"
             {
                 float4 positionCS : SV_POSITION;
                 float3 positionWS : TEXCOORD0;
+                float fogFactor : TEXCOORD1;
             };
 
             Varyings vert(Attributes input)
@@ -89,6 +91,7 @@ Shader "KingdomsOfBharat/Water"
                 // foam line breathing in and out along the shore.
                 o.positionWS.y += (sin(o.positionWS.x * 0.55 + _Time.y * 1.1) + sin(o.positionWS.z * 0.7 - _Time.y * 0.9)) * 0.5 * _WaveHeight;
                 o.positionCS = TransformWorldToHClip(o.positionWS);
+                o.fogFactor = ComputeFogFactor(o.positionCS.z);
                 return o;
             }
 
@@ -141,7 +144,9 @@ Shader "KingdomsOfBharat/Water"
                 refractUV = refractEye < surfaceEye ? screenUV : refractUV;
                 float3 bed = SampleSceneColor(refractUV);
 
-                return half4(lerp(bed, col, alpha), 1);
+                float3 result = lerp(bed, col, alpha);
+                result = MixFog(result, input.fogFactor);
+                return half4(result, 1);
             }
             ENDHLSL
         }

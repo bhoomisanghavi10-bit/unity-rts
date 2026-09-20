@@ -97,7 +97,7 @@ not water code. In payoff order:
 | 7 | **Curve the north/south edges** | No | Same wobble idea as east/west; today only the x-edges wobble |
 | 8 | **Boat wakes and splashes** | No (particles) | Trail on `WaterMover` |
 | 9 | **River flow direction** | No | Scroll ripples along a flow vector instead of two fixed directions |
-| 10 | **Terrain macro variation / anti-tiling** | Higher-quality or extra ground sets | Visible tiling on the grass/dirt blend from a distance |
+| 10 | ~~**Terrain macro variation / anti-tiling**~~ DONE 2026-09-20 | No | The "blocky tiling" was rock bleeding through on gentle slopes, fixed; added mid-frequency grass/dirt variation |
 | 11 | **T5 resolution check** | No | Re-check the 257 heightmap/256 alphamap density up close now that it's a real Terrain |
 
 Also open: profile the refraction/opaque-texture cost and put refraction behind a

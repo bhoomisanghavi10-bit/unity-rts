@@ -293,8 +293,8 @@ namespace KingdomsOfBharat.Core
             {
                 _layers = new[]
                 {
-                    BuildLayer("Terrain/Grass", grassColor),
-                    BuildLayer("Terrain/Dirt", dirtColor),
+                    BuildLayer("Terrain/Grass", grassColor, 0.1f, 3f, 1.3f),
+                    BuildLayer("Terrain/Dirt", dirtColor, 0.1f, 3f, 1.3f),
                     BuildLayer("Terrain/Rock", Color.gray),
                     BuildLayer("Terrain/Sand", new Color(0.6f, 0.53f, 0.4f)),
                     // Pre-darkened (wet) pebble albedo, glossier than the
@@ -315,7 +315,7 @@ namespace KingdomsOfBharat.Core
         // NOT wired into maskMapTexture this session - its channel packing
         // isn't confirmed to match URP Terrain Lit's expected
         // Metallic/AO/Height/Smoothness layout, flagged rather than guessed.
-        private static TerrainLayer BuildLayer(string resourcePrefix, Color placeholderColor, float smoothness = 0.1f, float tileSize = 4f)
+        private static TerrainLayer BuildLayer(string resourcePrefix, Color placeholderColor, float smoothness = 0.1f, float tileSize = 4f, float normalScale = 1f)
         {
             Texture2D albedo = Resources.Load<Texture2D>(resourcePrefix + "/Albedo") ?? FlatTexture(placeholderColor);
             Texture2D normal = Resources.Load<Texture2D>(resourcePrefix + "/Normal");
@@ -327,6 +327,7 @@ namespace KingdomsOfBharat.Core
                 normalMapTexture = normal,
                 tileSize = new Vector2(tileSize, tileSize),
                 smoothness = smoothness,
+                normalScale = normalScale,
                 metallic = 0f,
             };
             return layer;
@@ -377,8 +378,19 @@ namespace KingdomsOfBharat.Core
                     float dHeightZ = HeightAt(worldX, worldZ + sampleStep) - height;
                     float slope = Mathf.Abs(dHeightX) + Mathf.Abs(dHeightZ);
 
-                    float dirtWeight = Mathf.Clamp01(height / Mathf.Max(noiseHeight, 0.001f));
-                    float rockWeight = Mathf.Clamp01(slope * 6f);
+                    // Height drives the broad grass/dirt split; a mid-frequency
+                    // noise term breaks up the smooth blobs so patches vary at
+                    // several scales instead of one.
+                    float macro = (Mathf.PerlinNoise(worldX * 0.4f + 70f, worldZ * 0.4f + 9f) - 0.5f) * 0.5f;
+                    float dirtWeight = Mathf.Clamp01(height / Mathf.Max(noiseHeight, 0.001f) + macro);
+                    // Rock only on genuinely steep ground. `slope` is a height
+                    // delta across one alphamap texel, so convert to a
+                    // gradient (rise per world unit) first. The old
+                    // `slope * 6` fired on ordinary rolling hills and bled
+                    // the slab-like rock texture through the grass as
+                    // blocky patches.
+                    float gradient = slope / sampleStep;
+                    float rockWeight = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 0.7f, gradient));
                     float remaining = 1f - rockWeight;
 
                     float grass = remaining * (1f - dirtWeight);

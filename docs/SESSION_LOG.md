@@ -11469,3 +11469,13 @@ Baseline: camera post-processing off, no Volume, no fog, default procedural sky,
 - Verified live on Coastal (overview + close-up): dark glossy pebble band along the waterline, pebbly shallows, foam edge; no blocky notches visible (the ones seen in the T4 baseline shot did not reappear). 601/601.
 - Gotcha hit: a Play session that started before a recompile kept the old cached 4-layer `_layers` array, so `SetAlphamaps` threw "layers should be 4". Stop and restart Play after changing layer counts.
 - Not done: still only the pre-darkened albedo (no per-pixel wetness gradient on the plain sand layer), grass/dirt blocky macro tiling still visible (plan item 10), pebbles aren't scattered as 3D clutter (T3).
+
+## 2026-09-20 — Grass tiling fix and follow-up fixes
+
+- **Root cause of the "blocky" ground patches**: not texture tiling. The grass and dirt albedos are clean; the rectangular slabs were the **rock layer** (PolishedSurfaces slab texture) bleeding through, because `rockWeight = slope * 6` used a per-texel height delta and fired on ordinary rolling hills. Rock now uses the real gradient (`slope / sampleStep`) with a smoothstep from 0.35 to 0.7, so it only appears on genuinely steep ground.
+- Broke up the smooth grass/dirt blobs: mid-frequency Perlin term (scale 0.4, +/-0.25) added to the dirt weight; grass/dirt `tileSize` 4 -> 3 and `normalScale` 1.3 (`BuildLayer` gained a `normalScale` parameter).
+- **Water shader now applies scene fog** (`multi_compile_fog`, `MixFog`), so distant water hazes with the land.
+- Checked and not reproduced: the blocky beach-edge notches seen in the T4 baseline shot (they came from the same rock-slab bleed).
+- Deliberately skipped: wobbling the north/south water edges. Coastal's water reaches the map edge on those sides, so there is nothing to wobble; it needs a map with a real N/S shoreline first.
+- 601/601. Restart Play after changing terrain layer parameters (`_layers` is cached).
+- Still open: reflections, better foam, clutter (T3), SSAO cost, pebble/wet-sand extras.
