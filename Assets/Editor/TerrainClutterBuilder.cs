@@ -188,5 +188,138 @@ namespace KingdomsOfBharat.EditorTools
             Object.DestroyImmediate(go);
             return prefab;
         }
+
+        private const string MossFbx = "Assets/importedmodels/RockMossSet/rock_moss_set_02_2k.fbx";
+        private const string MossFolder = Folder + "/RockMoss";
+
+        // Poly Haven rock_moss_set_02: 7 mossy rocks sharing one atlas
+        // material. Each is rotated Z-up -> Y-up (the FBX mesh data comes in
+        // 90 degrees about X), re-based so the pivot is bottom-centre (the
+        // originals aren't consistently bottom-aligned), decimated from ~8k
+        // triangles to a few hundred (there are tens of thousands of
+        // instances) and given a plain instancing-enabled URP Lit material.
+        // The seven prefabs become the variants of the "Small rock" entry.
+        [MenuItem("BharatRTS/Build Moss Rock Clutter")]
+        public static void BuildMossRocks()
+        {
+            Directory.CreateDirectory(MossFolder);
+
+            Material mat = SaveMaterial(MossFolder + "/MossRockMat.mat", m =>
+            {
+                m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(MossFolder + "/Albedo.png"));
+                m.SetTexture("_BumpMap", AssetDatabase.LoadAssetAtPath<Texture2D>(MossFolder + "/Normal.png"));
+                m.EnableKeyword("_NORMALMAP");
+                m.SetColor("_BaseColor", new Color(1.25f, 1.25f, 1.2f)); // atlas is dark
+                m.SetFloat("_Smoothness", 0.3f);
+                m.SetFloat("_Metallic", 0f);
+            });
+
+            var prefabs = new System.Collections.Generic.List<GameObject>();
+            var report = new System.Text.StringBuilder();
+            foreach (Object o in AssetDatabase.LoadAllAssetsAtPath(MossFbx))
+            {
+                if (!(o is Mesh source) || !source.name.Contains("_rock"))
+                {
+                    continue;
+                }
+
+                Mesh mesh = ProcessMossRock(source);
+                string shortName = "MossRock_" + source.name.Substring(source.name.LastIndexOf("_rock") + 5);
+                Mesh saved = SaveMesh(mesh, MossFolder + "/" + shortName + ".asset");
+                prefabs.Add(SavePrefabAt(MossFolder, shortName, saved, mat));
+                report.Append(shortName + " tris=" + saved.triangles.Length / 3 + " size=" + saved.bounds.size.ToString("F2") + "; ");
+            }
+
+            var set = AssetDatabase.LoadAssetAtPath<TerrainClutterSet>("Assets/Resources/Terrain/ClutterSet.asset");
+            foreach (var e in set.entries)
+            {
+                if (e != null && e.kind == TerrainClutterSet.ClutterKind.Rock)
+                {
+                    e.variants = prefabs.ToArray();
+                    e.prefab = prefabs.Count > 0 ? prefabs[0] : e.prefab;
+                    // Originals are 1.2-2.5 m wide; scatter them as small rocks.
+                    e.minScale = 0.3f;
+                    e.maxScale = 0.55f;
+                    e.density = 1f;
+                }
+            }
+
+            EditorUtility.SetDirty(set);
+            AssetDatabase.SaveAssets();
+            Debug.Log("Moss rock clutter built: " + report);
+        }
+
+        private static Mesh ProcessMossRock(Mesh source)
+        {
+            Quaternion toYUp = Quaternion.Euler(90f, 0f, 0f);
+            Vector3[] v = source.vertices;
+            Vector3[] n = source.normals;
+            for (int i = 0; i < v.Length; i++)
+            {
+                v[i] = toYUp * v[i];
+            }
+
+            for (int i = 0; i < n.Length; i++)
+            {
+                n[i] = toYUp * n[i];
+            }
+
+            // Re-base: bottom at y = 0, footprint centred on x/z.
+            Vector3 min = v[0], max = v[0];
+            foreach (Vector3 p in v)
+            {
+                min = Vector3.Min(min, p);
+                max = Vector3.Max(max, p);
+            }
+
+            Vector3 shift = new Vector3(-(min.x + max.x) * 0.5f, -min.y, -(min.z + max.z) * 0.5f);
+            for (int i = 0; i < v.Length; i++)
+            {
+                v[i] += shift;
+            }
+
+            var rotated = new Mesh { name = source.name };
+            rotated.indexFormat = source.indexFormat;
+            rotated.vertices = v;
+            rotated.normals = n;
+            rotated.uv = source.uv;
+            rotated.triangles = source.triangles;
+            rotated.RecalculateTangents();
+            rotated.RecalculateBounds();
+
+            var simplifier = new MeshSimplifier(rotated);
+            simplifier.SimplificationOptions = new SimplificationOptions
+            {
+                PreserveBorderEdges = true,
+                PreserveUVSeamEdges = true,
+                PreserveUVFoldoverEdges = true,
+                PreserveSurfaceCurvature = false,
+                EnableSmartLink = true,
+                VertexLinkDistance = double.Epsilon,
+                MaxIterationCount = 100,
+                Agressiveness = 7.0,
+                ManualUVComponentCount = false,
+                UVComponentCount = 2,
+            };
+            simplifier.SimplifyMesh(0.06f);
+            Mesh result = simplifier.ToMesh();
+            result.name = source.name;
+            result.RecalculateTangents();
+            result.RecalculateBounds();
+            return result;
+        }
+
+        private static GameObject SavePrefabAt(string folder, string name, Mesh mesh, Material mat)
+        {
+            var go = new GameObject(name);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var mr = go.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = mat;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = true;
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, folder + "/" + name + ".prefab");
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
     }
 }

@@ -54,30 +54,45 @@ namespace KingdomsOfBharat.Core
             for (int entryIndex = 0; entryIndex < set.entries.Length; entryIndex++)
             {
                 TerrainClutterSet.Entry e = set.entries[entryIndex];
-                if (e == null || e.prefab == null)
+                if (e == null)
                 {
                     continue;
                 }
 
-                var mf = e.prefab.GetComponentInChildren<MeshFilter>();
-                var mr = e.prefab.GetComponentInChildren<MeshRenderer>();
-                if (mf == null || mf.sharedMesh == null || mr == null || mr.sharedMaterial == null)
+                // Resolve every variant to a (mesh, material) pair; entries
+                // with no usable variant are skipped.
+                var meshes = new List<Mesh>();
+                var materials = new List<Material>();
+                var prefabs = e.variants != null && e.variants.Length > 0 ? e.variants : new[] { e.prefab };
+                foreach (GameObject prefab in prefabs)
+                {
+                    if (prefab == null)
+                    {
+                        continue;
+                    }
+
+                    var mf = prefab.GetComponentInChildren<MeshFilter>();
+                    var mr = prefab.GetComponentInChildren<MeshRenderer>();
+                    if (mf != null && mf.sharedMesh != null && mr != null && mr.sharedMaterial != null)
+                    {
+                        meshes.Add(mf.sharedMesh);
+                        materials.Add(mr.sharedMaterial);
+                    }
+                }
+
+                if (meshes.Count == 0)
                 {
                     continue;
                 }
 
                 int[,] density = BuildLayer(e, alpha, resolution, entryIndex);
-                Bounds meshBounds = mf.sharedMesh.bounds;
-                float reach = Mathf.Max(meshBounds.extents.x, meshBounds.extents.z) * e.maxScale;
-                float tall = meshBounds.size.y * e.maxScale;
 
                 for (int pz = 0; pz < resolution; pz += PatchCells)
                 {
                     for (int px = 0; px < resolution; px += PatchCells)
                     {
-                        var matrices = new List<Matrix4x4>();
-                        bool any = false;
-                        Bounds bounds = default;
+                        var matrices = new List<Matrix4x4>[meshes.Count];
+                        var bounds = new Bounds[meshes.Count];
 
                         for (int z = pz; z < Mathf.Min(pz + PatchCells, resolution); z++)
                         {
@@ -86,6 +101,9 @@ namespace KingdomsOfBharat.Core
                                 int count = density[z, x];
                                 for (int k = 0; k < count; k++)
                                 {
+                                    int v = Mathf.Min(meshes.Count - 1, (int)(Hash(x * 11 + k, z * 3, entryIndex + 503) * meshes.Count));
+                                    Bounds meshBounds = meshes[v].bounds;
+
                                     float jx = Hash(x * 7 + k, z, entryIndex + 101);
                                     float jz = Hash(x, z * 7 + k, entryIndex + 211);
                                     float wx = origin.x + (x + jx) * cell;
@@ -94,25 +112,28 @@ namespace KingdomsOfBharat.Core
                                     float yaw = Hash(x + k, z + k, entryIndex + 307) * 360f;
                                     float scale = Mathf.Lerp(e.minScale, e.maxScale, Hash(x * 3 + k, z * 5, entryIndex + 409));
                                     var pos = new Vector3(wx, wy, wz);
-                                    matrices.Add(Matrix4x4.TRS(pos, Quaternion.Euler(0f, yaw, 0f), Vector3.one * scale));
 
-                                    var b = new Bounds(pos + Vector3.up * (tall * 0.5f), new Vector3(reach * 2f, tall, reach * 2f));
-                                    if (!any)
+                                    if (matrices[v] == null)
                                     {
-                                        bounds = b;
-                                        any = true;
+                                        matrices[v] = new List<Matrix4x4>();
+                                        bounds[v] = new Bounds(pos, Vector3.zero);
                                     }
-                                    else
-                                    {
-                                        bounds.Encapsulate(b);
-                                    }
+
+                                    matrices[v].Add(Matrix4x4.TRS(pos, Quaternion.Euler(0f, yaw, 0f), Vector3.one * scale));
+
+                                    float reach = Mathf.Max(meshBounds.extents.x, meshBounds.extents.z) * e.maxScale;
+                                    float tall = (meshBounds.max.y + 0.05f) * e.maxScale;
+                                    bounds[v].Encapsulate(new Bounds(pos + Vector3.up * (tall * 0.5f), new Vector3(reach * 2f, tall, reach * 2f)));
                                 }
                             }
                         }
 
-                        if (any)
+                        for (int v = 0; v < meshes.Count; v++)
                         {
-                            renderer.AddBatch(mf.sharedMesh, mr.sharedMaterial, matrices, bounds);
+                            if (matrices[v] != null)
+                            {
+                                renderer.AddBatch(meshes[v], materials[v], matrices[v], bounds[v]);
+                            }
                         }
                     }
                 }

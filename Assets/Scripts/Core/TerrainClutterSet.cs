@@ -30,6 +30,10 @@ namespace KingdomsOfBharat.Core
             // Prefab with a MeshFilter + MeshRenderer whose material has GPU
             // instancing enabled (terrain detail meshes are instanced).
             public GameObject prefab;
+            // Optional: if non-empty, the scatter picks between these per
+            // instance instead of always using `prefab` (each needs one
+            // MeshFilter + MeshRenderer, same as `prefab`).
+            public GameObject[] variants;
             public ClutterKind kind;
             public float minScale = 0.8f;
             public float maxScale = 1.2f;
