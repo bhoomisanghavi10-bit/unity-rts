@@ -12,12 +12,17 @@ namespace KingdomsOfBharat.Core
     public class TerrainClutterRenderer : MonoBehaviour
     {
         private const int MaxPerCall = 1023;
+        // Beyond this distance, thinned batches draw half their instances.
+        public const float ThinDistance = 38f;
 
         private class Batch
         {
             public Mesh Mesh;
             public RenderParams Params;
             public Matrix4x4[][] Chunks;
+            // Every other instance, drawn instead of Chunks beyond ThinDistance
+            // (null when the batch isn't thinned).
+            public Matrix4x4[][] ThinChunks;
             public Bounds Bounds;
         }
 
@@ -27,6 +32,8 @@ namespace KingdomsOfBharat.Core
 
         public int InstanceCount { get; private set; }
         public int BatchCount => _batches.Count;
+        // Instances submitted for drawing in the last Update (after culling and thinning).
+        public int DrawnInstancesLastFrame { get; private set; }
 
         public void Clear()
         {
@@ -39,20 +46,24 @@ namespace KingdomsOfBharat.Core
             _drawDistance = distance;
         }
 
-        public void AddBatch(Mesh mesh, Material material, List<Matrix4x4> matrices, Bounds bounds)
+        public void AddBatch(Mesh mesh, Material material, List<Matrix4x4> matrices, Bounds bounds, bool thinWithDistance = false)
         {
             if (mesh == null || material == null || matrices.Count == 0)
             {
                 return;
             }
 
-            var chunks = new List<Matrix4x4[]>();
-            for (int i = 0; i < matrices.Count; i += MaxPerCall)
+            Matrix4x4[][] chunks = Chunk(matrices);
+            Matrix4x4[][] thin = null;
+            if (thinWithDistance && matrices.Count > 1)
             {
-                int n = Mathf.Min(MaxPerCall, matrices.Count - i);
-                var chunk = new Matrix4x4[n];
-                matrices.CopyTo(i, chunk, 0, n);
-                chunks.Add(chunk);
+                var half = new List<Matrix4x4>(matrices.Count / 2 + 1);
+                for (int i = 0; i < matrices.Count; i += 2)
+                {
+                    half.Add(matrices[i]);
+                }
+
+                thin = Chunk(half);
             }
 
             _batches.Add(new Batch
@@ -64,10 +75,25 @@ namespace KingdomsOfBharat.Core
                     receiveShadows = true,
                     worldBounds = bounds,
                 },
-                Chunks = chunks.ToArray(),
+                Chunks = chunks,
+                ThinChunks = thin,
                 Bounds = bounds,
             });
             InstanceCount += matrices.Count;
+        }
+
+        private static Matrix4x4[][] Chunk(List<Matrix4x4> matrices)
+        {
+            var chunks = new List<Matrix4x4[]>();
+            for (int i = 0; i < matrices.Count; i += MaxPerCall)
+            {
+                int n = Mathf.Min(MaxPerCall, matrices.Count - i);
+                var chunk = new Matrix4x4[n];
+                matrices.CopyTo(i, chunk, 0, n);
+                chunks.Add(chunk);
+            }
+
+            return chunks.ToArray();
         }
 
         private void Update()
@@ -75,6 +101,7 @@ namespace KingdomsOfBharat.Core
             UnityEngine.Camera cam = UnityEngine.Camera.main;
             if (cam == null || _batches.Count == 0)
             {
+                DrawnInstancesLastFrame = 0;
                 return;
             }
 
@@ -82,18 +109,25 @@ namespace KingdomsOfBharat.Core
             Vector3 camPos = cam.transform.position;
             float maxSqr = _drawDistance * _drawDistance;
 
+            float thinSqr = ThinDistance * ThinDistance;
+            int drawn = 0;
             foreach (Batch batch in _batches)
             {
-                if (batch.Bounds.SqrDistance(camPos) > maxSqr || !GeometryUtility.TestPlanesAABB(_planes, batch.Bounds))
+                float sqr = batch.Bounds.SqrDistance(camPos);
+                if (sqr > maxSqr || !GeometryUtility.TestPlanesAABB(_planes, batch.Bounds))
                 {
                     continue;
                 }
 
-                foreach (Matrix4x4[] chunk in batch.Chunks)
+                Matrix4x4[][] draw = batch.ThinChunks != null && sqr > thinSqr ? batch.ThinChunks : batch.Chunks;
+                foreach (Matrix4x4[] chunk in draw)
                 {
                     Graphics.RenderMeshInstanced(batch.Params, batch.Mesh, 0, chunk);
+                    drawn += chunk.Length;
                 }
             }
+
+            DrawnInstancesLastFrame = drawn;
         }
     }
 }

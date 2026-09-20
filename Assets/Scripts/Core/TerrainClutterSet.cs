@@ -21,6 +21,10 @@ namespace KingdomsOfBharat.Core
             Rock,
             // Follows the wet pebble band weight along the waterline.
             Pebble,
+            // Clumps of tall reeds in the wet pebble band / shallows.
+            Reed,
+            // Rare logs washed up on the pebble band.
+            Driftwood,
         }
 
         [Serializable]

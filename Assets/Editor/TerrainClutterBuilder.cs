@@ -37,15 +37,14 @@ namespace KingdomsOfBharat.EditorTools
             {
                 m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(tuftTex));
                 m.SetColor("_BaseColor", new Color(0.78f, 0.86f, 0.52f)); // muted so tufts sit in the terrain grass
-                m.SetFloat("_Surface", 0f);
-                m.SetFloat("_AlphaClip", 1f);
                 m.SetFloat("_Cutoff", 0.5f);
-                m.SetFloat("_Cull", 0f);
-                m.SetFloat("_Smoothness", 0.05f);
-                m.SetFloat("_Metallic", 0f);
-                m.EnableKeyword("_ALPHATEST_ON");
+                m.SetFloat("_SwayStrength", 0.10f);
+                m.SetFloat("_SwaySpeed", 1.6f);
+                m.SetFloat("_BaseDarken", 0.4f);
+                m.SetFloat("_FadeStart", 45f);
+                m.SetFloat("_FadeEnd", 66f);
                 m.renderQueue = 2450;
-            });
+            }, "KingdomsOfBharat/Foliage");
             GameObject tuftPrefab = SavePrefab("Tuft", tuftMesh, tuftMat);
 
             string setPath = "Assets/Resources/Terrain/ClutterSet.asset";
@@ -121,13 +120,17 @@ namespace KingdomsOfBharat.EditorTools
             return mesh;
         }
 
-        private static Material SaveMaterial(string path, System.Action<Material> configure)
+        private static Material SaveMaterial(string path, System.Action<Material> configure, string shaderName = "Universal Render Pipeline/Lit")
         {
             var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (mat == null)
             {
-                mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                mat = new Material(Shader.Find(shaderName));
                 AssetDatabase.CreateAsset(mat, path);
+            }
+            else if (mat.shader.name != shaderName)
+            {
+                mat.shader = Shader.Find(shaderName);
             }
 
             configure(mat);
@@ -432,6 +435,215 @@ namespace KingdomsOfBharat.EditorTools
             result.RecalculateNormals();
             result.RecalculateBounds();
             return result;
+        }
+
+        private const string WetFolder = Folder + "/Shore";
+
+        // Procedural shoreline props (no sourced assets exist yet, so these
+        // are generated placeholders that any real reed / log prefab can
+        // replace via the Inspector): a reed card (Reed.png on the foliage
+        // shader, sways more than grass) and three driftwood logs (a tapered,
+        // bent, noisy cylinder with a couple of branch stubs, Driftwood.png
+        // on plain URP Lit). Adds "Reed clump" and "Driftwood" entries to
+        // the clutter set if they aren't there yet.
+        [MenuItem("BharatRTS/Build Reed and Driftwood Clutter")]
+        public static void BuildShoreProps()
+        {
+            Directory.CreateDirectory(WetFolder);
+
+            string reedTex = Folder + "/Reed.png";
+            var ti = (TextureImporter)AssetImporter.GetAtPath(reedTex);
+            ti.alphaIsTransparency = true;
+            ti.mipmapEnabled = true;
+            ti.mipMapsPreserveCoverage = true;
+            ti.alphaTestReferenceValue = 0.5f;
+            ti.wrapMode = TextureWrapMode.Clamp;
+            ti.SaveAndReimport();
+
+            Mesh reedMesh = SaveMesh(BuildCardMesh("ReedMesh", 0.8f, 1.6f), WetFolder + "/ReedMesh.asset");
+            Material reedMat = SaveMaterial(WetFolder + "/ReedMat.mat", m =>
+            {
+                m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(reedTex));
+                m.SetColor("_BaseColor", new Color(0.95f, 0.95f, 0.85f));
+                m.SetFloat("_Cutoff", 0.5f);
+                m.SetFloat("_SwayStrength", 0.22f);
+                m.SetFloat("_SwaySpeed", 1.2f);
+                m.SetFloat("_BaseDarken", 0.3f);
+                m.SetFloat("_FadeStart", 45f);
+                m.SetFloat("_FadeEnd", 66f);
+                m.renderQueue = 2450;
+            }, "KingdomsOfBharat/Foliage");
+            GameObject reedPrefab = SavePrefabAt(WetFolder, "Reed", reedMesh, reedMat);
+
+            Material woodMat = SaveMaterial(WetFolder + "/DriftwoodMat.mat", m =>
+            {
+                m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(Folder + "/Driftwood.png"));
+                m.SetColor("_BaseColor", Color.white);
+                m.SetFloat("_Smoothness", 0.2f);
+                m.SetFloat("_Metallic", 0f);
+            });
+            var logs = new System.Collections.Generic.List<GameObject>();
+            float[] lengths = { 1.9f, 1.4f, 2.2f };
+            float[] radii = { 0.10f, 0.08f, 0.12f };
+            for (int i = 0; i < 3; i++)
+            {
+                Mesh log = SaveMesh(BuildLogMesh("DriftwoodMesh_" + (i + 1), 100 + i * 17, lengths[i], radii[i]), WetFolder + "/DriftwoodMesh_" + (i + 1) + ".asset");
+                logs.Add(SavePrefabAt(WetFolder, "Driftwood_" + (i + 1), log, woodMat));
+            }
+
+            var set = AssetDatabase.LoadAssetAtPath<TerrainClutterSet>("Assets/Resources/Terrain/ClutterSet.asset");
+            var entries = new System.Collections.Generic.List<TerrainClutterSet.Entry>(set.entries);
+            UpsertEntry(entries, TerrainClutterSet.ClutterKind.Reed, "Reed clump", new[] { reedPrefab }, 0.5f, 0.95f, 1.3f);
+            UpsertEntry(entries, TerrainClutterSet.ClutterKind.Driftwood, "Driftwood", logs.ToArray(), 0.8f, 1.4f, 1f);
+            set.entries = entries.ToArray();
+            EditorUtility.SetDirty(set);
+            AssetDatabase.SaveAssets();
+            Debug.Log("Shore props built: 1 reed, 3 driftwood logs.");
+        }
+
+        private static void UpsertEntry(System.Collections.Generic.List<TerrainClutterSet.Entry> entries, TerrainClutterSet.ClutterKind kind, string name, GameObject[] prefabs, float minScale, float maxScale, float density)
+        {
+            var entry = entries.Find(e => e != null && e.kind == kind);
+            if (entry == null)
+            {
+                entry = new TerrainClutterSet.Entry { name = name, kind = kind, minScale = minScale, maxScale = maxScale, density = density };
+                entries.Add(entry);
+            }
+
+            entry.prefab = prefabs[0];
+            entry.variants = prefabs;
+        }
+
+        // Three vertical cards crossed at 60 degrees, up-facing normals.
+        private static Mesh BuildCardMesh(string name, float width, float height)
+        {
+            var verts = new System.Collections.Generic.List<Vector3>();
+            var uvs = new System.Collections.Generic.List<Vector2>();
+            var tris = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < 3; i++)
+            {
+                Quaternion q = Quaternion.Euler(0f, i * 60f, 0f);
+                int b = verts.Count;
+                verts.Add(q * new Vector3(-width * 0.5f, 0f, 0f));
+                verts.Add(q * new Vector3(width * 0.5f, 0f, 0f));
+                verts.Add(q * new Vector3(-width * 0.5f, height, 0f));
+                verts.Add(q * new Vector3(width * 0.5f, height, 0f));
+                uvs.Add(new Vector2(0, 0)); uvs.Add(new Vector2(1, 0)); uvs.Add(new Vector2(0, 1)); uvs.Add(new Vector2(1, 1));
+                tris.AddRange(new[] { b, b + 2, b + 1, b + 1, b + 2, b + 3 });
+            }
+
+            var mesh = new Mesh { name = name };
+            mesh.SetVertices(verts);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(tris, 0);
+            var normals = new Vector3[verts.Count];
+            for (int i = 0; i < normals.Length; i++) normals[i] = Vector3.up;
+            mesh.normals = normals;
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        // A bent, tapered, lumpy log along X with capped ends and a couple
+        // of branch stubs; pivot bottom-centre, sunk slightly so it beds in.
+        private static Mesh BuildLogMesh(string name, int seed, float length, float baseRadius)
+        {
+            var rng = new System.Random(seed);
+            const int rings = 14, sides = 10;
+            var verts = new System.Collections.Generic.List<Vector3>();
+            var uvs = new System.Collections.Generic.List<Vector2>();
+            var tris = new System.Collections.Generic.List<int>();
+            float bendY = 0.04f + (float)rng.NextDouble() * 0.05f;
+            float bendZ = 0.05f + (float)rng.NextDouble() * 0.08f;
+            float phase = (float)rng.NextDouble() * 6f;
+
+            Vector3 Center(float t) => new Vector3((t - 0.5f) * length, Mathf.Sin(t * Mathf.PI) * bendY, Mathf.Sin(t * 2.4f + phase) * bendZ);
+            float Radius(float t) => baseRadius * Mathf.Lerp(1f, 0.55f, t) * (1f + 0.14f * Mathf.Sin(t * 9f + phase));
+
+            for (int r = 0; r <= rings; r++)
+            {
+                float t = r / (float)rings;
+                Vector3 c = Center(t);
+                float rad = Radius(t);
+                for (int sIdx = 0; sIdx <= sides; sIdx++)
+                {
+                    float a = sIdx / (float)sides * Mathf.PI * 2f;
+                    float lump = 1f + 0.10f * ((float)rng.NextDouble() - 0.5f) * 2f;
+                    verts.Add(c + new Vector3(0f, Mathf.Cos(a), Mathf.Sin(a)) * rad * lump);
+                    uvs.Add(new Vector2(t * length / 0.7f, sIdx / (float)sides));
+                }
+            }
+
+            int stride = sides + 1;
+            for (int r = 0; r < rings; r++)
+            {
+                for (int sIdx = 0; sIdx < sides; sIdx++)
+                {
+                    int i0 = r * stride + sIdx, i1 = i0 + 1, i2 = i0 + stride, i3 = i2 + 1;
+                    tris.AddRange(new[] { i0, i1, i2, i1, i3, i2 });
+                }
+            }
+
+            // End caps (flat fans).
+            for (int end = 0; end < 2; end++)
+            {
+                int ringStart = end == 0 ? 0 : rings * stride;
+                Vector3 c = Center(end == 0 ? 0f : 1f);
+                int centre = verts.Count;
+                verts.Add(c);
+                uvs.Add(new Vector2(end == 0 ? 0f : length / 0.7f, 0.5f));
+                for (int sIdx = 0; sIdx < sides; sIdx++)
+                {
+                    int a = ringStart + sIdx, b = ringStart + sIdx + 1;
+                    if (end == 0) tris.AddRange(new[] { centre, b, a }); else tris.AddRange(new[] { centre, a, b });
+                }
+            }
+
+            // Branch stubs.
+            int stubs = 1 + rng.Next(2);
+            for (int i = 0; i < stubs; i++)
+            {
+                float t = 0.25f + (float)rng.NextDouble() * 0.5f;
+                Vector3 origin = Center(t);
+                float angle = (float)rng.NextDouble() * Mathf.PI;
+                Vector3 dir = new Vector3(0.3f, Mathf.Cos(angle), Mathf.Sin(angle)).normalized;
+                float len = 0.22f + (float)rng.NextDouble() * 0.2f;
+                float r0 = Radius(t) * 0.45f;
+                Vector3 side = Vector3.Cross(dir, Vector3.right).normalized;
+                Vector3 up = Vector3.Cross(dir, side).normalized;
+                int baseIndex = verts.Count;
+                const int stubSides = 6;
+                for (int k = 0; k <= stubSides; k++)
+                {
+                    float a = k / (float)stubSides * Mathf.PI * 2f;
+                    Vector3 ring = (side * Mathf.Cos(a) + up * Mathf.Sin(a));
+                    verts.Add(origin + ring * r0);
+                    uvs.Add(new Vector2(0f, k / (float)stubSides));
+                    verts.Add(origin + dir * len + ring * r0 * 0.4f);
+                    uvs.Add(new Vector2(0.3f, k / (float)stubSides));
+                }
+
+                for (int k = 0; k < stubSides; k++)
+                {
+                    int a0 = baseIndex + k * 2, a1 = a0 + 1, b0 = a0 + 2, b1 = a0 + 3;
+                    tris.AddRange(new[] { a0, b0, a1, b0, b1, a1 });
+                }
+            }
+
+            var mesh = new Mesh { name = name };
+            mesh.SetVertices(verts);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+
+            // Re-base: footprint centred, bottom slightly below the ground.
+            Bounds b2 = mesh.bounds;
+            Vector3[] v = mesh.vertices;
+            Vector3 shift = new Vector3(-b2.center.x, -b2.min.y - 0.02f, -b2.center.z);
+            for (int i = 0; i < v.Length; i++) v[i] += shift;
+            mesh.vertices = v;
+            mesh.RecalculateBounds();
+            return mesh;
         }
     }
 }

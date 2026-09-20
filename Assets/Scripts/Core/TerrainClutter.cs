@@ -85,7 +85,7 @@ namespace KingdomsOfBharat.Core
                     continue;
                 }
 
-                int[,] density = BuildLayer(e, alpha, resolution, entryIndex);
+                int[,] density = BuildLayer(e, alpha, resolution, entryIndex, terrain, origin, cell);
 
                 for (int pz = 0; pz < resolution; pz += PatchCells)
                 {
@@ -132,7 +132,7 @@ namespace KingdomsOfBharat.Core
                         {
                             if (matrices[v] != null)
                             {
-                                renderer.AddBatch(meshes[v], materials[v], matrices[v], bounds[v]);
+                                renderer.AddBatch(meshes[v], materials[v], matrices[v], bounds[v], e.kind == TerrainClutterSet.ClutterKind.Grass);
                             }
                         }
                     }
@@ -140,7 +140,7 @@ namespace KingdomsOfBharat.Core
             }
         }
 
-        private static int[,] BuildLayer(TerrainClutterSet.Entry e, float[,,] alpha, int n, int salt)
+        private static int[,] BuildLayer(TerrainClutterSet.Entry e, float[,,] alpha, int n, int salt, Terrain terrain, Vector3 origin, float cell)
         {
             var layer = new int[n, n];
             for (int z = 0; z < n; z++)
@@ -176,6 +176,35 @@ namespace KingdomsOfBharat.Core
                         case TerrainClutterSet.ClutterKind.Rock:
                         {
                             float chance = 0.012f * e.density * (grass + dirt) * (1f - sand - pebble);
+                            layer[z, x] = h < chance ? 1 : 0;
+                            break;
+                        }
+                        case TerrainClutterSet.ClutterKind.Reed:
+                        {
+                            // Clumps: a broad noise picks a few patches along
+                            // the wet margin, dense inside them.
+                            if (pebble < 0.15f)
+                            {
+                                break;
+                            }
+
+                            // Reeds stand in the shallows and at the wet edge:
+                            // ground within a window around the waterline.
+                            float wy = origin.y + terrain.SampleHeight(new Vector3(origin.x + (x + 0.5f) * cell, 0f, origin.z + (z + 0.5f) * cell));
+                            if (wy > WaterProximity.SurfaceY + 0.08f || wy < WaterProximity.SurfaceY - 0.7f)
+                            {
+                                break;
+                            }
+
+                            float clump = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.6f, 0.78f, Mathf.PerlinNoise(x * 0.07f + salt * 3f, z * 0.07f + 5f)));
+                            float amount = e.density * pebble * clump;
+                            int whole = Mathf.FloorToInt(amount);
+                            layer[z, x] = whole + (h < amount - whole ? 1 : 0);
+                            break;
+                        }
+                        case TerrainClutterSet.ClutterKind.Driftwood:
+                        {
+                            float chance = 0.012f * e.density * pebble;
                             layer[z, x] = h < chance ? 1 : 0;
                             break;
                         }
