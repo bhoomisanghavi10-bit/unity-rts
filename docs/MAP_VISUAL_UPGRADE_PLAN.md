@@ -91,9 +91,9 @@ not water code. In payoff order:
 | 1 | ~~**Lighting + post-processing (T4)**~~ DONE 2026-09-20: URP Volume with tone mapping, colour grading, bloom, SSAO; sun colour/angle/soft shadows; distance haze | No | Unused `DefaultVolumeProfile.asset` is the start; cheapest and biggest visual change |
 | 2 | ~~**Wet-sand band + pebble layer**~~ DONE 2026-09-20 (Poly Haven floor_pebbles_01) | Pebble/gravel PBR set (ambientCG Gravel/Rocks) | Darken the sand just above the waterline via the same distance function; 5th terrain layer |
 | 3 | **Shore clutter (T3)**: pebbles, reeds, driftwood, grass tufts, rocks | Meshes (Poly Haven / Kenney / Asset Store) | New instancing/scatter system; `EnvironmentPropFactory` has no rock/tuft category |
-| 4 | **Water reflections** | No | Reflection probe/skybox cubemap with fresnel, or planar reflection on the single water plane |
+| 4 | ~~**Water reflections**~~ sky part DONE 2026-09-20; planar reflection of buildings still open | No | Reflection probe/skybox cubemap with fresnel, or planar reflection on the single water plane |
 | 5 | **Caustics on the seabed** | Caustic texture | Animated projection in the shallows |
-| 6 | **Better foam** | Foam texture | Advancing/retreating breakers; current foam is one static line |
+| 6 | ~~**Better foam**~~ DONE 2026-09-20 (procedural breakers; user's Asset Store foam pack could still be swapped in) | Foam texture | Advancing/retreating breakers; current foam is one static line |
 | 7 | **Curve the north/south edges** | No | Same wobble idea as east/west; today only the x-edges wobble |
 | 8 | **Boat wakes and splashes** | No (particles) | Trail on `WaterMover` |
 | 9 | **River flow direction** | No | Scroll ripples along a flow vector instead of two fixed directions |

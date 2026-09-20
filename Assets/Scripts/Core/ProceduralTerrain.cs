@@ -41,9 +41,10 @@ namespace KingdomsOfBharat.Core
         // gameplay water rectangle's edge so WaterProximity/WaterMover and
         // the NavMesh exclusion all agree with what the player sees.
         private const float BankWidth = 5f;
-        private const float BedDropWidth = 8f;
+        private const float BedDropWidth = 14f;
         private const float BedDepth = 1.5f;
         private const float BeachWidth = 3.5f;
+        private const float BeachBerm = 0.3f;
         private const int SandLayerIndex = 3;
         private const int PebbleLayerIndex = 4;
 
@@ -280,11 +281,22 @@ namespace KingdomsOfBharat.Core
             if (s <= 0f)
             {
                 // Land eases down to exactly the waterline at the edge.
-                return Mathf.Lerp(land, waterSurfaceY, Mathf.SmoothStep(0f, 1f, (s + BankWidth) / BankWidth));
+                // Land eases down to exactly the waterline at the edge, with a
+                // small beach berm added so the ground crosses the waterline
+                // at a real slope (~13 deg) even where the noise sits right at
+                // water level - a flat waterline makes the depth-driven foam
+                // and shallow tint flood a wide strip.
+                float u = (s + BankWidth) / BankWidth;
+                return Mathf.Lerp(land, waterSurfaceY, u) + BeachBerm * 4f * u * (1f - u);
             }
 
             float bed = waterSurfaceY - BedDepth;
-            return Mathf.Lerp(waterSurfaceY, bed, Mathf.SmoothStep(0f, 1f, s / BedDropWidth));
+            // Ease-out (t * (2 - t)) rather than smoothstep: the bed
+            // must already have real slope at the waterline, otherwise the
+            // "almost no water" strip is several flat units wide and the
+            // depth-driven foam floods it.
+            float tb = Mathf.Clamp01(s / BedDropWidth);
+            return Mathf.Lerp(waterSurfaceY, bed, tb * (2f - tb));
         }
 
         private void ApplyLayers(TerrainData data)
@@ -449,6 +461,10 @@ namespace KingdomsOfBharat.Core
             }
 
             var material = new Material(shader) { name = "KobWater" };
+            // Reflected-sky gradient follows the scene's fog (horizon) and
+            // ambient sky (zenith) colours.
+            material.SetColor("_SkyHorizon", RenderSettings.fogColor);
+            material.SetColor("_SkyZenith", RenderSettings.ambientSkyColor);
             Texture2D normal = Resources.Load<Texture2D>("Terrain/Water/Normal");
             if (normal != null)
             {

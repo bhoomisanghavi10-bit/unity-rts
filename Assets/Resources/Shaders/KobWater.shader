@@ -7,13 +7,15 @@ Shader "KingdomsOfBharat/Water"
 {
     Properties
     {
-        _ShallowColor ("Shallow Color", Color) = (0.32, 0.62, 0.58, 1)
-        _DeepColor ("Deep Color", Color) = (0.08, 0.30, 0.42, 1)
+        _ShallowColor ("Shallow Color", Color) = (0.38, 0.70, 0.64, 1)
+        _DeepColor ("Deep Color", Color) = (0.11, 0.40, 0.50, 1)
         _ShallowAlpha ("Shallow Alpha", Range(0,1)) = 0.35
-        _DeepAlpha ("Deep Alpha", Range(0,1)) = 0.92
-        _DepthMax ("Depth For Full Deep Color", Float) = 3.0
-        _EdgeFade ("Shore Edge Fade", Float) = 0.25
+        _DeepAlpha ("Deep Alpha", Range(0,1)) = 0.88
+        _DepthMax ("Depth For Full Deep Color", Float) = 1.7
+        _EdgeFade ("Shore Edge Fade", Float) = 0.12
         _NormalMap ("Ripple Normal Map", 2D) = "bump" {}
+        _SkyHorizon ("Reflected Sky Horizon", Color) = (0.70, 0.78, 0.86, 1)
+        _SkyZenith ("Reflected Sky Zenith", Color) = (0.36, 0.55, 0.85, 1)
         _NormalTiling ("Normal Tiling (world units per tile)", Float) = 20
         _NormalStrength ("Normal Strength", Range(0,2)) = 0.5
         _ScrollA ("Scroll A (xy)", Vector) = (0.020, 0.012, 0, 0)
@@ -22,8 +24,14 @@ Shader "KingdomsOfBharat/Water"
         _GlintStrength ("Glint Strength", Float) = 0.7
         _SkyColor ("Fresnel Sky Tint", Color) = (0.62, 0.78, 0.86, 1)
         _FoamColor ("Foam Color", Color) = (0.95, 0.98, 1, 1)
-        _FoamWidth ("Foam Width", Float) = 0.35
+        _FoamWidth ("Foam Width", Float) = 0.12
         _WaveHeight ("Vertex Wave Height", Float) = 0.04
+        _ReflectionStrength ("Sky Reflection Strength", Range(0,1.5)) = 0.55
+        _ReflectionPower ("Reflection Fresnel Power", Float) = 3
+        _BreakerReach ("Breaker Reach (vertical depth)", Float) = 1.1
+        _BreakerFreq ("Breaker Frequency", Float) = 1.4
+        _BreakerSpeed ("Breaker Speed", Float) = 0.28
+        _BreakerStrength ("Breaker Strength", Range(0,1)) = 0.85
         _RefractStrength ("Refraction Strength", Float) = 0.04
     }
 
@@ -68,8 +76,16 @@ Shader "KingdomsOfBharat/Water"
                 float _GlintStrength;
                 float4 _SkyColor;
                 float4 _FoamColor;
+                float4 _SkyHorizon;
+                float4 _SkyZenith;
                 float _FoamWidth;
                 float _WaveHeight;
+                float _ReflectionStrength;
+                float _ReflectionPower;
+                float _BreakerReach;
+                float _BreakerFreq;
+                float _BreakerSpeed;
+                float _BreakerStrength;
                 float _RefractStrength;
             CBUFFER_END
 
@@ -102,6 +118,12 @@ Shader "KingdomsOfBharat/Water"
                 float sceneEye = LinearEyeDepth(rawDepth, _ZBufferParams);
                 float surfaceEye = input.positionCS.w;
                 float depth = max(sceneEye - surfaceEye, 0);
+                // True vertical water depth (surface height minus the bed
+                // height reconstructed from the depth buffer). Unlike the
+                // view-space difference it doesn't stretch at grazing camera
+                // angles, so colour, foam and the shore fade stay consistent.
+                float3 bedWS = ComputeWorldSpacePosition(screenUV, rawDepth, UNITY_MATRIX_I_VP);
+                float depthV = max(input.positionWS.y - bedWS.y, 0);
 
                 // Ripple normal from two counter-scrolling world-space layers.
                 float2 uv = input.positionWS.xz / _NormalTiling;
@@ -110,7 +132,7 @@ Shader "KingdomsOfBharat/Water"
                 float3 nTS = normalize(float3(nA.xy + nB.xy, nA.z * nB.z));
                 float3 normalWS = normalize(float3(nTS.x, nTS.z, nTS.y));
 
-                float t = saturate(depth / _DepthMax);
+                float t = saturate(depthV / _DepthMax);
                 float3 col = lerp(_ShallowColor.rgb, _DeepColor.rgb, t);
                 float alpha = lerp(_ShallowAlpha, _DeepAlpha, t);
 
@@ -125,15 +147,41 @@ Shader "KingdomsOfBharat/Water"
                 col += mainLight.color * glint;
                 alpha = saturate(alpha + glint);
 
-                // Foam hugging the waterline, broken up by the ripple map.
-                float ripple = nA.x * 0.5 + 0.5;
-                float foamMask = 1.0 - saturate(depth / max(_FoamWidth * (0.6 + ripple * 0.8), 0.001));
-                foamMask = smoothstep(0.15, 1.0, foamMask);
-                col = lerp(col, _FoamColor.rgb, foamMask);
-                alpha = saturate(max(alpha, foamMask * 0.9));
+                // Sky reflection: a horizon-to-zenith gradient (colours set
+                // from the scene's fog/ambient by ProceduralTerrain, so it
+                // follows the sky settings). Unity's default reflection cube
+                // isn't bound at runtime here and RenderToCubemap captured
+                // nothing under URP, so this is analytic on purpose. Bent by
+                // the ripples; strength follows a boosted fresnel so it's
+                // readable at RTS camera angles.
+                float3 reflDir = reflect(-viewDir, normalize(lerp(float3(0,1,0), normalWS, 0.6)));
+                float3 env = lerp(_SkyHorizon.rgb, _SkyZenith.rgb, saturate(pow(saturate(reflDir.y), 0.6)));
+                float reflF = 0.04 + 0.96 * pow(1.0 - saturate(viewDir.y), _ReflectionPower);
+                col = lerp(col, env, saturate(reflF * _ReflectionStrength));
+                alpha = saturate(alpha + reflF * _ReflectionStrength * 0.5);
 
-                // Soft fade to nothing where water meets ground.
-                alpha *= saturate(depth / max(_EdgeFade, 0.001)) * 0.85 + 0.15 * foamMask;
+                // Soft fade to nothing where water meets ground - applied to
+                // the water body only, so foam (added after) still shows
+                // right at the waterline.
+                alpha *= saturate(depthV / max(_EdgeFade, 0.001));
+
+                // Foam: a steady line hugging the waterline plus thin
+                // breaker lines that roll in toward the shore (phase runs
+                // toward decreasing depth) and fade as they arrive. Both are
+                // broken up by the ripple map so they never look ruled.
+                float ripple = nA.x * 0.5 + 0.5;
+                float lineFoam = 1.0 - saturate(depthV / max(_FoamWidth * (0.6 + ripple * 0.8), 0.001));
+                lineFoam = smoothstep(0.1, 0.9, lineFoam);
+
+                float phase = frac(depthV * _BreakerFreq + _Time.y * _BreakerSpeed);
+                float crest = smoothstep(0.72, 0.95, phase) * (1.0 - smoothstep(0.95, 1.0, phase));
+                float reach = 1.0 - saturate(depthV / max(_BreakerReach, 0.001));
+                float broken = smoothstep(0.30, 0.75, ripple + nB.y * 0.3);
+                float breakers = crest * reach * broken * _BreakerStrength;
+
+                float foamMask = saturate(max(lineFoam, breakers));
+                col = lerp(col, _FoamColor.rgb, foamMask);
+                alpha = saturate(max(alpha, foamMask * 0.95));
 
                 // Refraction: bend where we look up the scene colour by the
                 // ripple normal, but fall back to the undistorted sample if

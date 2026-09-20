@@ -11479,3 +11479,13 @@ Baseline: camera post-processing off, no Volume, no fog, default procedural sky,
 - Deliberately skipped: wobbling the north/south water edges. Coastal's water reaches the map edge on those sides, so there is nothing to wobble; it needs a map with a real N/S shoreline first.
 - 601/601. Restart Play after changing terrain layer parameters (`_layers` is cached).
 - Still open: reflections, better foam, clutter (T3), SSAO cost, pebble/wet-sand extras.
+
+## 2026-09-20 — Water reflections and foam (Map Visual Upgrade Plan section 7, items 4 and 6)
+
+- **True vertical depth**: the water shader now reconstructs the bed's world position from the depth buffer (`ComputeWorldSpacePosition`) and uses `depthV = surfaceY - bedY` for tint, foam and edge fade, instead of the view-space depth difference (which stretched at grazing angles).
+- **Foam**: steady waterline foam plus thin breaker lines that roll toward the shore (phase runs toward decreasing depth), broken up by the ripple map, fading as they arrive. The edge fade now applies to the water body only so foam still shows right at the waterline.
+- **Reflections**: analytic sky reflection (horizon-to-zenith gradient, colours taken from `RenderSettings.fogColor`/`ambientSkyColor` when the material is built), bent by the ripples, boosted fresnel (strength 0.55, power 3).
+- **Findings**: (1) Unity's default reflection cube (`unity_SpecCube0`) isn't bound at runtime in this project, so sampling it gave black and made the water nearly black; (2) `Camera.RenderToCubemap` under URP returned a uniform dark-grey cube (nothing captured), so a baked-cubemap approach was abandoned; (3) `Camera` is ambiguous inside `KingdomsOfBharat.*` (there is a `KingdomsOfBharat.Camera` namespace) — write `UnityEngine.Camera`; (4) a flat waterline makes depth-driven foam flood a wide strip.
+- **Terrain changes forced by that**: a small beach berm (`BeachBerm` 0.3) so ground crosses the waterline at ~13 deg; bed profile ease-out `t*(2-t)` (real slope at the waterline) over a wider `BedDropWidth` 14, so the shallows stay a readable width.
+- Verified: 601/601; Coastal close-ups show teal translucent shallows with the pebbly bed, waterline foam, breaker lines and sky-tinted reflection.
+- **Not done**: no planar reflection of buildings/boats (analytic sky only); the user added Asset Store foam/water-level VFX packages to their account — not imported yet at the time of writing, so not used; SSAO/refraction cost unprofiled; foam/breakers are depth-driven so they won't follow boats (no wakes).
