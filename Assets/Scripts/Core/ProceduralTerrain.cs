@@ -136,10 +136,11 @@ namespace KingdomsOfBharat.Core
             ApplyHeights(data, terrainHeightScale, half);
             ClearHoles(data);
             ApplyLayers(data);
-            ApplyAlphamaps(data);
+            float[,,] alphamap = ApplyAlphamaps(data);
 
             terrain.terrainData = data;
             collider.terrainData = data;
+            TerrainClutter.Apply(terrain, data, alphamap, AlphamapResolution);
 
             int groundLayer = LayerMask.NameToLayer("Ground");
             gameObject.layer = groundLayer >= 0 ? groundLayer : 0;
@@ -370,7 +371,7 @@ namespace KingdomsOfBharat.Core
         // noise tint is dropped: it only mattered for a flat placeholder
         // color, and real tiled textures (once sourced) carry their own
         // visual variation already.
-        private void ApplyAlphamaps(TerrainData data)
+        private float[,,] ApplyAlphamaps(TerrainData data)
         {
             var map = new float[AlphamapResolution, AlphamapResolution, 5];
             float half = mapSize * 0.5f;
@@ -445,6 +446,7 @@ namespace KingdomsOfBharat.Core
             }
 
             data.SetAlphamaps(0, 0, map);
+            return map;
         }
 
         // Depth-fade water shader + generated tileable ripple normal map
