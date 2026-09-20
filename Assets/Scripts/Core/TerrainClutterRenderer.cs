@@ -12,6 +12,16 @@ namespace KingdomsOfBharat.Core
     public class TerrainClutterRenderer : MonoBehaviour
     {
         private const int MaxPerCall = 1023;
+
+        // The "Clutter" layer if the project defines it (falls back to Default).
+        public static int ClutterLayer
+        {
+            get
+            {
+                int layer = LayerMask.NameToLayer("Clutter");
+                return layer >= 0 ? layer : 0;
+            }
+        }
         // Beyond this distance, thinned batches draw half their instances.
         public const float ThinDistance = 38f;
 
@@ -74,6 +84,8 @@ namespace KingdomsOfBharat.Core
                     shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off,
                     receiveShadows = true,
                     worldBounds = bounds,
+                    // Own layer so the water's reflection camera can skip it.
+                    layer = ClutterLayer,
                 },
                 Chunks = chunks,
                 ThinChunks = thin,

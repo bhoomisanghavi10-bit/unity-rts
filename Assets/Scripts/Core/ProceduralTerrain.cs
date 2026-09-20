@@ -482,6 +482,11 @@ namespace KingdomsOfBharat.Core
         private void BuildWaterPlane()
         {
             var waterGo = new GameObject("Water");
+            int waterLayer = LayerMask.NameToLayer("Water");
+            if (waterLayer >= 0)
+            {
+                waterGo.layer = waterLayer;
+            }
             waterGo.transform.SetParent(transform, false);
             // .position is always a world-space setter regardless of the
             // parent's own offset (this object's transform now sits at the
@@ -535,6 +540,7 @@ namespace KingdomsOfBharat.Core
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             renderer.sharedMaterial = BuildWaterMaterial();
+            waterGo.AddComponent<PlanarReflection>();
         }
     }
 }

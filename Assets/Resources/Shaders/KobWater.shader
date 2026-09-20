@@ -14,6 +14,9 @@ Shader "KingdomsOfBharat/Water"
         _DepthMax ("Depth For Full Deep Color", Float) = 1.7
         _EdgeFade ("Shore Edge Fade", Float) = 0.12
         _NormalMap ("Ripple Normal Map", 2D) = "bump" {}
+        _ReflectionTex ("Planar Reflection (set by PlanarReflection)", 2D) = "black" {}
+        _PlanarStrength ("Planar Reflection Strength (set by PlanarReflection)", Range(0,1)) = 0
+        _PlanarDistort ("Planar Reflection Distortion", Float) = 0.035
         _SkyHorizon ("Reflected Sky Horizon", Color) = (0.70, 0.78, 0.86, 1)
         _SkyZenith ("Reflected Sky Zenith", Color) = (0.36, 0.55, 0.85, 1)
         _NormalTiling ("Normal Tiling (world units per tile)", Float) = 20
@@ -60,6 +63,8 @@ Shader "KingdomsOfBharat/Water"
 
             TEXTURE2D(_NormalMap);
             SAMPLER(sampler_NormalMap);
+            TEXTURE2D(_ReflectionTex);
+            SAMPLER(sampler_ReflectionTex);
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _ShallowColor;
@@ -77,6 +82,8 @@ Shader "KingdomsOfBharat/Water"
                 float4 _SkyColor;
                 float4 _FoamColor;
                 float4 _SkyHorizon;
+                float _PlanarStrength;
+                float _PlanarDistort;
                 float4 _SkyZenith;
                 float _FoamWidth;
                 float _WaveHeight;
@@ -158,6 +165,14 @@ Shader "KingdomsOfBharat/Water"
                 float3 env = lerp(_SkyHorizon.rgb, _SkyZenith.rgb, saturate(pow(saturate(reflDir.y), 0.6)));
                 float reflF = 0.04 + 0.96 * pow(1.0 - saturate(viewDir.y), _ReflectionPower);
                 col = lerp(col, env, saturate(reflF * _ReflectionStrength));
+                // Scene reflection (planar): geometry the reflection camera
+                // saw (alpha 1), weighted separately from - and stronger than -
+                // the sky gradient, and softer in very shallow water where the
+                // bed shows through. Bent by the ripples.
+                float2 planarUV = screenUV + normalWS.xz * _PlanarDistort;
+                half4 planar = SAMPLE_TEXTURE2D(_ReflectionTex, sampler_ReflectionTex, planarUV);
+                float sceneW = planar.a * _PlanarStrength * saturate(0.45 + reflF) * lerp(0.6, 1.0, t);
+                col = lerp(col, planar.rgb, sceneW);
                 alpha = saturate(alpha + reflF * _ReflectionStrength * 0.5);
 
                 // Soft fade to nothing where water meets ground - applied to
