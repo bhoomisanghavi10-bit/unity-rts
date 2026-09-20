@@ -8,6 +8,7 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Boat wakes closed (2026-09-21)** — `BoatWake` (stern foam trail + bow splash, distance-driven, render queue 3100) attached by `WaterMover.Start`; `WaterProximity.SurfaceY` added. 603/603. Open: Kelvin V-wake, planar reflection, reeds/driftwood, tuft sway/LOD, profiling.
 - **Shore pebbles now from the user's FBX (2026-09-21)** — 8 baked/decimated oval stones on 3 stone-colour materials, variants of the Pebble entry (`BharatRTS/Build Pebble Clutter`). Gotcha: each stone's oval shape lives in its node scale — bake the node transform into the mesh. **Licence of that FBX is unknown — confirm before shipping.** 601/601. Open: reeds/driftwood, sway/LOD, profiling.
 - **Small rocks now Poly Haven `rock_moss_set_02` (2026-09-20)** — 7 decimated mossy rock variants scattered as the Rock clutter (`TerrainClutterSet.Entry.variants`, menu `BharatRTS/Build Moss Rock Clutter`). FBX gotchas: tagged cm but data in metres (`useFileScale=false`), Z-up mesh data (rotate 90 deg X in the builder). 601/601. Open: the Shore pebble entry is still the old placeholder — needs a rounded pebble mesh.
 - **Rock terrain layer swapped (2026-09-20)** — Poly Haven `aerial_rocks_02` (mossy cliff rock) replaces the slab texture; only visible on steep slopes. 601/601. Leftover unused `Terrain/Rock/Mask.png`.

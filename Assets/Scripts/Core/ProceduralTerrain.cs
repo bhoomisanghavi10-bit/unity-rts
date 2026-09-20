@@ -489,6 +489,7 @@ namespace KingdomsOfBharat.Core
             // correct local offset internally, same as ProceduralGround's
             // original code.
             waterGo.transform.position = new Vector3(_waterCenter.x, waterSurfaceY, _waterCenter.z);
+            WaterProximity.SurfaceY = waterSurfaceY;
 
             // Grid (not a single quad) so the shader's vertex swell has
             // vertices to move. World-XZ drives the ripple UVs, so mesh UVs

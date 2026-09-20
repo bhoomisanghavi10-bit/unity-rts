@@ -19,6 +19,11 @@ namespace KingdomsOfBharat.Core
         // what units can walk and what blocks them all agree.
         public const float MaxShoreInset = 2f;
 
+        // World Y of the water surface on the current map (set by
+        // ProceduralTerrain when it builds the water plane) - what anything
+        // that floats on the water (boat wakes) needs to sit on.
+        public static float SurfaceY { get; internal set; } = 0.25f;
+
         public static float ShoreInsetAt(float z)
         {
             return MaxShoreInset * Mathf.PerlinNoise(z * 0.09f + 31.7f, 7.3f);

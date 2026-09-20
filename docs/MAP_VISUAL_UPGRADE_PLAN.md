@@ -95,7 +95,7 @@ not water code. In payoff order:
 | 5 | **Caustics on the seabed** | Caustic texture | Animated projection in the shallows |
 | 6 | ~~**Better foam**~~ DONE 2026-09-20 (procedural breakers; user's Asset Store foam pack could still be swapped in) | Foam texture | Advancing/retreating breakers; current foam is one static line |
 | 7 | **Curve the north/south edges** | No | Same wobble idea as east/west; today only the x-edges wobble |
-| 8 | **Boat wakes and splashes** | No (particles) | Trail on `WaterMover` |
+| 8 | ~~**Boat wakes and splashes**~~ DONE 2026-09-21 (stern trail + bow splash) | No (particles) | Trail on `WaterMover` |
 | 9 | **River flow direction** | No | Scroll ripples along a flow vector instead of two fixed directions |
 | 10 | ~~**Terrain macro variation / anti-tiling**~~ DONE 2026-09-20 | No | The "blocky tiling" was rock bleeding through on gentle slopes, fixed; added mid-frequency grass/dirt variation |
 | 11 | **T5 resolution check** | No | Re-check the 257 heightmap/256 alphamap density up close now that it's a real Terrain |

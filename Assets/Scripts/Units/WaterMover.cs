@@ -45,6 +45,16 @@ namespace KingdomsOfBharat.Units
 
         public Vector3 Destination => _destination;
 
+        private void Start()
+        {
+            // Every boat gets a wake. Added here (not Awake) so EditMode tests
+            // that build a bare WaterMover never spin up a ParticleSystem.
+            if (!TryGetComponent(out BoatWake _))
+            {
+                gameObject.AddComponent<BoatWake>();
+            }
+        }
+
         private void Update()
         {
             if (!_hasDestination)
