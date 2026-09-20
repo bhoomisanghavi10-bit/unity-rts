@@ -45,6 +45,7 @@ namespace KingdomsOfBharat.Core
         private const float BedDepth = 1.5f;
         private const float BeachWidth = 3.5f;
         private const int SandLayerIndex = 3;
+        private const int PebbleLayerIndex = 4;
 
         private float _bedBelowZero;
         private Vector4 _waterRect; // xMin, xMax, zMin, zMax (sides at the map edge extended to infinity)
@@ -296,6 +297,10 @@ namespace KingdomsOfBharat.Core
                     BuildLayer("Terrain/Dirt", dirtColor),
                     BuildLayer("Terrain/Rock", Color.gray),
                     BuildLayer("Terrain/Sand", new Color(0.6f, 0.53f, 0.4f)),
+                    // Pre-darkened (wet) pebble albedo, glossier than the
+                    // other layers, for the waterline band. Small tile so
+                    // the individual stones read at RTS camera height.
+                    BuildLayer("Terrain/Pebbles", new Color(0.35f, 0.31f, 0.26f), 0.55f, 3f),
                 };
             }
 
@@ -310,7 +315,7 @@ namespace KingdomsOfBharat.Core
         // NOT wired into maskMapTexture this session - its channel packing
         // isn't confirmed to match URP Terrain Lit's expected
         // Metallic/AO/Height/Smoothness layout, flagged rather than guessed.
-        private static TerrainLayer BuildLayer(string resourcePrefix, Color placeholderColor)
+        private static TerrainLayer BuildLayer(string resourcePrefix, Color placeholderColor, float smoothness = 0.1f, float tileSize = 4f)
         {
             Texture2D albedo = Resources.Load<Texture2D>(resourcePrefix + "/Albedo") ?? FlatTexture(placeholderColor);
             Texture2D normal = Resources.Load<Texture2D>(resourcePrefix + "/Normal");
@@ -320,8 +325,8 @@ namespace KingdomsOfBharat.Core
                 name = resourcePrefix,
                 diffuseTexture = albedo,
                 normalMapTexture = normal,
-                tileSize = new Vector2(4f, 4f),
-                smoothness = 0.1f,
+                tileSize = new Vector2(tileSize, tileSize),
+                smoothness = smoothness,
                 metallic = 0f,
             };
             return layer;
@@ -354,7 +359,7 @@ namespace KingdomsOfBharat.Core
         // visual variation already.
         private void ApplyAlphamaps(TerrainData data)
         {
-            var map = new float[AlphamapResolution, AlphamapResolution, 4];
+            var map = new float[AlphamapResolution, AlphamapResolution, 5];
             float half = mapSize * 0.5f;
             float sampleStep = mapSize / AlphamapResolution;
 
@@ -391,11 +396,27 @@ namespace KingdomsOfBharat.Core
                         sand = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-width, -0.3f, s));
                     }
 
-                    float keep = 1f - sand;
+                    // Wet pebble band: starts a little above the waterline,
+                    // runs under the surface so the shallows show a pebbly
+                    // bed, patchy (noise) so it isn't a uniform stripe.
+                    float pebble = 0f;
+                    if (HasWater)
+                    {
+                        float s = SignedWaterDistance(worldX, worldZ);
+                        float patch = 0.55f + 0.45f * Mathf.PerlinNoise(worldX * 0.5f + 5.3f, worldZ * 0.5f + 44.1f);
+                        float reach = 1.6f * (0.7f + 0.6f * Mathf.PerlinNoise(worldX * 0.3f + 13f, worldZ * 0.3f + 2f));
+                        float rise = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-reach, -0.3f, s));
+                        float fall = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(2.5f, 5f, s));
+                        pebble = rise * fall * patch;
+                    }
+
+                    float keep = (1f - sand) * (1f - pebble);
+                    float sandKeep = sand * (1f - pebble);
                     map[z, x, 0] = grass * keep;
                     map[z, x, 1] = dirt * keep;
                     map[z, x, 2] = rock * keep;
-                    map[z, x, SandLayerIndex] = sand;
+                    map[z, x, SandLayerIndex] = sandKeep;
+                    map[z, x, PebbleLayerIndex] = pebble;
                 }
             }
 

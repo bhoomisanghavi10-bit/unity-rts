@@ -58,6 +58,10 @@ tests at every step.
   exp2 fog 0.0035; shadow distance 90; SSAO on the top-tier renderer only. Tuned from
   before/after screenshots (the first, stronger grade made grass neon and the horizon mustard).
 
+- **Wet pebble band**: 5th terrain layer (`Resources/Terrain/Pebbles`, Poly Haven
+  `floor_pebbles_01`, CC0, pre-darkened, smoothness 0.55) painted in a noisy band from ~1.6
+  units above the waterline to ~5 under it, so the shallows show a pebbly bed.
+
 **Findings worth keeping (each cost real debugging time)**
 1. URP has **no default terrain material**: the terrain renders solid magenta until
    `terrain.materialTemplate` is set to `Universal Render Pipeline/Terrain/Lit`.
@@ -85,7 +89,7 @@ not water code. In payoff order:
 | # | Item | Needs new art? | Notes |
 |---|---|---|---|
 | 1 | ~~**Lighting + post-processing (T4)**~~ DONE 2026-09-20: URP Volume with tone mapping, colour grading, bloom, SSAO; sun colour/angle/soft shadows; distance haze | No | Unused `DefaultVolumeProfile.asset` is the start; cheapest and biggest visual change |
-| 2 | **Wet-sand band + pebble layer** | Pebble/gravel PBR set (ambientCG Gravel/Rocks) | Darken the sand just above the waterline via the same distance function; 5th terrain layer |
+| 2 | ~~**Wet-sand band + pebble layer**~~ DONE 2026-09-20 (Poly Haven floor_pebbles_01) | Pebble/gravel PBR set (ambientCG Gravel/Rocks) | Darken the sand just above the waterline via the same distance function; 5th terrain layer |
 | 3 | **Shore clutter (T3)**: pebbles, reeds, driftwood, grass tufts, rocks | Meshes (Poly Haven / Kenney / Asset Store) | New instancing/scatter system; `EnvironmentPropFactory` has no rock/tuft category |
 | 4 | **Water reflections** | No | Reflection probe/skybox cubemap with fresnel, or planar reflection on the single water plane |
 | 5 | **Caustics on the seabed** | Caustic texture | Animated projection in the shallows |

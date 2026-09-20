@@ -11460,3 +11460,12 @@ Baseline: camera post-processing off, no Volume, no fog, default procedural sky,
 - Tuning finding: first pass (saturation +10, contrast +14, exposure +0.15, sun 1.35) made the grass neon and the horizon mustard; the values above came from before/after screenshots on Coastal and RiverValley.
 - Verified: 601/601; before/after Coastal shots and a RiverValley gameplay-camera shot with the HUD on.
 - **Flags / not done**: the screenshot tool dropped the overlay HUD in one capture with post-processing on (later captures showed it, so treated as a capture quirk, but I can't see the real Game view); fog haze isn't applied by the water shader; a few blocky notches in the beach edge were visible in the baseline Coastal shot (not investigated); no depth-of-field/colour LUT; SSAO cost not profiled; no HDRI.
+
+## 2026-09-20 — Wet-sand / pebble band (Map Visual Upgrade Plan section 7, item 2)
+
+- Source: user-supplied Poly Haven `floor_pebbles_01_2k` (CC0). The normal map shipped as EXR (GL convention = Unity's, values already 0-1), converted with `pip install OpenEXR` + Pillow to PNG; diffuse JPG -> PNG. Both downscaled to 1024 to keep repo size down. Unused: rough, disp, .blend.
+- `Resources/Terrain/Pebbles/Albedo.png` is **pre-darkened** (x0.58, slightly richer colour) so the layer reads as wet stones; `Normal.png` set to Normal Map. Both LFS-tracked via the existing `Terrain/**/*.png` rule.
+- `ProceduralTerrain`: 5th TerrainLayer (Pebbles: smoothness 0.55, tileSize 3; `BuildLayer` gained optional smoothness/tileSize params). Alphamap now 5 layers: a noisy pebble band from ~1.6 units above the waterline to ~5 units under it (patchy via Perlin), so the shallows show a pebbly bed through the translucent water; weights still sum to 1. 5 layers means URP Terrain/Lit renders an extra add-pass.
+- Verified live on Coastal (overview + close-up): dark glossy pebble band along the waterline, pebbly shallows, foam edge; no blocky notches visible (the ones seen in the T4 baseline shot did not reappear). 601/601.
+- Gotcha hit: a Play session that started before a recompile kept the old cached 4-layer `_layers` array, so `SetAlphamaps` threw "layers should be 4". Stop and restart Play after changing layer counts.
+- Not done: still only the pre-darkened albedo (no per-pixel wetness gradient on the plain sand layer), grass/dirt blocky macro tiling still visible (plan item 10), pebbles aren't scattered as 3D clutter (T3).
