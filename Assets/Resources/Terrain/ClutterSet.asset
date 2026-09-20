@@ -35,9 +35,17 @@ MonoBehaviour:
     maxScale: 0.55
     density: 1
   - name: Shore pebble
-    prefab: {fileID: 6326901418146090865, guid: f8f124aab735740b6a12870797c47a91, type: 3}
-    variants: []
+    prefab: {fileID: 4298185402041680910, guid: 7dc8e41f385c8422789465d48266d2ff, type: 3}
+    variants:
+    - {fileID: 4298185402041680910, guid: 7dc8e41f385c8422789465d48266d2ff, type: 3}
+    - {fileID: 1936422042303307010, guid: fe6b8508430e54a5f965143ab5333ff4, type: 3}
+    - {fileID: 4942430803707309872, guid: decfd16b2101a41749313fb69896a0d8, type: 3}
+    - {fileID: 9065238473541730185, guid: 77cd72704e2994f21b448d8b84f170ec, type: 3}
+    - {fileID: 8304020969312537229, guid: c5ce6c00e070147e6947c922d984f671, type: 3}
+    - {fileID: 7884821360337402204, guid: 2baae138108cb4a7cae518cac0601cb3, type: 3}
+    - {fileID: 8650628497163077710, guid: cc9cd5a53e3774347a639834eecf7920, type: 3}
+    - {fileID: 1211094053652700933, guid: 928fd584e4c7f4447a9389eddbb49454, type: 3}
     kind: 2
-    minScale: 0.15
-    maxScale: 0.4
-    density: 1
+    minScale: 1.2
+    maxScale: 2.6
+    density: 2.4

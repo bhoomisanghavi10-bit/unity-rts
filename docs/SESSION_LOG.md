@@ -11513,3 +11513,12 @@ Baseline: camera post-processing off, no Volume, no fog, default procedural sky,
 - **Code**: `TerrainClutterSet.Entry.variants` (optional array) + `TerrainClutter.Apply` now picks a variant per instance by hash and batches per (patch, variant). Existing single-`prefab` entries behave as before.
 - Verified: lineup of the 7 variants at scatter scale and the live scatter on RiverValley: grounded, sensible size next to workers. 601/601.
 - **Not done**: the Shore pebble entry still uses the old PolishedSurfaces placeholder rock (no rounded pebble mesh yet); rock density unchanged (sparse); `coast_land_rocks_02` (a 1.3M-tri terrain scan) deliberately not imported.
+
+## 2026-09-21 — Pebble clutter from the user's FBX
+
+- Source: user-supplied `3d-model.fbx` (a 3ds Max scene exported to FBX; the original `.max` couldn't be imported). **Licence unknown** — generic filename from a model site; the user should confirm terms before shipping. Raw FBX kept at `Assets/importedmodels/PebbleSet/pebble_set.fbx`.
+- Contents: 4 mirrored `Group_*` nodes (flat base planes, skipped) with 156 `V-Ray Sphere_*` stones, each a UV sphere (960 tris, 0.19 m) squashed into an oval by its node scale/rotation; world size 7-16 cm wide, 5-12 cm tall. Smooth rounded ovals only (no surface irregularity), which suits wet shoreline pebbles.
+- `BharatRTS/Build Pebble Clutter` (`TerrainClutterBuilder.BuildPebbles`): picks 8 stones evenly across the width range, **bakes the node transform (the oval-making scale/rotation) into each mesh**, fixes winding if mirrored, re-bases the pivot bottom-centre, decimates 960 -> 154 tris, saves under `Resources/Terrain/Detail/Pebbles/`, and builds prefabs on three plain instancing URP Lit stone-colour materials (`PebbleWhite/Grey/Dark`, smoothness 0.55 wet). Flat colours on purpose: the sphere UVs would wrap a pebble photo badly, and at 7-30 cm the colour is what reads. Assigned as `variants` of the Pebble entry (scale 1.2-2.6, density 2.4).
+- Tuning from screenshots: first colours (near-white / near-black) were too high-contrast against the sand; narrowed to a mid-tone range.
+- Verified: Coastal shoreline close-ups show pebbles along the waterline and in the shallows. 601/601.
+- Not done / flags: obsolete placeholder `PebbleClutter*` assets (old PolishedSurfaces rock) still on disk, unused now; pebbles are smooth ovals with no texture detail; no pebble clusters on the beach berm beyond the terrain's pebble band; licence to confirm.

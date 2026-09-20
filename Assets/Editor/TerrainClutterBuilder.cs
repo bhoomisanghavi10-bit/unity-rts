@@ -321,5 +321,156 @@ namespace KingdomsOfBharat.EditorTools
             Object.DestroyImmediate(go);
             return prefab;
         }
+
+        private const string PebbleFbx = "Assets/importedmodels/PebbleSet/pebble_set.fbx";
+        private const string PebbleFolder = Folder + "/Pebbles";
+        private const int PebbleVariants = 8;
+
+        // User-supplied pebble bed (FBX exported from a 3ds Max scene): four
+        // mirrored groups of ~39 stones, each a UV sphere (960 tris) squashed
+        // into an oval by its node scale, 7-16 cm wide. This bakes each node's
+        // transform into its mesh, keeps a spread of PebbleVariants distinct
+        // shapes (by size and flatness), re-bases the pivot to bottom-centre,
+        // decimates the spheres (they simplify well) and gives them plain
+        // stone-colour materials (white / grey / dark, as in the source scene;
+        // the sphere UVs would wrap a pebble photo badly). Assigned as the
+        // variants of the Pebble entry in ClutterSet.asset.
+        [MenuItem("BharatRTS/Build Pebble Clutter")]
+        public static void BuildPebbles()
+        {
+            Directory.CreateDirectory(PebbleFolder);
+
+            var importer = (ModelImporter)AssetImporter.GetAtPath(PebbleFbx);
+            if (importer != null && (!importer.isReadable || importer.materialImportMode != ModelImporterMaterialImportMode.None))
+            {
+                importer.isReadable = true;
+                importer.materialImportMode = ModelImporterMaterialImportMode.None;
+                importer.SaveAndReimport();
+            }
+
+            GameObject root = AssetDatabase.LoadAssetAtPath<GameObject>(PebbleFbx);
+            var candidates = new System.Collections.Generic.List<MeshFilter>();
+            foreach (MeshFilter mf in root.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (mf.name.StartsWith("Group_") || mf.sharedMesh == null)
+                {
+                    continue;
+                }
+
+                candidates.Add(mf);
+            }
+
+            // Spread by width (major footprint axis), then take evenly spaced ones.
+            candidates.Sort((a, b) => WorldWidth(root, a).CompareTo(WorldWidth(root, b)));
+            var chosen = new System.Collections.Generic.List<MeshFilter>();
+            for (int i = 0; i < PebbleVariants && candidates.Count > 0; i++)
+            {
+                chosen.Add(candidates[Mathf.Min(candidates.Count - 1, (int)((i + 0.5f) / PebbleVariants * candidates.Count))]);
+            }
+
+            Color[] tints = { new Color(0.56f, 0.53f, 0.48f), new Color(0.48f, 0.45f, 0.41f), new Color(0.42f, 0.38f, 0.34f) };
+            var mats = new Material[tints.Length];
+            string[] matNames = { "PebbleWhite", "PebbleGrey", "PebbleDark" };
+            for (int i = 0; i < tints.Length; i++)
+            {
+                Color tint = tints[i];
+                mats[i] = SaveMaterial(PebbleFolder + "/" + matNames[i] + ".mat", m =>
+                {
+                    m.SetColor("_BaseColor", tint);
+                    m.SetFloat("_Smoothness", 0.55f); // wet
+                    m.SetFloat("_Metallic", 0f);
+                });
+            }
+
+            var prefabs = new System.Collections.Generic.List<GameObject>();
+            var report = new System.Text.StringBuilder();
+            for (int i = 0; i < chosen.Count; i++)
+            {
+                Mesh mesh = ProcessPebble(root, chosen[i]);
+                string name = "Pebble_" + (i + 1).ToString("00");
+                Mesh saved = SaveMesh(mesh, PebbleFolder + "/" + name + ".asset");
+                prefabs.Add(SavePrefabAt(PebbleFolder, name, saved, mats[i % mats.Length]));
+                report.Append(name + " tris=" + saved.triangles.Length / 3 + " size=" + saved.bounds.size.ToString("F3") + "; ");
+            }
+
+            var set = AssetDatabase.LoadAssetAtPath<TerrainClutterSet>("Assets/Resources/Terrain/ClutterSet.asset");
+            foreach (var e in set.entries)
+            {
+                if (e != null && e.kind == TerrainClutterSet.ClutterKind.Pebble)
+                {
+                    e.variants = prefabs.ToArray();
+                    e.prefab = prefabs.Count > 0 ? prefabs[0] : e.prefab;
+                    // Source stones are 7-16 cm; scaled up so they read from the RTS camera.
+                    e.minScale = 1.2f;
+                    e.maxScale = 2.6f;
+                    e.density = 2.4f;
+                }
+            }
+
+            EditorUtility.SetDirty(set);
+            AssetDatabase.SaveAssets();
+            Debug.Log("Pebble clutter built: " + report);
+        }
+
+        private static float WorldWidth(GameObject root, MeshFilter mf)
+        {
+            Vector3 size = mf.GetComponent<Renderer>().bounds.size;
+            return Mathf.Max(size.x, size.z);
+        }
+
+        private static Mesh ProcessPebble(GameObject root, MeshFilter mf)
+        {
+            // Node -> root space, baking the oval-making scale and rotation.
+            Matrix4x4 toRoot = root.transform.worldToLocalMatrix * mf.transform.localToWorldMatrix;
+            Mesh source = mf.sharedMesh;
+            Vector3[] v = source.vertices;
+            Vector3[] n = source.normals;
+            Matrix4x4 normalMatrix = toRoot.inverse.transpose;
+            for (int i = 0; i < v.Length; i++)
+            {
+                v[i] = toRoot.MultiplyPoint3x4(v[i]);
+                n[i] = normalMatrix.MultiplyVector(n[i]).normalized;
+            }
+
+            Vector3 min = v[0], max = v[0];
+            foreach (Vector3 p in v)
+            {
+                min = Vector3.Min(min, p);
+                max = Vector3.Max(max, p);
+            }
+
+            Vector3 shift = new Vector3(-(min.x + max.x) * 0.5f, -min.y, -(min.z + max.z) * 0.5f);
+            for (int i = 0; i < v.Length; i++)
+            {
+                v[i] += shift;
+            }
+
+            var baked = new Mesh { name = source.name, indexFormat = source.indexFormat };
+            baked.vertices = v;
+            baked.normals = n;
+            baked.uv = source.uv;
+            baked.triangles = source.triangles;
+            // A non-uniform scale can flip winding; fix if the transform is mirrored.
+            if (toRoot.determinant < 0f)
+            {
+                int[] t = baked.triangles;
+                for (int i = 0; i < t.Length; i += 3)
+                {
+                    (t[i + 1], t[i + 2]) = (t[i + 2], t[i + 1]);
+                }
+
+                baked.triangles = t;
+            }
+
+            baked.RecalculateBounds();
+
+            var simplifier = new MeshSimplifier(baked);
+            simplifier.SimplifyMesh(0.16f);
+            Mesh result = simplifier.ToMesh();
+            result.name = source.name;
+            result.RecalculateNormals();
+            result.RecalculateBounds();
+            return result;
+        }
     }
 }
