@@ -49,6 +49,15 @@ namespace KingdomsOfBharat.Core
         private const int PebbleLayerIndex = 4;
 
         private float _bedBelowZero;
+
+        // Baked (e.g. Vista) ground for the current map, or null for the
+        // procedural Perlin ground; plus the levelled start plateaus.
+        private BakedHeightmap _baked;
+        private readonly System.Collections.Generic.List<(Vector2 position, float height)> _plateaus = new System.Collections.Generic.List<(Vector2, float)>();
+        // Each Town Center sits on flat ground out to PlateauRadius, easing
+        // back into the baked terrain by PlateauFalloff.
+        private const float PlateauRadius = 14f;
+        private const float PlateauFalloff = 30f;
         private Vector4 _waterRect; // xMin, xMax, zMin, zMax (sides at the map edge extended to infinity)
         private Vector3 _waterCenter;
         private Vector3 _waterHalfExtents;
@@ -126,7 +135,9 @@ namespace KingdomsOfBharat.Core
             // Two-octave sum's theoretical max is noiseHeight*1.3 - give a
             // little headroom so a full-amplitude peak never clips against
             // TerrainData.size.y.
-            float terrainHeightScale = Mathf.Max(noiseHeight * 1.3f, 0.01f) * 1.25f;
+            float terrainHeightScale = _baked != null
+                ? Mathf.Max(_baked.HeightScale, 0.01f)
+                : Mathf.Max(noiseHeight * 1.3f, 0.01f) * 1.25f;
 
             data.heightmapResolution = HeightmapResolution;
             terrainHeightScale += _bedBelowZero;
@@ -164,6 +175,17 @@ namespace KingdomsOfBharat.Core
             mapSize = map.GroundSize;
             noiseHeight = map.NoiseHeight;
             noiseScale = map.NoiseScale;
+            _baked = string.IsNullOrEmpty(map.BakedHeightmapResource) ? null : BakedHeightmap.LoadResource(map.BakedHeightmapResource);
+            if (_baked != null)
+            {
+                // Height normalisation (dirt weight) tracks the baked relief.
+                noiseHeight = Mathf.Max(_baked.MaxHeight, 0.01f);
+                BuildPlateaus(map);
+            }
+            else
+            {
+                _plateaus.Clear();
+            }
             _waterCenter = map.WaterCenter;
             _waterHalfExtents = map.WaterHalfExtents;
         }
@@ -174,9 +196,50 @@ namespace KingdomsOfBharat.Core
         // limits - matches the proven-safe values exactly.
         private float HeightAt(float worldX, float worldZ)
         {
+            if (_baked != null)
+            {
+                return BakedHeightAt(worldX, worldZ);
+            }
+
             float h = Mathf.PerlinNoise(worldX * noiseScale, worldZ * noiseScale) * noiseHeight;
             h += Mathf.PerlinNoise(worldX * noiseScale * 3.7f, worldZ * noiseScale * 3.7f) * noiseHeight * 0.3f;
             return h;
+        }
+
+        private float BakedHeightAt(float worldX, float worldZ)
+        {
+            float h = _baked.SampleWorld(worldX, worldZ, mapSize);
+            var p = new Vector2(worldX, worldZ);
+            foreach (var plateau in _plateaus)
+            {
+                float d = Vector2.Distance(p, plateau.position);
+                float t = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(PlateauRadius, PlateauFalloff, d));
+                if (t > 0f)
+                {
+                    h = Mathf.Lerp(h, plateau.height, t);
+                }
+            }
+
+            return h;
+        }
+
+        // A plateau at each start: the mean baked height around the Town
+        // Center (centre + 8 points on the plateau radius), so the cut/fill
+        // to level it stays small.
+        private void BuildPlateaus(MapDefinitionData map)
+        {
+            _plateaus.Clear();
+            foreach (Vector3 tc in new[] { map.PlayerTownCenter, map.EnemyTownCenter, map.Enemy2TownCenter })
+            {
+                float sum = _baked.SampleWorld(tc.x, tc.z, mapSize);
+                for (int i = 0; i < 8; i++)
+                {
+                    float a = i * Mathf.PI * 0.25f;
+                    sum += _baked.SampleWorld(tc.x + Mathf.Cos(a) * PlateauRadius, tc.z + Mathf.Sin(a) * PlateauRadius, mapSize);
+                }
+
+                _plateaus.Add((new Vector2(tc.x, tc.z), sum / 9f));
+            }
         }
 
         private void ApplyHeights(TerrainData data, float terrainHeightScale, float half)

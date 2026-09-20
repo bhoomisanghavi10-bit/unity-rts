@@ -30,6 +30,14 @@ namespace KingdomsOfBharat.Buildings
             CivilizationId civ = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civ);
 
+            // The spawn point is a center-pivoted position whose Y used to be a
+            // constant that assumed near-flat ground. Baked terrain (Vista) has
+            // real relief, so put the building's base on the actual ground there.
+            if (GroundReference.TryGetHeight(position, out float groundHeight))
+            {
+                position.y = groundHeight + Size.y * 0.5f;
+            }
+
             GameObject go = BuildingModelFactory.Spawn("TownCenter", civ, position, Size, profile.PrimaryColor, AgeProgress.CurrentAge(faction), faction: faction);
             go.name = faction == FactionId.Player ? "TownCenter" : "EnemyTownCenter";
             BuildingFootprint.Attach(go, BuildingFootprint.Square(BuildingFootprint.TownCenterTiles), carveObstacle: true);

@@ -1,0 +1,21 @@
+{
+    "name": "KingdomsOfBharat.Editor.Vista",
+    "rootNamespace": "",
+    "references": [
+        "KingdomsOfBharat.Runtime",
+        "Pinwheel.Vista.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "VISTA"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

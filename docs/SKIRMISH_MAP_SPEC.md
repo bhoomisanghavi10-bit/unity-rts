@@ -44,6 +44,52 @@ The 3-tile dead zone sits *inside* the 40-tile home buffer (3 + 37 + 78 + 37 + 3
   primary gold from the home ring; large gold, stone, relics from the contested square.
 - Fairness check: equal starting resources per player, walkable path between starts.
 
+## Layout styles (proposed 2026-09-21, from the user's blueprint)
+Five tactical archetypes on the same 158 x 158 canvas, meant for both Skirmish and Campaign
+maps. Each becomes **one baked map** (a Vista graph + gameplay masks), not a runtime tile
+grid - see "How the blueprint maps onto our architecture" below.
+
+| Style | Idea |
+|---|---|
+| Crossroad Valleys | Open and balanced; mesa plateaus as tactical corners, wood clusters via noise |
+| Divided Riverbed | Naval / crossings: a river across the middle with a few fords, woodlines on the banks |
+| Mountain Pass | Chokepoint control: a mountain chain across the map with one central pass |
+| Highland Foothills | Rolling terraced highlands, cliff ridges, dense basin woods |
+| Clearing | Dense forest with three winding lanes joining the bases |
+
+Blueprint start positions are grid cells (30, 30) and (128, 128) in a 0..157 corner-origin grid,
+i.e. world (-49, -49) and (+49, +49) here: opposite diagonal corners of the home ring
+(Chebyshev 49, inside 39..76). Grid -> world is `world = grid - 79`.
+
+### How the blueprint maps onto our architecture
+The pasted `LayoutGenerator.cs` targets types that don't exist here (`MapData`, `TileType`,
+`RTSLevelDirector`, `RTSResourceNodeSpawner`) and a separate tile matrix. Ours:
+- shape and walkability come from the **terrain** (baked Vista heights + NavMesh), not a tile array;
+  "blocked" tiles become mountains / water / dense forest in the heightmap and masks;
+- placement rules come from `SkirmishMapZones` and the map definition, not a separate director;
+- generation is **baked offline** (deterministic for lockstep), so the blueprint's global
+  `Random.InitState(seed)` isn't used at match time; seeds live in the Vista graph nodes;
+- base protection = the start plateaus `ProceduralTerrain` already levels around each Town Center
+  (flat to 14 units, easing out by 30).
+Items worth keeping from the blueprint: the five archetypes, guaranteed base safe-zones, fords and
+a single central pass as deliberate chokepoints.
+
+## Vista spike result (2026-09-21)
+One 158 x 158 map generated in Vista from code, baked, and played:
+- `BharatRTS/Vista Spike/Generate And Bake Medium Map` (`Assets/Editor/Vista/VistaSpike.cs`)
+  spawns the Mountain biome template on a 158 m terrain tile, shrinks every Noise node's world-space
+  scale by 158/1000 (templates are authored for 1000 m), generates, and bakes a 513 x 513 16-bit
+  heightmap to `Assets/Resources/Maps/SkirmishMedium/height.bytes`.
+- `MapId.SkirmishMedium` (158, starts at (0,57), (0,-57), (-57,0)) has
+  `BakedHeightmapResource`; `ProceduralTerrain` loads it via `BakedHeightmap`, levels a plateau at each
+  Town Center, and keeps the procedural terrain when no baked map is set. Water, beach, pebbles, clutter
+  and NavMesh all run unchanged on top.
+- Result: about 10 m relief, 1% of ground over 30 deg and none over 45 deg; plateaus are flat (0.00 m range);
+  the NavMesh connects all three starts (Player to Enemy path length 100 = straight line).
+- Not done: the layout is the stock Mountain template, not one of the five styles; splat layers still come
+  from our height/slope rules (Vista's 5 layers unused); resources still use the old ring logic (not the
+  10-15 unit starting guarantee or the contested-zone placement); no Vista water mask; not authored graphs.
+
 ## Open questions
 - Number and placement of starts on the ring (2 players opposite each other, or up to 3 with
   the existing Enemy2 faction?).

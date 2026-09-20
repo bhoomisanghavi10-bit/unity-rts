@@ -20,6 +20,10 @@ namespace KingdomsOfBharat.Core
         // ground) still hold; water is there for whoever chooses to build
         // a Dock and go naval, not a requirement.
         Coastal,
+        // First skirmish map built on baked Vista terrain: 158 x 158 tiles
+        // with the home / contested / dead-zone layout of
+        // docs/SKIRMISH_MAP_SPEC.md (see SkirmishMapZones).
+        SkirmishMedium,
     }
 
     // Plain data, not a MonoBehaviour/ScriptableObject - every field here
@@ -73,6 +77,11 @@ namespace KingdomsOfBharat.Core
         // to scatter inside the water rectangle - 0 for RiverValley/
         // Highlands (no water to put them in anyway).
         public int FishCount;
+
+        // Optional: a baked heightmap (Resources path, no extension, see
+        // BakedHeightmap) that ProceduralTerrain uses instead of its Perlin
+        // ground. Null/empty keeps the procedural terrain.
+        public string BakedHeightmapResource;
     }
 
     // Faction civ choice has one assignment per match (CivilizationRegistry);
@@ -180,6 +189,30 @@ namespace KingdomsOfBharat.Core
                 WaterCenter = new Vector3(50f, 0f, 0f),
                 WaterHalfExtents = new Vector3(12.5f, 0f, 62.5f),
                 FishCount = 8,
+            },
+            // Medium skirmish map (158 x 158). Starts sit in the middle of
+            // the 40-tile home ring (|z| = 57 is the centre of the 39..76
+            // band); terrain is baked out of a Vista graph.
+            [MapId.SkirmishMedium] = new MapDefinitionData
+            {
+                GroundSize = 158f,
+                GroundResolution = 158,
+                NoiseHeight = 0.6f,
+                NoiseScale = 0.15f,
+                TreeCount = 20,
+                FarmCount = 10,
+                GoldCount = 12,
+                StoneCount = 10,
+                FruitBushCount = 12,
+                ResourceMinRadius = 15f,
+                ResourceMaxRadius = 40f,
+                ResourceSeed = -1,
+                RelicCount = 5,
+                PlayerTownCenter = new Vector3(0f, 1f, 57f),
+                EnemyTownCenter = new Vector3(0f, 1f, -57f),
+                Enemy2TownCenter = new Vector3(-57f, 1f, 0f),
+                NavMeshBoundsSize = new Vector3(170f, 30f, 170f),
+                BakedHeightmapResource = "Maps/SkirmishMedium/height",
             },
         };
 
