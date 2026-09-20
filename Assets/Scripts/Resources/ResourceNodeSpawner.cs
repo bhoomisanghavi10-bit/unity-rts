@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Multiplayer;
@@ -25,6 +26,29 @@ namespace KingdomsOfBharat.ResourceGathering
         [SerializeField] private float fishAmount = 60f;
         [SerializeField] private int relicCount = 5;
 
+        [Header("Terrain foliage (Nature Renderer 6 / Terrain trees + details)")]
+        [SerializeField] private Terrain targetTerrain;
+        public int treePrototypeIndex = 0;
+        public int grassDetailLayerIndex = 0;
+        [Range(0, 12)] public int treesPerForestTile = 3;
+        [Range(0, 16)] public int grassDensityPerTile = 6;
+        [Range(0.05f, 0.95f)] [SerializeField] private float forestThreshold = 0.58f;
+        [SerializeField] private float forestNoiseScale = 0.075f;
+
+        // The fixed medium-map matrix: 158 x 158 tiles, 1 unit = 1 tile.
+        [Header("Gatherable terrain trees")]
+        [Tooltip("Terrain trees become gatherable Wood via invisible proxy nodes; the old model trees (treeCount) are then skipped.")]
+        [SerializeField] private bool useTerrainTreesForWood = true;
+        [Tooltip("Proxy cell size in tiles: 1 = one node per tile, 2 = per 2x2 tiles, 0.5 = ~4 nodes per tile.")]
+        [Range(0.5f, 4f)] [SerializeField] private float proxyCellTiles = 2f;
+        [SerializeField] private float woodPerTree = 10f;
+
+        private const int GridSize = 158;
+        private const float TileJitter = 0.35f;
+        private const float HomeClearRadius = 12f;
+
+        private enum TileType { Empty, Plains, Forest }
+
         // Item 51: a locally-owned DeterministicRandom rather than the
         // shared DeterministicRandom.Match singleton - this runs in Start(),
         // before SimClock's first tick reseeds Match for the new match, so
@@ -41,7 +65,9 @@ namespace KingdomsOfBharat.ResourceGathering
 
             _rng = new DeterministicRandom(randomSeed == -1 ? System.Environment.TickCount : randomSeed);
 
-            for (int i = 0; i < treeCount; i++)
+            bool forestWood = PopulateTerrainFoliage();
+
+            for (int i = 0; !forestWood && i < treeCount; i++)
             {
                 SpawnTree(RandomPointInRing());
             }
@@ -75,6 +101,218 @@ namespace KingdomsOfBharat.ResourceGathering
             {
                 SpawnRelic(RandomPointInRing());
             }
+        }
+
+        // Single coordinated pass over the 158x158 tile matrix. Forest tiles
+        // become TreeInstances, Plains tiles feed the detail (grass) density
+        // layer; both are pushed back into the TerrainData at the end and
+        // flushed so Nature Renderer 6 picks them up. Managed collections
+        // only (List / int[,]) - nothing native is allocated, so there is
+        // nothing to dispose. Trees here are visual; gatherable Wood still
+        // comes from SpawnTree above.
+        private bool PopulateTerrainFoliage()
+        {
+            Terrain terrain = targetTerrain != null ? targetTerrain : FindFirstObjectByType<Terrain>();
+            if (terrain == null || terrain.terrainData == null)
+            {
+                return false;
+            }
+
+            TerrainData data = terrain.terrainData;
+            MapDefinitionData map = MapRegistry.Current;
+            float worldSize = Mathf.Max(data.size.x, 0.0001f);
+            float tileWorld = worldSize / GridSize;
+            float halfWorld = worldSize * 0.5f;
+
+            // Normalised terrain space is 0..1 across the whole 158x158 footprint.
+            float invGrid = 1f / GridSize;
+
+            bool haveTrees = data.treePrototypes != null && data.treePrototypes.Length > 0 && treesPerForestTile > 0;
+            int treeProto = haveTrees ? Mathf.Clamp(treePrototypeIndex, 0, data.treePrototypes.Length - 1) : 0;
+            bool treesPlaced = false;
+            bool haveGrass = data.detailPrototypes != null && data.detailPrototypes.Length > 0 && grassDensityPerTile > 0;
+            int grassLayer = haveGrass ? Mathf.Clamp(grassDetailLayerIndex, 0, data.detailPrototypes.Length - 1) : 0;
+
+            if (!haveTrees && !haveGrass)
+            {
+                Debug.LogWarning("ResourceNodeSpawner: terrain has no tree/detail prototypes (or counts are 0) - skipping foliage.");
+                return false;
+            }
+
+            // Classify every tile once; both consumers read this grid.
+            var tiles = new TileType[GridSize, GridSize];
+            float noiseOffset = _rng.Range(0f, 1000f);
+            for (int tz = 0; tz < GridSize; tz++)
+            {
+                for (int tx = 0; tx < GridSize; tx++)
+                {
+                    float wx = -halfWorld + (tx + 0.5f) * tileWorld;
+                    float wz = -halfWorld + (tz + 0.5f) * tileWorld;
+                    tiles[tx, tz] = ClassifyTile(map, wx, wz, worldSize, noiseOffset);
+                }
+            }
+
+            if (haveTrees)
+            {
+                var trees = new List<TreeInstance>(GridSize * GridSize / 4 * treesPerForestTile);
+                float cellTiles = Mathf.Max(0.5f, proxyCellTiles);
+                var cells = new Dictionary<int, List<int>>();
+                for (int tz = 0; tz < GridSize; tz++)
+                {
+                    for (int tx = 0; tx < GridSize; tx++)
+                    {
+                        if (tiles[tx, tz] != TileType.Forest)
+                        {
+                            continue;
+                        }
+
+                        for (int i = 0; i < treesPerForestTile; i++)
+                        {
+                            float jx = _rng.Range(-TileJitter, TileJitter);
+                            float jz = _rng.Range(-TileJitter, TileJitter);
+                            float scale = _rng.Range(0.85f, 1.2f);
+                            int cx = Mathf.FloorToInt((tx + 0.5f + jx) / cellTiles);
+                            int cz = Mathf.FloorToInt((tz + 0.5f + jz) / cellTiles);
+                            int cellKey = cx * 4096 + cz;
+                            if (!cells.TryGetValue(cellKey, out List<int> members))
+                            {
+                                members = new List<int>();
+                                cells[cellKey] = members;
+                            }
+                            members.Add(trees.Count);
+                            trees.Add(new TreeInstance
+                            {
+                                prototypeIndex = treeProto,
+                                position = new Vector3(
+                                    Mathf.Clamp01((tx + 0.5f + jx) * invGrid),
+                                    0f,
+                                    Mathf.Clamp01((tz + 0.5f + jz) * invGrid)),
+                                rotation = _rng.Range(0f, Mathf.PI * 2f),
+                                widthScale = scale * _rng.Range(0.9f, 1.1f),
+                                heightScale = scale,
+                                color = Color.white,
+                                lightmapColor = Color.white,
+                            });
+                        }
+                    }
+                }
+
+                // Overrides terrainData.treeInstances; snaps Y to the heightmap.
+                data.SetTreeInstances(trees.ToArray(), true);
+                treesPlaced = trees.Count > 0;
+
+                if (useTerrainTreesForWood && treesPlaced)
+                {
+                    BuildForestProxies(terrain, trees, cells, worldSize);
+                }
+            }
+
+            if (haveGrass)
+            {
+                int res = data.detailResolution;
+                if (res <= 0)
+                {
+                    data.SetDetailResolution(512, 16);
+                    res = data.detailResolution;
+                }
+
+                var density = new int[res, res];
+                int maxDensity = Mathf.Clamp(grassDensityPerTile, 0, 255);
+                for (int dy = 0; dy < res; dy++)
+                {
+                    int tz = Mathf.Clamp((int)((dy + 0.5f) / res * GridSize), 0, GridSize - 1);
+                    for (int dx = 0; dx < res; dx++)
+                    {
+                        int tx = Mathf.Clamp((int)((dx + 0.5f) / res * GridSize), 0, GridSize - 1);
+                        if (tiles[tx, tz] == TileType.Plains)
+                        {
+                            // Slight per-cell thinning so tiles don't read as flat blocks.
+                            density[dy, dx] = Mathf.Clamp(Mathf.RoundToInt(maxDensity * _rng.Range(0.6f, 1f)), 0, 255);
+                        }
+                    }
+                }
+
+                data.SetDetailLayer(0, 0, grassLayer, density);
+            }
+
+            terrain.Flush();
+            return treesPlaced && useTerrainTreesForWood;
+        }
+
+        // One invisible Wood node per proxy cell. The node owns a box sized to
+        // its member trees (so clicking the forest selects it) and thins the
+        // rendered trees as it is harvested (see TerrainForest).
+        private void BuildForestProxies(Terrain terrain, List<TreeInstance> trees, Dictionary<int, List<int>> cells, float worldSize)
+        {
+            TerrainForest forest = GetComponent<TerrainForest>();
+            if (forest == null)
+            {
+                forest = gameObject.AddComponent<TerrainForest>();
+            }
+            forest.Initialize(terrain, trees);
+
+            Vector3 origin = terrain.transform.position;
+            foreach (KeyValuePair<int, List<int>> cell in cells)
+            {
+                List<int> members = cell.Value;
+                float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
+                for (int i = 0; i < members.Count; i++)
+                {
+                    Vector3 p = trees[members[i]].position;
+                    float wx = origin.x + p.x * worldSize;
+                    float wz = origin.z + p.z * worldSize;
+                    minX = Mathf.Min(minX, wx); maxX = Mathf.Max(maxX, wx);
+                    minZ = Mathf.Min(minZ, wz); maxZ = Mathf.Max(maxZ, wz);
+                }
+
+                float cx = (minX + maxX) * 0.5f;
+                float cz = (minZ + maxZ) * 0.5f;
+                float groundY = terrain.SampleHeight(new Vector3(cx, 0f, cz)) + origin.y;
+
+                var go = new GameObject("ForestNode");
+                go.transform.SetParent(transform, false);
+                go.transform.position = new Vector3(cx, groundY, cz);
+
+                var box = go.AddComponent<BoxCollider>();
+                box.center = new Vector3(0f, 1.25f, 0f);
+                box.size = new Vector3(Mathf.Max(maxX - minX + 1f, 1.5f), 2.5f, Mathf.Max(maxZ - minZ + 1f, 1.5f));
+
+                var node = go.AddComponent<ResourceNode>();
+                node.Configure(ResourceType.Wood, members.Count * woodPerTree);
+                go.AddComponent<ForestProxy>().Initialize(forest, node, members, _rng);
+            }
+        }
+
+        private TileType ClassifyTile(MapDefinitionData map, float wx, float wz, float worldSize, float noiseOffset)
+        {
+            if (!SkirmishMapZones.IsSpawnable(new Vector3(wx, 0f, wz), worldSize))
+            {
+                return TileType.Empty;
+            }
+
+            // Keep town centres clear.
+            if (IsNear(map.PlayerTownCenter, wx, wz) || IsNear(map.EnemyTownCenter, wx, wz) || IsNear(map.Enemy2TownCenter, wx, wz))
+            {
+                return TileType.Plains;
+            }
+
+            // Water rectangle (plus shoreline wobble) is not ground.
+            if (map.WaterHalfExtents.x > 0f && map.WaterHalfExtents.z > 0f &&
+                Mathf.Abs(wx - map.WaterCenter.x) <= map.WaterHalfExtents.x + 1f &&
+                Mathf.Abs(wz - map.WaterCenter.z) <= map.WaterHalfExtents.z)
+            {
+                return TileType.Empty;
+            }
+
+            float n = Mathf.PerlinNoise(wx * forestNoiseScale + noiseOffset, wz * forestNoiseScale + noiseOffset);
+            return n > forestThreshold ? TileType.Forest : TileType.Plains;
+        }
+
+        private static bool IsNear(Vector3 center, float wx, float wz)
+        {
+            float dx = wx - center.x;
+            float dz = wz - center.z;
+            return dx * dx + dz * dz < HomeClearRadius * HomeClearRadius;
         }
 
         // Item 44: same pattern as ProceduralGround.ApplyMapDefinition -

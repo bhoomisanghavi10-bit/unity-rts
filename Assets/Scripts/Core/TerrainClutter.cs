@@ -29,9 +29,10 @@ namespace KingdomsOfBharat.Core
 
         public static void Apply(Terrain terrain, TerrainData data, float[,,] alpha, int resolution)
         {
-            // Unity's built-in detail system isn't used (see
-            // TerrainClutterRenderer); make sure no stale prototypes linger.
-            data.detailPrototypes = new DetailPrototype[0];
+            // Terrain detail prototypes are deliberately left alone: the
+            // custom clutter renderer below doesn't use them, but
+            // ResourceNodeSpawner's foliage pass (Nature Renderer grass) does,
+            // and wiping them here made that layer vanish on every rebuild.
 
             var renderer = terrain.GetComponent<TerrainClutterRenderer>();
             if (renderer == null)
