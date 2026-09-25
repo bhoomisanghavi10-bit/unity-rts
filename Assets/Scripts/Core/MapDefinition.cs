@@ -128,6 +128,18 @@ namespace KingdomsOfBharat.Core
         // toward the mask (a "quarry in the mountains" feel) rather than a
         // plain uniform ring. Unused when BakedMaskResource is null/empty.
         public bool BiasResourcesToMask;
+
+        // Whether this map follows docs/SKIRMISH_MAP_SPEC.md's home/
+        // contested/dead-zone rules (SkirmishMapZones). True only for the 5
+        // 158x158 skirmish maps - RiverValley/Highlands/Coastal are far
+        // smaller and were never sized for that zoning (SkirmishMapZones'
+        // fixed 3/40-tile bands would swallow most of a 100-unit map), so
+        // ResourceNodeSpawner keeps its old unconstrained ring placement
+        // for them. When true: ResourceNodeSpawner guarantees a starting
+        // woodline + a small primary gold node 10-15 units from every town
+        // centre, and confines the general gold/stone/farm/fruit/relic ring
+        // to the Contested zone.
+        public bool UsesZoning;
     }
 
     // Faction civ choice has one assignment per match (CivilizationRegistry);
@@ -242,6 +254,7 @@ namespace KingdomsOfBharat.Core
             [MapId.SkirmishMedium] = new MapDefinitionData
             {
                 GroundSize = 158f,
+                UsesZoning = true,
                 GroundResolution = 158,
                 NoiseHeight = 0.6f,
                 NoiseScale = 0.15f,
@@ -275,6 +288,7 @@ namespace KingdomsOfBharat.Core
             [MapId.SkirmishDividedRiverbed] = new MapDefinitionData
             {
                 GroundSize = 158f,
+                UsesZoning = true,
                 GroundResolution = 158,
                 NoiseHeight = 0.6f,
                 NoiseScale = 0.15f,
@@ -305,6 +319,7 @@ namespace KingdomsOfBharat.Core
             [MapId.SkirmishMountainPass] = new MapDefinitionData
             {
                 GroundSize = 158f,
+                UsesZoning = true,
                 GroundResolution = 158,
                 NoiseHeight = 0.6f,
                 NoiseScale = 0.15f,
@@ -331,6 +346,7 @@ namespace KingdomsOfBharat.Core
             [MapId.SkirmishHighlandFoothills] = new MapDefinitionData
             {
                 GroundSize = 158f,
+                UsesZoning = true,
                 GroundResolution = 158,
                 NoiseHeight = 0.6f,
                 NoiseScale = 0.15f,
@@ -355,6 +371,7 @@ namespace KingdomsOfBharat.Core
             [MapId.SkirmishClearing] = new MapDefinitionData
             {
                 GroundSize = 158f,
+                UsesZoning = true,
                 GroundResolution = 158,
                 NoiseHeight = 0.6f,
                 NoiseScale = 0.15f,

@@ -26,6 +26,12 @@ namespace KingdomsOfBharat.ResourceGathering
         [SerializeField] private float fishAmount = 60f;
         [SerializeField] private int relicCount = 5;
 
+        [Header("Zoning spec (docs/SKIRMISH_MAP_SPEC.md) - skirmish maps only")]
+        [Tooltip("Trees placed at the guaranteed 10-15 unit starting range around every town centre, on top of any general forest.")]
+        [SerializeField] private int startingWoodlineTreeCount = 3;
+        [Tooltip("Size of the one guaranteed primary gold node near each town centre - deliberately smaller than a general/contested-zone Gold Mine.")]
+        [SerializeField] private float startingGoldAmount = 20f;
+
         [Header("Terrain foliage (Nature Renderer 6 / Terrain trees + details)")]
         [SerializeField] private Terrain targetTerrain;
         public int treePrototypeIndex = 0;
@@ -60,6 +66,14 @@ namespace KingdomsOfBharat.ResourceGathering
         // part of the ring's area, without a true (unbounded) rejection loop.
         private const int BiasCandidateCount = 8;
 
+        // Zoning spec (see MapDefinitionData.UsesZoning): whether the
+        // general gold/stone/farm/fruit/relic ring must stay inside the
+        // Contested zone, and starting resources are guaranteed near every
+        // town centre. False (every non-skirmish map) reproduces the old
+        // unconstrained ring exactly.
+        private bool _usesZoning;
+        private const int ContestedSampleAttempts = 20;
+
         private enum TileType { Empty, Plains, Forest }
 
         // Item 51: a locally-owned DeterministicRandom rather than the
@@ -78,16 +92,31 @@ namespace KingdomsOfBharat.ResourceGathering
 
             _rng = new DeterministicRandom(randomSeed == -1 ? System.Environment.TickCount : randomSeed);
 
+            // Zoning spec rules 1-2: every start gets a guaranteed woodline
+            // + a small primary gold node 10-15 units out, before anything
+            // else spawns. Unconditionally for all 3 slots (Player/Enemy/
+            // Enemy2), same convention ClassifyTile's own town-centre
+            // clearing already uses - a few wasted nodes near an unused
+            // Enemy2 slot is cheap, and there's no reliable signal here for
+            // whether the 3rd faction is actually enabled this match.
+            if (_usesZoning)
+            {
+                MapDefinitionData zonedMap = MapRegistry.Current;
+                SpawnStartingResourcesFor(zonedMap.PlayerTownCenter);
+                SpawnStartingResourcesFor(zonedMap.EnemyTownCenter);
+                SpawnStartingResourcesFor(zonedMap.Enemy2TownCenter);
+            }
+
             bool forestWood = PopulateTerrainFoliage();
 
             for (int i = 0; !forestWood && i < treeCount; i++)
             {
-                SpawnTree(RandomPointInRing());
+                SpawnTree(RandomPointForGeneralResource());
             }
 
             for (int i = 0; i < farmCount; i++)
             {
-                SpawnFarmland(RandomPointInRing());
+                SpawnFarmland(RandomPointForGeneralResource());
             }
 
             for (int i = 0; i < goldCount; i++)
@@ -102,7 +131,7 @@ namespace KingdomsOfBharat.ResourceGathering
 
             for (int i = 0; i < fruitBushCount; i++)
             {
-                SpawnFruitBush(RandomPointInRing());
+                SpawnFruitBush(RandomPointForGeneralResource());
             }
 
             for (int i = 0; i < fishCount; i++)
@@ -112,7 +141,19 @@ namespace KingdomsOfBharat.ResourceGathering
 
             for (int i = 0; i < relicCount; i++)
             {
-                SpawnRelic(RandomPointInRing());
+                SpawnRelic(RandomPointForGeneralResource());
+            }
+        }
+
+        // Zoning spec rule 2: a small guaranteed primary gold node plus a
+        // starting woodline, both 10-15 units from this town centre.
+        private void SpawnStartingResourcesFor(Vector3 townCenter)
+        {
+            SpawnGoldMine(ResourcePlacement.RandomPointNearTownCenter(_rng, townCenter), startingGoldAmount);
+
+            for (int i = 0; i < startingWoodlineTreeCount; i++)
+            {
+                SpawnTree(ResourcePlacement.RandomPointNearTownCenter(_rng, townCenter));
             }
         }
 
@@ -366,6 +407,7 @@ namespace KingdomsOfBharat.ResourceGathering
             relicCount = map.RelicCount;
             forestThreshold = map.ForestThreshold;
             _mapSize = map.GroundSize;
+            _usesZoning = map.UsesZoning;
             _biasResourcesToMask = map.BiasResourcesToMask && !string.IsNullOrEmpty(map.BakedMaskResource);
             _resourceBiasMask = _biasResourcesToMask ? BakedHeightmap.LoadResource(map.BakedMaskResource) : null;
             _biasResourcesToMask = _resourceBiasMask != null;
@@ -378,24 +420,35 @@ namespace KingdomsOfBharat.ResourceGathering
             return new Vector3(direction.x * radius, 0f, direction.y * radius);
         }
 
-        // Draws BiasCandidateCount points in the usual ring and keeps
-        // whichever scores highest against the resource-bias mask, giving
-        // Gold/Stone a strong statistical tendency to land on the map's
-        // feature (the mountain ridge, a mesa) without a true rejection-
-        // sampling loop. Falls back to a single unbiased draw when no mask
-        // is set.
+        // Zoning spec rule 3: on a map that uses zoning, the general
+        // gold/stone/farm/fruit/relic ring must stay inside the Contested
+        // zone rather than spilling into the home buffer. A no-op
+        // (identical to the old plain ring) on every non-skirmish map.
+        private Vector3 RandomPointForGeneralResource()
+        {
+            return _usesZoning
+                ? ResourcePlacement.RandomPointInContestedZone(_rng, _mapSize, minRadius, maxRadius, ContestedSampleAttempts)
+                : RandomPointInRing();
+        }
+
+        // Draws BiasCandidateCount points from the same contested-zone-
+        // respecting ring above and keeps whichever scores highest against
+        // the resource-bias mask, giving Gold/Stone a strong statistical
+        // tendency to land on the map's feature (the mountain ridge, a
+        // mesa) without a true rejection-sampling loop. Falls back to a
+        // single unbiased draw when no mask is set.
         private Vector3 RandomPointBiasedToMask()
         {
             if (!_biasResourcesToMask)
             {
-                return RandomPointInRing();
+                return RandomPointForGeneralResource();
             }
 
             var candidates = new Vector3[BiasCandidateCount];
             var scores = new float[BiasCandidateCount];
             for (int i = 0; i < BiasCandidateCount; i++)
             {
-                candidates[i] = RandomPointInRing();
+                candidates[i] = RandomPointForGeneralResource();
                 scores[i] = _resourceBiasMask.SampleWorld(candidates[i].x, candidates[i].z, _mapSize);
             }
 
@@ -448,7 +501,10 @@ namespace KingdomsOfBharat.ResourceGathering
             node.Configure(ResourceType.Food, startingAmount);
         }
 
-        private void SpawnGoldMine(Vector3 position)
+        // amount < 0 (the default) uses the general startingAmount field;
+        // SpawnStartingResourcesFor passes a smaller explicit amount for
+        // the zoning spec's "small primary gold node" near each start.
+        private void SpawnGoldMine(Vector3 position, float amount = -1f)
         {
             GameObject go = EnvironmentPropFactory.TrySpawn("GoldMine", ResolveGroundPoint(position));
             if (go == null)
@@ -461,7 +517,7 @@ namespace KingdomsOfBharat.ResourceGathering
             }
 
             var node = go.AddComponent<ResourceNode>();
-            node.Configure(ResourceType.Gold, startingAmount);
+            node.Configure(ResourceType.Gold, amount >= 0f ? amount : startingAmount);
         }
 
         private void SpawnStoneQuarry(Vector3 position)

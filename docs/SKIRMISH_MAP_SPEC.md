@@ -133,9 +133,38 @@ Closes this item: each style is now a real baked map, not the placeholder Mounta
 - All 4 new/rebaked maps live-verified via `NavMesh.CalculatePath` connecting Player's start to Enemy's
   straight through each style's signature feature (the pass corridor, the ford), not just "the bake
   succeeded" - a blocked path was treated as a hard failure, per rule 5 below.
-- Still not done, per the spec's own scope: the 10-15 unit starting-resource guarantee and contested-zone
-  resource placement generally (resources still use the old ring logic on every skirmish map, only Gold/
-  Stone's position *within* that ring now varies - see below), Vista water masks, small/large map sizes.
+- Still not done, per the spec's own scope (closed 2026-09-25, see below): the 10-15 unit starting-resource
+  guarantee and contested-zone resource placement generally. Vista water masks and small/large map sizes
+  remain open.
+
+## Resource placement per the zoning spec (2026-09-25)
+Closes rules 1-4 above for real resource placement (rule 3's large-vein/contested requirement, rule 2's
+starting-resource guarantee) - depended on the 5 baked layouts and the splat/mask work above existing.
+
+- New `MapDefinitionData.UsesZoning` (true only for the 5 158x158 skirmish maps) gates all of this -
+  RiverValley/Highlands/Coastal keep their old unconstrained ring exactly, since `SkirmishMapZones`'
+  fixed 3/40-tile bands were never sized for a 100-130 unit map.
+- New `Assets/Scripts/Core/ResourcePlacement.cs` (pure, unit-tested): `RandomPointNearTownCenter` draws a
+  point 10-15 units from a given town centre in a random direction; `RandomPointInContestedZone` draws
+  from `ResourceNodeSpawner`'s usual centre-relative ring but rejects (bounded retries, then a clamped
+  fallback) anything outside `SkirmishMapZones`' Contested classification.
+- `ResourceNodeSpawner.Start()` now spawns a guaranteed small primary Gold node (`startingGoldAmount`,
+  smaller than a general Gold Mine) plus a starting woodline (`startingWoodlineTreeCount` trees) 10-15
+  units from every town centre slot (Player/Enemy/Enemy2, unconditionally - same "a few wasted nodes near
+  an unused slot is cheap" convention `ClassifyTile`'s own town-centre clearing already uses) before
+  anything else spawns, on every `UsesZoning` map.
+- The general gold/stone/farm/fruit-bush/relic ring (and the tree-loop fallback used when terrain foliage
+  is inactive) now draws from `RandomPointForGeneralResource`, which routes through
+  `RandomPointInContestedZone` on a `UsesZoning` map - large veins/quarries/farms/relics can no longer
+  land in the home buffer. `RandomPointBiasedToMask` (Mountain Pass ridge / Crossroad Valleys mesa bias)
+  draws its candidates from the same contested-respecting helper, so mask-biased placement stays inside
+  the Contested zone too.
+- Not addressed by this pass: general/background forest (terrain foliage, once tree/detail prototypes are
+  wired) still covers the whole spawnable area including the home buffer - only the guaranteed starting
+  woodline and the general tree-loop *fallback* are zone-aware; water-avoidance for the general ring (a
+  pre-existing gap, not introduced here - only `ClassifyTile`'s terrain-foliage pass avoids water); and
+  fairness (equal starting resources per player, still unverified beyond "the same code runs for each
+  slot").
 
 ## Vista splat/masks (2026-09-25)
 Closes this item: per-style feature masks now drive both terrain texture splatting and Gold/Stone

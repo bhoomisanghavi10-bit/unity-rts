@@ -8,6 +8,56 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Resource placement per the zoning spec closed (2026-09-25), same-day
+  follow-up to the Vista splat/masks item below.** Closes
+  `docs/SKIRMISH_MAP_SPEC.md` rules 1-4 for real resource placement -
+  depended on the 5 baked layouts and the mask work existing. New
+  `MapDefinitionData.UsesZoning` (true only for the 5 158x158 skirmish
+  maps - RiverValley/Highlands/Coastal keep their old unconstrained ring,
+  since `SkirmishMapZones`' fixed 3/40-tile bands were never sized for a
+  100-130 unit map). New `Assets/Scripts/Core/ResourcePlacement.cs` (pure,
+  unit-tested): `RandomPointNearTownCenter` (10-15 units from a town
+  centre, any direction) and `RandomPointInContestedZone` (draws from the
+  existing centre-relative ring, rejects anything outside
+  `SkirmishMapZones`' Contested classification via bounded retries then a
+  clamped fallback, so it always terminates and always returns Contested).
+  `ResourceNodeSpawner.Start()` now spawns a small guaranteed primary Gold
+  node + a starting woodline 10-15 units from every town centre slot
+  (Player/Enemy/Enemy2, unconditionally - same "a few wasted nodes near an
+  unused slot is cheap" convention `ClassifyTile`'s own town-centre
+  clearing already uses) before anything else spawns; the general
+  gold/stone/farm/fruit-bush/relic ring (and the tree-loop fallback used
+  when terrain foliage is inactive) now routes through a new
+  `RandomPointForGeneralResource`, which constrains to the Contested zone
+  on a `UsesZoning` map - large veins/quarries/farms/relics can no longer
+  land in the home buffer. `RandomPointBiasedToMask` (Mountain Pass
+  ridge/Crossroad Valleys mesa bias) draws its candidates from the same
+  contested-respecting helper, so mask bias stays inside the Contested
+  zone too. 5 new EditMode tests (`ResourcePlacementTests.cs`), 670/670
+  EditMode tests pass (up from 665). Live-verified via UnityMCP through
+  the real production path: a real match
+  (`CivilizationSetup.BeginMatch(Maurya)` on `MapId.SkirmishMedium`),
+  scanned every real spawned `ResourceNode` immediately after `Start()`
+  ran (had to check on the very next tool call, before any AI gathering -
+  an earlier check taken after several slower tool calls, incl. a 60s
+  `run_tests` wait, showed AI-depleted/missing nodes near Enemy's start
+  and looked like a bug at first, until re-checked with minimal elapsed
+  time and confirmed it was ordinary gathering, not a placement bug):
+  exactly 1 gold node (amount 20, the small `startingGoldAmount`) and
+  exactly 3 wood nodes within 10-15 units of each of the 3 town centre
+  slots (Player/Enemy/Enemy2 all 1/1/1 and 3/3/3), gold total 15 (12
+  contested + 3 starting) and wood total 29 (20 contested-fallback + 9
+  starting) matching the map definition exactly, and zero general
+  gold/stone nodes found outside the Contested classification. Also
+  confirmed `MapRegistry.Current.UsesZoning` reads `false` on RiverValley,
+  the non-skirmish-map no-op path. Not addressed by this pass: general/
+  background terrain-foliage forest (once tree/detail prototypes are
+  wired) still covers the whole spawnable area including the home buffer,
+  not just the guaranteed starting woodline; water-avoidance for the
+  general ring (a pre-existing gap, not introduced here); and fairness
+  verification (equal starting resources per player) beyond "the same
+  code runs identically for each slot." Next: Vista water masks,
+  small/large map sizes, or any other item.
 - **Vista splat/masks closed (2026-09-25), same-day follow-up to the 5
   layout styles below.** Per-style feature masks now drive both terrain
   texture splatting and Gold/Stone placement (user's explicit choice to
