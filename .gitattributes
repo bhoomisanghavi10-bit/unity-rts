@@ -1,2 +1,4 @@
 Assets/Resources/buildings/** filter=lfs diff=lfs merge=lfs -text
 Assets/Resources/Terrain/**/*.png filter=lfs diff=lfs merge=lfs -text
+Assets/PinwheelStudio/** filter=lfs diff=lfs merge=lfs -text
+"Assets/Visual Design Cafe/**" filter=lfs diff=lfs merge=lfs -text

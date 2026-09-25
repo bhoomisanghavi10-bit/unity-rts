@@ -8,6 +8,52 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Terrain trees/grass for Nature Renderer + gatherable forest proxies
+  committed (2026-09-21, commit `49a7e20`) — reconciled into this log
+  2026-09-25, was previously untracked here.** `ResourceNodeSpawner.
+  PopulateTerrainFoliage()` does one coordinated pass over the 158x158
+  skirmish grid: Forest tiles (Perlin-noise-classified, `forestThreshold`)
+  get `TreeInstance`s written via `TerrainData.SetTreeInstances`, Plains
+  tiles get density written into the terrain detail layer — both meant to
+  be rendered by Nature Renderer 6, not Unity's built-in tree/detail
+  renderer. New `Resources/TerrainForest.cs`: `TerrainForest` owns the
+  master `TreeInstance[]` and batches removals into at most one
+  `SetTreeInstances`/`Flush()` per second; `ForestProxy` sits on an
+  invisible Wood `ResourceNode` covering one proxy cell
+  (`proxyCellTiles`) of trees and thins that cell's trees in Fisher-Yates
+  order as the node's `RemainingFraction` (new on `ResourceNode`, alongside
+  a new `Changed` event fired from `Harvest`) drops — so chopping "the
+  forest" visibly removes rendered trees, not just a hidden counter.
+  `TerrainClutter.Apply` no longer zeroes `terrainData.detailPrototypes` on
+  rebuild — that line was wiping the detail layer this feature depends on
+  every time clutter rebuilt. **Live-checked this reconciliation session,
+  not yet by the session that wrote it**: `Update()`/console show zero
+  compile errors, but the real live scene's terrain has zero tree/detail
+  prototypes assigned, so `PopulateTerrainFoliage()` returns `false` and
+  the game currently falls back silently to the old model-tree spawn loop
+  (`SpawnTree`/`treeCount`) — the feature is wired but inert until Nature
+  Renderer's own tree/grass prototypes are actually assigned on the
+  terrain asset. No EditMode tests were added (everything here needs a
+  real `Terrain`/`TerrainData`, consistent with this project's own
+  precedent of live-verifying pure Unity-object glue instead of forcing
+  EditMode coverage onto it) — not yet live-verified for real (no
+  prototypes to verify against yet). **Still uncommitted in the working
+  tree as of this reconciliation**: the actual Vista (`Assets/
+  PinwheelStudio/`, 118M) and Nature Renderer 6 (`Assets/Visual Design
+  Cafe/`, 789M) package assets themselves (both untracked), `Packages/
+  manifest.json`'s new `com.unity.editorcoroutines` dependency (likely a
+  Vista/Nature Renderer dependency) plus `packages-lock.json`/
+  `ProjectSettings/ProjectSettings.asset`, and an unstaged deletion of the
+  entire unused `Assets/Advance Studios/` (Unity Asset Store "Medieval
+  Castle") pack — confirmed zero remaining references in `Assets/Scripts`
+  or `Assets/Scenes` (it was Wall/Gate's model source pre-2026-09-16,
+  superseded by the later Meshy-sourced Wall system), so the deletion looks
+  like safe, intentional cleanup (matching this project's own
+  "Remove verified-dead third-party asset leftovers" precedent, commit
+  `d24316f`) rather than accidental — not yet committed either way. None
+  of this was committed this session; flagging for the next session to
+  either commit it as one scoped Vista/Nature-Renderer-integration commit
+  or investigate further before doing so.
 - **Vista spike closed (2026-09-21)** — one 158x158 map generated in Vista from code (`BharatRTS/Vista Spike/Generate And Bake Medium Map`), baked to `Resources/Maps/SkirmishMedium/height.bytes`, and loaded by `ProceduralTerrain` via `BakedHeightmap` (`MapId.SkirmishMedium`, start plateaus levelled, procedural fallback kept). Fixed `TownCenterFactory` burying the Town Center on relief. 627/627. Gotchas: Vista manager needs its UnityEvents initialised by reflection, templates are 1000 m-scale (shrink Noise `m_scale`), set `terrainMaxHeight`. Not done: real layouts (5 styles in `docs/SKIRMISH_MAP_SPEC.md`), Vista splat/masks, resource placement per the zoning spec, water mask. Vista/Nature Renderer imports still uncommitted.
 - **Skirmish map spec confirmed (2026-09-21)** — medium map 158 x 158 tiles (1 unit = 1 tile): outer 40 tiles per side = home base buffer (starts; starting woodline + primary gold 10-15 units from the TC), middle 78 x 78 = contested zone (large gold, stone, chokes, Relics), outer 3 tiles = dead zone. `SkirmishMapZones` is the single definition (tested, not yet wired in); spec in `docs/SKIRMISH_MAP_SPEC.md`. User added Vista Personal + Nature Renderer 6 Free (uncommitted) and OK'd replacing existing systems if better; plan = bake Vista maps in the editor, load them in `ProceduralTerrain` with the procedural fallback. Next: the Vista spike (one 158x158 map). Open: starts per map, Relics authoring, scaling to small/large, licences/size of the imports.
 - **Planar water reflection closed (2026-09-21)** — `PlanarReflection` mirror camera into a 0.4x RT sampled by `KobWater`; new **Clutter** layer (slot 9, `Ground`=8 restored), Runtime asmdef now references URP. **Gotchas**: `manage_editor add_layer` overwrote the Ground layer — verify layers after any add; ProjectSettings edits need `File/Save Project` to persist. 611/611. Open: Settings/quality toggle for reflections (`PlanarReflection.Enabled`), profiling on real hardware, map-layout work.
