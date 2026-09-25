@@ -22,8 +22,20 @@ namespace KingdomsOfBharat.Core
         Coastal,
         // First skirmish map built on baked Vista terrain: 158 x 158 tiles
         // with the home / contested / dead-zone layout of
-        // docs/SKIRMISH_MAP_SPEC.md (see SkirmishMapZones).
+        // docs/SKIRMISH_MAP_SPEC.md (see SkirmishMapZones). Re-baked from
+        // the Mesa template to actually be the "Crossroad Valleys"
+        // archetype (see docs/SKIRMISH_MAP_SPEC.md's Layout styles table) -
+        // kept as this same enum member/resource path rather than renamed,
+        // since nothing else needed to change to complete it.
         SkirmishMedium,
+        // The other 4 of the 5 named skirmish archetypes - same 158x158
+        // footprint/starts/economy as SkirmishMedium, differing only in
+        // their baked heightmap and (Divided Riverbed/Clearing) a couple
+        // of MapDefinitionData fields. See docs/SKIRMISH_MAP_SPEC.md.
+        SkirmishDividedRiverbed,
+        SkirmishMountainPass,
+        SkirmishHighlandFoothills,
+        SkirmishClearing,
     }
 
     // Plain data, not a MonoBehaviour/ScriptableObject - every field here
@@ -82,6 +94,24 @@ namespace KingdomsOfBharat.Core
         // BakedHeightmap) that ProceduralTerrain uses instead of its Perlin
         // ground. Null/empty keeps the procedural terrain.
         public string BakedHeightmapResource;
+
+        // Divided Riverbed: world-X centres of fordable gaps in the water
+        // band (see RiverFords.FordFactor), each FordHalfWidth wide before
+        // falloff. Empty (every map except Divided Riverbed) means no
+        // fords exist - ProceduralTerrain/NavMeshBaker's ford-aware code
+        // paths are skipped entirely, so this is a no-op everywhere else.
+        public float[] FordCentersX = System.Array.Empty<float>();
+        public float FordHalfWidth = 4f;
+
+        // Forest-tile classification (see ResourceNodeSpawner.ClassifyTile).
+        // Default matches the component's own long-standing Inspector
+        // default exactly, so every map that doesn't override this behaves
+        // identically to before this field existed.
+        public float ForestThreshold = 0.58f;
+        // Clearing: half-width of a guaranteed-clear lane between every
+        // pair of active town centres (see ForestLanes). 0 (every other
+        // map) disables the lane check entirely.
+        public float ForestLaneWidth = 0f;
     }
 
     // Faction civ choice has one assignment per match (CivilizationRegistry);
@@ -213,6 +243,115 @@ namespace KingdomsOfBharat.Core
                 Enemy2TownCenter = new Vector3(-57f, 1f, 0f),
                 NavMeshBoundsSize = new Vector3(170f, 30f, 170f),
                 BakedHeightmapResource = "Maps/SkirmishMedium/height",
+            },
+            // Divided Riverbed: same footprint/economy as SkirmishMedium,
+            // a full-width water band across X at Z=0 (WaterHalfExtents.x
+            // reaches the map edge, so ProceduralTerrain auto-extends it -
+            // see ComputeWaterRect) with 3 fordable gaps. Enemy2's start is
+            // moved off the river centreline (z=0 would otherwise sit
+            // inside the water rect) - the 3-start layout on a themed map
+            // is still an open question generally (see
+            // docs/SKIRMISH_MAP_SPEC.md's Open questions), this is just the
+            // one concrete fix this map needs.
+            [MapId.SkirmishDividedRiverbed] = new MapDefinitionData
+            {
+                GroundSize = 158f,
+                GroundResolution = 158,
+                NoiseHeight = 0.6f,
+                NoiseScale = 0.15f,
+                TreeCount = 20,
+                FarmCount = 10,
+                GoldCount = 12,
+                StoneCount = 10,
+                FruitBushCount = 12,
+                ResourceMinRadius = 15f,
+                ResourceMaxRadius = 40f,
+                ResourceSeed = -1,
+                RelicCount = 5,
+                PlayerTownCenter = new Vector3(0f, 1f, 57f),
+                EnemyTownCenter = new Vector3(0f, 1f, -57f),
+                Enemy2TownCenter = new Vector3(-57f, 1f, 30f),
+                NavMeshBoundsSize = new Vector3(170f, 30f, 170f),
+                BakedHeightmapResource = "Maps/SkirmishDividedRiverbed/height",
+                WaterCenter = new Vector3(0f, 0f, 0f),
+                WaterHalfExtents = new Vector3(79f, 0f, 6f),
+                FishCount = 6,
+                FordCentersX = new[] { -40f, 0f, 40f },
+                FordHalfWidth = 4f,
+            },
+            // Mountain Pass: a mountain chain across the map (a raised Z
+            // band, see SkirmishTerrainCarving.ApplyRidgeWithPass) with one
+            // central corridor at X=0 - directly between Player and Enemy,
+            // who both already sit at x=0.
+            [MapId.SkirmishMountainPass] = new MapDefinitionData
+            {
+                GroundSize = 158f,
+                GroundResolution = 158,
+                NoiseHeight = 0.6f,
+                NoiseScale = 0.15f,
+                TreeCount = 20,
+                FarmCount = 10,
+                GoldCount = 12,
+                StoneCount = 10,
+                FruitBushCount = 12,
+                ResourceMinRadius = 15f,
+                ResourceMaxRadius = 40f,
+                ResourceSeed = -1,
+                RelicCount = 5,
+                PlayerTownCenter = new Vector3(0f, 1f, 57f),
+                EnemyTownCenter = new Vector3(0f, 1f, -57f),
+                Enemy2TownCenter = new Vector3(-57f, 1f, 0f),
+                NavMeshBoundsSize = new Vector3(170f, 30f, 170f),
+                BakedHeightmapResource = "Maps/SkirmishMountainPass/height",
+            },
+            // Highland Foothills: rolling terraced highlands (see
+            // SkirmishTerrainCarving.ApplyTerracing).
+            [MapId.SkirmishHighlandFoothills] = new MapDefinitionData
+            {
+                GroundSize = 158f,
+                GroundResolution = 158,
+                NoiseHeight = 0.6f,
+                NoiseScale = 0.15f,
+                TreeCount = 20,
+                FarmCount = 10,
+                GoldCount = 12,
+                StoneCount = 10,
+                FruitBushCount = 12,
+                ResourceMinRadius = 15f,
+                ResourceMaxRadius = 40f,
+                ResourceSeed = -1,
+                RelicCount = 5,
+                PlayerTownCenter = new Vector3(0f, 1f, 57f),
+                EnemyTownCenter = new Vector3(0f, 1f, -57f),
+                Enemy2TownCenter = new Vector3(-57f, 1f, 0f),
+                NavMeshBoundsSize = new Vector3(170f, 30f, 170f),
+                BakedHeightmapResource = "Maps/SkirmishHighlandFoothills/height",
+            },
+            // Clearing: dense forest (much lower ForestThreshold) with 3
+            // guaranteed-clear lanes joining every pair of active town
+            // centres (see ForestLanes, ResourceNodeSpawner.ClassifyTile).
+            [MapId.SkirmishClearing] = new MapDefinitionData
+            {
+                GroundSize = 158f,
+                GroundResolution = 158,
+                NoiseHeight = 0.6f,
+                NoiseScale = 0.15f,
+                TreeCount = 20,
+                FarmCount = 10,
+                GoldCount = 12,
+                StoneCount = 10,
+                FruitBushCount = 12,
+                ResourceMinRadius = 15f,
+                ResourceMaxRadius = 40f,
+                ResourceSeed = -1,
+                RelicCount = 5,
+                PlayerTownCenter = new Vector3(0f, 1f, 57f),
+                EnemyTownCenter = new Vector3(0f, 1f, -57f),
+                Enemy2TownCenter = new Vector3(-57f, 1f, 0f),
+                NavMeshBoundsSize = new Vector3(170f, 30f, 170f),
+                BakedHeightmapResource = "Maps/SkirmishClearing/height",
+                ForestThreshold = 0.3f,
+                ForestLaneWidth = 7f,
             },
         };
 

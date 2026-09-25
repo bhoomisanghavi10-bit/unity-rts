@@ -56,6 +56,16 @@ namespace KingdomsOfBharat.Core
             BeginMatchCore(playerCivilization, aiCivilization, map);
         }
 
+        // CivPicker's map row (or any other pre-match UI) calls this before
+        // BeginMatch/BeginMatchAsHost/etc. to override the Inspector's
+        // default map choice. A no-op if nothing ever calls it, so every
+        // existing scene/test that never touches this keeps picking
+        // whatever `map` was set to in the Inspector, exactly as before.
+        public void SetMap(MapId id)
+        {
+            map = id;
+        }
+
         // Phase 5 LAN transport MVP: a 2-human match needs the "Enemy" slot
         // to be the other real player's chosen civilization, not this
         // component's Inspector-configured aiCivilization default (which

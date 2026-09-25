@@ -8,6 +8,70 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Vista real map layouts, all 5 styles baked and wired (2026-09-25)** —
+  closes `docs/SKIRMISH_MAP_SPEC.md`'s "author the 5 layout styles" item.
+  Terrain shaping is deterministic C# post-processing on the sampled
+  heightmap (`Assets/Scripts/Core/SkirmishTerrainCarving.cs` -
+  `ApplyCornerMesas`/`ApplyRidgeWithPass`/`ApplyTerracing`/`LimitSlope`,
+  all pure + unit-tested), run from a generalized `Assets/Editor/Vista/
+  VistaSpike.cs` (`LayoutRecipe`, one bake method for all 5 styles, 5 new
+  `BharatRTS/Vista Skirmish Layouts/...` menu items) — user-confirmed
+  choice over hand-authored Vista graph nodes, given a real Vista
+  paired-biome quirk found along the way (the Mesa template's own
+  `DunesAndMesa.asset` spawns 2 sibling `LocalProceduralBiome`s that
+  cancelled each other out to a completely flat bake when both got the
+  same anchors — not chased further; every style now uses a single-biome
+  base + code carve instead). New `MapId.SkirmishDividedRiverbed/
+  MountainPass/HighlandFoothills/Clearing` (SkirmishMedium kept as-is,
+  re-baked from Dunes+corner-mesas as "Crossroad Valleys" instead of the
+  placeholder Mountain bake). Divided Riverbed's river reuses the
+  existing `WaterCenter`/`WaterHalfExtents` system unchanged (a full-width
+  band auto-extending to the map edges) plus **real fords** — new
+  `MapDefinitionData.FordCentersX`/`FordHalfWidth` +
+  `Assets/Scripts/Core/RiverFords.cs` (`FordFactor`, shared by
+  `ProceduralTerrain`'s height blend and a new `NavMeshBaker.
+  AddRiverFordModifiers`) carve 3 literal walkable, visually-dry
+  crossings — user's explicit choice over a simplified single-band river
+  (bigger scope, deliberately chosen). Clearing's dense-forest-with-lanes
+  identity is new `MapDefinitionData.ForestThreshold`/`ForestLaneWidth` +
+  `Assets/Scripts/Core/ForestLanes.cs`, consumed by
+  `ResourceNodeSpawner.ClassifyTile` — **not currently visible in play**:
+  `PopulateTerrainFoliage` bails out before reaching `ClassifyTile` on
+  every map, the same pre-existing "terrain has no tree/detail
+  prototypes" gap the terrain-foliage feature above already flagged;
+  logic is unit-tested in isolation but dormant until that gap closes.
+  New `CivPicker` map-cycle row (`<`/`>`, built in code, all 8 `MapId`s,
+  defaults to River Valley unchanged) + `CivilizationSetup.SetMap` — the
+  first in-game way to pick a map at all (previously Inspector-only).
+  658 EditMode tests pass (up from 627). Live-verified via UnityMCP
+  through the real production path for all 5 maps: `NavMesh.
+  CalculatePath` connecting Player's start straight through each style's
+  signature feature (not just "the bake succeeded" — a blocked path was
+  treated as a hard failure); screenshots confirming each archetype reads
+  correctly (mesa corners, river+fords, ridge+pass, terraces); the real
+  CivPicker UI cycled to a style and Confirmed, `MapRegistry.CurrentId`
+  matching. Hit and fixed 2 real environment gotchas along the way,
+  worth remembering: (1) a gitattributes-unrelated but analogous "missing
+  `using UnityEngine;`" compile error in a new test file silently blocked
+  the whole `KingdomsOfBharat.Tests.dll` from rebuilding for a long
+  stretch, with `refresh_unity`/`RequestScriptReload`/`
+  RequestScriptCompilation` all reporting success throughout — only
+  caught by reading `~/Library/Logs/Unity/Editor-prev.log` directly (NOT
+  `Editor.log`, which had rotated to a small, frozen, misleading stub
+  this session — check `Editor-prev.log` first if `Editor.log` looks
+  suspiciously static); (2) `NavMesh.SamplePosition`/`CalculatePath` with
+  an unsnapped query point (e.g. `y=1` when the real terrain surface sits
+  at `y=1.4`) can falsely report `PathInvalid` purely from the search
+  radius missing the surface vertically — always snap query points via a
+  generous-radius `SamplePosition` first before trusting a `CalculatePath`
+  failure as a real connectivity bug. Still not done, per the spec's own
+  scope: splat layers, the 10-15 unit starting-resource guarantee/
+  contested-zone placement (resources still use the old ring logic
+  unchanged), Vista water masks, small/large map sizes. Next: Vista
+  splat/masks (the user's own next-named item — needs real terrain to
+  splat against, which this item now provides), the still-open Nature
+  Renderer tree/detail-prototype wiring (blocks Clearing's own forest
+  identity and the terrain-foliage feature generally), or any other item.
 - **Terrain trees/grass for Nature Renderer + gatherable forest proxies
   committed (2026-09-21, commit `49a7e20`) — reconciled into this log
   2026-09-25, was previously untracked here.** `ResourceNodeSpawner.

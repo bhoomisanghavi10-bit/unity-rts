@@ -670,6 +670,16 @@ MonoBehaviour:
   fishCount: 0
   fishAmount: 60
   relicCount: 5
+  targetTerrain: {fileID: 0}
+  treePrototypeIndex: 0
+  grassDetailLayerIndex: 0
+  treesPerForestTile: 3
+  grassDensityPerTile: 6
+  forestThreshold: 0.58
+  forestNoiseScale: 0.075
+  useTerrainTreesForWood: 1
+  proxyCellTiles: 2
+  woodPerTree: 10
 --- !u!1 &100080
 GameObject:
   m_ObjectHideFlags: 0

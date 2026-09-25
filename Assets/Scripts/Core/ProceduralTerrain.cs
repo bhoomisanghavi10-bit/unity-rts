@@ -63,6 +63,16 @@ namespace KingdomsOfBharat.Core
         private Vector3 _waterHalfExtents;
         private bool HasWater => _waterHalfExtents.x > 0f && _waterHalfExtents.z > 0f;
 
+        // Divided Riverbed's fordable gaps (see RiverFords.FordFactor).
+        // Empty for every other map.
+        private float[] _fordCentersX = System.Array.Empty<float>();
+        private float _fordHalfWidth;
+        // How far above the normal waterline a ford's crest sits at full
+        // strength - just enough that the raised ground occludes the flat
+        // water plane there (no mesh changes needed), reading as a dry/
+        // shallow crossing rather than a hole in the river.
+        private const float FordCrestAboveWater = 0.3f;
+
         // Standard power-of-two-plus-one heightmap resolution, decoupled from
         // MapDefinitionData.GroundResolution (which only ever controlled the
         // old mesh's vertex density, not noise frequency - HeightAt samples
@@ -188,6 +198,8 @@ namespace KingdomsOfBharat.Core
             }
             _waterCenter = map.WaterCenter;
             _waterHalfExtents = map.WaterHalfExtents;
+            _fordCentersX = map.FordCentersX ?? System.Array.Empty<float>();
+            _fordHalfWidth = map.FordHalfWidth;
         }
 
         // Identical formula to ProceduralGround's own HeightAt, so slope
@@ -337,12 +349,12 @@ namespace KingdomsOfBharat.Core
             }
 
             float s = SignedWaterDistance(worldX, worldZ);
+            float carved;
             if (s <= -BankWidth)
             {
-                return land;
+                carved = land;
             }
-
-            if (s <= 0f)
+            else if (s <= 0f)
             {
                 // Land eases down to exactly the waterline at the edge.
                 // Land eases down to exactly the waterline at the edge, with a
@@ -351,16 +363,34 @@ namespace KingdomsOfBharat.Core
                 // water level - a flat waterline makes the depth-driven foam
                 // and shallow tint flood a wide strip.
                 float u = (s + BankWidth) / BankWidth;
-                return Mathf.Lerp(land, waterSurfaceY, u) + BeachBerm * 4f * u * (1f - u);
+                carved = Mathf.Lerp(land, waterSurfaceY, u) + BeachBerm * 4f * u * (1f - u);
+            }
+            else
+            {
+                float bed = waterSurfaceY - BedDepth;
+                // Ease-out (t * (2 - t)) rather than smoothstep: the bed
+                // must already have real slope at the waterline, otherwise the
+                // "almost no water" strip is several flat units wide and the
+                // depth-driven foam floods it.
+                float tb = Mathf.Clamp01(s / BedDropWidth);
+                carved = Mathf.Lerp(waterSurfaceY, bed, tb * (2f - tb));
             }
 
-            float bed = waterSurfaceY - BedDepth;
-            // Ease-out (t * (2 - t)) rather than smoothstep: the bed
-            // must already have real slope at the waterline, otherwise the
-            // "almost no water" strip is several flat units wide and the
-            // depth-driven foam floods it.
-            float tb = Mathf.Clamp01(s / BedDropWidth);
-            return Mathf.Lerp(waterSurfaceY, bed, tb * (2f - tb));
+            // Divided Riverbed's fords: rise to a fixed dry crest just above
+            // the waterline, guaranteeing a walkable crossing regardless of
+            // the underlying noise - the raised ground naturally occludes
+            // the flat water plane there, no mesh changes needed. A no-op
+            // (fordFactor always 0) on every map without fords.
+            if (_fordCentersX.Length > 0)
+            {
+                float fordFactor = RiverFords.FordFactor(worldX, _fordCentersX, _fordHalfWidth, RiverFords.DefaultFalloff);
+                if (fordFactor > 0f)
+                {
+                    carved = Mathf.Lerp(carved, waterSurfaceY + FordCrestAboveWater, fordFactor);
+                }
+            }
+
+            return carved;
         }
 
         private void ApplyLayers(TerrainData data)

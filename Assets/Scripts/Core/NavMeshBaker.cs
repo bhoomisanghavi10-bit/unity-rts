@@ -79,6 +79,49 @@ namespace KingdomsOfBharat.Core
             }
         }
 
+        // Divided Riverbed variant of AddWaterModifiers: strips run along X
+        // (the river's length) instead of Z, covering the full water
+        // depth (zMin..zMax) each - and any strip inside a ford (see
+        // RiverFords.FordFactor) is skipped entirely, leaving that stretch
+        // of the water rectangle with no not-walkable geometry at all, so
+        // the NavMesh connects straight through it. Only used when the
+        // map actually defines fords; every other map keeps using
+        // AddWaterModifiers unchanged.
+        private static void AddRiverFordModifiers(List<NavMeshBuildSource> sources)
+        {
+            MapDefinitionData map = MapRegistry.Current;
+            float half = map.GroundSize * 0.5f;
+            float xMin = Mathf.Max(map.WaterCenter.x - map.WaterHalfExtents.x, -half);
+            float xMax = Mathf.Min(map.WaterCenter.x + map.WaterHalfExtents.x, half);
+            float zMin = map.WaterCenter.z - map.WaterHalfExtents.z;
+            float zMax = map.WaterCenter.z + map.WaterHalfExtents.z;
+            float depth = zMax - zMin;
+            if (depth <= 0f)
+            {
+                return;
+            }
+
+            const float strip = 1f;
+            for (float x0 = xMin; x0 < xMax; x0 += strip)
+            {
+                float width = Mathf.Min(strip, xMax - x0);
+                float xc = x0 + width * 0.5f;
+                float fordFactor = RiverFords.FordFactor(xc, map.FordCentersX, map.FordHalfWidth, RiverFords.DefaultFalloff);
+                if (fordFactor >= RiverFords.NavMeshWalkableThreshold)
+                {
+                    continue;
+                }
+
+                sources.Add(new NavMeshBuildSource
+                {
+                    shape = NavMeshBuildSourceShape.ModifierBox,
+                    size = new Vector3(width + 0.05f, 20f, depth),
+                    transform = Matrix4x4.TRS(new Vector3(xc, 0f, (zMin + zMax) * 0.5f), Quaternion.identity, Vector3.one),
+                    area = 1,
+                });
+            }
+        }
+
         private void Bake()
         {
             // Item 44: bounds must match the selected map's ground extent
@@ -99,7 +142,14 @@ namespace KingdomsOfBharat.Core
             // rectangle - units can't wade. Its edge is the waterline.
             if (WaterProximity.HasWater)
             {
-                AddWaterModifiers(sources);
+                if (MapRegistry.Current.FordCentersX != null && MapRegistry.Current.FordCentersX.Length > 0)
+                {
+                    AddRiverFordModifiers(sources);
+                }
+                else
+                {
+                    AddWaterModifiers(sources);
+                }
             }
 
             NavMeshBuildSettings settings = NavMesh.GetSettingsByID(0);

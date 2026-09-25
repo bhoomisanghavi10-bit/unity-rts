@@ -9,17 +9,23 @@ using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.EditorTools
 {
-    // Spike: drive Vista from code to generate one medium (158 x 158) skirmish
-    // terrain in a throwaway additive scene, so the result can be baked into
-    // map assets that ProceduralTerrain loads (see docs/SKIRMISH_MAP_SPEC.md).
-    // Generation is async (GPU compute); call Create(), then poll Task.
+    // Drives Vista from code to generate each of the 5 named skirmish
+    // layout styles (docs/SKIRMISH_MAP_SPEC.md) in a throwaway additive
+    // scene, then bakes the result into the Resources map assets
+    // ProceduralTerrain loads. Generation is async (GPU compute); call
+    // Create(recipe), then poll Task.
+    //
+    // Every style's signature terrain feature (Mountain Pass's ridge and
+    // corridor, Highland Foothills' terraces) is a deterministic C#
+    // post-process on the sampled heightmap (LayoutRecipe.HeightPostProcess),
+    // not a hand-authored Vista graph node - see SkirmishTerrainCarving.
+    // Vista only ever supplies the base noise.
     public static class VistaSpike
     {
         public const float MapSize = 158f;
         public const float HeightScale = 20f;
-        private const string BakedHeightPath = "Assets/Resources/Maps/SkirmishMedium/height.bytes";
-        private const string DefaultTemplate = "Mountain/Mountain_BiomeTemplate.asset";
         private const string TemplateRoot = "Assets/PinwheelStudio/Vista/Personal/BiomeTemplates/";
+        private const string ResourceRoot = "Assets/Resources/Maps/";
 
         public static VistaManager Manager { get; private set; }
         public static GenerationTask Task { get; private set; }
@@ -27,8 +33,107 @@ namespace KingdomsOfBharat.EditorTools
         public static GameObject TerrainObject { get; private set; }
         public static string Log { get; private set; } = "";
 
-        public static string Create(string templatePath)
+        public struct LayoutRecipe
         {
+            public string DisplayName;
+            // Relative to TemplateRoot, e.g. "Mountain/Mountain_BiomeTemplate.asset".
+            public string TemplatePath;
+            // Resources/Maps/<ResourceFolder>/height.bytes.
+            public string ResourceFolder;
+            // Optional: (heights01, mapSize, heightScaleWorld) -> heights01.
+            public System.Func<float[,], float, float, float[,]> HeightPostProcess;
+        }
+
+        // Crossroad Valleys: open/balanced ground (Dunes) with 4 flat-topped
+        // mesa plateaus at the contested zone's diagonal corners. The
+        // template's own paired "Mesa" biome (Mesa/DunesAndMesa.asset) was
+        // tried first but its two sibling LocalProceduralBiomes cancelled
+        // each other out to a completely flat bake (a real Vista paired-
+        // biome quirk, not chased further) - this reuses the same reliable
+        // single-biome-plus-code-carve approach as every other style
+        // instead. Kept on the existing SkirmishMedium resource path/enum
+        // member.
+        public static LayoutRecipe CrossroadValleys => new LayoutRecipe
+        {
+            DisplayName = "Crossroad Valleys",
+            TemplatePath = "Dunes/Dunes_BiomeTemplate.asset",
+            ResourceFolder = "SkirmishMedium",
+            HeightPostProcess = (heights, mapSize, heightScale) => SkirmishTerrainCarving.LimitSlope(
+                SkirmishTerrainCarving.ApplyCornerMesas(
+                    heights, mapSize, heightScale,
+                    mesaCentersXZ: new[] { new Vector2(25f, 25f), new Vector2(-25f, 25f), new Vector2(25f, -25f), new Vector2(-25f, -25f) },
+                    mesaRadius: 10f, mesaFalloff: 6f, mesaRaiseWorld: 6f),
+                mapSize, heightScale, MaxWalkableSlopeDegrees, SlopeLimitIterations),
+        };
+
+        // Divided Riverbed: the river itself is carved entirely at runtime
+        // by ProceduralTerrain from MapDefinitionData.WaterCenter/
+        // WaterHalfExtents/FordCentersX - Vista only supplies gentle base
+        // relief for the banks.
+        public static LayoutRecipe DividedRiverbed => new LayoutRecipe
+        {
+            DisplayName = "Divided Riverbed",
+            TemplatePath = "Dunes/Dunes_BiomeTemplate.asset",
+            ResourceFolder = "SkirmishDividedRiverbed",
+            HeightPostProcess = (heights, mapSize, heightScale) => SkirmishTerrainCarving.LimitSlope(
+                heights, mapSize, heightScale, MaxWalkableSlopeDegrees, SlopeLimitIterations),
+        };
+
+        // The raw Mountain template's own noise can exceed the NavMesh's
+        // walkable slope limit in a random patch anywhere on the map, not
+        // just wherever a feature-specific carve looks - always finish
+        // with a general slope-safety pass (docs/SKIRMISH_MAP_SPEC.md rule
+        // 5). A no-op on terrain that's already gentle (Crossroad Valleys/
+        // Divided Riverbed/Clearing's Dunes base), so it's applied to every
+        // recipe uniformly rather than only the two Mountain-based ones.
+        private const float MaxWalkableSlopeDegrees = 35f;
+        private const int SlopeLimitIterations = 30;
+
+        // Mountain Pass: a mountain chain across Z, with one corridor at
+        // X=0 (directly between Player and Enemy, who both sit at x=0).
+        public static LayoutRecipe MountainPass => new LayoutRecipe
+        {
+            DisplayName = "Mountain Pass",
+            TemplatePath = "Mountain/Mountain_BiomeTemplate.asset",
+            ResourceFolder = "SkirmishMountainPass",
+            HeightPostProcess = (heights, mapSize, heightScale) => SkirmishTerrainCarving.LimitSlope(
+                SkirmishTerrainCarving.ApplyRidgeWithPass(
+                    heights, mapSize, heightScale,
+                    ridgeCenterZ: 0f, ridgeHalfWidth: 12f, ridgeFalloff: 10f, ridgeRaiseWorld: 6f,
+                    passCenterX: 0f, passHalfWidth: 6f, passFalloff: 10f, passFloorWorld: 2f),
+                mapSize, heightScale, MaxWalkableSlopeDegrees, SlopeLimitIterations),
+        };
+
+        // Highland Foothills: step-quantize the Mountain template's relief
+        // into terraces (partial strength keeps some natural undulation).
+        public static LayoutRecipe HighlandFoothills => new LayoutRecipe
+        {
+            DisplayName = "Highland Foothills",
+            TemplatePath = "Mountain/Mountain_BiomeTemplate.asset",
+            ResourceFolder = "SkirmishHighlandFoothills",
+            HeightPostProcess = (heights, mapSize, heightScale) => SkirmishTerrainCarving.LimitSlope(
+                SkirmishTerrainCarving.ApplyTerracing(heights, stepSizeNormalized: 0.05f, strength: 0.7f),
+                mapSize, heightScale, MaxWalkableSlopeDegrees, SlopeLimitIterations),
+        };
+
+        // Clearing: mostly flat/gentle - the dense-forest-with-lanes
+        // identity comes entirely from ResourceNodeSpawner's tile
+        // classification (MapDefinitionData.ForestThreshold/
+        // ForestLaneWidth), not the heightmap.
+        public static LayoutRecipe Clearing => new LayoutRecipe
+        {
+            DisplayName = "Clearing",
+            TemplatePath = "Dunes/Dunes_BiomeTemplate.asset",
+            ResourceFolder = "SkirmishClearing",
+            HeightPostProcess = (heights, mapSize, heightScale) => SkirmishTerrainCarving.LimitSlope(
+                heights, mapSize, heightScale, MaxWalkableSlopeDegrees, SlopeLimitIterations),
+        };
+
+        private static LayoutRecipe _activeRecipe;
+
+        public static string Create(LayoutRecipe recipe)
+        {
+            _activeRecipe = recipe;
             Log = "";
             if (SpikeScene.IsValid() && SpikeScene.isLoaded)
             {
@@ -46,25 +151,42 @@ namespace KingdomsOfBharat.EditorTools
             var system = VistaManager.GetTerrainSystem<UnityTerrainSystem>();
             GameObject[,] grid = system.CreateTerrainGrid(new TerrainGridCreationContext(new Vector2Int(1, 1), new Vector3(MapSize, HeightScale, MapSize), root.transform));
             TerrainObject = grid[0, 0];
-            system.SetupTile(Manager, TerrainObject);
+            var tile = system.SetupTile(Manager, TerrainObject) as TerrainTile;
+            // CreateTerrainGrid's fresh TerrainData keeps Unity's factory
+            // default heightmap resolution (33) - neither it nor SetupTile
+            // ever raises it, so without this every bake is far too coarse
+            // (a sample every ~5 world units on a 158 m map) regardless of
+            // recipe. 513 matches the granularity the original spike used.
+            if (tile != null)
+            {
+                tile.heightMapResolution = 513;
+            }
 
-            var template = AssetDatabase.LoadAssetAtPath<BiomeTemplate>(TemplateRoot + templatePath);
+            var template = AssetDatabase.LoadAssetAtPath<BiomeTemplate>(TemplateRoot + recipe.TemplatePath);
             if (template == null)
             {
-                return "template not found: " + templatePath;
+                return "template not found: " + recipe.TemplatePath;
             }
 
             var context = new BiomeTemplateSpawnContext(Manager);
             GameObject biome = BiomeTemplateSpawner.Spawn(template, context);
             // Templates are authored for a 1000 m terrain; fit the biome to our tile.
-            var localBiome = biome.GetComponent<LocalProceduralBiome>();
+            // Some templates (e.g. Mesa's "DunesAndMesa") spawn a root with no
+            // LocalProceduralBiome of its own and two paired biome children
+            // instead - fit every biome found anywhere under the root, not
+            // just a root-level one.
             biome.transform.position = Vector3.zero;
             biome.transform.localScale = Vector3.one;
             float h = MapSize * 0.5f;
-            localBiome.anchors = new[] { new Vector3(-h, 0f, -h), new Vector3(-h, 0f, h), new Vector3(h, 0f, h), new Vector3(h, 0f, -h) };
-            Log += "biome=" + biome.name + " tiles=" + Manager.GetTiles().Count + "; ";
+            var anchors = new[] { new Vector3(-h, 0f, -h), new Vector3(-h, 0f, h), new Vector3(h, 0f, h), new Vector3(h, 0f, -h) };
+            LocalProceduralBiome[] localBiomes = biome.GetComponentsInChildren<LocalProceduralBiome>(true);
+            foreach (var localBiome in localBiomes)
+            {
+                localBiome.anchors = anchors;
+                ScaleNoiseToMap(localBiome);
+            }
+            Log += "recipe=" + recipe.DisplayName + " biome=" + biome.name + " biomeCount=" + localBiomes.Length + " tiles=" + Manager.GetTiles().Count + "; ";
 
-            ScaleNoiseToMap(localBiome);
             Task = Manager.Generate(Manager.GetTiles());
             Log += "generation started";
             return Log;
@@ -88,7 +210,8 @@ namespace KingdomsOfBharat.EditorTools
 
         // Vista templates are authored for a 1000 m terrain: every Noise node's
         // scale is a world-space wavelength, so shrink them in proportion or the
-        // 158 m map comes out nearly flat.
+        // 158 m map comes out nearly flat. A template with an empty graph (e.g.
+        // Blank) has zero NoiseNodes and is simply left alone.
         private static void ScaleNoiseToMap(LocalProceduralBiome biome)
         {
             float factor = MapSize / 1000f;
@@ -108,31 +231,53 @@ namespace KingdomsOfBharat.EditorTools
             Log += "noise nodes scaled=" + scaled + "; ";
         }
 
-        // Writes the generated heightmap to Resources as a BakedHeightmap.
+        // Reads the generated heights, applies the active recipe's
+        // post-process (if any), and writes the result to Resources as a
+        // BakedHeightmap.
         public static string BakeHeightmap()
         {
             var data = TerrainObject.GetComponent<Terrain>().terrainData;
             int n = data.heightmapResolution;
-            float[,] heights = data.GetHeights(0, 0, n, n);
+            float[,] heights01 = data.GetHeights(0, 0, n, n);
+            if (_activeRecipe.HeightPostProcess != null)
+            {
+                heights01 = _activeRecipe.HeightPostProcess(heights01, MapSize, data.size.y);
+            }
+
             var samples = new ushort[n * n];
             for (int z = 0; z < n; z++)
             {
                 for (int x = 0; x < n; x++)
                 {
-                    samples[z * n + x] = (ushort)Mathf.RoundToInt(Mathf.Clamp01(heights[z, x]) * 65535f);
+                    samples[z * n + x] = (ushort)Mathf.RoundToInt(Mathf.Clamp01(heights01[z, x]) * 65535f);
                 }
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(BakedHeightPath));
-            File.WriteAllBytes(BakedHeightPath, BakedHeightmap.ToBytes(n, data.size.y, samples));
-            AssetDatabase.ImportAsset(BakedHeightPath);
-            return "baked " + n + "x" + n + " heightScale=" + data.size.y + " -> " + BakedHeightPath;
+            string bakedPath = ResourceRoot + _activeRecipe.ResourceFolder + "/height.bytes";
+            Directory.CreateDirectory(Path.GetDirectoryName(bakedPath));
+            File.WriteAllBytes(bakedPath, BakedHeightmap.ToBytes(n, data.size.y, samples));
+            AssetDatabase.ImportAsset(bakedPath);
+            return "baked " + n + "x" + n + " heightScale=" + data.size.y + " -> " + bakedPath;
         }
 
-        [MenuItem("BharatRTS/Vista Spike/Generate And Bake Medium Map")]
-        public static void GenerateAndBake()
+        [MenuItem("BharatRTS/Vista Skirmish Layouts/Generate And Bake Crossroad Valleys")]
+        public static void GenerateAndBakeCrossroadValleys() => GenerateAndBake(CrossroadValleys);
+
+        [MenuItem("BharatRTS/Vista Skirmish Layouts/Generate And Bake Divided Riverbed")]
+        public static void GenerateAndBakeDividedRiverbed() => GenerateAndBake(DividedRiverbed);
+
+        [MenuItem("BharatRTS/Vista Skirmish Layouts/Generate And Bake Mountain Pass")]
+        public static void GenerateAndBakeMountainPass() => GenerateAndBake(MountainPass);
+
+        [MenuItem("BharatRTS/Vista Skirmish Layouts/Generate And Bake Highland Foothills")]
+        public static void GenerateAndBakeHighlandFoothills() => GenerateAndBake(HighlandFoothills);
+
+        [MenuItem("BharatRTS/Vista Skirmish Layouts/Generate And Bake Clearing")]
+        public static void GenerateAndBakeClearing() => GenerateAndBake(Clearing);
+
+        public static void GenerateAndBake(LayoutRecipe recipe)
         {
-            Debug.Log("Vista spike: " + Create(DefaultTemplate));
+            Debug.Log("Vista spike: " + Create(recipe));
             EditorApplication.update += PollBake;
         }
 

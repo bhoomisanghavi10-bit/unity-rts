@@ -304,6 +304,22 @@ namespace KingdomsOfBharat.ResourceGathering
                 return TileType.Empty;
             }
 
+            // Clearing: a guaranteed-clear lane between every pair of
+            // active town centres, regardless of the forest noise below.
+            if (map.ForestLaneWidth > 0f)
+            {
+                float laneDistance = ForestLanes.DistanceToNearestLane(new Vector3(wx, 0f, wz), new[]
+                {
+                    map.PlayerTownCenter, map.EnemyTownCenter,
+                    map.PlayerTownCenter, map.Enemy2TownCenter,
+                    map.EnemyTownCenter, map.Enemy2TownCenter,
+                });
+                if (laneDistance <= map.ForestLaneWidth)
+                {
+                    return TileType.Plains;
+                }
+            }
+
             float n = Mathf.PerlinNoise(wx * forestNoiseScale + noiseOffset, wz * forestNoiseScale + noiseOffset);
             return n > forestThreshold ? TileType.Forest : TileType.Plains;
         }
@@ -335,6 +351,7 @@ namespace KingdomsOfBharat.ResourceGathering
             randomSeed = map.ResourceSeed;
             fishCount = map.FishCount;
             relicCount = map.RelicCount;
+            forestThreshold = map.ForestThreshold;
         }
 
         private Vector3 RandomPointInRing()

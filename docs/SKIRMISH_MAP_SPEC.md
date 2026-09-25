@@ -90,6 +90,54 @@ One 158 x 158 map generated in Vista from code, baked, and played:
   from our height/slope rules (Vista's 5 layers unused); resources still use the old ring logic (not the
   10-15 unit starting guarantee or the contested-zone placement); no Vista water mask; not authored graphs.
 
+## All 5 layout styles baked (2026-09-25)
+Closes this item: each style is now a real baked map, not the placeholder Mountain bake above.
+
+- **Terrain shaping is deterministic C# post-processing on the sampled heightmap**, not hand-authored
+  Vista graph nodes: `Assets/Scripts/Core/SkirmishTerrainCarving.cs`
+  (`ApplyCornerMesas`/`ApplyRidgeWithPass`/`ApplyTerracing`/`LimitSlope`, all pure and unit-tested) runs
+  inside `Assets/Editor/Vista/VistaSpike.cs`'s generalized `LayoutRecipe`/`Create`/`BakeHeightmap`, after
+  Vista supplies a base template's noise. `LimitSlope` (a simple thermal-erosion relaxation) runs last on
+  every recipe as a general safety net - a stock template's own noise can exceed the walkable slope limit
+  in a random patch anywhere on the map, not only wherever a feature-specific carve looks.
+- **Crossroad Valleys** (`MapId.SkirmishMedium`, unchanged resource path): Dunes base + `ApplyCornerMesas`
+  (4 flat-topped plateaus at the contested zone's diagonal corners, (+-25,+-25)). The template's own paired
+  "Mesa" biome (`Mesa/DunesAndMesa.asset`) was tried first but its two sibling `LocalProceduralBiome`s
+  cancelled each other out to a completely flat bake (a real Vista paired-biome quirk with sibling
+  anchors, not chased further) - every style now uses a single-biome base plus a code carve instead.
+- **Divided Riverbed** (`MapId.SkirmishDividedRiverbed`): Dunes base, no height carve - the river is
+  entirely a runtime `MapDefinitionData.WaterCenter/WaterHalfExtents` band across full X at Z=0 (reuses
+  the existing water/shoreline system unchanged, auto-extended to the map edges). **Real fords**: new
+  `MapDefinitionData.FordCentersX`/`FordHalfWidth` + `Assets/Scripts/Core/RiverFords.cs` (`FordFactor`,
+  shared by `ProceduralTerrain`'s height blend and a new `NavMeshBaker.AddRiverFordModifiers`) carve 3
+  literal walkable, visually-dry crossings at X = -40/0/40 - live-verified via `NavMesh.CalculatePath`
+  connecting straight through the centre ford. Enemy2's start moved off the Z=0 centreline (z=30, was 0)
+  since the shared 3-start layout would otherwise put it inside the river.
+- **Mountain Pass** (`MapId.SkirmishMountainPass`): Mountain base + `ApplyRidgeWithPass` (a raised Z-band
+  "chain" with one corridor at X=0, directly between Player and Enemy, who both sit at x=0) + `LimitSlope`.
+- **Highland Foothills** (`MapId.SkirmishHighlandFoothills`): Mountain base + `ApplyTerracing` (partial
+  strength 0.7, so some natural undulation survives the step-quantization) + `LimitSlope`.
+- **Clearing** (`MapId.SkirmishClearing`): Dunes base, no height carve. New `MapDefinitionData.
+  ForestThreshold`/`ForestLaneWidth` + `Assets/Scripts/Core/ForestLanes.cs` (`DistanceToNearestLane`) make
+  `ResourceNodeSpawner.ClassifyTile` force Plains within `ForestLaneWidth` of the straight line between
+  every pair of active town centres, and use a much denser forest threshold (0.3, was 0.58) everywhere
+  else. **Not currently visible in play**: this logic never runs today, on ANY map, because the terrain
+  has no tree/detail prototypes assigned (`ResourceNodeSpawner.PopulateTerrainFoliage` bails out before
+  reaching `ClassifyTile` - the exact same pre-existing gap the terrain-foliage feature itself already
+  flagged) - unit-tested in isolation (`ForestLanesTests.cs`) but not yet visually confirmed live; will
+  activate once real tree/detail prototypes are wired onto the terrain.
+- **In-game map picker**: `CivPicker` gained a `<`/`>` map-cycle row (built in code, not scene-wired) over
+  all 8 `MapId`s with friendly names, defaulting to River Valley unchanged; `CivilizationSetup.SetMap`
+  lets it override the Inspector's default before `BeginMatch`. Live-verified end to end through the real
+  UI (cycled to each style, Confirmed, `MapRegistry.CurrentId` matched the picked style).
+- All 4 new/rebaked maps live-verified via `NavMesh.CalculatePath` connecting Player's start to Enemy's
+  straight through each style's signature feature (the pass corridor, the ford), not just "the bake
+  succeeded" - a blocked path was treated as a hard failure, per rule 5 below.
+- Still not done, per the spec's own scope: splat layers (still height/slope-rule-driven, Vista's 5 layers
+  unused), the 10-15 unit starting-resource guarantee and contested-zone resource placement (resources
+  still use the old ring logic on every skirmish map, unchanged by this pass), Vista water masks, small/
+  large map sizes.
+
 ## Open questions
 - Number and placement of starts on the ring (2 players opposite each other, or up to 3 with
   the existing Enemy2 faction?).
