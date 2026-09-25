@@ -253,8 +253,42 @@ where a water rectangle sits* from the actual baked terrain instead of hand-plac
   foot, the Highland tarn in a genuine basin with nearby rock outcrops), and confirmed a fresh match on
   each map has zero non-Fish resource nodes inside water (only the intentional Fish nodes are).
 
+## Relics: starts-per-map + scaling to small/large maps (2026-09-26)
+Closes this item. Wave 6 item 35 shipped `RelicCount = 5` as a flat literal on every map - a reasonable
+call when only one map size existed, but a real gap now that the skirmish framework supports (and will
+eventually add small/large variants of) multiple layouts/sizes: a future differently-sized layout would
+silently inherit today's "5" unless someone remembered to hand-retune it. Also resolves this doc's own
+"should Relics be map-authored or randomised" open question (below): randomised, but fairly spread
+by angle around the map centre, not purely uniform.
+
+- New `Assets/Scripts/Core/RelicPlacement.cs` (pure, unit-tested):
+  - `ComputeRelicCount(contestedWidth)` derives the relic count from the map's own Contested-zone area
+    (clamped 3-12), anchored so today's 158x158 skirmish maps (`ContestedWidth` 78) reproduce exactly 5 -
+    this is a scaling formula, not a live balance change to any already-tuned map. A future small/large
+    layout variant plugs its own `ContestedWidth` in and gets a proportional count automatically.
+  - `WedgeFor(index, count, ...)` partitions the full circle into `count` equal angular wedges - "starts-
+    per-map": since the map's starts (Player/Enemy/Enemy2) already sit spread around the map centre,
+    drawing one relic per wedge keeps relics fairly spread relative to however many starts exist, instead
+    of a purely uniform draw that - with as few as 3-5 points - can clump by chance and unfairly favour
+    whichever start happens to be nearest the clump.
+  - `MapDefinitionData.RelicCount` on the 5 skirmish (`UsesZoning`) maps is now computed via
+    `RelicPlacement.ComputeRelicCount(SkirmishMapZones.ContestedWidth(158f))` instead of a hand-picked
+    constant; RiverValley/Highlands/Coastal keep their flat `5` (out of scope - no Contested-zone concept
+    there).
+  - `ResourcePlacement.RandomPointInContestedZone` gained an angle-range overload (the existing 2-arg
+    call is now a thin wrapper over the full 0..2*PI range, byte-identical RNG sequence to before) so
+    `ResourceNodeSpawner`'s new `RandomPointForRelic` can draw each relic from its own wedge while reusing
+    the exact same Contested-zone-safety-net/fallback every other general resource already gets.
+  - Relics also now go through the existing water-avoidance (`GenerateLandPoint`, from the water mask
+    item above) - a relic underwater would be as unreachable as a gold mine underwater.
+- 8 new EditMode tests (`RelicPlacementTests.cs`), 683/683 total. Live-verified via UnityMCP: a real
+  SkirmishMedium match confirmed `RelicCount` still reads 5 (no live balance change), and all 5 real
+  spawned `Relic` GameObjects landed in 5 distinct 72-degree wedges (61.6, 135.8, 159.5, 256.8, 353.6
+  degrees), every one classified Contested and outside water.
+
 ## Open questions
 - Number and placement of starts on the ring (2 players opposite each other, or up to 3 with
   the existing Enemy2 faction?).
-- Whether Relics / holy sites should be map-authored or randomised inside the contested square.
+- ~~Whether Relics / holy sites should be map-authored or randomised inside the contested square.~~
+  Resolved 2026-09-26 (see "Relics" above): randomised, but fairly spread by angle around the map centre.
 - How the same 40 / 3 tile rule scales to small and large maps (fixed widths vs proportional).

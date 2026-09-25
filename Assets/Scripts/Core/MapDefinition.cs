@@ -57,10 +57,13 @@ namespace KingdomsOfBharat.Core
         public int FruitBushCount;
         public float ResourceMinRadius;
         public float ResourceMaxRadius;
-        // Wave 6 item 35 (Relics): deliberately NOT scaled with map area
-        // the way resource counts are (see the Phase-5 map-scale-up note
-        // below) - Relics are meant to stay scarce and contested regardless
-        // of map size, so every map gets the same fixed count.
+        // Wave 6 item 35 (Relics). RiverValley/Highlands/Coastal keep a
+        // flat literal (5) - out of scope for the zoning framework below.
+        // The 5 skirmish (UsesZoning) maps compute this via
+        // RelicPlacement.ComputeRelicCount(ContestedWidth) instead of a
+        // hand-picked constant, so a future differently-sized layout scales
+        // automatically (docs/SKIRMISH_MAP_SPEC.md item 5) rather than
+        // silently inheriting today's 158x158 value.
         public int RelicCount;
 
         // -1 means "pick a fresh seed every match" (System.Environment.
@@ -266,7 +269,7 @@ namespace KingdomsOfBharat.Core
                 ResourceMinRadius = 15f,
                 ResourceMaxRadius = 40f,
                 ResourceSeed = -1,
-                RelicCount = 5,
+                RelicCount = RelicPlacement.ComputeRelicCount(SkirmishMapZones.ContestedWidth(158f)),
                 PlayerTownCenter = new Vector3(0f, 1f, 57f),
                 EnemyTownCenter = new Vector3(0f, 1f, -57f),
                 Enemy2TownCenter = new Vector3(-57f, 1f, 0f),
@@ -308,7 +311,7 @@ namespace KingdomsOfBharat.Core
                 ResourceMinRadius = 15f,
                 ResourceMaxRadius = 40f,
                 ResourceSeed = -1,
-                RelicCount = 5,
+                RelicCount = RelicPlacement.ComputeRelicCount(SkirmishMapZones.ContestedWidth(158f)),
                 PlayerTownCenter = new Vector3(0f, 1f, 57f),
                 EnemyTownCenter = new Vector3(0f, 1f, -57f),
                 Enemy2TownCenter = new Vector3(-57f, 1f, 30f),
@@ -339,7 +342,7 @@ namespace KingdomsOfBharat.Core
                 ResourceMinRadius = 15f,
                 ResourceMaxRadius = 40f,
                 ResourceSeed = -1,
-                RelicCount = 5,
+                RelicCount = RelicPlacement.ComputeRelicCount(SkirmishMapZones.ContestedWidth(158f)),
                 PlayerTownCenter = new Vector3(0f, 1f, 57f),
                 EnemyTownCenter = new Vector3(0f, 1f, -57f),
                 Enemy2TownCenter = new Vector3(-57f, 1f, 0f),
@@ -376,7 +379,7 @@ namespace KingdomsOfBharat.Core
                 ResourceMinRadius = 15f,
                 ResourceMaxRadius = 40f,
                 ResourceSeed = -1,
-                RelicCount = 5,
+                RelicCount = RelicPlacement.ComputeRelicCount(SkirmishMapZones.ContestedWidth(158f)),
                 PlayerTownCenter = new Vector3(0f, 1f, 57f),
                 EnemyTownCenter = new Vector3(0f, 1f, -57f),
                 Enemy2TownCenter = new Vector3(-57f, 1f, 0f),
@@ -408,7 +411,7 @@ namespace KingdomsOfBharat.Core
                 ResourceMinRadius = 15f,
                 ResourceMaxRadius = 40f,
                 ResourceSeed = -1,
-                RelicCount = 5,
+                RelicCount = RelicPlacement.ComputeRelicCount(SkirmishMapZones.ContestedWidth(158f)),
                 PlayerTownCenter = new Vector3(0f, 1f, 57f),
                 EnemyTownCenter = new Vector3(0f, 1f, -57f),
                 Enemy2TownCenter = new Vector3(-57f, 1f, 0f),

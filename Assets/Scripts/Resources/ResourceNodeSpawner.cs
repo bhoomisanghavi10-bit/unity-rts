@@ -141,8 +141,26 @@ namespace KingdomsOfBharat.ResourceGathering
 
             for (int i = 0; i < relicCount; i++)
             {
-                SpawnRelic(RandomPointForGeneralResource());
+                SpawnRelic(GenerateLandPoint(() => RandomPointForRelic(i, relicCount)));
             }
+        }
+
+        // Relics + starts-per-map (docs/SKIRMISH_MAP_SPEC.md item 5): draws
+        // from an angular wedge dedicated to this relic index instead of a
+        // purely uniform point, so relicCount relics spread fairly around
+        // the map centre - and therefore around however many starts sit
+        // around it - rather than risking a chance clump near one corner.
+        // A no-op on a non-zoned map (falls back to the plain ring, same as
+        // every general resource there).
+        private Vector3 RandomPointForRelic(int index, int count)
+        {
+            if (!_usesZoning)
+            {
+                return RandomPointInRing();
+            }
+
+            RelicPlacement.WedgeFor(index, count, out float wedgeStart, out float wedgeEnd);
+            return ResourcePlacement.RandomPointInContestedZone(_rng, _mapSize, minRadius, maxRadius, ContestedSampleAttempts, wedgeStart, wedgeEnd);
         }
 
         // Zoning spec rule 2: a small guaranteed primary gold node plus a

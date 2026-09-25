@@ -8,6 +8,37 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Relics: starts-per-map + scaling to small/large maps closed
+  (2026-09-26), same-day follow-up to the water mask item below.** Wave 6
+  item 35 shipped `RelicCount = 5` as a flat literal on every map -
+  reasonable when only one map size existed, a real gap now that the
+  skirmish framework supports (and will eventually add small/large
+  variants of) multiple layouts/sizes. New `Assets/Scripts/Core/
+  RelicPlacement.cs` (pure, unit-tested): `ComputeRelicCount(contestedWidth)`
+  derives relic count from the map's own Contested-zone area (clamped
+  3-12), anchored so today's 158x158 maps reproduce exactly 5 (a scaling
+  formula, not a live balance change); `WedgeFor(index, count, ...)`
+  partitions the full circle into `count` equal angular wedges so relics
+  spread fairly relative to however many starts sit around the map centre,
+  instead of a purely uniform draw that can clump by chance with as few
+  as 3-5 points. `MapDefinitionData.RelicCount` on the 5 skirmish
+  (`UsesZoning`) maps now computes via `RelicPlacement.
+  ComputeRelicCount(SkirmishMapZones.ContestedWidth(158f))`; RiverValley/
+  Highlands/Coastal keep their flat `5` (no Contested-zone concept there,
+  out of scope). `ResourcePlacement.RandomPointInContestedZone` gained an
+  angle-range overload (the existing call is now a thin wrapper over the
+  full 0..2*PI range, byte-identical RNG sequence) so relics draw from
+  their own wedge while reusing the same Contested-zone safety net every
+  other general resource gets; relics also now go through the water-mask
+  item's `GenerateLandPoint` avoidance. Resolves
+  `docs/SKIRMISH_MAP_SPEC.md`'s own "should Relics be map-authored or
+  randomised" open question: randomised, but fairly spread by angle, not
+  purely uniform. 8 new EditMode tests (`RelicPlacementTests.cs`), 683/683
+  total pass (up from 675). Live-verified via UnityMCP: a real
+  SkirmishMedium match confirmed `RelicCount` still reads 5, and all 5 real
+  spawned `Relic` GameObjects landed in 5 distinct 72-degree wedges, every
+  one Contested and outside water. Next: small/large map sizes themselves
+  (still the one open item left in the spec), or any other item.
 - **Water mask closed (2026-09-26)** — closes `docs/SKIRMISH_MAP_SPEC.md`'s
   last open item from that doc. Real, terrain-derived water now exists on 4
   of the 5 skirmish layouts (only Divided Riverbed had any before, its own

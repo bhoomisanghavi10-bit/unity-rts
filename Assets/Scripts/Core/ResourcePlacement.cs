@@ -26,14 +26,24 @@ namespace KingdomsOfBharat.Core
         // the home buffer. Retries a bounded number of times rather than
         // looping unboundedly, then falls back to a point clamped inside
         // the contested boundary so this always terminates and always
-        // returns a Contested point.
+        // returns a Contested point. Draws from the full circle (0..2*PI).
         public static Vector3 RandomPointInContestedZone(DeterministicRandom rng, float mapSize, float minRadius, float maxRadius, int maxAttempts)
+        {
+            return RandomPointInContestedZone(rng, mapSize, minRadius, maxRadius, maxAttempts, 0f, Mathf.PI * 2f);
+        }
+
+        // Same as above, but the angle is drawn from [minAngle, maxAngle)
+        // instead of the full circle - used to spread relics fairly across
+        // wedges of the map instead of a purely uniform draw (see
+        // RelicPlacement), rather than duplicating the retry/fallback logic
+        // for that one caller.
+        public static Vector3 RandomPointInContestedZone(DeterministicRandom rng, float mapSize, float minRadius, float maxRadius, int maxAttempts, float minAngle, float maxAngle)
         {
             for (int attempt = 0; attempt < maxAttempts; attempt++)
             {
-                Vector2 direction = rng.InsideUnitCircleNormalized();
+                float angle = rng.Range(minAngle, maxAngle);
                 float radius = rng.Range(minRadius, maxRadius);
-                var candidate = new Vector3(direction.x * radius, 0f, direction.y * radius);
+                var candidate = new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
                 if (SkirmishMapZones.Classify(candidate, mapSize) == MapZone.Contested)
                 {
                     return candidate;
@@ -41,9 +51,9 @@ namespace KingdomsOfBharat.Core
             }
 
             float half = Mathf.Max(0f, SkirmishMapZones.ContestedWidth(mapSize) * 0.5f - 1f);
-            Vector2 fallbackDirection = rng.InsideUnitCircleNormalized();
+            float fallbackAngle = rng.Range(minAngle, maxAngle);
             float fallbackRadius = rng.Range(0f, half);
-            return new Vector3(fallbackDirection.x * fallbackRadius, 0f, fallbackDirection.y * fallbackRadius);
+            return new Vector3(Mathf.Cos(fallbackAngle) * fallbackRadius, 0f, Mathf.Sin(fallbackAngle) * fallbackRadius);
         }
     }
 }
