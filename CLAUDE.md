@@ -8,6 +8,44 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Vista splat/masks closed (2026-09-25), same-day follow-up to the 5
+  layout styles below.** Per-style feature masks now drive both terrain
+  texture splatting and Gold/Stone placement (user's explicit choice to
+  include the resource-placement gating, not just texturing). Masks are
+  baked alongside the height, reusing `BakedHeightmap`'s own binary format
+  with `heightScale=1` (a mask value already is the 0..1 "height" that
+  format expects) - `VistaSpike.LayoutRecipe` gained an optional
+  `ComputeMask` alongside `HeightPostProcess`, writing `mask.bytes` next
+  to `height.bytes`. `SkirmishTerrainCarving`'s ridge/pass/mesa strength
+  formulas were factored into shared private helpers so the new
+  `ComputeRidgeMask`/`ComputeCornerMesaMask` always agree with what the
+  height carve actually did, not a re-derivation. Mountain Pass's ridge
+  now boosts the Rock layer (`MapDefinitionData.MaskTerrainLayerIndex`);
+  Crossroad Valleys' mesas boost Sand - `ProceduralTerrain.ApplyAlphamaps`
+  blends the mask in as a final step (boost the target layer toward 1,
+  scale every other layer down proportionally so the 5 weights still sum
+  to 1), a no-op on every map without a mask. New
+  `ResourceNodeSpawner.RandomPointBiasedToMask` (new
+  `MapDefinitionData.BiasResourcesToMask`) draws 8 ring candidates and
+  keeps whichever scores highest against the mask
+  (`Assets/Scripts/Core/ResourceBias.cs`, pure + unit-tested) - a "quarry
+  in the mountains" feel without an unbounded rejection-sampling loop.
+  Highland Foothills/Divided Riverbed/Clearing deliberately got no mask
+  (Highland's existing generic slope-rock rule already emphasises terrace
+  risers; Divided Riverbed's fords already read correctly via the
+  existing water-proximity bands; Clearing's identity is a tile
+  classification, not a splat feature). 665 EditMode tests pass (up from
+  658). Live-verified via UnityMCP: screenshots confirming Mountain
+  Pass's ridge reads as rock with a clean green gap through the pass, and
+  Crossroad Valleys' 4 mesa tops read as sandstone against the
+  surrounding grass; 22 real spawned Gold/Stone nodes on Crossroad
+  Valleys averaged a 0.94 mask score (most landing exactly on a mesa top)
+  against what unbiased placement would put close to 0 given how little
+  of the ring the mesas cover. Next: the still-open Nature Renderer tree/
+  detail-prototype wiring (blocks Clearing's own forest identity and the
+  terrain-foliage feature generally), the spec's own remaining open
+  items (starting-resource guarantee/contested-zone placement generally,
+  Vista water masks, small/large map sizes), or any other item.
 - **Vista real map layouts, all 5 styles baked and wired (2026-09-25)** —
   closes `docs/SKIRMISH_MAP_SPEC.md`'s "author the 5 layout styles" item.
   Terrain shaping is deterministic C# post-processing on the sampled

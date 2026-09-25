@@ -112,6 +112,22 @@ namespace KingdomsOfBharat.Core
         // pair of active town centres (see ForestLanes). 0 (every other
         // map) disables the lane check entirely.
         public float ForestLaneWidth = 0f;
+
+        // Optional: a baked feature mask (same binary format/loader as
+        // BakedHeightmapResource, via BakedHeightmap with heightScale=1) -
+        // 1 where a style's signature terrain feature is strongest (the
+        // Mountain Pass ridge, a Crossroad Valleys mesa top), 0 elsewhere.
+        // Null/empty (every map without one) disables both consumers below
+        // entirely. See SkirmishTerrainCarving's Compute*Mask functions.
+        public string BakedMaskResource;
+        // Which ProceduralTerrain layer index the mask boosts (0=Grass,
+        // 1=Dirt, 2=Rock, 3=Sand, 4=Pebbles - see ProceduralTerrain.
+        // ApplyLayers). Unused when BakedMaskResource is null/empty.
+        public int MaskTerrainLayerIndex;
+        // Whether ResourceNodeSpawner's Gold/Stone placement should bias
+        // toward the mask (a "quarry in the mountains" feel) rather than a
+        // plain uniform ring. Unused when BakedMaskResource is null/empty.
+        public bool BiasResourcesToMask;
     }
 
     // Faction civ choice has one assignment per match (CivilizationRegistry);
@@ -243,6 +259,9 @@ namespace KingdomsOfBharat.Core
                 Enemy2TownCenter = new Vector3(-57f, 1f, 0f),
                 NavMeshBoundsSize = new Vector3(170f, 30f, 170f),
                 BakedHeightmapResource = "Maps/SkirmishMedium/height",
+                BakedMaskResource = "Maps/SkirmishMedium/mask",
+                MaskTerrainLayerIndex = 3, // Sand - mesas read as sandstone buttes.
+                BiasResourcesToMask = true,
             },
             // Divided Riverbed: same footprint/economy as SkirmishMedium,
             // a full-width water band across X at Z=0 (WaterHalfExtents.x
@@ -303,6 +322,9 @@ namespace KingdomsOfBharat.Core
                 Enemy2TownCenter = new Vector3(-57f, 1f, 0f),
                 NavMeshBoundsSize = new Vector3(170f, 30f, 170f),
                 BakedHeightmapResource = "Maps/SkirmishMountainPass/height",
+                BakedMaskResource = "Maps/SkirmishMountainPass/mask",
+                MaskTerrainLayerIndex = 2, // Rock - the chain reads as exposed stone.
+                BiasResourcesToMask = true,
             },
             // Highland Foothills: rolling terraced highlands (see
             // SkirmishTerrainCarving.ApplyTerracing).

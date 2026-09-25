@@ -47,6 +47,19 @@ namespace KingdomsOfBharat.ResourceGathering
         private const float TileJitter = 0.35f;
         private const float HomeClearRadius = 12f;
 
+        // Gold/Stone resource bias toward a style's feature mask (see
+        // MapDefinitionData.BiasResourcesToMask/BakedMaskResource) - a
+        // "quarry in the mountains" feel on Mountain Pass, ore on Crossroad
+        // Valleys' mesas. Null/false for every map without one, in which
+        // case placement is the plain unbiased ring it always was.
+        private BakedHeightmap _resourceBiasMask;
+        private bool _biasResourcesToMask;
+        private float _mapSize;
+        // How many ring candidates to draw before keeping the best-scoring
+        // one - enough to reliably land inside a feature that covers only
+        // part of the ring's area, without a true (unbounded) rejection loop.
+        private const int BiasCandidateCount = 8;
+
         private enum TileType { Empty, Plains, Forest }
 
         // Item 51: a locally-owned DeterministicRandom rather than the
@@ -79,12 +92,12 @@ namespace KingdomsOfBharat.ResourceGathering
 
             for (int i = 0; i < goldCount; i++)
             {
-                SpawnGoldMine(RandomPointInRing());
+                SpawnGoldMine(RandomPointBiasedToMask());
             }
 
             for (int i = 0; i < stoneCount; i++)
             {
-                SpawnStoneQuarry(RandomPointInRing());
+                SpawnStoneQuarry(RandomPointBiasedToMask());
             }
 
             for (int i = 0; i < fruitBushCount; i++)
@@ -352,6 +365,10 @@ namespace KingdomsOfBharat.ResourceGathering
             fishCount = map.FishCount;
             relicCount = map.RelicCount;
             forestThreshold = map.ForestThreshold;
+            _mapSize = map.GroundSize;
+            _biasResourcesToMask = map.BiasResourcesToMask && !string.IsNullOrEmpty(map.BakedMaskResource);
+            _resourceBiasMask = _biasResourcesToMask ? BakedHeightmap.LoadResource(map.BakedMaskResource) : null;
+            _biasResourcesToMask = _resourceBiasMask != null;
         }
 
         private Vector3 RandomPointInRing()
@@ -359,6 +376,31 @@ namespace KingdomsOfBharat.ResourceGathering
             Vector2 direction = _rng.InsideUnitCircleNormalized();
             float radius = _rng.Range(minRadius, maxRadius);
             return new Vector3(direction.x * radius, 0f, direction.y * radius);
+        }
+
+        // Draws BiasCandidateCount points in the usual ring and keeps
+        // whichever scores highest against the resource-bias mask, giving
+        // Gold/Stone a strong statistical tendency to land on the map's
+        // feature (the mountain ridge, a mesa) without a true rejection-
+        // sampling loop. Falls back to a single unbiased draw when no mask
+        // is set.
+        private Vector3 RandomPointBiasedToMask()
+        {
+            if (!_biasResourcesToMask)
+            {
+                return RandomPointInRing();
+            }
+
+            var candidates = new Vector3[BiasCandidateCount];
+            var scores = new float[BiasCandidateCount];
+            for (int i = 0; i < BiasCandidateCount; i++)
+            {
+                candidates[i] = RandomPointInRing();
+                scores[i] = _resourceBiasMask.SampleWorld(candidates[i].x, candidates[i].z, _mapSize);
+            }
+
+            int best = ResourceBias.PickBestScoringCandidate(scores);
+            return candidates[best];
         }
 
         // Item 49: a random point inside the current map's water

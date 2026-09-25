@@ -133,10 +133,44 @@ Closes this item: each style is now a real baked map, not the placeholder Mounta
 - All 4 new/rebaked maps live-verified via `NavMesh.CalculatePath` connecting Player's start to Enemy's
   straight through each style's signature feature (the pass corridor, the ford), not just "the bake
   succeeded" - a blocked path was treated as a hard failure, per rule 5 below.
-- Still not done, per the spec's own scope: splat layers (still height/slope-rule-driven, Vista's 5 layers
-  unused), the 10-15 unit starting-resource guarantee and contested-zone resource placement (resources
-  still use the old ring logic on every skirmish map, unchanged by this pass), Vista water masks, small/
-  large map sizes.
+- Still not done, per the spec's own scope: the 10-15 unit starting-resource guarantee and contested-zone
+  resource placement generally (resources still use the old ring logic on every skirmish map, only Gold/
+  Stone's position *within* that ring now varies - see below), Vista water masks, small/large map sizes.
+
+## Vista splat/masks (2026-09-25)
+Closes this item: per-style feature masks now drive both terrain texture splatting and Gold/Stone
+placement, not just height. Depended on the 5 baked maps above existing.
+
+- **Masks are baked alongside the height**, at the same 513x513 resolution, reusing `BakedHeightmap`'s
+  own binary format with `heightScale=1` (a mask value already *is* the 0..1 "height" that format
+  expects - no new format needed). `Assets/Editor/Vista/VistaSpike.cs`'s `LayoutRecipe` gained an
+  optional `ComputeMask` alongside `HeightPostProcess`; `BakeHeightmap` writes `mask.bytes` next to
+  `height.bytes` when a recipe defines one.
+- **Mask math is factored out of the existing height carves**, not re-derived: `SkirmishTerrainCarving`'s
+  `RidgeStrength`/`PassStrength`/`MesaStrength` are now shared private helpers used by both
+  `ApplyRidgeWithPass`/`ApplyCornerMesas` (height) and the new `ComputeRidgeMask`/`ComputeCornerMesaMask`
+  (mask) - the mask always agrees with what the height carve actually did, at any resolution.
+- **Mountain Pass** bakes a ridge-minus-pass mask (`Maps/SkirmishMountainPass/mask.bytes`), wired via
+  `MapDefinitionData.MaskTerrainLayerIndex = 2` (Rock) - the ridge now visibly reads as exposed rock,
+  with a clean green gap straight through the pass (screenshot-confirmed).
+- **Crossroad Valleys** bakes a corner-mesa mask (`Maps/SkirmishMedium/mask.bytes`), wired to layer index
+  3 (Sand) - the 4 mesa tops now read as sandstone buttes against the surrounding grass (screenshot-
+  confirmed), with `TerrainClutter`'s rock/pebble decoration following for free (it already reads the
+  same alphamap).
+- **`ProceduralTerrain.ApplyAlphamaps`** blends the mask in as a final step: boosts the target layer's
+  weight toward 1 by the sampled mask strength, scaling every other layer's weight down proportionally
+  so the 5 weights still sum to 1. A no-op (`_mask == null`) on every map without one.
+- **Gold/Stone placement now biases toward the mask** on maps that opt in
+  (`MapDefinitionData.BiasResourcesToMask`): `ResourceNodeSpawner.RandomPointBiasedToMask` draws 8
+  candidate points in the usual ring and keeps whichever scores highest against the mask
+  (`ResourceBias.PickBestScoringCandidate`, pure and unit-tested) - a "quarry in the mountains" feel
+  without an unbounded rejection-sampling loop. Live-verified against real spawned nodes: 22 Gold/Stone
+  nodes on Crossroad Valleys averaged a 0.94 mask score (most landing exactly on a mesa top), against
+  what would be close to 0 unbiased given how little of the ring the mesas actually cover.
+- Highland Foothills/Divided Riverbed/Clearing deliberately got no mask this pass - Highland Foothills'
+  existing generic slope-based Rock rule already emphasises terrace risers reasonably; Divided Riverbed's
+  fords already read correctly via the existing water-proximity sand/pebble bands; Clearing's identity is
+  a tile classification (`ForestLaneWidth`), not a height/splat feature.
 
 ## Open questions
 - Number and placement of starts on the ring (2 players opposite each other, or up to 3 with

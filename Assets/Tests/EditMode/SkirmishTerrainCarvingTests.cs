@@ -103,6 +103,40 @@ namespace KingdomsOfBharat.Tests
         }
 
         [Test]
+        public void ComputeRidgeMask_MatchesApplyRidgeWithPassStrengths()
+        {
+            // Same 3 points ApplyRidgeWithPass's own tests check, but reading
+            // the mask directly rather than a carved height - far from the
+            // ridge -> 0, in the ridge away from the pass -> 1, dead centre
+            // of both -> 0 (the pass clears the mask too).
+            var mask = SkirmishTerrainCarving.ComputeRidgeMask(
+                20f, 5,
+                ridgeCenterZ: 0f, ridgeHalfWidth: 2f, ridgeFalloff: 2f,
+                passCenterX: 0f, passHalfWidth: 1f, passFalloff: 1f);
+
+            Assert.AreEqual(0f, mask[0, 2], 0.001f);
+            Assert.AreEqual(1f, mask[2, 0], 0.001f);
+            Assert.AreEqual(0f, mask[2, 2], 0.001f);
+        }
+
+        [Test]
+        public void ComputeCornerMesaMask_MatchesApplyCornerMesasStrengths()
+        {
+            var mesas = new[] { new Vector2(0f, 0f) };
+            var mask = SkirmishTerrainCarving.ComputeCornerMesaMask(20f, 5, mesas, 2f, 2f);
+
+            Assert.AreEqual(1f, mask[2, 2], 0.001f);
+            Assert.AreEqual(0f, mask[0, 0], 0.001f);
+        }
+
+        [Test]
+        public void ComputeCornerMesaMask_NoMesas_IsAllZero()
+        {
+            var mask = SkirmishTerrainCarving.ComputeCornerMesaMask(20f, 5, null, 2f, 2f);
+            Assert.AreEqual(0f, mask[2, 2], 0.0001f);
+        }
+
+        [Test]
         public void LimitSlope_AlreadyGentle_IsUnchanged()
         {
             var heights = UniformHeights(5, 0.3f);

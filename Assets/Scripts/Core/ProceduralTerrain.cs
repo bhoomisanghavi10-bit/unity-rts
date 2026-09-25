@@ -73,6 +73,13 @@ namespace KingdomsOfBharat.Core
         // shallow crossing rather than a hole in the river.
         private const float FordCrestAboveWater = 0.3f;
 
+        // Optional per-style feature mask (see MapDefinitionData.
+        // BakedMaskResource/SkirmishTerrainCarving's Compute*Mask
+        // functions) - null for every map that doesn't define one, in
+        // which case ApplyAlphamaps' mask blend is skipped entirely.
+        private BakedHeightmap _mask;
+        private int _maskLayerIndex;
+
         // Standard power-of-two-plus-one heightmap resolution, decoupled from
         // MapDefinitionData.GroundResolution (which only ever controlled the
         // old mesh's vertex density, not noise frequency - HeightAt samples
@@ -200,6 +207,8 @@ namespace KingdomsOfBharat.Core
             _waterHalfExtents = map.WaterHalfExtents;
             _fordCentersX = map.FordCentersX ?? System.Array.Empty<float>();
             _fordHalfWidth = map.FordHalfWidth;
+            _mask = string.IsNullOrEmpty(map.BakedMaskResource) ? null : BakedHeightmap.LoadResource(map.BakedMaskResource);
+            _maskLayerIndex = map.MaskTerrainLayerIndex;
         }
 
         // Identical formula to ProceduralGround's own HeightAt, so slope
@@ -535,6 +544,30 @@ namespace KingdomsOfBharat.Core
                     map[z, x, 2] = rock * keep;
                     map[z, x, SandLayerIndex] = sandKeep;
                     map[z, x, PebbleLayerIndex] = pebble;
+
+                    // Style feature mask (Mountain Pass's ridge -> Rock,
+                    // Crossroad Valleys' mesas -> Sand, ...): boosts the
+                    // target layer toward 1 and scales every other layer
+                    // down proportionally, so the 5 weights still sum to 1.
+                    // A no-op (mask null) on every map without one.
+                    if (_mask != null)
+                    {
+                        float maskStrength = _mask.SampleWorld(worldX, worldZ, mapSize);
+                        if (maskStrength > 0f)
+                        {
+                            float current = map[z, x, _maskLayerIndex];
+                            float target = Mathf.Lerp(current, 1f, maskStrength);
+                            float scaleOthers = (1f - target) / Mathf.Max(1f - current, 0.0001f);
+                            for (int layer = 0; layer < 5; layer++)
+                            {
+                                if (layer != _maskLayerIndex)
+                                {
+                                    map[z, x, layer] *= scaleOthers;
+                                }
+                            }
+                            map[z, x, _maskLayerIndex] = target;
+                        }
+                    }
                 }
             }
 

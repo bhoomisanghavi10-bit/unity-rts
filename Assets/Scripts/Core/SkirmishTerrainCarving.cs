@@ -38,8 +38,7 @@ namespace KingdomsOfBharat.Core
             for (int z = 0; z < rz; z++)
             {
                 float worldZ = -half + (float)z / (rz - 1) * mapSize;
-                float ridgeStrength = 1f - Mathf.SmoothStep(0f, 1f,
-                    Mathf.InverseLerp(ridgeHalfWidth, ridgeHalfWidth + ridgeFalloff, Mathf.Abs(worldZ - ridgeCenterZ)));
+                float ridgeStrength = RidgeStrength(worldZ, ridgeCenterZ, ridgeHalfWidth, ridgeFalloff);
 
                 for (int x = 0; x < rx; x++)
                 {
@@ -47,8 +46,7 @@ namespace KingdomsOfBharat.Core
                     float baseWorld = heights01[z, x] * scale;
                     float raised = baseWorld + ridgeStrength * ridgeRaiseWorld;
 
-                    float passStrength = 1f - Mathf.SmoothStep(0f, 1f,
-                        Mathf.InverseLerp(passHalfWidth, passHalfWidth + passFalloff, Mathf.Abs(worldX - passCenterX)));
+                    float passStrength = PassStrength(worldX, passCenterX, passHalfWidth, passFalloff);
                     float carved = Mathf.Lerp(raised, passFloorWorld, passStrength * ridgeStrength);
 
                     result[z, x] = Mathf.Clamp01(carved / scale);
@@ -56,6 +54,51 @@ namespace KingdomsOfBharat.Core
             }
 
             return result;
+        }
+
+        private static float RidgeStrength(float worldZ, float ridgeCenterZ, float ridgeHalfWidth, float ridgeFalloff)
+        {
+            return 1f - Mathf.SmoothStep(0f, 1f,
+                Mathf.InverseLerp(ridgeHalfWidth, ridgeHalfWidth + ridgeFalloff, Mathf.Abs(worldZ - ridgeCenterZ)));
+        }
+
+        private static float PassStrength(float worldX, float passCenterX, float passHalfWidth, float passFalloff)
+        {
+            return 1f - Mathf.SmoothStep(0f, 1f,
+                Mathf.InverseLerp(passHalfWidth, passHalfWidth + passFalloff, Mathf.Abs(worldX - passCenterX)));
+        }
+
+        // Pure mask companion to ApplyRidgeWithPass: 1 where the ridge is
+        // solid rock, 0 in the cleared pass corridor or far from the band -
+        // used to splat the Rock terrain layer and to bias Gold/Stone
+        // placement toward the mountain, not just to shape height.
+        public static float[,] ComputeRidgeMask(
+            float mapSize,
+            int resolution,
+            float ridgeCenterZ,
+            float ridgeHalfWidth,
+            float ridgeFalloff,
+            float passCenterX,
+            float passHalfWidth,
+            float passFalloff)
+        {
+            var mask = new float[resolution, resolution];
+            float half = mapSize * 0.5f;
+
+            for (int z = 0; z < resolution; z++)
+            {
+                float worldZ = -half + (float)z / (resolution - 1) * mapSize;
+                float ridgeStrength = RidgeStrength(worldZ, ridgeCenterZ, ridgeHalfWidth, ridgeFalloff);
+
+                for (int x = 0; x < resolution; x++)
+                {
+                    float worldX = -half + (float)x / (resolution - 1) * mapSize;
+                    float passStrength = PassStrength(worldX, passCenterX, passHalfWidth, passFalloff);
+                    mask[z, x] = ridgeStrength * (1f - passStrength);
+                }
+            }
+
+            return mask;
         }
 
         // Raises a flat-topped plateau with a steep (not gently smoothed)
@@ -84,30 +127,63 @@ namespace KingdomsOfBharat.Core
                 for (int x = 0; x < rx; x++)
                 {
                     float worldX = -half + (float)x / (rx - 1) * mapSize;
-                    float raise = 0f;
-                    if (mesaCentersXZ != null)
-                    {
-                        for (int i = 0; i < mesaCentersXZ.Length; i++)
-                        {
-                            float d = Vector2.Distance(new Vector2(worldX, worldZ), mesaCentersXZ[i]);
-                            // A steeper-than-smoothstep falloff (squared) so
-                            // the top reads flat and the edge reads as a
-                            // cliff, not a gentle hill.
-                            float t = 1f - Mathf.Clamp01(Mathf.InverseLerp(mesaRadius, mesaRadius + mesaFalloff, d));
-                            float strength = t * t;
-                            if (strength > raise)
-                            {
-                                raise = strength;
-                            }
-                        }
-                    }
-
+                    float raise = MesaStrength(worldX, worldZ, mesaCentersXZ, mesaRadius, mesaFalloff);
                     float raised = heights01[z, x] * scale + raise * mesaRaiseWorld;
                     result[z, x] = Mathf.Clamp01(raised / scale);
                 }
             }
 
             return result;
+        }
+
+        private static float MesaStrength(float worldX, float worldZ, Vector2[] mesaCentersXZ, float mesaRadius, float mesaFalloff)
+        {
+            float best = 0f;
+            if (mesaCentersXZ == null)
+            {
+                return best;
+            }
+
+            for (int i = 0; i < mesaCentersXZ.Length; i++)
+            {
+                float d = Vector2.Distance(new Vector2(worldX, worldZ), mesaCentersXZ[i]);
+                // A steeper-than-smoothstep falloff (squared) so the top
+                // reads flat and the edge reads as a cliff, not a gentle hill.
+                float t = 1f - Mathf.Clamp01(Mathf.InverseLerp(mesaRadius, mesaRadius + mesaFalloff, d));
+                float strength = t * t;
+                if (strength > best)
+                {
+                    best = strength;
+                }
+            }
+
+            return best;
+        }
+
+        // Pure mask companion to ApplyCornerMesas: 1 at the top of a mesa,
+        // falling to 0 by its edge - used to splat the Sand terrain layer
+        // and to bias Gold/Stone placement onto the mesas.
+        public static float[,] ComputeCornerMesaMask(
+            float mapSize,
+            int resolution,
+            Vector2[] mesaCentersXZ,
+            float mesaRadius,
+            float mesaFalloff)
+        {
+            var mask = new float[resolution, resolution];
+            float half = mapSize * 0.5f;
+
+            for (int z = 0; z < resolution; z++)
+            {
+                float worldZ = -half + (float)z / (resolution - 1) * mapSize;
+                for (int x = 0; x < resolution; x++)
+                {
+                    float worldX = -half + (float)x / (resolution - 1) * mapSize;
+                    mask[z, x] = MesaStrength(worldX, worldZ, mesaCentersXZ, mesaRadius, mesaFalloff);
+                }
+            }
+
+            return mask;
         }
 
         // A simple thermal-erosion-style relaxation: repeatedly moves a

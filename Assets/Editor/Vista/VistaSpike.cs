@@ -42,6 +42,13 @@ namespace KingdomsOfBharat.EditorTools
             public string ResourceFolder;
             // Optional: (heights01, mapSize, heightScaleWorld) -> heights01.
             public System.Func<float[,], float, float, float[,]> HeightPostProcess;
+            // Optional: (mapSize, resolution) -> a 0..1 feature mask, baked
+            // alongside the height to <ResourceFolder>/mask.bytes (see
+            // MapDefinitionData.BakedMaskResource). Computed independently
+            // of HeightPostProcess so the mask reads the same feature
+            // strength the height carve used, not a re-derivation from the
+            // final (possibly slope-limited) height.
+            public System.Func<float, int, float[,]> ComputeMask;
         }
 
         // Crossroad Valleys: open/balanced ground (Dunes) with 4 flat-topped
@@ -61,9 +68,16 @@ namespace KingdomsOfBharat.EditorTools
             HeightPostProcess = (heights, mapSize, heightScale) => SkirmishTerrainCarving.LimitSlope(
                 SkirmishTerrainCarving.ApplyCornerMesas(
                     heights, mapSize, heightScale,
-                    mesaCentersXZ: new[] { new Vector2(25f, 25f), new Vector2(-25f, 25f), new Vector2(25f, -25f), new Vector2(-25f, -25f) },
+                    mesaCentersXZ: MesaCenters,
                     mesaRadius: 10f, mesaFalloff: 6f, mesaRaiseWorld: 6f),
                 mapSize, heightScale, MaxWalkableSlopeDegrees, SlopeLimitIterations),
+            ComputeMask = (mapSize, resolution) => SkirmishTerrainCarving.ComputeCornerMesaMask(
+                mapSize, resolution, MesaCenters, mesaRadius: 10f, mesaFalloff: 6f),
+        };
+
+        private static readonly Vector2[] MesaCenters =
+        {
+            new Vector2(25f, 25f), new Vector2(-25f, 25f), new Vector2(25f, -25f), new Vector2(-25f, -25f),
         };
 
         // Divided Riverbed: the river itself is carved entirely at runtime
@@ -102,6 +116,10 @@ namespace KingdomsOfBharat.EditorTools
                     ridgeCenterZ: 0f, ridgeHalfWidth: 12f, ridgeFalloff: 10f, ridgeRaiseWorld: 6f,
                     passCenterX: 0f, passHalfWidth: 6f, passFalloff: 10f, passFloorWorld: 2f),
                 mapSize, heightScale, MaxWalkableSlopeDegrees, SlopeLimitIterations),
+            ComputeMask = (mapSize, resolution) => SkirmishTerrainCarving.ComputeRidgeMask(
+                mapSize, resolution,
+                ridgeCenterZ: 0f, ridgeHalfWidth: 12f, ridgeFalloff: 10f,
+                passCenterX: 0f, passHalfWidth: 6f, passFalloff: 10f),
         };
 
         // Highland Foothills: step-quantize the Mountain template's relief
@@ -257,7 +275,36 @@ namespace KingdomsOfBharat.EditorTools
             Directory.CreateDirectory(Path.GetDirectoryName(bakedPath));
             File.WriteAllBytes(bakedPath, BakedHeightmap.ToBytes(n, data.size.y, samples));
             AssetDatabase.ImportAsset(bakedPath);
-            return "baked " + n + "x" + n + " heightScale=" + data.size.y + " -> " + bakedPath;
+            string result = "baked " + n + "x" + n + " heightScale=" + data.size.y + " -> " + bakedPath;
+
+            if (_activeRecipe.ComputeMask != null)
+            {
+                result += "; " + BakeMask(n);
+            }
+
+            return result;
+        }
+
+        // Bakes the recipe's feature mask (see LayoutRecipe.ComputeMask) at
+        // the same resolution as the height, using BakedHeightmap's own
+        // format with heightScale=1 - a mask value already IS the 0..1
+        // "height" that format expects, so no new binary format is needed.
+        private static string BakeMask(int n)
+        {
+            float[,] mask01 = _activeRecipe.ComputeMask(MapSize, n);
+            var samples = new ushort[n * n];
+            for (int z = 0; z < n; z++)
+            {
+                for (int x = 0; x < n; x++)
+                {
+                    samples[z * n + x] = (ushort)Mathf.RoundToInt(Mathf.Clamp01(mask01[z, x]) * 65535f);
+                }
+            }
+
+            string bakedPath = ResourceRoot + _activeRecipe.ResourceFolder + "/mask.bytes";
+            File.WriteAllBytes(bakedPath, BakedHeightmap.ToBytes(n, 1f, samples));
+            AssetDatabase.ImportAsset(bakedPath);
+            return "baked mask " + n + "x" + n + " -> " + bakedPath;
         }
 
         [MenuItem("BharatRTS/Vista Skirmish Layouts/Generate And Bake Crossroad Valleys")]
