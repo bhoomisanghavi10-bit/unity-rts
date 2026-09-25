@@ -36,6 +36,15 @@ namespace KingdomsOfBharat.Core
         SkirmishMountainPass,
         SkirmishHighlandFoothills,
         SkirmishClearing,
+        // Small/large map sizes item (docs/SKIRMISH_MAP_SPEC.md): the same
+        // Crossroad Valleys recipe as SkirmishMedium, baked at a smaller/
+        // larger footprint (VistaSpike.SmallMapSize/LargeMapSize) instead
+        // of a new style - proves the zoning/resource/relic/water-mask
+        // scaling math (SkirmishMapScaling, RelicPlacement.ComputeRelicCount,
+        // WaterBasinFinder) generalizes to a genuinely different map size,
+        // not just a genuinely different layout.
+        SkirmishSmall,
+        SkirmishLarge,
     }
 
     // Plain data, not a MonoBehaviour/ScriptableObject - every field here
@@ -428,6 +437,84 @@ namespace KingdomsOfBharat.Core
                 WaterCenter = new Vector3(-20f, 0f, 25f),
                 WaterHalfExtents = new Vector3(14f, 0f, 10f),
                 FishCount = 4,
+            },
+            // Small/large map sizes item: the Crossroad Valleys recipe
+            // (VistaSpike.CrossroadValleysSmall/Large) baked at a smaller/
+            // larger footprint. Every count/radius/start-position field
+            // below is *computed* from this map's own Contested-zone width
+            // via SkirmishMapScaling/RelicPlacement, not hand-copied from
+            // SkirmishMedium's numbers, so these two entries double as a
+            // live proof the scaling math generalizes beyond one map size.
+            [MapId.SkirmishSmall] = new MapDefinitionData
+            {
+                GroundSize = 120f,
+                UsesZoning = true,
+                GroundResolution = 120,
+                NoiseHeight = 0.6f,
+                NoiseScale = 0.15f,
+                TreeCount = SkirmishMapScaling.ScaleCount(20, SkirmishMapZones.ContestedWidth(120f)),
+                FarmCount = SkirmishMapScaling.ScaleCount(10, SkirmishMapZones.ContestedWidth(120f)),
+                GoldCount = SkirmishMapScaling.ScaleCount(12, SkirmishMapZones.ContestedWidth(120f)),
+                StoneCount = SkirmishMapScaling.ScaleCount(10, SkirmishMapZones.ContestedWidth(120f)),
+                FruitBushCount = SkirmishMapScaling.ScaleCount(12, SkirmishMapZones.ContestedWidth(120f)),
+                ResourceMinRadius = SkirmishMapScaling.ScaleRadius(15f, SkirmishMapZones.ContestedWidth(120f)),
+                ResourceMaxRadius = SkirmishMapScaling.ScaleRadius(40f, SkirmishMapZones.ContestedWidth(120f)),
+                ResourceSeed = -1,
+                RelicCount = RelicPlacement.ComputeRelicCount(SkirmishMapZones.ContestedWidth(120f)),
+                PlayerTownCenter = new Vector3(0f, 1f, SkirmishMapScaling.HomeBandMidpoint(120f)),
+                EnemyTownCenter = new Vector3(0f, 1f, -SkirmishMapScaling.HomeBandMidpoint(120f)),
+                Enemy2TownCenter = new Vector3(-SkirmishMapScaling.HomeBandMidpoint(120f), 1f, 0f),
+                NavMeshBoundsSize = new Vector3(132f, 30f, 132f),
+                BakedHeightmapResource = "Maps/SkirmishSmall/height",
+                BakedMaskResource = "Maps/SkirmishSmall/mask",
+                MaskTerrainLayerIndex = 3, // Sand - mesas read as sandstone buttes, same as SkirmishMedium.
+                BiasResourcesToMask = true,
+                // Water mask item: a small pond found by VistaSpike.
+                // ReportWaterBasins right in the gap between the 4
+                // (correctly-proportioned) mesas - a first attempt at this
+                // recipe kept mesa radius/falloff absolute while shrinking
+                // only their centre offset, which made the 4 mesas overlap
+                // at this size and left no room for a basin at all; fixed
+                // by scaling mesa footprint proportionally too (see
+                // VistaSpike.CrossroadValleysAtSize), which both fixed the
+                // overlap and incidentally opened up this pond.
+                WaterCenter = new Vector3(0f, 0f, 2.6f),
+                WaterHalfExtents = new Vector3(7.2f, 0f, 5.1f),
+                FishCount = 2,
+            },
+            [MapId.SkirmishLarge] = new MapDefinitionData
+            {
+                GroundSize = 240f,
+                UsesZoning = true,
+                GroundResolution = 240,
+                NoiseHeight = 0.6f,
+                NoiseScale = 0.15f,
+                TreeCount = SkirmishMapScaling.ScaleCount(20, SkirmishMapZones.ContestedWidth(240f)),
+                FarmCount = SkirmishMapScaling.ScaleCount(10, SkirmishMapZones.ContestedWidth(240f)),
+                GoldCount = SkirmishMapScaling.ScaleCount(12, SkirmishMapZones.ContestedWidth(240f)),
+                StoneCount = SkirmishMapScaling.ScaleCount(10, SkirmishMapZones.ContestedWidth(240f)),
+                FruitBushCount = SkirmishMapScaling.ScaleCount(12, SkirmishMapZones.ContestedWidth(240f)),
+                ResourceMinRadius = SkirmishMapScaling.ScaleRadius(15f, SkirmishMapZones.ContestedWidth(240f)),
+                ResourceMaxRadius = SkirmishMapScaling.ScaleRadius(40f, SkirmishMapZones.ContestedWidth(240f)),
+                ResourceSeed = -1,
+                RelicCount = RelicPlacement.ComputeRelicCount(SkirmishMapZones.ContestedWidth(240f)),
+                PlayerTownCenter = new Vector3(0f, 1f, SkirmishMapScaling.HomeBandMidpoint(240f)),
+                EnemyTownCenter = new Vector3(0f, 1f, -SkirmishMapScaling.HomeBandMidpoint(240f)),
+                Enemy2TownCenter = new Vector3(-SkirmishMapScaling.HomeBandMidpoint(240f), 1f, 0f),
+                NavMeshBoundsSize = new Vector3(252f, 30f, 252f),
+                BakedHeightmapResource = "Maps/SkirmishLarge/height",
+                BakedMaskResource = "Maps/SkirmishLarge/mask",
+                MaskTerrainLayerIndex = 3, // Sand - mesas read as sandstone buttes, same as SkirmishMedium.
+                BiasResourcesToMask = true,
+                // Water mask item: a lake found by VistaSpike.
+                // ReportWaterBasins, landing at almost exactly 2x
+                // SkirmishMedium's own (-25, 0) lake position, matching
+                // this map's own ~2.05x Contested-half-width ratio - the
+                // scaling math reproducing a proportionally consistent
+                // result, not a coincidence.
+                WaterCenter = new Vector3(-51.3f, 0f, 0f),
+                WaterHalfExtents = new Vector3(28.7f, 0f, 20.5f),
+                FishCount = 8,
             },
         };
 

@@ -39,6 +39,8 @@ namespace KingdomsOfBharat.UI
             (MapId.SkirmishMountainPass, "Mountain Pass"),
             (MapId.SkirmishHighlandFoothills, "Highland Foothills"),
             (MapId.SkirmishClearing, "Clearing"),
+            (MapId.SkirmishSmall, "Crossroad Valleys (Small)"),
+            (MapId.SkirmishLarge, "Crossroad Valleys (Large)"),
         };
 
         private int _mapIndex;

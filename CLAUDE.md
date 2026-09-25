@@ -8,6 +8,48 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Small and large map sizes closed (2026-09-26)** — closes
+  `docs/SKIRMISH_MAP_SPEC.md`'s last open item; every item that doc ever
+  raised is now resolved. Resolved the doc's own "fixed widths vs
+  proportional" question: fixed - `SkirmishMapZones.HomeBufferWidth`/
+  `EdgeDeadzoneWidth` stay the same absolute tile count on every size
+  (matches AoE's own convention that starting areas don't grow with map
+  size), so the zone-classification math already generalized to any
+  `mapSize` with zero changes; only what's downstream of the Contested
+  zone's own area needed new scaling logic. New `Assets/Scripts/Core/
+  SkirmishMapScaling.cs` (pure, unit-tested): `ScaleCount` (resource
+  counts scale linearly with Contested width, not area, same reasoning as
+  the earlier Phase-5 map-scale-up), `ScaleRadius` (general-resource ring
+  radii scale with Contested half-width), `HomeBandMidpoint` (generalizes
+  "|z|=57 is the centre of the 39..76 band" beyond the 158 map). Two new
+  `MapId`s - `SkirmishSmall`/`SkirmishLarge` - bake the *same* Crossroad
+  Valleys recipe at 120x120/240x240 instead of a new style, proving the
+  scaling generalizes to a genuinely different size, not just a different
+  layout. `VistaSpike.LayoutRecipe` gained a `MapSize` field (was one
+  shared 158 constant); every bake/report path now reads the active
+  recipe's own size. **Real bug caught by a live screenshot, not assumed
+  correct from the numbers**: a first attempt scaled only the mesa
+  centres' offset with map size and kept mesa radius/falloff absolute -
+  on the 120-map this made all 4 mesas overlap into one continuous blob
+  instead of 4 separate plateaus. Fixed by scaling mesa radius/falloff by
+  the same ratio as the offset (`mesaRaiseWorld`, a world-space elevation,
+  stays absolute); re-baked and re-screenshotted, confirming 4 cleanly
+  separated mesas on both sizes. Every count/radius/start-position field
+  on the 2 new map entries is computed from the map's own Contested width,
+  not hand-copied: Small gets `RelicCount=3` (clamped to the minimum),
+  Large gets `RelicCount=12` (clamped to the maximum); re-running the
+  water-basin report after the mesa fix found a real pond on the small
+  map too (nestled between its now-properly-separated mesas) and a lake
+  on the large map at almost exactly the ratio the scaling math predicts.
+  `CivPicker` gained both as map-cycle entries. 11 new EditMode tests
+  (`SkirmishMapScalingTests.cs` + 3 in `MapDefinitionTests.cs`), 694/694
+  total pass (up from 683). Live-verified via UnityMCP through the real
+  production path: a real match on each new map, `NavMesh.CalculatePath`
+  connects Player to Enemy on both, zero general gold/stone outside the
+  Contested zone, relic counts match exactly, and screenshots confirm the
+  4-mesa layout and pond/lake on both sizes. Next: user's call - the
+  skirmish-map-spec epic (started with the 5 real layouts) is now fully
+  closed end to end.
 - **Relics: starts-per-map + scaling to small/large maps closed
   (2026-09-26), same-day follow-up to the water mask item below.** Wave 6
   item 35 shipped `RelicCount = 5` as a flat literal on every map -

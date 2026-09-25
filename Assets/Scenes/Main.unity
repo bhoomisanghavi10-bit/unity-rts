@@ -670,6 +670,8 @@ MonoBehaviour:
   fishCount: 0
   fishAmount: 60
   relicCount: 5
+  startingWoodlineTreeCount: 3
+  startingGoldAmount: 20
   targetTerrain: {fileID: 0}
   treePrototypeIndex: 0
   grassDetailLayerIndex: 0

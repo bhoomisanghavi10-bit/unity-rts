@@ -286,9 +286,57 @@ by angle around the map centre, not purely uniform.
   spawned `Relic` GameObjects landed in 5 distinct 72-degree wedges (61.6, 135.8, 159.5, 256.8, 353.6
   degrees), every one classified Contested and outside water.
 
+## Small and large map sizes (2026-09-26)
+Closes this doc's own "how does the 40/3 tile rule scale to small and large maps" open question:
+**fixed widths, not proportional.** `SkirmishMapZones.HomeBufferWidth`/`EdgeDeadzoneWidth` stay the same
+absolute tile count on every map size (a start's own buffer doesn't need to grow just because the map is
+bigger - matches real AoE's own convention that starting areas stay roughly the same size across map
+sizes), so `SkirmishMapZones.Classify`/`ContestedWidth` already generalized to any `mapSize` with zero
+code changes. What genuinely needed to scale is everything downstream of the Contested zone's own area.
+
+- New `Assets/Scripts/Core/SkirmishMapScaling.cs` (pure, unit-tested): `ScaleCount` (resource/tree/farm
+  counts scale linearly with Contested width, not area - same "avoid drowning a bigger map in clutter"
+  reasoning `MapDefinition.cs`'s own Phase-5 map-scale-up note already used), `ScaleRadius` (the general
+  resource ring's min/max radius scale linearly with the map's own Contested half-width, keeping the same
+  relative ring shape at any size), `HomeBandMidpoint` (where a start sits - the centre of the playable
+  home band - generalizing the "|z|=57 is the centre of the 39..76 band" comment beyond the 158 map).
+- Two new `MapId`s, **not** two new styles: `SkirmishSmall`/`SkirmishLarge` bake the exact same Crossroad
+  Valleys recipe (`VistaSpike.CrossroadValleysSmall`/`CrossroadValleysLarge`) at 120x120 and 240x240
+  instead of 158x158 - proving the scaling math generalizes to a genuinely different map size, not just a
+  genuinely different layout. `VistaSpike.LayoutRecipe` gained a `MapSize` field (was a single shared
+  158 constant); `Create`/`BakeHeightmap`/`BakeMask`/`ReportWaterBasin` all read the active recipe's own
+  size now, and the water-basin search's candidate rectangle scales with the recipe's own Contested
+  half-width instead of a fixed absolute size.
+- **Real bug caught by a live screenshot, not assumed correct from the numbers**: a first attempt scaled
+  only the mesa centres' offset with map size and kept mesa radius/falloff absolute (a feature's physical
+  size "shouldn't" need to shrink, or so the reasoning went) - on the 120-map this put all 4 mesas'
+  radius+falloff reach *past* their own centre offset, so they visibly overlapped into one continuous
+  blob instead of 4 separate plateaus. Fixed by scaling mesa radius/falloff by the same
+  `contestedHalf / mediumContestedHalf` factor as the offset (`mesaRaiseWorld`, a world-space elevation
+  rather than a footprint dimension, stays absolute) - re-baked and re-screenshotted, confirming 4
+  cleanly separated mesas on both new sizes.
+- Every count/radius/start-position field on the 2 new `MapDefinitionData` entries is *computed* from
+  the map's own Contested width via `SkirmishMapScaling`/`RelicPlacement.ComputeRelicCount`, not
+  hand-copied from `SkirmishMedium`'s numbers - Small: `RelicCount=3` (clamped to the minimum),
+  `TreeCount=10`, `GoldCount=6`; Large: `RelicCount=12` (clamped to the maximum), `TreeCount=41`,
+  `GoldCount=25`. Water: re-running `VistaSpike.ReportWaterBasins` after the mesa fix found a real basin
+  on *both* new sizes this time (the small map's fixed mesa overlap had also swallowed the space a pond
+  could have used) - Small gets a small pond nestled between its 4 mesas; Large gets a lake at almost
+  exactly 2x Small map's own contested-half-width-scaled lake ratio to Medium's.
+- `CivPicker`'s map-cycle row gained "Crossroad Valleys (Small)"/"(Large)" entries.
+- New EditMode tests: `SkirmishMapScalingTests.cs` (8 tests) plus 3 more in `MapDefinitionTests.cs`
+  confirming both new maps use zoning, their computed town centres land in the HomeBase zone (not
+  Contested, not the dead zone), and Small/Large's resource counts are respectively fewer/more than
+  Medium's. 694/694 EditMode tests pass (up from 683).
+- Live-verified via UnityMCP through the real production path for both new maps: a real match on each,
+  `NavMesh.CalculatePath` (start-position-snapped) connects Player to Enemy on both, zero general
+  gold/stone found outside the Contested zone, relic counts match the map's own `RelicCount` exactly, and
+  screenshots confirm 4 cleanly separated mesas with a pond/lake in the expected spot on both sizes.
+
 ## Open questions
 - Number and placement of starts on the ring (2 players opposite each other, or up to 3 with
   the existing Enemy2 faction?).
 - ~~Whether Relics / holy sites should be map-authored or randomised inside the contested square.~~
   Resolved 2026-09-26 (see "Relics" above): randomised, but fairly spread by angle around the map centre.
-- How the same 40 / 3 tile rule scales to small and large maps (fixed widths vs proportional).
+- ~~How the same 40 / 3 tile rule scales to small and large maps (fixed widths vs proportional).~~
+  Resolved 2026-09-26 (see "Small and large map sizes" above): fixed widths.

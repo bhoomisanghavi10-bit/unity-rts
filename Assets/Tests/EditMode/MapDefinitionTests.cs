@@ -11,6 +11,7 @@ namespace KingdomsOfBharat.Tests
             MapId.RiverValley, MapId.Highlands, MapId.Coastal,
             MapId.SkirmishMedium, MapId.SkirmishMountainPass,
             MapId.SkirmishHighlandFoothills, MapId.SkirmishClearing,
+            MapId.SkirmishSmall, MapId.SkirmishLarge,
         };
 
         [Test]
@@ -93,6 +94,50 @@ namespace KingdomsOfBharat.Tests
 
             Assert.Greater(map.ForestLaneWidth, 0f);
             Assert.Less(map.ForestThreshold, 0.58f);
+
+            MapRegistry.Select(MapId.RiverValley);
+        }
+
+        // Small/large map sizes item: both new sizes use the zoning
+        // framework, and their computed town-centre positions land
+        // squarely in the HomeBase zone (not Contested, not the edge dead
+        // zone) - a real regression check on the scaling math, not just
+        // "the object exists".
+        [TestCase(MapId.SkirmishSmall, 120f)]
+        [TestCase(MapId.SkirmishLarge, 240f)]
+        public void SizeVariant_UsesZoningAndStartsSitInTheHomeBaseBand(MapId id, float expectedGroundSize)
+        {
+            MapRegistry.Select(id);
+            MapDefinitionData map = MapRegistry.Current;
+
+            Assert.IsTrue(map.UsesZoning);
+            Assert.AreEqual(expectedGroundSize, map.GroundSize, 0.01f);
+            Assert.GreaterOrEqual(map.RelicCount, 3);
+            Assert.LessOrEqual(map.RelicCount, 12);
+
+            foreach (var tc in new[] { map.PlayerTownCenter, map.EnemyTownCenter, map.Enemy2TownCenter })
+            {
+                Assert.AreEqual(MapZone.HomeBase, SkirmishMapZones.Classify(tc, map.GroundSize),
+                    id + "'s town centre " + tc + " was not in the HomeBase zone");
+            }
+
+            MapRegistry.Select(MapId.RiverValley);
+        }
+
+        [Test]
+        public void SmallMap_HasFewerGeneralResourcesThanMedium_LargeHasMore()
+        {
+            MapRegistry.Select(MapId.SkirmishMedium);
+            int mediumTrees = MapRegistry.Current.TreeCount;
+            int mediumGold = MapRegistry.Current.GoldCount;
+
+            MapRegistry.Select(MapId.SkirmishSmall);
+            Assert.Less(MapRegistry.Current.TreeCount, mediumTrees);
+            Assert.Less(MapRegistry.Current.GoldCount, mediumGold);
+
+            MapRegistry.Select(MapId.SkirmishLarge);
+            Assert.Greater(MapRegistry.Current.TreeCount, mediumTrees);
+            Assert.Greater(MapRegistry.Current.GoldCount, mediumGold);
 
             MapRegistry.Select(MapId.RiverValley);
         }

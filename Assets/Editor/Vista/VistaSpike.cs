@@ -22,7 +22,14 @@ namespace KingdomsOfBharat.EditorTools
     // Vista only ever supplies the base noise.
     public static class VistaSpike
     {
-        public const float MapSize = 158f;
+        // The size every recipe used before small/large map sizes existed -
+        // kept as the default for the 5 named styles. Small/large map
+        // sizes item (docs/SKIRMISH_MAP_SPEC.md): LayoutRecipe.MapSize is
+        // now a per-recipe field, not a shared constant, so any recipe can
+        // bake at any footprint.
+        public const float DefaultMapSize = 158f;
+        public const float SmallMapSize = 120f;
+        public const float LargeMapSize = 240f;
         public const float HeightScale = 20f;
         private const string TemplateRoot = "Assets/PinwheelStudio/Vista/Personal/BiomeTemplates/";
         private const string ResourceRoot = "Assets/Resources/Maps/";
@@ -40,6 +47,9 @@ namespace KingdomsOfBharat.EditorTools
             public string TemplatePath;
             // Resources/Maps/<ResourceFolder>/height.bytes.
             public string ResourceFolder;
+            // World-space footprint (both axes) this recipe bakes at - see
+            // DefaultMapSize/SmallMapSize/LargeMapSize.
+            public float MapSize;
             // Optional: (heights01, mapSize, heightScaleWorld) -> heights01.
             public System.Func<float[,], float, float, float[,]> HeightPostProcess;
             // Optional: (mapSize, resolution) -> a 0..1 feature mask, baked
@@ -60,25 +70,62 @@ namespace KingdomsOfBharat.EditorTools
         // single-biome-plus-code-carve approach as every other style
         // instead. Kept on the existing SkirmishMedium resource path/enum
         // member.
-        public static LayoutRecipe CrossroadValleys => new LayoutRecipe
-        {
-            DisplayName = "Crossroad Valleys",
-            TemplatePath = "Dunes/Dunes_BiomeTemplate.asset",
-            ResourceFolder = "SkirmishMedium",
-            HeightPostProcess = (heights, mapSize, heightScale) => SkirmishTerrainCarving.LimitSlope(
-                SkirmishTerrainCarving.ApplyCornerMesas(
-                    heights, mapSize, heightScale,
-                    mesaCentersXZ: MesaCenters,
-                    mesaRadius: 10f, mesaFalloff: 6f, mesaRaiseWorld: 6f),
-                mapSize, heightScale, MaxWalkableSlopeDegrees, SlopeLimitIterations),
-            ComputeMask = (mapSize, resolution) => SkirmishTerrainCarving.ComputeCornerMesaMask(
-                mapSize, resolution, MesaCenters, mesaRadius: 10f, mesaFalloff: 6f),
-        };
+        public static LayoutRecipe CrossroadValleys => CrossroadValleysAtSize(DefaultMapSize, "SkirmishMedium");
 
-        private static readonly Vector2[] MesaCenters =
+        // Small/large map sizes item: the exact same recipe as
+        // CrossroadValleys, just baked at a different footprint. Mesa
+        // centre offset AND mesa radius/falloff all scale by the same
+        // factor (contestedHalf / mediumContestedHalf) - a first attempt
+        // that scaled only the offset and kept radius/falloff absolute
+        // produced 4 overlapping mesas on the small map (offset shrank
+        // below the mesa's own footprint), caught via a live screenshot,
+        // not assumed correct from the numbers alone. Scaling both keeps
+        // the exact same relative shape (mesas clearly separated, same
+        // proportion of the Contested corner) regardless of map size.
+        // mesaRaiseWorld (a world-space elevation, not a footprint
+        // dimension) stays absolute - a mesa's height shouldn't shrink
+        // just because the map got smaller.
+        public static LayoutRecipe CrossroadValleysSmall => CrossroadValleysAtSize(SmallMapSize, "SkirmishSmall");
+        public static LayoutRecipe CrossroadValleysLarge => CrossroadValleysAtSize(LargeMapSize, "SkirmishLarge");
+
+        private const float MediumContestedHalf = 39f;
+
+        private static LayoutRecipe CrossroadValleysAtSize(float mapSize, string resourceFolder)
         {
-            new Vector2(25f, 25f), new Vector2(-25f, 25f), new Vector2(25f, -25f), new Vector2(-25f, -25f),
-        };
+            float contestedHalf = SkirmishMapZones.ContestedWidth(mapSize) * 0.5f;
+            float scale = contestedHalf / MediumContestedHalf;
+            Vector2[] mesaCenters = MesaCentersFor(contestedHalf);
+            float mesaRadius = 10f * scale;
+            float mesaFalloff = 6f * scale;
+            return new LayoutRecipe
+            {
+                DisplayName = "Crossroad Valleys",
+                TemplatePath = "Dunes/Dunes_BiomeTemplate.asset",
+                ResourceFolder = resourceFolder,
+                MapSize = mapSize,
+                HeightPostProcess = (heights, size, heightScale) => SkirmishTerrainCarving.LimitSlope(
+                    SkirmishTerrainCarving.ApplyCornerMesas(
+                        heights, size, heightScale,
+                        mesaCentersXZ: mesaCenters,
+                        mesaRadius: mesaRadius, mesaFalloff: mesaFalloff, mesaRaiseWorld: 6f),
+                    size, heightScale, MaxWalkableSlopeDegrees, SlopeLimitIterations),
+                ComputeMask = (size, resolution) => SkirmishTerrainCarving.ComputeCornerMesaMask(
+                    size, resolution, mesaCenters, mesaRadius: mesaRadius, mesaFalloff: mesaFalloff),
+            };
+        }
+
+        // Mesa centres sit at the same fraction of the Contested
+        // half-width the original 158-map layout used (+-25 against a 39
+        // half-width, i.e. ~64%), rather than a fixed world-space offset.
+        private static Vector2[] MesaCentersFor(float contestedHalf)
+        {
+            float offset = contestedHalf * (25f / MediumContestedHalf);
+            return new[]
+            {
+                new Vector2(offset, offset), new Vector2(-offset, offset),
+                new Vector2(offset, -offset), new Vector2(-offset, -offset),
+            };
+        }
 
         // Divided Riverbed: the river itself is carved entirely at runtime
         // by ProceduralTerrain from MapDefinitionData.WaterCenter/
@@ -89,6 +136,7 @@ namespace KingdomsOfBharat.EditorTools
             DisplayName = "Divided Riverbed",
             TemplatePath = "Dunes/Dunes_BiomeTemplate.asset",
             ResourceFolder = "SkirmishDividedRiverbed",
+            MapSize = DefaultMapSize,
             HeightPostProcess = (heights, mapSize, heightScale) => SkirmishTerrainCarving.LimitSlope(
                 heights, mapSize, heightScale, MaxWalkableSlopeDegrees, SlopeLimitIterations),
         };
@@ -110,6 +158,7 @@ namespace KingdomsOfBharat.EditorTools
             DisplayName = "Mountain Pass",
             TemplatePath = "Mountain/Mountain_BiomeTemplate.asset",
             ResourceFolder = "SkirmishMountainPass",
+            MapSize = DefaultMapSize,
             HeightPostProcess = (heights, mapSize, heightScale) => SkirmishTerrainCarving.LimitSlope(
                 SkirmishTerrainCarving.ApplyRidgeWithPass(
                     heights, mapSize, heightScale,
@@ -129,6 +178,7 @@ namespace KingdomsOfBharat.EditorTools
             DisplayName = "Highland Foothills",
             TemplatePath = "Mountain/Mountain_BiomeTemplate.asset",
             ResourceFolder = "SkirmishHighlandFoothills",
+            MapSize = DefaultMapSize,
             HeightPostProcess = (heights, mapSize, heightScale) => SkirmishTerrainCarving.LimitSlope(
                 SkirmishTerrainCarving.ApplyTerracing(heights, stepSizeNormalized: 0.05f, strength: 0.7f),
                 mapSize, heightScale, MaxWalkableSlopeDegrees, SlopeLimitIterations),
@@ -143,6 +193,7 @@ namespace KingdomsOfBharat.EditorTools
             DisplayName = "Clearing",
             TemplatePath = "Dunes/Dunes_BiomeTemplate.asset",
             ResourceFolder = "SkirmishClearing",
+            MapSize = DefaultMapSize,
             HeightPostProcess = (heights, mapSize, heightScale) => SkirmishTerrainCarving.LimitSlope(
                 heights, mapSize, heightScale, MaxWalkableSlopeDegrees, SlopeLimitIterations),
         };
@@ -161,13 +212,15 @@ namespace KingdomsOfBharat.EditorTools
             SpikeScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
             SceneManager.SetActiveScene(SpikeScene);
 
+            float mapSize = recipe.MapSize > 0f ? recipe.MapSize : DefaultMapSize;
+
             Manager = VistaManager.CreateInstanceInScene();
             InitManager(Manager);
             var root = new GameObject("TerrainRoot");
-            root.transform.position = new Vector3(-MapSize * 0.5f, 0f, -MapSize * 0.5f);
+            root.transform.position = new Vector3(-mapSize * 0.5f, 0f, -mapSize * 0.5f);
 
             var system = VistaManager.GetTerrainSystem<UnityTerrainSystem>();
-            GameObject[,] grid = system.CreateTerrainGrid(new TerrainGridCreationContext(new Vector2Int(1, 1), new Vector3(MapSize, HeightScale, MapSize), root.transform));
+            GameObject[,] grid = system.CreateTerrainGrid(new TerrainGridCreationContext(new Vector2Int(1, 1), new Vector3(mapSize, HeightScale, mapSize), root.transform));
             TerrainObject = grid[0, 0];
             var tile = system.SetupTile(Manager, TerrainObject) as TerrainTile;
             // CreateTerrainGrid's fresh TerrainData keeps Unity's factory
@@ -195,13 +248,13 @@ namespace KingdomsOfBharat.EditorTools
             // just a root-level one.
             biome.transform.position = Vector3.zero;
             biome.transform.localScale = Vector3.one;
-            float h = MapSize * 0.5f;
+            float h = mapSize * 0.5f;
             var anchors = new[] { new Vector3(-h, 0f, -h), new Vector3(-h, 0f, h), new Vector3(h, 0f, h), new Vector3(h, 0f, -h) };
             LocalProceduralBiome[] localBiomes = biome.GetComponentsInChildren<LocalProceduralBiome>(true);
             foreach (var localBiome in localBiomes)
             {
                 localBiome.anchors = anchors;
-                ScaleNoiseToMap(localBiome);
+                ScaleNoiseToMap(localBiome, mapSize);
             }
             Log += "recipe=" + recipe.DisplayName + " biome=" + biome.name + " biomeCount=" + localBiomes.Length + " tiles=" + Manager.GetTiles().Count + "; ";
 
@@ -230,9 +283,9 @@ namespace KingdomsOfBharat.EditorTools
         // scale is a world-space wavelength, so shrink them in proportion or the
         // 158 m map comes out nearly flat. A template with an empty graph (e.g.
         // Blank) has zero NoiseNodes and is simply left alone.
-        private static void ScaleNoiseToMap(LocalProceduralBiome biome)
+        private static void ScaleNoiseToMap(LocalProceduralBiome biome, float mapSize)
         {
-            float factor = MapSize / 1000f;
+            float factor = mapSize / 1000f;
             int scaled = 0;
             foreach (var node in biome.terrainGraph.GetNodes())
             {
@@ -254,12 +307,13 @@ namespace KingdomsOfBharat.EditorTools
         // BakedHeightmap.
         public static string BakeHeightmap()
         {
+            float mapSize = _activeRecipe.MapSize > 0f ? _activeRecipe.MapSize : DefaultMapSize;
             var data = TerrainObject.GetComponent<Terrain>().terrainData;
             int n = data.heightmapResolution;
             float[,] heights01 = data.GetHeights(0, 0, n, n);
             if (_activeRecipe.HeightPostProcess != null)
             {
-                heights01 = _activeRecipe.HeightPostProcess(heights01, MapSize, data.size.y);
+                heights01 = _activeRecipe.HeightPostProcess(heights01, mapSize, data.size.y);
             }
 
             var samples = new ushort[n * n];
@@ -279,7 +333,7 @@ namespace KingdomsOfBharat.EditorTools
 
             if (_activeRecipe.ComputeMask != null)
             {
-                result += "; " + BakeMask(n);
+                result += "; " + BakeMask(n, mapSize);
             }
 
             return result;
@@ -289,9 +343,9 @@ namespace KingdomsOfBharat.EditorTools
         // the same resolution as the height, using BakedHeightmap's own
         // format with heightScale=1 - a mask value already IS the 0..1
         // "height" that format expects, so no new binary format is needed.
-        private static string BakeMask(int n)
+        private static string BakeMask(int n, float mapSize)
         {
-            float[,] mask01 = _activeRecipe.ComputeMask(MapSize, n);
+            float[,] mask01 = _activeRecipe.ComputeMask(mapSize, n);
             var samples = new ushort[n * n];
             for (int z = 0; z < n; z++)
             {
@@ -321,6 +375,12 @@ namespace KingdomsOfBharat.EditorTools
 
         [MenuItem("BharatRTS/Vista Skirmish Layouts/Generate And Bake Clearing")]
         public static void GenerateAndBakeClearing() => GenerateAndBake(Clearing);
+
+        [MenuItem("BharatRTS/Vista Skirmish Layouts/Generate And Bake Crossroad Valleys (Small)")]
+        public static void GenerateAndBakeCrossroadValleysSmall() => GenerateAndBake(CrossroadValleysSmall);
+
+        [MenuItem("BharatRTS/Vista Skirmish Layouts/Generate And Bake Crossroad Valleys (Large)")]
+        public static void GenerateAndBakeCrossroadValleysLarge() => GenerateAndBake(CrossroadValleysLarge);
 
         public static void GenerateAndBake(LayoutRecipe recipe)
         {
@@ -363,8 +423,15 @@ namespace KingdomsOfBharat.EditorTools
         // tool, not match-time code: re-run this any time a style's
         // heightmap is rebaked to see whether a natural basin still exists
         // in the same place.
-        private const float WaterHalfWidth = 14f;
-        private const float WaterHalfDepth = 10f;
+        //
+        // Small/large map sizes item: the candidate rectangle's half-width/
+        // half-depth scale with the recipe's own Contested half-width (the
+        // same ratio the 158-map's own 14/10 already sits at against its
+        // 39 half-width), so this generalizes to any map size instead of
+        // a fixed absolute rectangle that could dwarf a small map's
+        // Contested zone or look tiny on a large one.
+        private const float WaterHalfWidthRatio = 14f / 39f;
+        private const float WaterHalfDepthRatio = 10f / 39f;
         private const int WaterSearchGridSteps = 11;
         // A candidate basin must sit in the terrain's own lowest quarter to
         // count as a genuine low point, not just "the least-bad hillside".
@@ -373,8 +440,12 @@ namespace KingdomsOfBharat.EditorTools
         [MenuItem("BharatRTS/Vista Skirmish Layouts/Report Water Basins")]
         public static void ReportWaterBasins()
         {
-            var recipes = new[] { CrossroadValleys, DividedRiverbed, MountainPass, HighlandFoothills, Clearing };
-            var log = new System.Text.StringBuilder("Water basin report (halfWidth=" + WaterHalfWidth + ", halfDepth=" + WaterHalfDepth + "):\n");
+            var recipes = new[]
+            {
+                CrossroadValleys, DividedRiverbed, MountainPass, HighlandFoothills, Clearing,
+                CrossroadValleysSmall, CrossroadValleysLarge,
+            };
+            var log = new System.Text.StringBuilder("Water basin report:\n");
             foreach (LayoutRecipe recipe in recipes)
             {
                 log.AppendLine(ReportWaterBasin(recipe));
@@ -385,24 +456,29 @@ namespace KingdomsOfBharat.EditorTools
 
         private static string ReportWaterBasin(LayoutRecipe recipe)
         {
+            float mapSize = recipe.MapSize > 0f ? recipe.MapSize : DefaultMapSize;
             string resourcePath = "Maps/" + recipe.ResourceFolder + "/height";
             BakedHeightmap baked = BakedHeightmap.LoadResource(resourcePath);
             if (baked == null)
             {
-                return recipe.DisplayName + ": no baked height at " + resourcePath + " (bake it first)";
+                return recipe.DisplayName + " (" + mapSize + "): no baked height at " + resourcePath + " (bake it first)";
             }
 
+            float contestedHalf = SkirmishMapZones.ContestedWidth(mapSize) * 0.5f;
+            float halfWidth = contestedHalf * WaterHalfWidthRatio;
+            float halfDepth = contestedHalf * WaterHalfDepthRatio;
             float maxAllowedHeight = baked.MaxHeight * WaterMaxHeightFraction;
             WaterBasinFinder.Basin basin = WaterBasinFinder.FindLowestFlatRegion(
-                (x, z) => baked.SampleWorld(x, z, MapSize), MapSize,
-                WaterHalfWidth, WaterHalfDepth, WaterSearchGridSteps, maxAllowedHeight);
+                (x, z) => baked.SampleWorld(x, z, mapSize), mapSize,
+                halfWidth, halfDepth, WaterSearchGridSteps, maxAllowedHeight);
 
             if (!basin.Found)
             {
-                return recipe.DisplayName + ": no basin found (best candidate topped out at " + basin.MaxHeightInRect.ToString("F2") + "m, needed <= " + maxAllowedHeight.ToString("F2") + "m)";
+                return recipe.DisplayName + " (" + mapSize + "): no basin found (half " + halfWidth.ToString("F1") + "x" + halfDepth.ToString("F1")
+                    + ", best candidate topped out at " + basin.MaxHeightInRect.ToString("F2") + "m, needed <= " + maxAllowedHeight.ToString("F2") + "m)";
             }
 
-            return recipe.DisplayName + ": basin at (" + basin.Center.x.ToString("F1") + ", " + basin.Center.y.ToString("F1")
+            return recipe.DisplayName + " (" + mapSize + "): basin at (" + basin.Center.x.ToString("F1") + ", " + basin.Center.y.ToString("F1")
                 + "), half-extents (" + basin.HalfExtents.x.ToString("F1") + ", " + basin.HalfExtents.y.ToString("F1")
                 + "), max height in rect " + basin.MaxHeightInRect.ToString("F2") + "m (map max " + baked.MaxHeight.ToString("F2") + "m)";
         }
