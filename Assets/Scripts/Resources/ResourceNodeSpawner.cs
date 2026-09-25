@@ -149,11 +149,11 @@ namespace KingdomsOfBharat.ResourceGathering
         // starting woodline, both 10-15 units from this town centre.
         private void SpawnStartingResourcesFor(Vector3 townCenter)
         {
-            SpawnGoldMine(ResourcePlacement.RandomPointNearTownCenter(_rng, townCenter), startingGoldAmount);
+            SpawnGoldMine(GenerateLandPoint(() => ResourcePlacement.RandomPointNearTownCenter(_rng, townCenter)), startingGoldAmount);
 
             for (int i = 0; i < startingWoodlineTreeCount; i++)
             {
-                SpawnTree(ResourcePlacement.RandomPointNearTownCenter(_rng, townCenter));
+                SpawnTree(GenerateLandPoint(() => ResourcePlacement.RandomPointNearTownCenter(_rng, townCenter)));
             }
         }
 
@@ -424,11 +424,32 @@ namespace KingdomsOfBharat.ResourceGathering
         // gold/stone/farm/fruit/relic ring must stay inside the Contested
         // zone rather than spilling into the home buffer. A no-op
         // (identical to the old plain ring) on every non-skirmish map.
+        // Also steers away from water (see GenerateLandPoint) - only the
+        // skirmish maps that gained a real water body from the water-mask
+        // item (see MapDefinitionData.WaterCenter on the 4 basin-derived
+        // maps) can actually trigger this; every other map's WaterProximity
+        // check is unconditionally false.
         private Vector3 RandomPointForGeneralResource()
         {
-            return _usesZoning
+            return GenerateLandPoint(() => _usesZoning
                 ? ResourcePlacement.RandomPointInContestedZone(_rng, _mapSize, minRadius, maxRadius, ContestedSampleAttempts)
-                : RandomPointInRing();
+                : RandomPointInRing());
+        }
+
+        // Retries a point generator a bounded number of times if it lands
+        // inside the map's water rectangle - a gold/farm/tree spawned
+        // underwater would be unreachable. A no-op loop (WaterProximity.
+        // IsInsideWater is always false) on every map without water.
+        private const int LandRetryAttempts = 5;
+
+        private Vector3 GenerateLandPoint(System.Func<Vector3> generator)
+        {
+            Vector3 point = generator();
+            for (int attempt = 0; attempt < LandRetryAttempts && WaterProximity.IsInsideWater(point); attempt++)
+            {
+                point = generator();
+            }
+            return point;
         }
 
         // Draws BiasCandidateCount points from the same contested-zone-

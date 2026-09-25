@@ -352,5 +352,59 @@ namespace KingdomsOfBharat.EditorTools
 
             return "status=" + Task.status + " completed=" + Task.isCompleted;
         }
+
+        // Water mask (docs/SKIRMISH_MAP_SPEC.md's "Water mask" item): runs
+        // WaterBasinFinder against every style's already-baked height.bytes
+        // (no need to regenerate the Vista graph) and logs a candidate water
+        // rectangle per style, so MapDefinition.cs's WaterCenter/
+        // WaterHalfExtents can be set from an actual analysis of the baked
+        // terrain instead of eyeballed - the same "derive it, don't guess
+        // it" approach ComputeMask already uses for feature masks. A dev
+        // tool, not match-time code: re-run this any time a style's
+        // heightmap is rebaked to see whether a natural basin still exists
+        // in the same place.
+        private const float WaterHalfWidth = 14f;
+        private const float WaterHalfDepth = 10f;
+        private const int WaterSearchGridSteps = 11;
+        // A candidate basin must sit in the terrain's own lowest quarter to
+        // count as a genuine low point, not just "the least-bad hillside".
+        private const float WaterMaxHeightFraction = 0.25f;
+
+        [MenuItem("BharatRTS/Vista Skirmish Layouts/Report Water Basins")]
+        public static void ReportWaterBasins()
+        {
+            var recipes = new[] { CrossroadValleys, DividedRiverbed, MountainPass, HighlandFoothills, Clearing };
+            var log = new System.Text.StringBuilder("Water basin report (halfWidth=" + WaterHalfWidth + ", halfDepth=" + WaterHalfDepth + "):\n");
+            foreach (LayoutRecipe recipe in recipes)
+            {
+                log.AppendLine(ReportWaterBasin(recipe));
+            }
+
+            Debug.Log(log.ToString());
+        }
+
+        private static string ReportWaterBasin(LayoutRecipe recipe)
+        {
+            string resourcePath = "Maps/" + recipe.ResourceFolder + "/height";
+            BakedHeightmap baked = BakedHeightmap.LoadResource(resourcePath);
+            if (baked == null)
+            {
+                return recipe.DisplayName + ": no baked height at " + resourcePath + " (bake it first)";
+            }
+
+            float maxAllowedHeight = baked.MaxHeight * WaterMaxHeightFraction;
+            WaterBasinFinder.Basin basin = WaterBasinFinder.FindLowestFlatRegion(
+                (x, z) => baked.SampleWorld(x, z, MapSize), MapSize,
+                WaterHalfWidth, WaterHalfDepth, WaterSearchGridSteps, maxAllowedHeight);
+
+            if (!basin.Found)
+            {
+                return recipe.DisplayName + ": no basin found (best candidate topped out at " + basin.MaxHeightInRect.ToString("F2") + "m, needed <= " + maxAllowedHeight.ToString("F2") + "m)";
+            }
+
+            return recipe.DisplayName + ": basin at (" + basin.Center.x.ToString("F1") + ", " + basin.Center.y.ToString("F1")
+                + "), half-extents (" + basin.HalfExtents.x.ToString("F1") + ", " + basin.HalfExtents.y.ToString("F1")
+                + "), max height in rect " + basin.MaxHeightInRect.ToString("F2") + "m (map max " + baked.MaxHeight.ToString("F2") + "m)";
+        }
     }
 }

@@ -134,8 +134,8 @@ Closes this item: each style is now a real baked map, not the placeholder Mounta
   straight through each style's signature feature (the pass corridor, the ford), not just "the bake
   succeeded" - a blocked path was treated as a hard failure, per rule 5 below.
 - Still not done, per the spec's own scope (closed 2026-09-25, see below): the 10-15 unit starting-resource
-  guarantee and contested-zone resource placement generally. Vista water masks and small/large map sizes
-  remain open.
+  guarantee and contested-zone resource placement generally (closed the same day, see below), and the
+  water mask item (closed 2026-09-26, see below). Small/large map sizes remain open.
 
 ## Resource placement per the zoning spec (2026-09-25)
 Closes rules 1-4 above for real resource placement (rule 3's large-vein/contested requirement, rule 2's
@@ -200,6 +200,58 @@ placement, not just height. Depended on the 5 baked maps above existing.
   existing generic slope-based Rock rule already emphasises terrace risers reasonably; Divided Riverbed's
   fords already read correctly via the existing water-proximity sand/pebble bands; Clearing's identity is
   a tile classification (`ForestLaneWidth`), not a height/splat feature.
+
+## Water mask (2026-09-26)
+Closes this item: real, terrain-derived water now exists on 4 of the 5 layout styles (Divided Riverbed
+already had its own explicit river, untouched), feeding the existing water/shoreline/NavMesh/Dock/fish
+systems (`ProceduralTerrain`, `WaterProximity`, `NavMeshBaker`, `WaterMover`) exactly as they already work
+for Coastal/Divided Riverbed - no runtime code in any of those systems changed. What's new is *deriving
+where a water rectangle sits* from the actual baked terrain instead of hand-placing one.
+
+- **Kept the water/shoreline system's own rectangle-based data model** (`MapDefinitionData.WaterCenter`/
+  `WaterHalfExtents`) rather than generalizing to an arbitrary raster lake shape - `WaterProximity.
+  ClampToWater`'s own comment already documents that `WaterMover`'s "a boat's straight-line path never
+  leaves water" guarantee depends on the water region being convex, which a hand-baked arbitrary mask
+  shape could easily violate. A rectangle is exactly what every consumer (shoreline carve, NavMesh
+  exclusion, Dock placement, boat pathing) already assumes and is proven safe for.
+- New `Assets/Scripts/Core/WaterBasinFinder.cs` (pure, unit-tested, no UnityEngine.Object dependency):
+  `FindLowestFlatRegion` grid-searches candidate rectangles across the Contested zone (`SkirmishMapZones`
+  - water belongs there per rule 3, same as large gold/stone) and keeps whichever has the lowest maximum
+  sampled height, i.e. the flattest/lowest basin a rectangle that size can actually fit inside on the real
+  baked terrain - "derive it, don't guess it," the same principle `ComputeMask`'s feature masks already
+  use. Returns not-found if even the best candidate doesn't sit in the terrain's own lowest quarter.
+- New `Assets/Editor/Vista/VistaSpike.cs` menu item `BharatRTS/Vista Skirmish Layouts/Report Water
+  Basins`: runs `WaterBasinFinder` against every style's already-baked `height.bytes` (no need to
+  regenerate the Vista graph) and logs a candidate rectangle per style - a repeatable dev tool, not
+  match-time code; re-run it any time a style's heightmap is rebaked.
+- Ran it live via UnityMCP against the 5 real baked heightmaps. Results transcribed directly into
+  `MapDefinition.cs` (no runtime file/mask format needed - the analysis is an offline decision aid, the
+  same "baked once, hardcoded as constants" convention `SkirmishTerrainCarving`'s own mesa/ridge
+  parameters already use):
+  - **Crossroad Valleys**: a lake at (-25, 0), half-extents (14, 10) - the valley between the two -X mesas.
+  - **Mountain Pass**: a small lake at (13, 31), half-extents (8, 8) - off to one side of the ridge, well
+    clear of the pass corridor's own Z-band (the ridge/pass carve only shapes terrain near Z=0; this sits
+    at Z=31, past even the ridge's falloff).
+  - **Highland Foothills**: a highland tarn at (25, 25), half-extents (14, 10), in a genuinely low terrace
+    (max height 1.14m against an 11.10m map peak).
+  - **Clearing**: a small clearing pond at (-20, 25), half-extents (14, 10) - Clearing's Dunes base is
+    gentle everywhere (2.71m map peak), so this is honestly the flattest/lowest spot rather than a
+    dramatic carve, matching the style's "dense forest, small natural clearings" identity.
+  - **Divided Riverbed**: left unchanged (its own explicit full-width river is the correct design, not
+    something to derive from a basin search).
+- `ResourceNodeSpawner` gained water avoidance (`GenerateLandPoint`, a bounded-retry wrapper): every
+  general/starting resource draw now retries away from the map's water rectangle before falling back -
+  a real gap this item's own change exposed (4 more maps now have water, quadrupling the odds a resource
+  spawn point randomly lands underwater), fixed rather than shipped as a new regression. Fish placement
+  (`RandomPointInWater`) is intentionally excluded - that's supposed to land in water.
+- 5 new EditMode tests (`WaterBasinFinderTests.cs`), 675/675 total. Live-verified via UnityMCP through the
+  real production path for all 4 newly-watered maps: a real match on each style, confirmed a real `Water`
+  GameObject exists with the exact discovered center/half-extents, confirmed `NavMesh.CalculatePath`
+  (start-position-snapped per this project's own documented gotcha) still connects Player to Enemy on
+  every one (rule 5), screenshotted each lake (clean shoreline/beach blend, plausible placement - the
+  Crossroad Valleys lake visibly sits between its two mesas, the Mountain Pass lake at the mountain's
+  foot, the Highland tarn in a genuine basin with nearby rock outcrops), and confirmed a fresh match on
+  each map has zero non-Fish resource nodes inside water (only the intentional Fish nodes are).
 
 ## Open questions
 - Number and placement of starts on the ring (2 players opposite each other, or up to 3 with

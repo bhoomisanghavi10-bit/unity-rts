@@ -275,6 +275,14 @@ namespace KingdomsOfBharat.Core
                 BakedMaskResource = "Maps/SkirmishMedium/mask",
                 MaskTerrainLayerIndex = 3, // Sand - mesas read as sandstone buttes.
                 BiasResourcesToMask = true,
+                // Water mask item (docs/SKIRMISH_MAP_SPEC.md): found by
+                // VistaSpike.ReportWaterBasins scanning the already-baked
+                // heightmap for the flattest, lowest Contested-zone
+                // rectangle - a small lake tucked in the valley between the
+                // 2 mesas on the -X side, not hand-picked.
+                WaterCenter = new Vector3(-25f, 0f, 0f),
+                WaterHalfExtents = new Vector3(14f, 0f, 10f),
+                FishCount = 4,
             },
             // Divided Riverbed: same footprint/economy as SkirmishMedium,
             // a full-width water band across X at Z=0 (WaterHalfExtents.x
@@ -340,6 +348,16 @@ namespace KingdomsOfBharat.Core
                 BakedMaskResource = "Maps/SkirmishMountainPass/mask",
                 MaskTerrainLayerIndex = 2, // Rock - the chain reads as exposed stone.
                 BiasResourcesToMask = true,
+                // Water mask item: a small mountain lake found on the
+                // Player's side of the map, off to one side of the ridge -
+                // well clear of the pass corridor's own Z-band (the ridge/
+                // pass only shapes terrain near Z=0; this lake sits at
+                // Z=31, past even the ridge's falloff), confirmed via
+                // VistaSpike.ReportWaterBasins against the real baked
+                // heightmap, not placed by eye.
+                WaterCenter = new Vector3(13f, 0f, 31f),
+                WaterHalfExtents = new Vector3(8f, 0f, 8f),
+                FishCount = 3,
             },
             // Highland Foothills: rolling terraced highlands (see
             // SkirmishTerrainCarving.ApplyTerracing).
@@ -364,6 +382,13 @@ namespace KingdomsOfBharat.Core
                 Enemy2TownCenter = new Vector3(-57f, 1f, 0f),
                 NavMeshBoundsSize = new Vector3(170f, 30f, 170f),
                 BakedHeightmapResource = "Maps/SkirmishHighlandFoothills/height",
+                // Water mask item: a highland tarn found by
+                // VistaSpike.ReportWaterBasins in a genuinely low terrace
+                // of the baked terrain (max height 1.14m against an 11.10m
+                // map peak), not hand-picked.
+                WaterCenter = new Vector3(25f, 0f, 25f),
+                WaterHalfExtents = new Vector3(14f, 0f, 10f),
+                FishCount = 4,
             },
             // Clearing: dense forest (much lower ForestThreshold) with 3
             // guaranteed-clear lanes joining every pair of active town
@@ -391,6 +416,15 @@ namespace KingdomsOfBharat.Core
                 BakedHeightmapResource = "Maps/SkirmishClearing/height",
                 ForestThreshold = 0.3f,
                 ForestLaneWidth = 7f,
+                // Water mask item: a small clearing pond found by
+                // VistaSpike.ReportWaterBasins - Clearing's Dunes base is
+                // gentle everywhere (2.71m map peak), so this is the
+                // genuinely flattest/lowest spot rather than a dramatic
+                // carve, matching the style's own "dense forest, small
+                // natural clearings" identity.
+                WaterCenter = new Vector3(-20f, 0f, 25f),
+                WaterHalfExtents = new Vector3(14f, 0f, 10f),
+                FishCount = 4,
             },
         };
 

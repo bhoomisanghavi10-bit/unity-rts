@@ -8,6 +8,51 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Water mask closed (2026-09-26)** — closes `docs/SKIRMISH_MAP_SPEC.md`'s
+  last open item from that doc. Real, terrain-derived water now exists on 4
+  of the 5 skirmish layouts (only Divided Riverbed had any before, its own
+  hand-placed river; Crossroad Valleys/Mountain Pass/Highland Foothills/
+  Clearing all had none). **Deliberately kept the existing rectangle-based
+  water data model** (`MapDefinitionData.WaterCenter`/`WaterHalfExtents`)
+  rather than generalizing to an arbitrary raster lake shape —
+  `WaterProximity.ClampToWater`'s own comment already documents that
+  `WaterMover`'s "a boat's straight path never leaves water" guarantee
+  depends on the water region being convex, which an arbitrary mask shape
+  could violate; a rectangle is exactly what the existing shoreline carve/
+  NavMesh exclusion/Dock placement/boat pathing all already assume and are
+  proven safe for. New `Assets/Scripts/Core/WaterBasinFinder.cs` (pure,
+  unit-tested): grid-searches candidate rectangles across the Contested
+  zone and keeps whichever has the lowest maximum sampled height — the
+  flattest/lowest basin a rectangle that size can actually fit on the real
+  baked terrain, "derive it, don't guess it," same principle as the
+  existing feature-mask system. New Editor menu item
+  `BharatRTS/Vista Skirmish Layouts/Report Water Basins` runs it against
+  every style's already-baked height.bytes (no Vista regeneration needed)
+  and logs a candidate per style — a repeatable dev tool. Ran it live via
+  UnityMCP; results hand-transcribed into `MapDefinition.cs` (no new
+  runtime file format — this is an offline decision aid, same "baked once,
+  hardcoded as constants" convention `SkirmishTerrainCarving`'s mesa/ridge
+  parameters already use): Crossroad Valleys gets a lake at (-25,0) between
+  its two -X mesas; Mountain Pass a small lake at (13,31) off to one side
+  of the ridge (well clear of the pass corridor's own Z-band); Highland
+  Foothills a tarn at (25,25) in a genuine low terrace; Clearing a pond at
+  (-20,25) matching its "dense forest, small clearings" identity; Divided
+  Riverbed untouched (its own river is the correct design already).
+  `ResourceNodeSpawner` gained water avoidance (`GenerateLandPoint`, a
+  bounded-retry wrapper on every general/starting resource draw) — a real
+  gap this item's own change exposed (4 more maps with water quadruples the
+  odds a resource spawn lands underwater), fixed rather than shipped as a
+  new regression; Fish placement is intentionally excluded from this
+  avoidance. 5 new EditMode tests (`WaterBasinFinderTests.cs`), 675/675
+  total pass (up from 670). Live-verified via UnityMCP through the real
+  production path for all 4 newly-watered maps: a real match on each,
+  confirmed a real `Water` GameObject with the exact discovered center/
+  half-extents, confirmed `NavMesh.CalculatePath` still connects Player to
+  Enemy on every one (rule 5), screenshotted each lake (clean shoreline,
+  plausible placement — Crossroad Valleys' lake visibly sits between its
+  two mesas, Highland's tarn shows real rock outcrops nearby), and
+  confirmed a fresh match on each map has zero non-Fish resource nodes
+  inside water. Next: small/large map sizes, or any other item.
 - **Resource placement per the zoning spec closed (2026-09-25), same-day
   follow-up to the Vista splat/masks item below.** Closes
   `docs/SKIRMISH_MAP_SPEC.md` rules 1-4 for real resource placement -
