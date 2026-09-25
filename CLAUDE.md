@@ -37,23 +37,30 @@ docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those shee
   real `Terrain`/`TerrainData`, consistent with this project's own
   precedent of live-verifying pure Unity-object glue instead of forcing
   EditMode coverage onto it) — not yet live-verified for real (no
-  prototypes to verify against yet). **Still uncommitted in the working
-  tree as of this reconciliation**: the actual Vista (`Assets/
-  PinwheelStudio/`, 118M) and Nature Renderer 6 (`Assets/Visual Design
-  Cafe/`, 789M) package assets themselves (both untracked), `Packages/
-  manifest.json`'s new `com.unity.editorcoroutines` dependency (likely a
-  Vista/Nature Renderer dependency) plus `packages-lock.json`/
-  `ProjectSettings/ProjectSettings.asset`, and an unstaged deletion of the
-  entire unused `Assets/Advance Studios/` (Unity Asset Store "Medieval
-  Castle") pack — confirmed zero remaining references in `Assets/Scripts`
-  or `Assets/Scenes` (it was Wall/Gate's model source pre-2026-09-16,
-  superseded by the later Meshy-sourced Wall system), so the deletion looks
-  like safe, intentional cleanup (matching this project's own
-  "Remove verified-dead third-party asset leftovers" precedent, commit
-  `d24316f`) rather than accidental — not yet committed either way. None
-  of this was committed this session; flagging for the next session to
-  either commit it as one scoped Vista/Nature-Renderer-integration commit
-  or investigate further before doing so.
+  prototypes to verify against yet). Was left uncommitted in the working
+  tree at reconciliation time (the actual Vista/Nature Renderer package
+  assets, the `Packages/manifest.json`/`ProjectSettings.asset` changes
+  those imports produced, and an unstaged deletion of the unused
+  `Assets/Advance Studios/` "Medieval Castle" pack, confirmed zero
+  remaining references before deleting). **Resolved same day (commit
+  `9cfdcf4`)**: per the user's explicit choice (Git LFS over gitignore or
+  a plain commit — these are paid Asset Store packages, so LFS keeps them
+  versioned without permanently bloating plain git history), added
+  `Assets/PinwheelStudio/**` and a double-quoted
+  `"Assets/Visual Design Cafe/**"` to `.gitattributes` (a gitattributes
+  pattern with a literal space needs C-style double-quoting — backslash-
+  escaping and bracket character classes both fail to parse) and
+  committed both package folders through LFS plus the manifest/
+  ProjectSettings changes and the Advance Studios deletion, in one scoped
+  commit. **Gotcha hit and fixed while doing this**: staging the Visual
+  Design Cafe folder while `.gitattributes` still had a syntactically
+  invalid line for it silently staged those files as raw (non-LFS) blobs
+  with no error — caught by spot-checking a staged FBX's actual blob
+  content (real binary content, not an `oid sha256:...` pointer) rather
+  than trusting the LFS rule was active just because the line existed;
+  fixed with `git add --renormalize` after correcting the pattern, then
+  re-verified every file over 200KB in both folders resolved to a real
+  LFS pointer before committing.
 - **Vista spike closed (2026-09-21)** — one 158x158 map generated in Vista from code (`BharatRTS/Vista Spike/Generate And Bake Medium Map`), baked to `Resources/Maps/SkirmishMedium/height.bytes`, and loaded by `ProceduralTerrain` via `BakedHeightmap` (`MapId.SkirmishMedium`, start plateaus levelled, procedural fallback kept). Fixed `TownCenterFactory` burying the Town Center on relief. 627/627. Gotchas: Vista manager needs its UnityEvents initialised by reflection, templates are 1000 m-scale (shrink Noise `m_scale`), set `terrainMaxHeight`. Not done: real layouts (5 styles in `docs/SKIRMISH_MAP_SPEC.md`), Vista splat/masks, resource placement per the zoning spec, water mask. Vista/Nature Renderer imports still uncommitted.
 - **Skirmish map spec confirmed (2026-09-21)** — medium map 158 x 158 tiles (1 unit = 1 tile): outer 40 tiles per side = home base buffer (starts; starting woodline + primary gold 10-15 units from the TC), middle 78 x 78 = contested zone (large gold, stone, chokes, Relics), outer 3 tiles = dead zone. `SkirmishMapZones` is the single definition (tested, not yet wired in); spec in `docs/SKIRMISH_MAP_SPEC.md`. User added Vista Personal + Nature Renderer 6 Free (uncommitted) and OK'd replacing existing systems if better; plan = bake Vista maps in the editor, load them in `ProceduralTerrain` with the procedural fallback. Next: the Vista spike (one 158x158 map). Open: starts per map, Relics authoring, scaling to small/large, licences/size of the imports.
 - **Planar water reflection closed (2026-09-21)** — `PlanarReflection` mirror camera into a 0.4x RT sampled by `KobWater`; new **Clutter** layer (slot 9, `Ground`=8 restored), Runtime asmdef now references URP. **Gotchas**: `manage_editor add_layer` overwrote the Ground layer — verify layers after any add; ProjectSettings edits need `File/Save Project` to persist. 611/611. Open: Settings/quality toggle for reflections (`PlanarReflection.Enabled`), profiling on real hardware, map-layout work.
