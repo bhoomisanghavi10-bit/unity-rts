@@ -90,7 +90,12 @@ namespace KingdomsOfBharat.ResourceGathering
         {
             ApplyMapDefinition();
 
-            _rng = new DeterministicRandom(randomSeed == -1 ? System.Environment.TickCount : randomSeed);
+            // One match seed, named substream: identical configurations lay out
+            // identical worlds, and no other system's draws can shift this
+            // sequence. The legacy path (no MatchConfiguration) is unchanged.
+            _rng = MatchConfiguration.Current != null
+                ? MatchConfiguration.Current.Stream("resources")
+                : new DeterministicRandom(randomSeed == -1 ? System.Environment.TickCount : randomSeed);
 
             // Zoning spec rules 1-2: every start gets a guaranteed woodline
             // + a small primary gold node 10-15 units out, before anything

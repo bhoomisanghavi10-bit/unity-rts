@@ -521,6 +521,13 @@ namespace KingdomsOfBharat.Core
         public static MapId CurrentId { get; private set; } = MapId.RiverValley;
         public static MapDefinitionData Current { get; private set; } = Definitions[MapId.RiverValley];
 
+        // Read-only lookup that does not change the selected map (used to
+        // build a MatchConfiguration before the map is applied).
+        public static MapDefinitionData Get(MapId id)
+        {
+            return Definitions[id];
+        }
+
         public static void Select(MapId id)
         {
             CurrentId = id;

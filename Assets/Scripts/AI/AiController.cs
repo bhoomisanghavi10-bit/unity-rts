@@ -199,6 +199,22 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
+            // Configured matches: the slot decides who controls this faction,
+            // and starting forces already exist (StartingForces.SpawnAll).
+            MatchConfiguration configuration = MatchConfiguration.Current;
+            if (configuration != null)
+            {
+                if (!configuration.IsAi(myFaction))
+                {
+                    enabled = false;
+                    return;
+                }
+
+                ApplyDifficulty();
+                AdoptTownCenter();
+                return;
+            }
+
             ApplyDifficulty();
 
             // Item 6 (Scenario Editor, heavy path session 1): a custom

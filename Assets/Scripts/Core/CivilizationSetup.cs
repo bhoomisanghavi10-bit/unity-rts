@@ -46,6 +46,7 @@ namespace KingdomsOfBharat.Core
         private void OnDestroy()
         {
             HasMatchStarted = false;
+            MatchConfiguration.End();
             ScenarioManager.EndScenario();
             CustomScenarioContext.End();
             Multiplayer.NetworkMatch.End();
@@ -53,7 +54,24 @@ namespace KingdomsOfBharat.Core
 
         public void BeginMatch(CivilizationId playerCivilization)
         {
-            BeginMatchCore(playerCivilization, aiCivilization, map);
+            BeginMatchCore(MatchConfiguration.Create(map, playerCivilization, aiCivilization, enableThirdFaction, enemy2Civilization, _seedOverride));
+        }
+
+        // The authoritative entry point: every other Begin* below builds a
+        // MatchConfiguration (the "adapter") and lands here.
+        public void BeginMatch(MatchConfiguration configuration)
+        {
+            BeginMatchCore(configuration);
+        }
+
+        // Optional fixed seed for the next BeginMatch(CivilizationId) (tests,
+        // replays, "same map again"). -1 = pick one fresh per match. Consumed
+        // by that next match only - it does not persist across rematches.
+        private int _seedOverride = -1;
+
+        public void SetSeed(int seed)
+        {
+            _seedOverride = seed;
         }
 
         // CivPicker's map row (or any other pre-match UI) calls this before
@@ -76,7 +94,8 @@ namespace KingdomsOfBharat.Core
         // been exchanged over the wire, instead of calling BeginMatch.
         public void BeginNetworkMatch(CivilizationId hostCivilization, CivilizationId remoteCivilization, MapId networkMap)
         {
-            BeginMatchCore(hostCivilization, remoteCivilization, networkMap);
+            BeginMatchCore(MatchConfiguration.Create(networkMap, hostCivilization, remoteCivilization,
+                secondSlotIsHuman: true));
         }
 
         // Item 50: same match-start pipeline as BeginMatch, but sourcing
@@ -87,7 +106,7 @@ namespace KingdomsOfBharat.Core
         public void BeginScenarioMatch(ScenarioDefinition scenario)
         {
             ScenarioManager.Begin(scenario);
-            BeginMatchCore(scenario.PlayerCivilization, scenario.AiCivilization, scenario.Map);
+            BeginMatchCore(MatchConfiguration.Create(scenario.Map, scenario.PlayerCivilization, scenario.AiCivilization, enableThirdFaction, enemy2Civilization, _seedOverride));
         }
 
         // Item 6 (Scenario Editor, heavy path session 1): a player-authored
@@ -133,7 +152,7 @@ namespace KingdomsOfBharat.Core
             }
 
             CustomScenarioContext.Begin(data);
-            BeginMatchCore((CivilizationId)data.playerCivilization, (CivilizationId)data.aiCivilization, (MapId)data.mapId);
+            BeginMatchCore(MatchConfiguration.Create((MapId)data.mapId, (CivilizationId)data.playerCivilization, (CivilizationId)data.aiCivilization, enableThirdFaction, enemy2Civilization, _seedOverride));
             SpawnPlacements(data);
         }
 
@@ -170,8 +189,14 @@ namespace KingdomsOfBharat.Core
             }
         }
 
-        private void BeginMatchCore(CivilizationId playerCivilization, CivilizationId aiCiv, MapId mapId)
+        private void BeginMatchCore(MatchConfiguration config)
         {
+            _seedOverride = -1; // a fixed seed applies to one match only
+
+            // Replaces (never merges with) whatever the previous match left,
+            // before any system that reads it starts.
+            MatchConfiguration.Begin(config);
+
             // Phase 5 LAN transport MVP: must run before any gated spawner
             // below activates - a match's initial units/buildings spawn
             // synchronously during that activation, before SimClock even
@@ -181,7 +206,7 @@ namespace KingdomsOfBharat.Core
             // comment).
             Multiplayer.NetworkId.Reset();
 
-            MapRegistry.Select(mapId);
+            MapRegistry.Select(config.Map);
 
             // Phase 5 gap-close: ProceduralGround/NavMeshBaker are always-
             // active from scene load, same as RTSCameraController/
@@ -213,42 +238,71 @@ namespace KingdomsOfBharat.Core
             DiplomacyRegistry.Reset();
             TeamColorBuildingTint.Reset();
             TeamColorUnitTint.Reset();
-            ScoreProgress.Reset();
+            // Repository-audit finding F08: every per-faction progression
+            // registry (Score/Upgrade/UniqueTech/EconomyTech/Hero/
+            // UniqueUnitElite/the 13 unit-tier ladders) is a static
+            // dictionary that otherwise survives into the next match
+            // started in this same process. See ProgressionRegistry's own
+            // header comment.
+            ProgressionRegistry.ResetAllForNewMatch();
 
-            // AoE-parity gap-close: aiCiv/enemy2Civilization are fixed
-            // Inspector defaults, not player-aware - nothing previously
-            // stopped the player's own CivPicker choice from colliding
-            // with one of them (e.g. picking Vijayanagara against the
-            // default aiCivilization=Vijayanagara), which today makes two
-            // factions render as literally the same civ, since civ
-            // identity is the only body tint that exists
-            // (HumanModelFactory.PaletteNameFor). The player's pick is
-            // authoritative and never rerolled; AI factions resolve
-            // deterministically around it and each other.
-            var takenCivilizations = new HashSet<CivilizationId> { playerCivilization };
-            CivilizationId resolvedAiCiv = ResolveDistinctCivilization(aiCiv, takenCivilizations);
-            takenCivilizations.Add(resolvedAiCiv);
-
-            CivilizationRegistry.Assign(FactionId.Player, playerCivilization);
-            CivilizationRegistry.Assign(FactionId.Enemy, resolvedAiCiv);
-
-            AgeProgress.Initialize(FactionId.Player, StartingAgeFor(playerCivilization));
-            AgeProgress.Initialize(FactionId.Enemy, StartingAgeFor(resolvedAiCiv));
-
-            // Item 48: only touches Enemy2's registries when the 3rd
-            // faction is actually on - an untouched CivilizationRegistry/
-            // AgeProgress entry for Enemy2 is harmless (nothing reads it
-            // unless a 2nd AiController actually spawns and asks), but
-            // initializing it unconditionally would be pointless work for
-            // the common 2-faction case.
-            if (enableThirdFaction)
+            // Civilization/age per playable slot. Civ resolution (the player's
+            // pick is authoritative, others resolve around it) already
+            // happened in MatchConfiguration.Create.
+            foreach (MatchSlot slot in config.Slots)
             {
-                CivilizationId resolvedEnemy2Civ = ResolveDistinctCivilization(enemy2Civilization, takenCivilizations);
-                takenCivilizations.Add(resolvedEnemy2Civ);
+                if (slot.Type == SlotType.Closed)
+                {
+                    continue;
+                }
 
-                CivilizationRegistry.Assign(FactionId.Enemy2, resolvedEnemy2Civ);
-                AgeProgress.Initialize(FactionId.Enemy2, StartingAgeFor(resolvedEnemy2Civ));
+                CivilizationRegistry.Assign(slot.Faction, slot.Civilization);
+                AgeProgress.Initialize(slot.Faction, StartingAgeFor(slot.Civilization));
+            }
 
+            // Slots on the same team start allied (every default slot has its
+            // own team, i.e. the previous all-vs-all behaviour).
+            for (int i = 0; i < config.Slots.Count; i++)
+            {
+                for (int j = i + 1; j < config.Slots.Count; j++)
+                {
+                    MatchSlot a1 = config.Slots[i];
+                    MatchSlot b1 = config.Slots[j];
+                    if (a1.Type != SlotType.Closed && b1.Type != SlotType.Closed && a1.Team == b1.Team)
+                    {
+                        DiplomacyRegistry.SetAllied(a1.Faction, b1.Faction, true);
+                    }
+                }
+            }
+
+            if (config.StartingResources.Override)
+            {
+                foreach (MatchSlot slot in config.Slots)
+                {
+                    if (slot.Type == SlotType.Closed)
+                    {
+                        continue;
+                    }
+
+                    ResourceGathering.ResourceStockpile stockpile = ResourceGathering.ResourceStockpile.For(slot.Faction);
+                    if (stockpile != null)
+                    {
+                        stockpile.SetTotal(ResourceGathering.ResourceType.Food, config.StartingResources.Food);
+                        stockpile.SetTotal(ResourceGathering.ResourceType.Wood, config.StartingResources.Wood);
+                        stockpile.SetTotal(ResourceGathering.ResourceType.Gold, config.StartingResources.Gold);
+                        stockpile.SetTotal(ResourceGathering.ResourceType.Stone, config.StartingResources.Stone);
+                    }
+                }
+            }
+
+            // Starting forces are spawned here for every playable slot, human
+            // or AI alike, at the map's start for that slot - not by the
+            // AiController/TownCenterSpawner/UnitSpawner that used to each do
+            // it differently.
+            StartingForces.SpawnAll(config);
+
+            if (config.IsAi(FactionId.Enemy2) && enemy2GatedContent != null)
+            {
                 foreach (GameObject content in enemy2GatedContent)
                 {
                     content.SetActive(true);
@@ -261,6 +315,36 @@ namespace KingdomsOfBharat.Core
             }
 
             HasMatchStarted = true;
+
+            // Repository-audit reproduction: nothing previously moved the
+            // camera at match start, so it stayed wherever the scene/
+            // CivPicker screen last left it - which can be nowhere near the
+            // actual starting base, reading as an almost entirely black
+            // Game view once fog is enabled. Called last, once the map is
+            // selected (MapRegistry.Current above) and every faction is
+            // resolved - Multiplayer.NetworkMatch.LocalFaction is Player
+            // for every current single-player/AI-opponent flow (its own
+            // default) and only differs for a real 2-human LAN match, so
+            // this focuses whichever faction's start this process is
+            // actually meant to be looking at, not always literally
+            // FactionId.Player.
+            KingdomsOfBharat.Camera.RTSCameraController mainCamera = FindFirstObjectByType<KingdomsOfBharat.Camera.RTSCameraController>();
+            if (mainCamera != null)
+            {
+                mainCamera.FocusOnMatchStart(ResolveLocalPlayerStart(config.LocalFaction, MapRegistry.Current));
+            }
+        }
+
+        // Extracted from BeginMatchCore, same reason ResolveDistinctCivilization
+        // is: a MonoBehaviour method can't be unit-tested directly, but this
+        // decision - which map-defined start belongs to whichever faction
+        // this process is actually meant to be looking at - can be, in
+        // isolation from FindFirstObjectByType/the live scene. Only Player/
+        // Enemy are distinguished (matching NetworkMatch.LocalFaction's own
+        // documented 2-human-LAN-only scope - it never reports Enemy2).
+        internal static Vector3 ResolveLocalPlayerStart(FactionId localFaction, MapDefinitionData map)
+        {
+            return localFaction == FactionId.Enemy ? map.EnemyTownCenter : map.PlayerTownCenter;
         }
 
         // Phase 6 gap-close: Maurya's "starts the match already in the

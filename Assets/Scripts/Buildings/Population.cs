@@ -12,8 +12,8 @@ namespace KingdomsOfBharat.Buildings
     // with reality after a unit dies or a House is destroyed.
     public static class Population
     {
-        private const int BaseCapacity = 10;
-        private const int PerHouseCapacity = 5;
+        private static int BaseCapacity => MatchConfiguration.Current?.PopulationBase ?? MatchConfiguration.DefaultPopulationBase;
+        private static int PerHouseCapacity => MatchConfiguration.Current?.PopulationPerHouse ?? MatchConfiguration.DefaultPopulationPerHouse;
 
         public static int Current(FactionId faction)
         {

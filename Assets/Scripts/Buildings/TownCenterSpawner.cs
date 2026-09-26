@@ -13,7 +13,10 @@ namespace KingdomsOfBharat.Buildings
             // scenario that already placed a Player building supplies its
             // own starting base - skip the map's hardcoded default so the
             // Player doesn't end up with two Town Centers.
-            if (CustomScenarioContext.HasPlacementsFor(FactionId.Player))
+            // Configured matches spawn every slot's starting forces from
+            // CivilizationSetup (StartingForces); this legacy spawner only
+            // runs when a scene is activated without a MatchConfiguration.
+            if (MatchConfiguration.Current != null || CustomScenarioContext.HasPlacementsFor(FactionId.Player))
             {
                 return;
             }

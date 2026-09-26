@@ -18,7 +18,11 @@ namespace KingdomsOfBharat.Wildlife
 
         private void Start()
         {
-            Random.InitState(randomSeed);
+            // Own substream of the match seed (no more reseeding Unity's
+            // global Random); legacy fixed seed when no configuration exists.
+            _rng = MatchConfiguration.Current != null
+                ? MatchConfiguration.Current.Stream("wildlife")
+                : new KingdomsOfBharat.Multiplayer.DeterministicRandom(randomSeed);
 
             for (int i = 0; i < boarCount; i++)
             {
@@ -26,10 +30,12 @@ namespace KingdomsOfBharat.Wildlife
             }
         }
 
+        private KingdomsOfBharat.Multiplayer.DeterministicRandom _rng;
+
         private Vector3 RandomPoint()
         {
-            Vector2 direction = Random.insideUnitCircle.normalized;
-            float radius = Random.Range(minRadius, maxRadius);
+            Vector2 direction = _rng.InsideUnitCircleNormalized();
+            float radius = _rng.Range(minRadius, maxRadius);
             return new Vector3(direction.x * radius, 1f, direction.y * radius);
         }
 

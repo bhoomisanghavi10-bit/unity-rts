@@ -106,7 +106,7 @@ namespace KingdomsOfBharat.Match
 
         private bool IsTimeLimitReached()
         {
-            int limitMinutes = GameSettings.TimeLimitMinutes;
+            int limitMinutes = MatchConfiguration.Current?.TimeLimitMinutes ?? GameSettings.TimeLimitMinutes;
             return limitMinutes > 0 && (Time.unscaledTime - _matchStartedAt) >= limitMinutes * 60f;
         }
 
@@ -128,7 +128,7 @@ namespace KingdomsOfBharat.Match
             // still standing - that's the entire point of the mode. A
             // faction that never trained a hero (HeroProgress.
             // HasTrainedHero false) can't spuriously trigger either branch.
-            if (GameSettings.RegicideEnabled)
+            if (MatchConfiguration.Current?.RegicideEnabled ?? GameSettings.RegicideEnabled)
             {
                 if (HeroProgress.HasTrainedHero(FactionId.Player) && !HeroProgress.IsAlive(FactionId.Player))
                 {

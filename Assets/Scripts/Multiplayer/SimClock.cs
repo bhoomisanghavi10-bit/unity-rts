@@ -75,7 +75,9 @@ namespace KingdomsOfBharat.Multiplayer
                 // priority over the single-player MapRegistry/TickCount
                 // fallback below (which stays exactly as before for every
                 // non-networked match).
-                DeterministicRandom.ReseedMatch(NetworkMatch.PendingSeed ?? (MapRegistry.Current.ResourceSeed == -1
+                DeterministicRandom.ReseedMatch(MatchConfiguration.Current != null
+                    ? MatchConfiguration.Current.SeedFor("sim")
+                    : NetworkMatch.PendingSeed ?? (MapRegistry.Current.ResourceSeed == -1
                     ? System.Environment.TickCount
                     : MapRegistry.Current.ResourceSeed));
                 // AoE-Parity Phase 5 (resync-on-desync): StateHash reacts to

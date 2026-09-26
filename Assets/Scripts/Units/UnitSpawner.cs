@@ -23,7 +23,7 @@ namespace KingdomsOfBharat.Units
             // default Workers on top of a scenario's own placements until
             // this fix - caught via a live Population.Current mismatch
             // during verification, not left unnoticed.
-            if (CustomScenarioContext.HasPlacementsFor(FactionId.Player))
+            if (MatchConfiguration.Current != null || CustomScenarioContext.HasPlacementsFor(FactionId.Player))
             {
                 return;
             }
