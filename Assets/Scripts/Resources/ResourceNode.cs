@@ -19,6 +19,20 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private float _initialAmount = -1f;
 
+        // Live registry so workers can find a replacement node when theirs
+        // is depleted, without a scene-wide search.
+        public static readonly System.Collections.Generic.List<ResourceNode> All = new System.Collections.Generic.List<ResourceNode>();
+
+        private void OnEnable()
+        {
+            All.Add(this);
+        }
+
+        private void OnDisable()
+        {
+            All.Remove(this);
+        }
+
         // Raised after every harvest (before a depleted node destroys itself).
         // TerrainForest proxies use it to thin the rendered trees.
         public event System.Action<ResourceNode> Changed;
@@ -45,7 +59,14 @@ namespace KingdomsOfBharat.ResourceGathering
 
             if (IsDepleted)
             {
-                Destroy(gameObject);
+                if (Application.isPlaying)
+                {
+                    Destroy(gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(gameObject);
+                }
             }
 
             return taken;

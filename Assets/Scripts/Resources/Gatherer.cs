@@ -19,10 +19,17 @@ namespace KingdomsOfBharat.ResourceGathering
         [SerializeField] private float interactionRange = 2.5f;
         [SerializeField] private float fleeDistance = 6f;
 
-        private enum State { Idle, MovingToNode, Gathering, MovingToDropOff }
+        // Explicit worker-order states (public for UI/tests/diagnostics).
+        //  Idle -> MovingToResource -> Gathering -> MovingToDropOff -> (deposit)
+        //  -> MovingToResource ... ; WaitingForDropOff while a full worker has
+        //  no eligible drop-off; LastFailure records why an order ended badly.
+        public enum WorkerOrderState { Idle, MovingToResource, Gathering, MovingToDropOff, WaitingForDropOff }
+
+        private const float RetargetRadius = 30f;
+        private const int MaxRecoveryAttempts = 2;
 
         private UnitMover _mover;
-        private State _state = State.Idle;
+        private WorkerOrderState _state = WorkerOrderState.Idle;
         private ResourceNode _targetNode;
         private Building _dropOff;
         private Vector3 _dropOffApproachPoint;
@@ -36,17 +43,35 @@ namespace KingdomsOfBharat.ResourceGathering
         private CombatResponse _combatResponse = CombatResponse.Fight;
         private Attackable _selfAttackable;
         private bool _subscribedToDamage;
+        private readonly StuckWatchdog _watchdog = new StuckWatchdog();
+        private int _attempts;
+        private Vector3 _interactionPoint;
+        private ResourceType _workType;
+        private Vector3 _workPosition;
+        private readonly System.Collections.Generic.HashSet<ResourceNode> _avoidNodes = new System.Collections.Generic.HashSet<ResourceNode>();
+        private readonly System.Collections.Generic.HashSet<Building> _avoidDropOffs = new System.Collections.Generic.HashSet<Building>();
+        private float _dropOffRecheck;
+        private ResourceNode _resumeNode;
+        private Attackable _resumeAttacker;
+        private float _resumeDeadline;
+        private const float ResumeWindowSeconds = 45f;
+        public WorkerOrderState OrderState => _state;
+        public WorkerFailure LastFailure { get; private set; }
+        // Why the worker last went Idle without a failure (diagnostics/tests).
+        public string IdleReason { get; private set; } = "never started";
+        public float CarriedAmount => _carriedAmount;
+        public ResourceType CarriedType => _carriedType;
 
         // For SelectedUnitPanel (UI) to show a status line - true for the
         // whole round trip (walking to the node, gathering, walking back),
         // matching AoE's convention of showing "Gathering" throughout.
-        public bool IsWorking => _state != State.Idle;
+        public bool IsWorking => _state != WorkerOrderState.Idle;
 
         // For AnimationDriver: true only while actually in range and
         // harvesting, not during the walk there/back - IsWorking is too
         // broad for this (confirmed by testing: using it played the
         // gather/mine animation while still walking toward the node).
-        public bool IsActivelyGathering => _state == State.Gathering;
+        public bool IsActivelyGathering => _state == WorkerOrderState.Gathering;
 
         // For AnimationDriver to pick Mining vs. Gathering animation.
         public ResourceType? CurrentResourceType => _targetNode != null ? _targetNode.ResourceType : (ResourceType?)null;
@@ -84,23 +109,124 @@ namespace KingdomsOfBharat.ResourceGathering
 
         public void GatherFrom(ResourceNode node)
         {
-            _targetNode = node;
-            _dropOff = null;
-            Mover.MoveTo(node.transform.position);
-            _state = State.MovingToNode;
-        }
-
-        // Interrupts gathering. If a load is already being carried to the
-        // drop-off, let that finish rather than losing it.
-        public void CancelGather()
-        {
-            if (_state == State.MovingToDropOff)
+            if (node == null)
             {
                 return;
             }
 
+            _resumeNode = null;
+            _resumeAttacker = null;
+            _targetNode = node;
+            _workType = node.ResourceType;
+            _workPosition = node.transform.position;
+            _dropOff = null;
+            _attempts = 0;
+            _avoidNodes.Clear();
+            _avoidDropOffs.Clear();
+            LastFailure = WorkerFailure.None;
+
+            // Carrying a different resource: deliver that first, then
+            // return to this node (Deposit resumes the target).
+            if (_carriedAmount > 0f && _carriedType != node.ResourceType)
+            {
+                _state = WorkerOrderState.MovingToDropOff;
+                _watchdog.Reset();
+                return;
+            }
+
+            BeginMovingToResource();
+        }
+
+        // Interrupts gathering and stops walking. A carried load is kept
+        // (the worker just stands there holding it) - the earlier "keep
+        // walking to the drop-off" carve-out made a later move order strand
+        // the worker in MovingToDropOff forever.
+        public void CancelGather()
+        {
+            bool wasActive = _state != WorkerOrderState.Idle;
+            _resumeNode = null;
+            _resumeAttacker = null;
             _targetNode = null;
-            _state = State.Idle;
+            _dropOff = null;
+            _state = WorkerOrderState.Idle;
+            IdleReason = "cancelled";
+            if (wasActive)
+            {
+                Mover.Stop();
+            }
+        }
+
+        // Fresh-order reset for rematch/load-style callers.
+        public void ResetOrder()
+        {
+            _carriedAmount = 0f;
+            _attempts = 0;
+            LastFailure = WorkerFailure.None;
+            _avoidNodes.Clear();
+            _avoidDropOffs.Clear();
+            CancelGather();
+        }
+
+        private void BeginMovingToResource()
+        {
+            _state = WorkerOrderState.MovingToResource;
+            _watchdog.Reset();
+            Vector3 point = WorkerNav.ClosestPoint(_targetNode, transform.position);
+            if (Mover.TrySnap(point, 2.5f, out Vector3 snapped))
+            {
+                point = snapped;
+            }
+
+            _interactionPoint = point;
+            Mover.MoveTo(point);
+        }
+
+        private void Fail(WorkerFailure failure, string detail)
+        {
+            LastFailure = failure;
+            _targetNode = null;
+            _dropOff = null;
+            _state = WorkerOrderState.Idle;
+            Mover.Stop();
+            WorkerDiagnostics.Report(failure, name, detail);
+        }
+
+        // Resource gone (depleted/destroyed) or unreachable: continue with
+        // the nearest reachable node of the same type, else stand down.
+        private bool TryRetarget()
+        {
+            ResourceNode best = null;
+            var candidates = new System.Collections.Generic.List<ResourceNode>();
+            foreach (ResourceNode n in ResourceNode.All)
+            {
+                if (n != null && !n.IsDepleted && n.ResourceType == _workType && !_avoidNodes.Contains(n)
+                    && Vector3.Distance(_workPosition, n.transform.position) <= RetargetRadius)
+                {
+                    candidates.Add(n);
+                }
+            }
+
+            candidates.Sort((x, y) => Vector3.Distance(transform.position, x.transform.position)
+                .CompareTo(Vector3.Distance(transform.position, y.transform.position)));
+
+            for (int i = 0; i < candidates.Count && i < 4; i++)
+            {
+                if (Mover.CanReach(WorkerNav.ClosestPoint(candidates[i], transform.position)))
+                {
+                    best = candidates[i];
+                    break;
+                }
+            }
+
+            if (best == null)
+            {
+                return false;
+            }
+
+            int attempts = _attempts;
+            GatherFrom(best);
+            _attempts = attempts; // a retarget is not a fresh order for the retry budget
+            return true;
         }
 
         private void OnDestroy()
@@ -121,13 +247,19 @@ namespace KingdomsOfBharat.ResourceGathering
         // see Assets/Scripts/AssemblyInfo.cs's InternalsVisibleTo grant.
         internal void HandleDamaged(Attackable attacker)
         {
-            if (attacker == null || (_state != State.MovingToNode && _state != State.Gathering))
+            if (attacker == null || (_state != WorkerOrderState.MovingToResource && _state != WorkerOrderState.Gathering))
             {
                 return;
             }
 
+            // Remember what we were doing so the worker can go back to it
+            // once the threat is over (see TickResumeAfterAttack).
+            _resumeNode = _targetNode;
+            _resumeAttacker = attacker;
+            _resumeDeadline = Time.time + ResumeWindowSeconds;
             _targetNode = null;
-            _state = State.Idle;
+            _state = WorkerOrderState.Idle;
+            IdleReason = $"interrupted by attack from {attacker.name}";
 
             if (_combatResponse == CombatResponse.Fight)
             {
@@ -156,6 +288,12 @@ namespace KingdomsOfBharat.ResourceGathering
 
         private void Update()
         {
+            Step(Time.deltaTime);
+        }
+
+        // Time-injected body of Update so tests can drive the state machine.
+        internal void Step(float dt)
+        {
             // Subscribed lazily rather than in Awake - same sibling-
             // component-ordering gotcha as GarrisonPoint/Repairable's own
             // lazy resolution: WorkerFactory adds Gatherer before Attackable,
@@ -166,7 +304,7 @@ namespace KingdomsOfBharat.ResourceGathering
                 _subscribedToDamage = true;
             }
 
-            _auraCheckTimer -= Time.deltaTime;
+            _auraCheckTimer -= dt;
             if (_auraCheckTimer <= 0f)
             {
                 _auraCheckTimer = 0.5f;
@@ -175,15 +313,65 @@ namespace KingdomsOfBharat.ResourceGathering
 
             switch (_state)
             {
-                case State.MovingToNode:
-                    TickMovingToNode();
+                case WorkerOrderState.MovingToResource:
+                    TickMovingToNode(dt);
                     break;
-                case State.Gathering:
-                    TickGathering();
+                case WorkerOrderState.Gathering:
+                    TickGathering(dt);
                     break;
-                case State.MovingToDropOff:
-                    TickMovingToDropOff();
+                case WorkerOrderState.MovingToDropOff:
+                    TickMovingToDropOff(dt);
                     break;
+                case WorkerOrderState.WaitingForDropOff:
+                    TickWaitingForDropOff(dt);
+                    break;
+                case WorkerOrderState.Idle:
+                    TickResumeAfterAttack();
+                    break;
+            }
+        }
+
+        // A worker that was interrupted by an attack (fought back or fled)
+        // goes back to its resource once the attacker is dead/gone, or - for
+        // a fleeing worker - far enough away. Gives up after a window, and
+        // any new order (GatherFrom/CancelGather) clears it.
+        private void TickResumeAfterAttack()
+        {
+            if (_resumeAttacker == null && _resumeNode == null)
+            {
+                return;
+            }
+
+            if (Time.time > _resumeDeadline)
+            {
+                _resumeNode = null;
+                _resumeAttacker = null;
+                return;
+            }
+
+            bool threatOver = _resumeAttacker == null || _resumeAttacker.IsDead
+                || (_combatResponse == CombatResponse.Flee
+                    && Vector3.Distance(transform.position, _resumeAttacker.transform.position) > fleeDistance + 2f);
+            if (!threatOver)
+            {
+                return;
+            }
+
+            if (TryGetComponent(out MeleeAttacker melee) && melee.IsAttacking)
+            {
+                return;
+            }
+
+            ResourceNode node = _resumeNode;
+            _resumeNode = null;
+            _resumeAttacker = null;
+            if (node != null && !node.IsDepleted)
+            {
+                GatherFrom(node);
+            }
+            else if (_carriedAmount > 0f)
+            {
+                BeginDropOffTrip();
             }
         }
 
@@ -219,44 +407,88 @@ namespace KingdomsOfBharat.ResourceGathering
             _auraMultiplier = multiplier;
         }
 
-        private void TickMovingToNode()
+        private void TickMovingToNode(float dt)
         {
             if (_targetNode == null)
             {
-                _state = State.Idle;
-                return;
-            }
-
-            if (WithinRange(_targetNode.transform.position))
-            {
-                _state = State.Gathering;
-            }
-        }
-
-        private void TickGathering()
-        {
-            if (_targetNode == null || _targetNode.IsDepleted)
-            {
-                _state = _carriedAmount > 0f ? State.MovingToDropOff : State.Idle;
-                if (_state == State.MovingToDropOff)
+                if (_carriedAmount > 0f)
                 {
-                    _dropOff = null;
+                    BeginDropOffTrip();
+                }
+                else if (!TryRetarget())
+                {
+                    _state = WorkerOrderState.Idle;
+                    IdleReason = "resource vanished before arrival, no replacement";
                 }
                 return;
             }
 
-            if (!WithinRange(_targetNode.transform.position))
+            Vector3 edge = WorkerNav.ClosestPoint(_targetNode, transform.position);
+            float distance = Vector3.Distance(transform.position, edge);
+            if (distance <= interactionRange)
             {
-                Mover.MoveTo(_targetNode.transform.position);
-                _state = State.MovingToNode;
+                _state = WorkerOrderState.Gathering;
+                return;
+            }
+
+            if (Mover.IsPathInvalid || _watchdog.Tick(dt, distance))
+            {
+                RecoverFromResourceStall();
+            }
+        }
+
+        private void RecoverFromResourceStall()
+        {
+            _attempts++;
+            _watchdog.Reset();
+
+            if (_attempts == 1)
+            {
+                // Same node, freshly snapped approach point.
+                BeginMovingToResource();
+                return;
+            }
+
+            if (_attempts <= MaxRecoveryAttempts)
+            {
+                _avoidNodes.Add(_targetNode);
+                if (TryRetarget())
+                {
+                    return;
+                }
+            }
+
+            Fail(WorkerFailure.ResourceUnreachable, $"cannot reach {_workType} at {_workPosition}");
+        }
+
+        private void TickGathering(float dt)
+        {
+            if (_targetNode == null || _targetNode.IsDepleted)
+            {
+                _targetNode = null;
+                if (_carriedAmount > 0f)
+                {
+                    BeginDropOffTrip();
+                }
+                else if (!TryRetarget())
+                {
+                    _state = WorkerOrderState.Idle;
+                    IdleReason = "resource depleted, no replacement";
+                }
+                return;
+            }
+
+            if (Vector3.Distance(transform.position, WorkerNav.ClosestPoint(_targetNode, transform.position)) > interactionRange)
+            {
+                BeginMovingToResource();
                 return;
             }
 
             _carriedType = _targetNode.ResourceType;
-            _carriedAmount += _targetNode.Harvest(gatherRate * _rateMultiplier * _auraMultiplier * Time.deltaTime);
+            _carriedAmount += _targetNode.Harvest(gatherRate * _rateMultiplier * _auraMultiplier * dt);
 
-            _vfxTimer += Time.deltaTime;
-            if (_vfxTimer >= 0.4f)
+            _vfxTimer += dt;
+            if (_vfxTimer >= 0.4f && _targetNode != null && Application.isPlaying)
             {
                 _vfxTimer = 0f;
                 VfxFactory.SpawnBurst(_targetNode.transform.position + Vector3.up * 0.5f, new Color(0.7f, 0.6f, 0.4f), size: 0.1f, count: 3, speed: 0.6f, lifetime: 0.35f);
@@ -265,41 +497,111 @@ namespace KingdomsOfBharat.ResourceGathering
 
             if (_carriedAmount >= carryCapacity * _carryCapacityMultiplier)
             {
-                _dropOff = null;
-                _state = State.MovingToDropOff;
+                BeginDropOffTrip();
             }
         }
 
-        private void TickMovingToDropOff()
+        private void BeginDropOffTrip()
         {
+            _dropOff = null;
+            _attempts = 0;
+            _avoidDropOffs.Clear();
+            _state = WorkerOrderState.MovingToDropOff;
+            _watchdog.Reset();
+        }
+
+        private bool TryAssignDropOff()
+        {
+            _dropOff = FindNearestDropOff();
             if (_dropOff == null)
             {
-                _dropOff = FindNearestDropOff();
-                if (_dropOff == null)
-                {
-                    return; // no drop-off exists yet; keep waiting
-                }
-                _dropOffApproachPoint = ComputeDropOffApproachPoint(_dropOff);
-                Mover.MoveTo(_dropOffApproachPoint);
+                return false;
             }
 
-            if (WithinRange(_dropOffApproachPoint))
+            _dropOffApproachPoint = ComputeDropOffApproachPoint(_dropOff);
+            Mover.MoveTo(_dropOffApproachPoint);
+            _watchdog.Reset();
+            return true;
+        }
+
+        private void TickMovingToDropOff(float dt)
+        {
+            // A destroyed drop-off reads as null here, so this also re-routes
+            // when the target building dies mid-trip.
+            if (_dropOff == null && !TryAssignDropOff())
+            {
+                _state = WorkerOrderState.WaitingForDropOff;
+                _dropOffRecheck = 0f;
+                if (LastFailure != WorkerFailure.NoDropOff)
+                {
+                    LastFailure = WorkerFailure.NoDropOff;
+                    WorkerDiagnostics.Report(WorkerFailure.NoDropOff, name, $"carrying {_carriedAmount:0.#} {_carriedType} with no eligible drop-off");
+                }
+                return;
+            }
+
+            float distance = Vector3.Distance(transform.position, _dropOffApproachPoint);
+            if (distance <= interactionRange)
             {
                 Deposit();
+                return;
+            }
+
+            if (Mover.IsPathInvalid || _watchdog.Tick(dt, distance))
+            {
+                RecoverFromDropOffStall();
+            }
+        }
+
+        private void RecoverFromDropOffStall()
+        {
+            _attempts++;
+            _watchdog.Reset();
+
+            if (_attempts == 1)
+            {
+                _dropOffApproachPoint = ComputeDropOffApproachPoint(_dropOff);
+                Mover.MoveTo(_dropOffApproachPoint);
+                return;
+            }
+
+            if (_attempts <= MaxRecoveryAttempts)
+            {
+                _avoidDropOffs.Add(_dropOff);
+                if (TryAssignDropOff())
+                {
+                    return;
+                }
+            }
+
+            Fail(WorkerFailure.DropOffUnreachable, $"cannot reach a drop-off for {_carriedAmount:0.#} {_carriedType}");
+        }
+
+        // Full worker with no eligible drop-off: poll (not every frame)
+        // until one is built, then resume the trip.
+        private void TickWaitingForDropOff(float dt)
+        {
+            _dropOffRecheck -= dt;
+            if (_dropOffRecheck > 0f)
+            {
+                return;
+            }
+
+            _dropOffRecheck = 1f;
+            if (TryAssignDropOff())
+            {
+                LastFailure = WorkerFailure.None;
+                _state = WorkerOrderState.MovingToDropOff;
             }
         }
 
         // The drop-off building's own footprint (BuildingFootprint.Attach)
         // carves a NavMeshObstacle over its footprint - the raw
-        // transform.position used before this fix sits inside that
-        // unwalkable space, which a NavMeshAgent can never actually reach.
-        // GetNearestApproachPoint returns the nearest point on the
-        // building's real walkable boundary instead, from whichever side
-        // this worker is approaching from, plus a small buffer for the
-        // worker's own NavMeshAgent radius so it doesn't clip the edge.
-        // Falls back to the raw position for the (currently impossible,
-        // since every *Factory tags its building) case of a drop-off with
-        // no BuildingFootprintTag at all.
+        // transform.position sits inside that unwalkable space, which a
+        // NavMeshAgent can never actually reach. GetNearestApproachPoint
+        // returns the nearest point on the building's real walkable
+        // boundary instead, from whichever side this worker is approaching
+        // from, plus a small buffer for the agent's radius.
         private Vector3 ComputeDropOffApproachPoint(Building dropOff)
         {
             return dropOff.TryGetComponent(out BuildingFootprintTag footprintTag)
@@ -307,19 +609,38 @@ namespace KingdomsOfBharat.ResourceGathering
                 : dropOff.transform.position;
         }
 
+        // Deposits the whole load exactly once, then resumes the previous
+        // resource (or the nearest replacement) when there is one.
         private void Deposit()
         {
-            ResourceStockpile.For(MyFaction()).Add(_carriedType, _carriedAmount);
-            _carriedAmount = 0f;
+            ResourceStockpile stockpile = ResourceStockpile.For(MyFaction());
+            if (stockpile != null && _carriedAmount > 0f)
+            {
+                stockpile.Add(_carriedType, _carriedAmount);
+                _carriedAmount = 0f;
+            }
+            else if (stockpile == null)
+            {
+                Fail(WorkerFailure.NoDropOff, "no stockpile for this faction");
+                return;
+            }
+
+            _dropOff = null;
+            _attempts = 0;
+            LastFailure = WorkerFailure.None;
 
             if (_targetNode != null && !_targetNode.IsDepleted)
             {
-                Mover.MoveTo(_targetNode.transform.position);
-                _state = State.MovingToNode;
+                BeginMovingToResource();
             }
             else
             {
-                _state = State.Idle;
+                _targetNode = null;
+                if (!TryRetarget())
+                {
+                    _state = WorkerOrderState.Idle;
+                    IdleReason = "resource exhausted after deposit, no replacement";
+                }
             }
         }
 
@@ -331,7 +652,7 @@ namespace KingdomsOfBharat.ResourceGathering
 
             foreach (Building building in Building.All)
             {
-                if (!AcceptsDropOff(building, _carriedType))
+                if (!AcceptsDropOff(building, _carriedType) || _avoidDropOffs.Contains(building))
                 {
                     continue;
                 }
