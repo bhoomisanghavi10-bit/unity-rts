@@ -28,6 +28,61 @@ namespace KingdomsOfBharat.Multiplayer
 
         public static LanTransport Transport { get; private set; }
 
+        // Set when the two peers disagree on the match configuration (or
+        // another unrecoverable setup problem). SimClock stops advancing and
+        // the reason is available to the UI/logs - a clear failure rather
+        // than two games silently playing different matches.
+        public static string Fault { get; private set; }
+
+        public static void RaiseFault(string reason)
+        {
+            Fault = reason;
+            UnityEngine.Debug.LogError("[NetworkMatch] FAULT: " + reason);
+        }
+
+        // Sends a locally-originated command envelope, stamping it with the
+        // sequence CommandBus just assigned (call immediately after
+        // CommandBus.Enqueue). No-op outside a network match.
+        public static void SendCommand(KingdomsOfBharat.Multiplayer.Wire.NetMessageEnvelope envelope)
+        {
+            if (!IsActive || Transport == null)
+            {
+                return;
+            }
+
+            envelope.seq = CommandBus.LastSequence;
+            Transport.Send(envelope);
+        }
+
+        // Highest command sequence accepted per remote sender; anything at
+        // or below it is a duplicate/replay.
+        private static readonly System.Collections.Generic.Dictionary<int, int> _lastSeqByFaction = new System.Collections.Generic.Dictionary<int, int>();
+
+        // Sender binding + duplicate rejection for an incoming command.
+        public static bool AcceptRemoteCommand(KingdomsOfBharat.Multiplayer.Wire.NetMessageEnvelope envelope)
+        {
+            if (envelope.faction != (int)RemoteFaction)
+            {
+                NetworkDiagnostics.Report(NetworkIssue.WrongSender,
+                    $"{envelope.kind} claims faction {envelope.faction}, remote peer is {RemoteFaction}");
+                return false;
+            }
+
+            if (envelope.seq > 0)
+            {
+                _lastSeqByFaction.TryGetValue(envelope.faction, out int last);
+                if (envelope.seq <= last)
+                {
+                    NetworkDiagnostics.Report(NetworkIssue.DuplicateCommand, $"{envelope.kind} seq {envelope.seq} already seen (last {last})");
+                    return false;
+                }
+
+                _lastSeqByFaction[envelope.faction] = envelope.seq;
+            }
+
+            return true;
+        }
+
         // Phase 5 LAN transport MVP's actual lockstep gate (see SimClock.cs):
         // the highest tick value seen across every message received from
         // the remote peer (commands and Heartbeats alike - see
@@ -48,6 +103,10 @@ namespace KingdomsOfBharat.Multiplayer
             PendingSeed = seed;
             Transport = transport;
             RemoteMaxAckedTick = 0;
+            Fault = null;
+            _lastSeqByFaction.Clear();
+            CommandBus.ResetForNewMatch();
+            NetworkDiagnostics.Reset();
             IsActive = true;
 
             // Breaks the otherwise-real chicken-and-egg at tick 1: SimClock
@@ -58,6 +117,17 @@ namespace KingdomsOfBharat.Multiplayer
             // exact same tick as part of finishing the handshake, with
             // nothing to wait on first - see SimClock.cs's gating comment.
             transport.SendHeartbeat(CommandBus.InputDelayTicks);
+        }
+
+        // Tests only (InternalsVisibleTo): set perspective/activity without a
+        // real transport.
+        internal static void SetForTests(FactionId local, FactionId remote, bool active)
+        {
+            LocalFaction = local;
+            RemoteFaction = remote;
+            IsActive = active;
+            Fault = null;
+            _lastSeqByFaction.Clear();
         }
 
         public static void OnRemoteTickSeen(int tick)
@@ -82,6 +152,8 @@ namespace KingdomsOfBharat.Multiplayer
             PendingSeed = null;
             Transport = null;
             RemoteMaxAckedTick = 0;
+            Fault = null;
+            _lastSeqByFaction.Clear();
         }
     }
 }

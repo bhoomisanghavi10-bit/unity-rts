@@ -82,7 +82,7 @@ namespace KingdomsOfBharat.Combat
             collider.radius = 0.6f;
             collider.height = 3f;
 
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(9f);
             }

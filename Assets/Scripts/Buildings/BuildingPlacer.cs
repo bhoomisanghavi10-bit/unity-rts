@@ -567,7 +567,7 @@ namespace KingdomsOfBharat.Buildings
             // (NetworkMatch.IsActive stays false).
             if (NetworkMatch.IsActive)
             {
-                NetworkMatch.Transport.Send(CommandSerializer.ForBuild(tick, faction, ToNetBuildKind(kind), point, rotation.eulerAngles.y));
+                NetworkMatch.SendCommand(CommandSerializer.ForBuild(tick, faction, ToNetBuildKind(kind), point, rotation.eulerAngles.y));
             }
         }
 

@@ -68,8 +68,8 @@ namespace KingdomsOfBharat.UI
         // standard 2-side match summary.
         private static string BuildScoreText()
         {
-            ScoreProgress.Breakdown player = ScoreProgress.Compute(FactionId.Player);
-            ScoreProgress.Breakdown enemy = ScoreProgress.Compute(FactionId.Enemy);
+            ScoreProgress.Breakdown player = ScoreProgress.Compute(Multiplayer.NetworkMatch.LocalFaction);
+            ScoreProgress.Breakdown enemy = ScoreProgress.Compute(Multiplayer.NetworkMatch.IsActive ? Multiplayer.NetworkMatch.RemoteFaction : FactionId.Enemy);
 
             return "Final Score (You vs Enemy)\n\n"
                 + $"Military:    {player.Military} vs {enemy.Military}\n"

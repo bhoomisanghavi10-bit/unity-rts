@@ -61,7 +61,7 @@ namespace KingdomsOfBharat.FogOfWar
         private Material _ghostMaterial;
 
         private static bool MarathaScoutMemoryActive =>
-            CivilizationRegistry.For(FactionId.Player) == CivilizationId.Maratha;
+            CivilizationRegistry.For(Multiplayer.NetworkMatch.LocalFaction) == CivilizationId.Maratha;
 
         // Phase 5 map-awareness fix: this component is always-active from
         // scene load (not one of CivilizationSetup's gatedMatchContent, the
@@ -141,6 +141,11 @@ namespace KingdomsOfBharat.FogOfWar
 
                 foreach (VisionSource source in VisionSource.All)
                 {
+                    if (source.Faction != Multiplayer.NetworkMatch.LocalFaction)
+                    {
+                        continue; // only the local player's units reveal fog
+                    }
+
                     RevealAround(source.transform.position, source.VisionRadius);
                 }
             }
@@ -261,15 +266,27 @@ namespace KingdomsOfBharat.FogOfWar
             }
         }
 
-        private static bool IsFogged(FactionId faction)
+        internal static bool IsFogged(FactionId faction)
         {
-            return faction != FactionId.Player && !DiplomacyRegistry.AreAllied(FactionId.Player, faction);
+            return faction != Multiplayer.NetworkMatch.LocalFaction && !DiplomacyRegistry.AreAllied(Multiplayer.NetworkMatch.LocalFaction, faction);
         }
 
         private bool IsCellVisible(Vector3 worldPosition)
         {
             (int x, int z) = WorldToCell(worldPosition);
             return _cells[z * gridSize + x] == CellState.Visible;
+        }
+
+        // Public, read-only observability for this component's own state -
+        // previously nothing outside this class could ask "is this point
+        // currently revealed" without reaching into private fields. False
+        // (not a throw) before the grid exists yet (pre-match, or the very
+        // first frame before InitializeForCurrentMap's lazy build has run)
+        // since "not yet visible" is the correct answer for that case, not
+        // an error.
+        public bool IsVisible(Vector3 worldPosition)
+        {
+            return _cells != null && IsCellVisible(worldPosition);
         }
 
         private void SetVisibilityByCell(GameObject go)

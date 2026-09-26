@@ -107,6 +107,11 @@ namespace KingdomsOfBharat.Multiplayer
                 // the remote catches up, several ticks fire in one frame to
                 // catch back up, same as a slow frame already does today in
                 // single-player.
+                if (NetworkMatch.Fault != null)
+                {
+                    break; // configuration mismatch: do not simulate a wrong match
+                }
+
                 if (NetworkMatch.IsActive && NetworkMatch.RemoteMaxAckedTick < CurrentTick + 1)
                 {
                     break;
@@ -116,7 +121,7 @@ namespace KingdomsOfBharat.Multiplayer
                 CurrentTick++;
                 OnTick?.Invoke(CurrentTick);
 
-                if (NetworkMatch.IsActive)
+                if (NetworkMatch.IsActive && NetworkMatch.Transport != null)
                 {
                     NetworkMatch.Transport.SendHeartbeat(CurrentTick + CommandBus.InputDelayTicks);
                 }

@@ -43,7 +43,7 @@ namespace KingdomsOfBharat.Buildings
             go.AddComponent<HealthBar>();
             go.AddComponent<FactionMember>().Configure(faction);
 
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(9f);
             }

@@ -130,7 +130,7 @@ namespace KingdomsOfBharat.Match
             // HasTrainedHero false) can't spuriously trigger either branch.
             if (MatchConfiguration.Current?.RegicideEnabled ?? GameSettings.RegicideEnabled)
             {
-                if (HeroProgress.HasTrainedHero(FactionId.Player) && !HeroProgress.IsAlive(FactionId.Player))
+                if (HeroProgress.HasTrainedHero(Multiplayer.NetworkMatch.LocalFaction) && !HeroProgress.IsAlive(Multiplayer.NetworkMatch.LocalFaction))
                 {
                     return MatchOutcome.Defeat;
                 }
@@ -139,7 +139,7 @@ namespace KingdomsOfBharat.Match
                 bool allHostileHeroesDead = true;
                 foreach (FactionId hostileFaction in AllFactions)
                 {
-                    if (hostileFaction == FactionId.Player || DiplomacyRegistry.AreAllied(FactionId.Player, hostileFaction))
+                    if (hostileFaction == Multiplayer.NetworkMatch.LocalFaction || DiplomacyRegistry.AreAllied(Multiplayer.NetworkMatch.LocalFaction, hostileFaction))
                     {
                         continue;
                     }
@@ -163,7 +163,7 @@ namespace KingdomsOfBharat.Match
                 }
             }
 
-            if (!FactionHasForces(FactionId.Player))
+            if (!FactionHasForces(Multiplayer.NetworkMatch.LocalFaction))
             {
                 return MatchOutcome.Defeat;
             }
@@ -171,7 +171,7 @@ namespace KingdomsOfBharat.Match
             bool allHostilesEliminated = true;
             foreach (FactionId faction in AllFactions)
             {
-                if (faction == FactionId.Player || DiplomacyRegistry.AreAllied(FactionId.Player, faction))
+                if (faction == Multiplayer.NetworkMatch.LocalFaction || DiplomacyRegistry.AreAllied(Multiplayer.NetworkMatch.LocalFaction, faction))
                 {
                     continue;
                 }
@@ -206,7 +206,7 @@ namespace KingdomsOfBharat.Match
             foreach (FactionId faction in AllFactions)
             {
                 int population = Population.Current(faction);
-                if (faction == FactionId.Player || DiplomacyRegistry.AreAllied(FactionId.Player, faction))
+                if (faction == Multiplayer.NetworkMatch.LocalFaction || DiplomacyRegistry.AreAllied(Multiplayer.NetworkMatch.LocalFaction, faction))
                 {
                     playerSide += population;
                 }

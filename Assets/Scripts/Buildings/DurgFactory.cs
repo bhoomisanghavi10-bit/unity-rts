@@ -49,7 +49,7 @@ namespace KingdomsOfBharat.Buildings
             go.AddComponent<FactionMember>().Configure(faction);
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(12f);
             }

@@ -105,7 +105,7 @@ namespace KingdomsOfBharat.Combat
             // See WorkerFactory: only Player vision feeds FogOfWarManager.
             // 12f base (vs. every other unit's 8f) plus this tier's own
             // VisionBonus - the actual point of this unit.
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(12f + tier.VisionBonus);
             }

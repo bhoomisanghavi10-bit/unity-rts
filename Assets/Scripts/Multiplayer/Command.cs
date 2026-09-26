@@ -18,6 +18,11 @@ namespace KingdomsOfBharat.Multiplayer
     {
         public readonly FactionId Faction;
 
+        // Per-sender order number, assigned by CommandBus (local) or copied
+        // from the wire (remote). Together with Faction it gives every peer
+        // the same execution order for commands sharing a tick.
+        public int Sequence;
+
         protected Command(FactionId faction)
         {
             Faction = faction;

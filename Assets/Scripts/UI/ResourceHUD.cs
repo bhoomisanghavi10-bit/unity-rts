@@ -261,21 +261,21 @@ namespace KingdomsOfBharat.UI
 
         private void Update()
         {
-            ResourceStockpile stockpile = ResourceStockpile.For(FactionId.Player);
+            ResourceStockpile stockpile = ResourceStockpile.For(Multiplayer.NetworkMatch.LocalFaction);
             if (stockpile == null)
             {
                 return;
             }
 
-            string civName = CivilizationProfile.For(CivilizationRegistry.For(FactionId.Player)).DisplayName;
-            string ageName = AgeProfile.For(AgeProgress.CurrentAge(FactionId.Player)).DisplayName;
+            string civName = CivilizationProfile.For(CivilizationRegistry.For(Multiplayer.NetworkMatch.LocalFaction)).DisplayName;
+            string ageName = AgeProfile.For(AgeProgress.CurrentAge(Multiplayer.NetworkMatch.LocalFaction)).DisplayName;
 
             civLabel.text = $"Civilization: {civName}";
             woodLabel.text = $"{(int)stockpile.GetTotal(ResourceType.Wood)}";
             foodLabel.text = $"{(int)stockpile.GetTotal(ResourceType.Food)}";
             goldLabel.text = $"{(int)stockpile.GetTotal(ResourceType.Gold)}";
             stoneLabel.text = $"{(int)stockpile.GetTotal(ResourceType.Stone)}";
-            populationLabel.text = $"{Population.Current(FactionId.Player)}/{Population.Cap(FactionId.Player)}";
+            populationLabel.text = $"{Population.Current(Multiplayer.NetworkMatch.LocalFaction)}/{Population.Cap(Multiplayer.NetworkMatch.LocalFaction)}";
             ageLabel.text = $"Age: {ageName}";
 
             UpdateResearchRow();
@@ -288,7 +288,7 @@ namespace KingdomsOfBharat.UI
                 return;
             }
 
-            TownCenter agingUp = TownCenter.FindAgingUp(FactionId.Player);
+            TownCenter agingUp = TownCenter.FindAgingUp(Multiplayer.NetworkMatch.LocalFaction);
             bool researching = agingUp != null;
             _researchRow.SetActive(researching);
             if (_panelRect != null)

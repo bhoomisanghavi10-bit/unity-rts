@@ -25,6 +25,11 @@ namespace KingdomsOfBharat.Units
     {
         public static GameObject Spawn(Vector3 position, FactionId faction)
         {
+            return DefinitionCatalog.Default.Spawn(DefinitionCatalog.Worker, position, faction);
+        }
+
+        internal static GameObject SpawnCore(Vector3 position, FactionId faction)
+        {
             CivilizationId civilization = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civilization);
             // Baked in at spawn time, same as the civ bonus - a later Age-up
@@ -124,7 +129,7 @@ namespace KingdomsOfBharat.Units
             // has full internal knowledge and never queries fog itself, so
             // giving Enemy units a VisionSource too would incorrectly
             // reveal fog around the AI's own base to the player.
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(8f);
             }

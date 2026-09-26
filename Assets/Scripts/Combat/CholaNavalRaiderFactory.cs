@@ -85,7 +85,7 @@ namespace KingdomsOfBharat.Combat
                 go, HumanBodyBones.LeftHand, "Weapons/Bow/scene",
                 targetSize: 1.15f, localPositionOffset: new Vector3(-0.05f, 0f, 0f), localEulerOffset: new Vector3(0f, 90f, 0f));
 
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(10f);
             }

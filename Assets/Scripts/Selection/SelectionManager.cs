@@ -520,9 +520,22 @@ namespace KingdomsOfBharat.Selection
                     healer?.CancelHeal();
                     purohita?.CancelConvert();
                     relicCarrier?.CancelCarry();
-                    gatherer?.GatherFrom(node);
                     boatAttacker?.CancelAttack();
-                    boatGatherer?.GatherFrom(node);
+                    if (gatherer != null || boatGatherer != null)
+                    {
+                        // Through CommandBus like Move/Attack, and sent to the
+                        // LAN peer (typed by resource NetworkId).
+                        FactionId gatherFaction = unit.TryGetComponent(out FactionMember gatherUnitFaction)
+                            ? gatherUnitFaction.Faction
+                            : NetworkMatch.LocalFaction;
+                        ResourceNode gatherNode = node;
+                        int gatherTick = CommandBus.Enqueue(new AbilityCommand(gatherFaction, unit, () =>
+                        {
+                            gatherer?.GatherFrom(gatherNode);
+                            boatGatherer?.GatherFrom(gatherNode);
+                        }));
+                        SendNetworkCommand(CommandSerializer.ForGather(gatherTick, gatherFaction, unit, gatherNode));
+                    }
                 }
                 else if (hitSite && IsSameFaction(unit, site))
                 {
@@ -846,7 +859,7 @@ namespace KingdomsOfBharat.Selection
         {
             if (NetworkMatch.IsActive)
             {
-                NetworkMatch.Transport.Send(envelope);
+                NetworkMatch.SendCommand(envelope);
             }
         }
 

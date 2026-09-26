@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace KingdomsOfBharat.Multiplayer
 {
@@ -21,6 +22,22 @@ namespace KingdomsOfBharat.Multiplayer
 
         private static readonly Dictionary<int, List<Command>> _scheduled = new Dictionary<int, List<Command>>();
         private static bool _subscribed;
+        private static int _localSequence;
+        private static int _lastExecutedTick = -1;
+
+        // Sequence stamped on the most recent local Enqueue; the caller sends
+        // it with the wire envelope (NetworkMatch.SendCommand).
+        public static int LastSequence { get; private set; }
+
+        // Fresh queue/counters for a new match: without this a command
+        // scheduled in a previous match could still fire in the next one.
+        public static void ResetForNewMatch()
+        {
+            _scheduled.Clear();
+            _localSequence = 0;
+            LastSequence = 0;
+            _lastExecutedTick = -1;
+        }
 
         public static void EnsureSubscribed()
         {
@@ -38,6 +55,8 @@ namespace KingdomsOfBharat.Multiplayer
             EnsureSubscribed();
 
             int executeTick = SimClock.CurrentTick + InputDelayTicks;
+            command.Sequence = ++_localSequence;
+            LastSequence = command.Sequence;
             EnqueueAt(executeTick, command);
             return executeTick;
         }
@@ -49,6 +68,20 @@ namespace KingdomsOfBharat.Multiplayer
         // same reason ExecuteTick below is - see CommandBusDeterminismTests.
         internal static void EnqueueAt(int tick, Command command)
         {
+            // A peer that has not issued any order yet must still execute the
+            // remote peer's (previously only Enqueue subscribed to the clock).
+            EnsureSubscribed();
+
+            // A network command for a tick this peer already executed can
+            // never run in the right order; refuse it loudly (it is a desync
+            // in the making) instead of parking it in a dead bucket.
+            if (NetworkMatch.IsActive && tick <= _lastExecutedTick)
+            {
+                NetworkDiagnostics.Report(NetworkIssue.LateCommand,
+                    $"{command.GetType().Name} for tick {tick} arrived after tick {_lastExecutedTick} executed");
+                return;
+            }
+
             if (!_scheduled.TryGetValue(tick, out List<Command> commands))
             {
                 commands = new List<Command>();
@@ -66,6 +99,13 @@ namespace KingdomsOfBharat.Multiplayer
         // grant.
         internal static void ExecuteTick(int tick)
         {
+            // Recorded even when nothing is scheduled: a command arriving
+            // later for this tick is late whether or not the bucket existed.
+            if (tick > _lastExecutedTick)
+            {
+                _lastExecutedTick = tick;
+            }
+
             if (!_scheduled.TryGetValue(tick, out List<Command> commands))
             {
                 return;
@@ -75,8 +115,14 @@ namespace KingdomsOfBharat.Multiplayer
             // "same inputs -> same state" actually depends on - a peer that
             // executed the same tick's commands in a different order could
             // diverge even with identical inputs.
-            foreach (Command command in commands)
+            // Canonical order: by sender slot then that sender's own sequence,
+            // NOT arrival order - two peers can receive the same tick's
+            // commands in different orders. OrderBy is stable, so commands
+            // with equal keys (e.g. the unsequenced ones tests create) keep
+            // insertion order.
+            foreach (Command command in commands.OrderBy(c => (int)c.Faction).ThenBy(c => c.Sequence).ToList())
             {
+                NetworkValidationLog.Record($"CMD {tick} {(int)command.Faction} {command.Sequence} {command.GetType().Name}");
                 command.Execute();
             }
 

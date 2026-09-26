@@ -125,7 +125,7 @@ namespace KingdomsOfBharat.Combat
             collider.height = ModelHeight;
             root.AddComponent<GroundFollower>().Configure(model.transform);
 
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 root.AddComponent<VisionSource>().Configure(7f);
             }

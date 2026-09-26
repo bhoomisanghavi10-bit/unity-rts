@@ -38,6 +38,37 @@ namespace KingdomsOfBharat.Multiplayer
             }
         }
 
+        // Sender binding + duplicate rejection first, then typed target
+        // resolution; every refusal is counted and reported (never silent).
+        internal static void HandleCommand(NetMessageEnvelope envelope)
+        {
+            if (!NetworkMatch.AcceptRemoteCommand(envelope))
+            {
+                return;
+            }
+
+            Command command = CommandSerializer.ToCommand(envelope);
+            if (command == null)
+            {
+                NetworkDiagnostics.Report(NetworkIssue.UnresolvedTarget,
+                    $"{envelope.kind} tick {envelope.tick} seq {envelope.seq}: unit {envelope.unitNetId}/{envelope.attackerNetId}, target {envelope.targetNetId} (kind {envelope.targetKind}), building {envelope.sourceBuildingNetId}, resource {envelope.resourceNetId} did not resolve");
+                return;
+            }
+
+            command.Sequence = envelope.seq;
+            CommandBus.EnqueueAt(envelope.tick, command);
+        }
+
+        internal static void HandleConfigCheck(NetMessageEnvelope envelope)
+        {
+            MatchConfiguration mine = MatchConfiguration.Current;
+            if (mine == null || mine.ComputeHash() != envelope.configHash)
+            {
+                NetworkDiagnostics.Report(NetworkIssue.ConfigMismatch, $"local {mine?.ComputeHash()} vs remote {envelope.configHash}");
+                NetworkMatch.RaiseFault($"Match configuration mismatch (local {mine?.ComputeHash()}, remote {envelope.configHash}); the two games are not the same match.");
+            }
+        }
+
         private void Dispatch(NetMessageEnvelope envelope)
         {
             // Every message type advances the "remote is still with us, at
@@ -51,17 +82,15 @@ namespace KingdomsOfBharat.Multiplayer
                 case NetMessageKind.Train:
                 case NetMessageKind.Build:
                 case NetMessageKind.Attack:
-                // Command-audit fix: these three were serialized/sent but
-                // never dispatched here, so a peer's trade-route/heal/
-                // convert order was silently dropped on receive.
                 case NetMessageKind.TradeRoute:
                 case NetMessageKind.Heal:
                 case NetMessageKind.Convert:
-                    Command command = CommandSerializer.ToCommand(envelope);
-                    if (command != null)
-                    {
-                        CommandBus.EnqueueAt(envelope.tick, command);
-                    }
+                case NetMessageKind.Gather:
+                    HandleCommand(envelope);
+                    break;
+
+                case NetMessageKind.ConfigCheck:
+                    HandleConfigCheck(envelope);
                     break;
 
                 case NetMessageKind.StateHash:

@@ -23,6 +23,13 @@ namespace KingdomsOfBharat.Combat
         // Player-owned soldier from an AI Barracks.
         public static GameObject Spawn(Vector3 position, FactionId faction)
         {
+            if (CivilizationRegistry.For(faction) == CivilizationId.Chola && InfantryLineProgress.Tier(faction) == 0)
+                return DefinitionCatalog.Default.Spawn(DefinitionCatalog.CholaPadati, position, faction);
+            return SpawnCore(position, faction, InfantryLineProgress.Current(faction));
+        }
+
+        internal static GameObject SpawnCore(Vector3 position, FactionId faction, InfantryTierData tier)
+        {
             CivilizationId civilization = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civilization);
             // Baked in at spawn time - see WorkerFactory's identical note.
@@ -37,7 +44,6 @@ namespace KingdomsOfBharat.Combat
             // Wave 3 item 9: Infantry tier ladder - baked in at spawn, not
             // retroactive, same convention as every other progression
             // system here (see InfantryLineProgress's own comment).
-            InfantryTierData tier = InfantryLineProgress.Current(faction);
 
             GameObject go = HumanModelFactory.Spawn(HumanModelFactory.Gender.Male, position, civilization, faction: faction);
             go.name = faction == FactionId.Player
@@ -88,7 +94,7 @@ namespace KingdomsOfBharat.Combat
                 trimToFirstMesh: true);
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(8f);
             }

@@ -95,7 +95,7 @@ namespace KingdomsOfBharat.Buildings
             obstacle.carving = true;
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(6f);
             }

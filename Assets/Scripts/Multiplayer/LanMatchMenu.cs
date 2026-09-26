@@ -37,6 +37,10 @@ namespace KingdomsOfBharat.Multiplayer
         private string _joinAddress = "127.0.0.1";
         private string _statusText = "";
         private bool _sentLocalHello;
+        // Chosen ONCE per hosting session and reused for both HostHello and
+        // the host's own CompleteHandshake (previously each read TickCount
+        // separately, so host and joiner started with different seeds).
+        private int _hostSeed = -1;
 
         // Item 6 (Scenario Editor, heavy path session 5): lets the host
         // play a saved custom scenario instead of a plain skirmish -
@@ -104,6 +108,7 @@ namespace KingdomsOfBharat.Multiplayer
             {
                 _statusText = $"Connection failed: {_pendingTransport.LastError}";
                 _state = State.Idle;
+                _hostSeed = -1;
                 _pendingTransport = null;
                 RefreshStatus();
                 return;
@@ -114,13 +119,19 @@ namespace KingdomsOfBharat.Multiplayer
                 _sentLocalHello = true;
                 if (_state == State.Hosting)
                 {
-                    int seed = System.Environment.TickCount;
+                    if (_hostSeed < 0)
+                    {
+                        _hostSeed = MatchConfiguration.NewRandomSeed();
+                    }
+
                     _pendingTransport.Send(new NetMessageEnvelope
                     {
                         kind = NetMessageKind.HostHello,
                         hostCivilization = (int)_localCivPick,
                         mapId = (int)_chosenMap,
-                        seed = seed,
+                        seed = _hostSeed,
+                        timeLimitMinutes = GameSettings.TimeLimitMinutes,
+                        regicide = GameSettings.RegicideEnabled ? 1 : 0,
                         scenarioJson = _pendingScenario != null ? JsonUtility.ToJson(_pendingScenario) : null,
                     });
                     _statusText = _pendingScenario != null
@@ -154,7 +165,9 @@ namespace KingdomsOfBharat.Multiplayer
                         hostCiv: _localCivPick,
                         remoteCiv: (CivilizationId)envelope.remoteCivilization,
                         map: _chosenMap,
-                        seed: System.Environment.TickCount,
+                        seed: _hostSeed,
+                        timeLimit: GameSettings.TimeLimitMinutes,
+                        regicide: GameSettings.RegicideEnabled,
                         scenario: _pendingScenario);
                     return;
                 }
@@ -170,6 +183,8 @@ namespace KingdomsOfBharat.Multiplayer
                         remoteCiv: _localCivPick,
                         map: (MapId)envelope.mapId,
                         seed: envelope.seed,
+                        timeLimit: envelope.timeLimitMinutes,
+                        regicide: envelope.regicide != 0,
                         scenario: scenario);
                     return;
                 }
@@ -186,7 +201,7 @@ namespace KingdomsOfBharat.Multiplayer
         // threading one value through both call sites purely for this
         // method's own simplicity; both reads happen within the same
         // frame in practice.
-        private void CompleteHandshake(bool isHost, FactionId localFaction, CivilizationId hostCiv, CivilizationId remoteCiv, MapId map, int seed, CustomScenarioData scenario = null)
+        private void CompleteHandshake(bool isHost, FactionId localFaction, CivilizationId hostCiv, CivilizationId remoteCiv, MapId map, int seed, int timeLimit, bool regicide, CustomScenarioData scenario = null)
         {
             NetworkMatch.Begin(localFaction, isHost, seed, _pendingTransport);
 
@@ -212,7 +227,23 @@ namespace KingdomsOfBharat.Multiplayer
             }
             else
             {
-                setup.BeginNetworkMatch(hostCiv, remoteCiv, map);
+                // The host's rules are authoritative on both peers; the
+                // joiner's own PlayerPrefs must not leak into the match.
+                MatchConfiguration config = MatchConfiguration.Create(map, hostCiv, remoteCiv, seed: seed, secondSlotIsHuman: true);
+                config.TimeLimitMinutes = timeLimit;
+                config.RegicideEnabled = regicide;
+                setup.BeginMatch(config);
+            }
+
+            MatchConfiguration active = MatchConfiguration.Current;
+            if (active != null)
+            {
+                active.TimeLimitMinutes = timeLimit;
+                active.RegicideEnabled = regicide;
+                NetworkValidationLog.Record($"CFG {active.ComputeHash()} seed {active.Seed} map {(int)active.Map} local {(int)active.LocalFaction}");
+                // Each side tells the other what configuration it built; a
+                // mismatch faults both (see NetworkDriver ConfigCheck).
+                NetworkMatch.Transport.Send(new NetMessageEnvelope { kind = NetMessageKind.ConfigCheck, tick = CommandBus.InputDelayTicks, configHash = active.ComputeHash() });
             }
 
             _state = State.Closed;

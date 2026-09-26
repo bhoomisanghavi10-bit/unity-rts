@@ -46,6 +46,9 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         // CivilizationSetup.BeginNetworkMatch - see LanMatchMenu.cs.
         HostHello,
         JoinHello,
+        // Appended (never reordered): enum values travel as ints.
+        Gather,
+        ConfigCheck,
     }
 
     public enum NetTrainKind
@@ -129,6 +132,21 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         // target unit.
         public int attackerNetId;
         public int targetNetId;
+        // Attack only: what targetNetId refers to (0 = unit, 1 = building).
+        // Older peers omit it and get 0 = unit, the previous behaviour.
+        public int targetKind;
+
+        // Gather: the resource node's NetworkId.
+        public int resourceNetId;
+
+        // Per-sender order number (Command.Sequence); 0 = unsequenced/legacy.
+        public int seq;
+
+        // ConfigCheck / HostHello: MatchConfiguration.ComputeHash(), plus the
+        // host's authoritative rule values the joiner must adopt.
+        public int configHash;
+        public int timeLimitMinutes;
+        public int regicide;
 
         // StateHash
         public uint hash;

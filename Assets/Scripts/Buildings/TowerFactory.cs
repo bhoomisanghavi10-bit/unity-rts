@@ -71,7 +71,7 @@ namespace KingdomsOfBharat.Buildings
 
             // Towers see further than any other building - that's their
             // whole point as a forward-defense/vision structure.
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(12f);
             }

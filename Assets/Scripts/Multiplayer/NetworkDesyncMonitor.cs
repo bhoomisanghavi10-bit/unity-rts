@@ -32,7 +32,7 @@ namespace KingdomsOfBharat.Multiplayer
 
         private static void OnTick(int tick)
         {
-            if (!NetworkMatch.IsActive || tick != StateHash.LatestHashTick)
+            if (!NetworkMatch.IsActive || NetworkMatch.Transport == null || tick != StateHash.LatestHashTick)
             {
                 return;
             }

@@ -134,7 +134,9 @@ namespace KingdomsOfBharat.Core
         }
 
         // Order-stable hash of everything that defines the match, for
-        // comparing two peers/runs (also usable in logs).
+        // comparing two peers/runs (also usable in logs). LocalFaction is
+        // deliberately excluded: it is each peer's own perspective, and the
+        // two peers' hashes must be equal.
         public int ComputeHash()
         {
             unchecked
@@ -144,7 +146,6 @@ namespace KingdomsOfBharat.Core
                 h = h * 31 + ContentVersion.GetHashCode();
                 h = h * 31 + (int)Map;
                 h = h * 31 + Seed;
-                h = h * 31 + (int)LocalFaction;
                 foreach (MatchSlot slot in Slots)
                 {
                     h = h * 31 + (int)slot.Faction;

@@ -88,7 +88,7 @@ namespace KingdomsOfBharat.Combat
                 targetSize: 1f, localPositionOffset: new Vector3(-0.05f, 0f, 0f), localEulerOffset: new Vector3(0f, 90f, 0f));
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(9f);
             }

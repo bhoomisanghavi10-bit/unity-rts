@@ -58,6 +58,10 @@ namespace KingdomsOfBharat.Multiplayer
 
             LatestHash = Compute();
             LatestHashTick = tick;
+            if (tick % 20 == 0)
+            {
+                NetworkValidationLog.Record($"HASH {tick} {LatestHash}");
+            }
         }
 
         public static uint Compute()

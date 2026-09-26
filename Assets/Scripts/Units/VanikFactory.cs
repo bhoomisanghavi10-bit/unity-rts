@@ -63,7 +63,7 @@ namespace KingdomsOfBharat.Units
             go.AddComponent<FactionMember>().Configure(faction);
             go.AddComponent<OxAnimationDriver>().Configure(OxAnimationSet.Load(), agent);
 
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(8f);
             }

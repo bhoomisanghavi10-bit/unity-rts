@@ -27,6 +27,11 @@ namespace KingdomsOfBharat.Buildings
 
         public static GameObject Place(Vector3 position, FactionId faction)
         {
+            return DefinitionCatalog.Default.Spawn(DefinitionCatalog.TownCenter, position, faction);
+        }
+
+        internal static GameObject PlaceCore(Vector3 position, FactionId faction)
+        {
             CivilizationId civ = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civ);
 
@@ -59,7 +64,7 @@ namespace KingdomsOfBharat.Buildings
             go.AddComponent<FactionMember>().Configure(faction);
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(10f);
             }

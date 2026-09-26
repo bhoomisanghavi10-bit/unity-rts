@@ -89,7 +89,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<GarrisonSeeker>().Configure(true);
             go.AddComponent<RelicCarrier>();
 
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(8f);
             }

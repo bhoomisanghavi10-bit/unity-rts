@@ -86,7 +86,7 @@ namespace KingdomsOfBharat.Combat
             go.AddComponent<AnimationDriver>().Configure(HumanAnimationSet.LoadFor(HumanModelFactory.Gender.Male), agent, unit);
             go.AddComponent<PillarEdictAura>().Configure(faction);
 
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(8f);
             }

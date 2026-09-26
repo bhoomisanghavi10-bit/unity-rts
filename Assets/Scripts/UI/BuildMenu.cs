@@ -2354,7 +2354,7 @@ namespace KingdomsOfBharat.UI
 
             if (NetworkMatch.IsActive)
             {
-                NetworkMatch.Transport.Send(CommandSerializer.ForTrain(tick, faction, source, netKind));
+                NetworkMatch.SendCommand(CommandSerializer.ForTrain(tick, faction, source, netKind));
             }
         }
 

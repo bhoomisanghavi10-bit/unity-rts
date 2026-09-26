@@ -62,7 +62,7 @@ namespace KingdomsOfBharat.Buildings
             // Awake only needs the NavMeshObstacle already added above it.
             go.AddComponent<Gate>();
 
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(6f);
             }

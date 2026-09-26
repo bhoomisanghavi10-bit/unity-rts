@@ -139,6 +139,11 @@ namespace KingdomsOfBharat.PlayModeTests
             TownCenter tc = PlayerTownCenter();
             List<Gatherer> workers = PlayerWorkers();
 
+            // Only the shared node may supply Gold, or workers that finish it would
+            // legitimately move on (Prompt 10 retargeting) and inflate the tally.
+            foreach (ResourceNode other in ResourceNode.All.Where(n => n != null && n.ResourceType == ResourceType.Gold).ToList()) Object.Destroy(other.gameObject);
+            yield return null;
+
             Vector3 spot = tc.transform.position + new Vector3(10f, 0f, 10f);
             Assert.IsTrue(NavMesh.SamplePosition(spot, out NavMeshHit hit, 8f, NavMesh.AllAreas), "A walkable spot near the Town Center.");
             var go = new GameObject("SharedTestNode");

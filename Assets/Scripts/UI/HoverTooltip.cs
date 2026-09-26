@@ -234,14 +234,14 @@ namespace KingdomsOfBharat.UI
                             // faction as "Player"), plus an (Allied) suffix
                             // when relevant so allies read differently from
                             // hostiles at a glance.
-                            line1 += factionMember.Faction == FactionId.Player
+                            line1 += factionMember.Faction == Multiplayer.NetworkMatch.LocalFaction
                                 ? " (Player)"
-                                : DiplomacyRegistry.AreAllied(FactionId.Player, factionMember.Faction)
+                                : DiplomacyRegistry.AreAllied(Multiplayer.NetworkMatch.LocalFaction, factionMember.Faction)
                                     ? $" ({factionMember.Faction} - Allied)"
                                     : $" ({factionMember.Faction})";
 
-                            if (factionMember.Faction != FactionId.Player
-                                && !DiplomacyRegistry.AreAllied(FactionId.Player, factionMember.Faction))
+                            if (factionMember.Faction != Multiplayer.NetworkMatch.LocalFaction
+                                && !DiplomacyRegistry.AreAllied(Multiplayer.NetworkMatch.LocalFaction, factionMember.Faction))
                             {
                                 hoveringHostileTarget = true;
                             }

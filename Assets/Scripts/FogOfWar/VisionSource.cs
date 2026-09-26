@@ -14,6 +14,31 @@ namespace KingdomsOfBharat.FogOfWar
 
         public float VisionRadius => visionRadius;
 
+        // Factories attach a VisionSource only when the fog needs it: the
+        // single-player Player, or every faction in a LAN match (each peer's
+        // local faction is then filtered by FogOfWarManager).
+        public static bool IsTracked(Core.FactionId faction)
+        {
+            return faction == Core.FactionId.Player || Multiplayer.NetworkMatch.IsActive;
+        }
+
+        private Core.FactionMember _member;
+
+        // The faction this source belongs to (Player if untagged, matching
+        // the old single-faction assumption).
+        public Core.FactionId Faction
+        {
+            get
+            {
+                if (_member == null)
+                {
+                    TryGetComponent(out _member);
+                }
+
+                return _member != null ? _member.Faction : Core.FactionId.Player;
+            }
+        }
+
         public void Configure(float radius)
         {
             visionRadius = radius;

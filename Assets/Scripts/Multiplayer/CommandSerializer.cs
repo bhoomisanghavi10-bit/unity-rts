@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Combat;
 using KingdomsOfBharat.Core;
@@ -75,9 +76,15 @@ namespace KingdomsOfBharat.Multiplayer
         {
             NetworkId.TryGetId(attackerUnit, out int attackerId);
             int targetId = -1;
+            int targetKind = 0;
             if (target.TryGetComponent(out Unit targetUnit))
             {
                 NetworkId.TryGetId(targetUnit, out targetId);
+            }
+            else if (target.TryGetComponent(out Building targetBuilding))
+            {
+                targetKind = 1;
+                NetworkId.TryGetId(targetBuilding, out targetId);
             }
 
             return new NetMessageEnvelope
@@ -87,7 +94,44 @@ namespace KingdomsOfBharat.Multiplayer
                 faction = (int)faction,
                 attackerNetId = attackerId,
                 targetNetId = targetId,
+                targetKind = targetKind,
             };
+        }
+
+        public static NetMessageEnvelope ForGather(int tick, FactionId faction, Unit unit, ResourceNode node)
+        {
+            NetworkId.TryGetId(unit, out int unitId);
+            int nodeId = -1;
+            NetworkId.TryGetId(node, out nodeId);
+            return new NetMessageEnvelope
+            {
+                kind = NetMessageKind.Gather,
+                tick = tick,
+                faction = (int)faction,
+                unitNetId = unitId,
+                resourceNetId = nodeId,
+            };
+        }
+
+        private static Command ToGatherCommand(NetMessageEnvelope envelope, FactionId faction)
+        {
+            if (!NetworkId.TryResolveUnit(envelope.unitNetId, out Unit unit)
+                || !NetworkId.TryResolveNode(envelope.resourceNetId, out ResourceNode node))
+            {
+                return null;
+            }
+
+            if (unit.TryGetComponent(out Gatherer gatherer))
+            {
+                return new AbilityCommand(faction, unit, () => gatherer.GatherFrom(node));
+            }
+
+            if (unit.TryGetComponent(out BoatGatherer boatGatherer))
+            {
+                return new AbilityCommand(faction, unit, () => boatGatherer.GatherFrom(node));
+            }
+
+            return null;
         }
 
         // Wave 4 item 26: reuses Attack's own field shape (one unit id, one
@@ -176,6 +220,8 @@ namespace KingdomsOfBharat.Multiplayer
                     return ToHealCommand(envelope, faction);
                 case NetMessageKind.Convert:
                     return ToConvertCommand(envelope, faction);
+                case NetMessageKind.Gather:
+                    return ToGatherCommand(envelope, faction);
                 default:
                     return null;
             }
@@ -371,7 +417,15 @@ namespace KingdomsOfBharat.Multiplayer
                 return null;
             }
 
-            if (!NetworkId.TryResolveUnit(envelope.targetNetId, out Unit targetUnit) || !targetUnit.TryGetComponent(out Attackable target))
+            Attackable target;
+            if (envelope.targetKind == 1)
+            {
+                if (!NetworkId.TryResolveBuilding(envelope.targetNetId, out Building targetBuilding) || !targetBuilding.TryGetComponent(out target))
+                {
+                    return null;
+                }
+            }
+            else if (!NetworkId.TryResolveUnit(envelope.targetNetId, out Unit targetUnit) || !targetUnit.TryGetComponent(out target))
             {
                 return null;
             }

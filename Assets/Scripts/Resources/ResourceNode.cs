@@ -26,6 +26,7 @@ namespace KingdomsOfBharat.ResourceGathering
         private void OnEnable()
         {
             All.Add(this);
+            Multiplayer.NetworkId.Assign(this);
         }
 
         private void OnDisable()

@@ -85,7 +85,7 @@ namespace KingdomsOfBharat.Combat
                 go, "Mounts/Horse/scene",
                 targetSize: 2.5f, localPositionOffset: new Vector3(0f, 0f, -0.6f), localEulerOffset: Vector3.zero);
 
-            if (faction == FactionId.Player)
+            if (VisionSource.IsTracked(faction))
             {
                 go.AddComponent<VisionSource>().Configure(9f);
             }
