@@ -40,6 +40,16 @@ namespace KingdomsOfBharat.Core
     //    below) would otherwise bring it down to.
     public class SaveManager : MonoBehaviour
     {
+        // Extended catalog-reference save schema (stable definition IDs +
+        // stable runtime IDs + construction/production/research-queue
+        // restoration + phased restore, see this file's Capture/
+        // ApplySnapshotToRunningMatch). A save from before this field
+        // existed deserializes with MatchSaveData.version left at its C#
+        // default (0) - fully supported, see ValidateSaveVersion's own
+        // comment and every new field's own "-1/null = not present"
+        // sentinel default in SaveData.cs.
+        internal const int CurrentSaveVersion = 1;
+
         private const string SaveFileName = "quicksave.json";
         [SerializeField] private KeyCode saveKey = KeyCode.F5;
         [SerializeField] private KeyCode loadKey = KeyCode.F9;
@@ -113,7 +123,7 @@ namespace KingdomsOfBharat.Core
         // outside the Save()/file-I/O path - see DesyncRecovery.cs.
         internal static MatchSaveData Capture()
         {
-            var data = new MatchSaveData { mapId = (int)MapRegistry.CurrentId };
+            var data = new MatchSaveData { version = CurrentSaveVersion, mapId = (int)MapRegistry.CurrentId };
 
             foreach (FactionId faction in AllFactions)
             {
@@ -132,6 +142,7 @@ namespace KingdomsOfBharat.Core
 
                 unit.TryGetComponent(out Attackable attackable);
                 unit.TryGetComponent(out StanceController stance);
+                int unitNetworkId = Multiplayer.NetworkId.TryGetId(unit, out int uid) ? uid : -1;
 
                 data.units.Add(new UnitSaveData
                 {
@@ -140,6 +151,7 @@ namespace KingdomsOfBharat.Core
                     position = unit.transform.position,
                     health = attackable != null ? attackable.Health : 0f,
                     stance = stance != null ? (int)stance.Stance : -1,
+                    networkId = unitNetworkId,
                 });
             }
 
@@ -153,15 +165,68 @@ namespace KingdomsOfBharat.Core
 
                 building.TryGetComponent(out Attackable attackable);
                 building.TryGetComponent(out ConstructionSite site);
+                int buildingNetworkId = Multiplayer.NetworkId.TryGetId(building, out int bid) ? bid : -1;
 
-                data.buildings.Add(new BuildingSaveData
+                var buildingData = new BuildingSaveData
                 {
                     buildingType = buildingType,
                     faction = (int)factionMember.Faction,
                     position = GroundPointFor(buildingType, building),
                     health = attackable != null ? attackable.Health : 0f,
                     isComplete = site == null || site.IsComplete,
-                });
+                    networkId = buildingNetworkId,
+                    constructionProgress = site != null ? site.Progress : 1f,
+                };
+
+                // Reference-catalog production/research queue example -
+                // see TownCenter.TrainingRemaining/Barracks.TrainingRemaining/
+                // TrainingDefinitionId/InfantryTierResearchProgress's own
+                // comments for why this stays limited to Worker training,
+                // Padati/Dhanurdhara training, and Padati's own tier
+                // research rather than every queue this project has.
+                ProductionQueue queueToSave = building is TownCenter tcq ? tcq.Queue : (building is Barracks bq ? bq.Queue : null);
+                if (queueToSave != null)
+                {
+                    foreach (ProductionItem item in queueToSave.Items)
+                    {
+                        var itemSave = new ProductionItemSaveData
+                        {
+                            kind = item.Kind,
+                            label = item.Label,
+                            costTypes = new int[item.CostTypes.Length],
+                            costAmounts = (float[])item.CostAmounts.Clone(),
+                            total = item.Total,
+                            remaining = item.Remaining,
+                        };
+                        for (int i = 0; i < item.CostTypes.Length; i++)
+                        {
+                            itemSave.costTypes[i] = (int)item.CostTypes[i];
+                        }
+
+                        buildingData.productionQueue.Add(itemSave);
+                    }
+                }
+
+                if (building is TownCenter townCenter && townCenter.IsTraining)
+                {
+                    buildingData.trainingDefinitionId = DefinitionCatalog.Worker;
+                    buildingData.trainingRemaining = townCenter.TrainingRemaining;
+                }
+                else if (building is Barracks barracks)
+                {
+                    if (barracks.IsTraining && barracks.TrainingDefinitionId != null)
+                    {
+                        buildingData.trainingDefinitionId = barracks.TrainingDefinitionId;
+                        buildingData.trainingRemaining = barracks.TrainingRemaining;
+                    }
+
+                    if (barracks.IsResearchingInfantryTier)
+                    {
+                        buildingData.infantryTierResearchRemaining = barracks.InfantryTierResearchRemaining;
+                    }
+                }
+
+                data.buildings.Add(buildingData);
             }
 
             return data;
@@ -188,6 +253,12 @@ namespace KingdomsOfBharat.Core
                 factionData.classAttackTiers.Add(new ClassTierEntry { unitClass = (int)unitClass, tier = UpgradeProgress.ClassAttackTier(faction, unitClass) });
                 factionData.classArmorTiers.Add(new ClassTierEntry { unitClass = (int)unitClass, tier = UpgradeProgress.ClassArmorTier(faction, unitClass) });
             }
+
+            // DefinitionCatalog reference-entity tier ladders (Padati's/
+            // Dhanurdhara's own progression) - see FactionSaveData's own
+            // comment for why this stops at these two lines.
+            factionData.infantryTier = InfantryLineProgress.Tier(faction);
+            factionData.archerTier = ArcherLineProgress.Tier(faction);
 
             // AoE-Parity Phase 5 fix: ResourceStockpile.For(Enemy2) returns
             // null whenever the 3rd faction isn't enabled (the normal case -
@@ -227,6 +298,7 @@ namespace KingdomsOfBharat.Core
         // disambiguate before falling back to Attackable.Class.
         private static string IdentifyUnitType(Unit unit)
         {
+            if (unit.TryGetComponent(out DefinitionId identity)) return identity.Value;
             if (unit.TryGetComponent(out Builder _))
             {
                 return "Worker";
@@ -262,6 +334,8 @@ namespace KingdomsOfBharat.Core
         private static Vector3 GroundPointFor(string buildingType, Building building)
         {
             Vector3 position = building.transform.position;
+            if (DefinitionCatalog.Default.TryGet(buildingType, out EntityDefinition definition))
+                return position - Vector3.up * definition.PlacementHeightOffset;
             if (buildingType == "TownCenter" || !building.TryGetComponent(out BoxCollider box))
             {
                 return position;
@@ -273,6 +347,7 @@ namespace KingdomsOfBharat.Core
 
         private static string IdentifyBuildingType(Building building)
         {
+            if (building.TryGetComponent(out DefinitionId identity)) return identity.Value;
             switch (building)
             {
                 case TownCenter _: return "TownCenter";
@@ -297,6 +372,9 @@ namespace KingdomsOfBharat.Core
             }
 
             MatchSaveData data = JsonUtility.FromJson<MatchSaveData>(File.ReadAllText(path));
+            ValidateSaveVersion(data);
+            ValidateCatalogEntries(data);
+            ValidateRuntimeIds(data);
 
             CivilizationSetup civSetup = FindFirstObjectByType<CivilizationSetup>();
             if (civSetup == null)
@@ -364,6 +442,9 @@ namespace KingdomsOfBharat.Core
         // case, only units/buildings/factions have drifted.
         internal static void ApplySnapshotToRunningMatch(MatchSaveData data)
         {
+            ValidateSaveVersion(data);
+            ValidateCatalogEntries(data);
+            ValidateRuntimeIds(data);
             FactionSaveData playerData = data.factions.Find(f => f.faction == (int)FactionId.Player);
             FactionSaveData enemyData = data.factions.Find(f => f.faction == (int)FactionId.Enemy);
             FactionSaveData enemy2Data = data.factions.Find(f => f.faction == (int)FactionId.Enemy2);
@@ -371,14 +452,137 @@ namespace KingdomsOfBharat.Core
                 || data.buildings.Exists(b => b.faction == (int)FactionId.Enemy2);
 
             WipeCurrentMatch();
+
+            // Ordered restore phases (this ticket's own requirement):
+            //
+            // 1. Match configuration - civ/age/resources/tier progression,
+            //    per faction. Deliberately BEFORE any entity creation
+            //    below: this project's established convention is that a
+            //    tiered unit's stats bake in at spawn time from whatever
+            //    tier its faction has RIGHT NOW (see InfantryLineProgress's
+            //    own header comment, "not retroactive") - so a saved
+            //    Padati-tier-1 ("Senani") unit only spawns with the
+            //    correct, already-upgraded stats if its faction's tier is
+            //    already restored before EntitySpawner ever runs.
             RestoreFactionState(FactionId.Player, playerData);
             RestoreFactionState(FactionId.Enemy, enemyData);
             if (enemy2InPlay)
             {
                 RestoreFactionState(FactionId.Enemy2, enemy2Data);
             }
-            RestoreBuildings(data.buildings);
-            RestoreUnits(data.units);
+
+            // 2. Entity creation - spawn every building, then every unit,
+            //    reassigning each one's stable runtime NetworkId (separate
+            //    from and in addition to its stable string DefinitionId)
+            //    back to its original saved value.
+            List<(BuildingSaveData saved, GameObject go)> restoredBuildings = RestoreBuildingEntities(data.buildings);
+            List<(UnitSaveData saved, GameObject go)> restoredUnits = RestoreUnitEntities(data.units);
+
+            // 3. Health/construction state - per-entity, so it has to run
+            //    after step 2 actually created something to apply it to.
+            RestoreBuildingHealthAndConstruction(restoredBuildings);
+            RestoreUnitHealthAndStance(restoredUnits);
+
+            // 4. Entity references and orders - out of scope for this
+            //    ticket's catalog reference entities: none of Worker/
+            //    Padati/Dhanurdhara/TownCenter/Barracks carry a saved
+            //    gather target, attack order, or rally override today (see
+            //    this class's own header comment's "Known v1 limitations"
+            //    - still true, not touched by this pass). Left as an
+            //    explicit, named phase with nothing to do yet, rather than
+            //    silently absent, so a future session extending this to a
+            //    unit/building that DOES have one knows exactly where it
+            //    belongs in the ordering.
+
+            // 5. Production/research queues - per-entity, so it also has
+            //    to run after step 2.
+            RestoreProductionQueues(restoredBuildings);
+
+            // 6. Resume simulation - nothing to do explicitly. Every
+            //    restored MonoBehaviour's own Update() already ticks
+            //    normally from the next frame on; this class never touches
+            //    Time.timeScale.
+        }
+
+        // Requirement: unsupported save versions must produce a clear
+        // error, never be silently accepted or silently downgraded. A save
+        // with no version field at all (any save from before this field
+        // existed) deserializes as version 0 and is fully supported - see
+        // every new field's own "not present" sentinel default in
+        // SaveData.cs, which the restore phases above skip cleanly.
+        internal static void ValidateSaveVersion(MatchSaveData data)
+        {
+            if (data.version < 0 || data.version > CurrentSaveVersion)
+            {
+                throw new InvalidOperationException(
+                    $"Save version {data.version} is unsupported (supported range: 0 through {CurrentSaveVersion}).");
+            }
+        }
+
+        // Reject unsupported catalog entries before destroying the current match.
+        // Legacy saves continue through the existing roster adapters.
+        internal static void ValidateCatalogEntries(MatchSaveData data)
+        {
+            foreach (UnitSaveData unit in data.units)
+                ValidateCatalogEntry(unit.unitType, DefinitionKind.Unit, unit.faction, data);
+            foreach (BuildingSaveData building in data.buildings)
+            {
+                ValidateCatalogEntry(building.buildingType, DefinitionKind.Building, building.faction, data);
+                ValidateTrainingDefinition(building);
+            }
+        }
+
+        private static void ValidateTrainingDefinition(BuildingSaveData building)
+        {
+            if (string.IsNullOrEmpty(building.trainingDefinitionId))
+            {
+                if (building.trainingRemaining >= 0f)
+                {
+                    throw new ArgumentException($"Building definition '{building.buildingType}' has a training countdown but no training definition ID.", nameof(building));
+                }
+                return;
+            }
+
+            EntityDefinition trainingDefinition = DefinitionCatalog.Default.Get(building.trainingDefinitionId);
+            if (trainingDefinition.Kind != DefinitionKind.Unit)
+            {
+                throw new ArgumentException($"Training definition '{building.trainingDefinitionId}' is not a unit.", nameof(building));
+            }
+
+            if (DefinitionCatalog.Default.TryGet(building.buildingType, out EntityDefinition buildingDefinition)
+                && !buildingDefinition.CanTrain(building.trainingDefinitionId))
+            {
+                throw new ArgumentException($"Building definition '{building.buildingType}' cannot train '{building.trainingDefinitionId}'.", nameof(building));
+            }
+        }
+
+        internal static void ValidateRuntimeIds(MatchSaveData data)
+        {
+            var unitIds = new HashSet<int>();
+            var buildingIds = new HashSet<int>();
+            foreach (UnitSaveData unit in data.units)
+            {
+                if (unit.networkId >= 0 && !unitIds.Add(unit.networkId))
+                    throw new ArgumentException($"Duplicate saved unit network ID '{unit.networkId}'.", nameof(data));
+            }
+
+            foreach (BuildingSaveData building in data.buildings)
+            {
+                if (building.networkId >= 0 && !buildingIds.Add(building.networkId))
+                    throw new ArgumentException($"Duplicate saved building network ID '{building.networkId}'.", nameof(data));
+            }
+        }
+
+        private static void ValidateCatalogEntry(string id, DefinitionKind kind, int faction, MatchSaveData data)
+        {
+            if (!EntitySpawner.IsDefinitionId(id)) return;
+            EntitySpawner.ValidateDefinition(id, kind);
+            EntityDefinition definition = DefinitionCatalog.Default.Get(id);
+            FactionSaveData savedFaction = data.factions.Find(f => f.faction == faction);
+            CivilizationId civilization = savedFaction == null
+                ? CivilizationRegistry.For((FactionId)faction) : (CivilizationId)savedFaction.civilization;
+            if (definition.Civilization.HasValue && definition.Civilization.Value != civilization)
+                throw new ArgumentException($"Definition '{id}' requires civilization {definition.Civilization.Value}.");
         }
 
         private static void WipeCurrentMatch()
@@ -395,6 +599,10 @@ namespace KingdomsOfBharat.Core
             {
                 if (building != null)
                 {
+                    // Not a destruction refund: the snapshot restores its own
+                    // resources, so a refund here would double-pay.
+                    if (building.TryGetComponent(out TownCenter wipedTc)) wipedTc.DiscardQueue();
+                    else if (building.TryGetComponent(out Barracks wipedBarracks)) wipedBarracks.DiscardQueue();
                     Destroy(building.gameObject);
                 }
             }
@@ -424,6 +632,13 @@ namespace KingdomsOfBharat.Core
                 AdvanceToTier(() => UpgradeProgress.ClassArmorTier(faction, unitClass), () => UpgradeProgress.AdvanceClassArmor(faction, unitClass), entry.tier);
             }
 
+            // DefinitionCatalog reference-entity tier ladders. -1 (any
+            // save from before these fields existed) correctly advances
+            // zero tiers via AdvanceToTier's own "while current < target"
+            // loop condition - no separate legacy branch needed.
+            AdvanceToTier(() => InfantryLineProgress.Tier(faction), () => InfantryLineProgress.AdvanceTier(faction), factionData.infantryTier);
+            AdvanceToTier(() => ArcherLineProgress.Tier(faction), () => ArcherLineProgress.AdvanceTier(faction), factionData.archerTier);
+
             ResourceStockpile stockpile = ResourceStockpile.For(faction);
             foreach (ResourceEntry entry in factionData.resources)
             {
@@ -443,21 +658,70 @@ namespace KingdomsOfBharat.Core
             }
         }
 
-        private static void RestoreBuildings(List<BuildingSaveData> buildings)
+        // Phase 2 (entity creation), buildings half. Returns each saved
+        // entry paired with whatever it actually spawned (null if the
+        // spawn itself failed) so the later per-entity phases below have
+        // something to apply state to, without re-scanning Building.All
+        // and re-guessing which live object corresponds to which saved
+        // entry.
+        private static List<(BuildingSaveData saved, GameObject go)> RestoreBuildingEntities(List<BuildingSaveData> buildings)
         {
+            var result = new List<(BuildingSaveData, GameObject)>(buildings.Count);
             foreach (BuildingSaveData saved in buildings)
             {
                 FactionId faction = (FactionId)saved.faction;
                 GameObject go = EntitySpawner.SpawnBuilding(saved.buildingType, faction, saved.position);
 
+                if (go != null && saved.networkId >= 0 && go.TryGetComponent(out Building building))
+                {
+                    Multiplayer.NetworkId.Reassign(building, saved.networkId);
+                }
+
+                result.Add((saved, go));
+            }
+
+            return result;
+        }
+
+        private static List<(UnitSaveData saved, GameObject go)> RestoreUnitEntities(List<UnitSaveData> units)
+        {
+            var result = new List<(UnitSaveData, GameObject)>(units.Count);
+            foreach (UnitSaveData saved in units)
+            {
+                FactionId faction = (FactionId)saved.faction;
+                GameObject go = EntitySpawner.SpawnUnit(saved.unitType, faction, saved.position);
+
+                if (go != null && saved.networkId >= 0 && go.TryGetComponent(out Unit unit))
+                {
+                    Multiplayer.NetworkId.Reassign(unit, saved.networkId);
+                }
+
+                result.Add((saved, go));
+            }
+
+            return result;
+        }
+
+        // Phase 3 (health/construction state), buildings half. Prefers the
+        // exact constructionProgress fraction (this ticket's own addition)
+        // when present; falls back to isComplete's own coarser complete-
+        // or-freshly-placed behavior for any save from before that field
+        // existed, unchanged from what this method always did.
+        private static void RestoreBuildingHealthAndConstruction(List<(BuildingSaveData saved, GameObject go)> restored)
+        {
+            foreach ((BuildingSaveData saved, GameObject go) in restored)
+            {
                 if (go == null)
                 {
                     continue;
                 }
 
-                if (saved.isComplete && go.TryGetComponent(out ConstructionSite site))
+                if (go.TryGetComponent(out ConstructionSite site))
                 {
-                    site.CompleteImmediately();
+                    float progress = saved.constructionProgress >= 0f
+                        ? saved.constructionProgress
+                        : (saved.isComplete ? 1f : 0f);
+                    site.RestoreProgress(progress);
                 }
 
                 if (go.TryGetComponent(out Attackable attackable))
@@ -467,13 +731,10 @@ namespace KingdomsOfBharat.Core
             }
         }
 
-        private static void RestoreUnits(List<UnitSaveData> units)
+        private static void RestoreUnitHealthAndStance(List<(UnitSaveData saved, GameObject go)> restored)
         {
-            foreach (UnitSaveData saved in units)
+            foreach ((UnitSaveData saved, GameObject go) in restored)
             {
-                FactionId faction = (FactionId)saved.faction;
-                GameObject go = EntitySpawner.SpawnUnit(saved.unitType, faction, saved.position);
-
                 if (go == null)
                 {
                     continue;
@@ -487,6 +748,71 @@ namespace KingdomsOfBharat.Core
                 if (saved.stance >= 0 && go.TryGetComponent(out StanceController stance))
                 {
                     stance.SetStance((UnitStance)saved.stance);
+                }
+            }
+        }
+
+        // Phase 5 (production/research queues) - reference-catalog scope
+        // only, see BuildingSaveData's own field comments. Null/-1 sentinels
+        // (nothing queued, or a save from before these fields existed)
+        // correctly restore nothing, matching this class's own previously-
+        // documented "in-progress construction/training/research countdowns
+        // aren't restored" limitation for exactly that case.
+        private static void RestoreProductionQueues(List<(BuildingSaveData saved, GameObject go)> restored)
+        {
+            foreach ((BuildingSaveData saved, GameObject go) in restored)
+            {
+                if (go == null)
+                {
+                    continue;
+                }
+
+                if (saved.productionQueue != null && saved.productionQueue.Count > 0)
+                {
+                    var items = new List<ProductionItem>();
+                    foreach (ProductionItemSaveData entry in saved.productionQueue)
+                    {
+                        var types = new ResourceType[entry.costTypes.Length];
+                        for (int i = 0; i < types.Length; i++)
+                        {
+                            types[i] = (ResourceType)entry.costTypes[i];
+                        }
+
+                        items.Add(new ProductionItem
+                        {
+                            Kind = entry.kind,
+                            Label = entry.label,
+                            CostTypes = types,
+                            CostAmounts = entry.costAmounts,
+                            Total = entry.total,
+                            Remaining = entry.remaining,
+                        });
+                    }
+
+                    if (go.TryGetComponent(out TownCenter queuedTownCenter))
+                    {
+                        queuedTownCenter.RestoreQueue(items);
+                    }
+                    else if (go.TryGetComponent(out Barracks queuedBarracks))
+                    {
+                        queuedBarracks.RestoreQueue(items);
+                    }
+                }
+                else if (saved.trainingRemaining >= 0f && saved.trainingDefinitionId != null)
+                {
+                    if (saved.trainingDefinitionId == DefinitionCatalog.Worker && go.TryGetComponent(out TownCenter townCenter))
+                    {
+                        townCenter.RestoreTraining(saved.trainingRemaining);
+                    }
+                    else if (go.TryGetComponent(out Barracks barracksForTraining))
+                    {
+                        barracksForTraining.RestoreTraining(saved.trainingDefinitionId, saved.trainingRemaining);
+                    }
+                }
+
+                if (saved.infantryTierResearchRemaining >= 0f && go.TryGetComponent(out Barracks barracksForResearch))
+                {
+                    barracksForResearch.RestoreInfantryTierResearch(saved.infantryTierResearchRemaining);
                 }
             }
         }

@@ -26,7 +26,7 @@ Bypass class: **SP** = matters for the single-player reference skirmish, **MP** 
 | Ungarrison all | `BuildMenu.UngarrisonAtSelected` | count>0 | `UngarrisonAll` | Building | **Direct** | **No** | n/a | GarrisonPoint tests |
 | Town Bell | button/F8 | — | `TownBell.Ring` | Faction | **Direct** (documented local-only) | No | n/a | TownBellTests |
 | Place building | `BuildingPlacer.TryConfirmPlacement` | pre-check + re-check in `ExecuteBuild` | `BuildCommand` | position + kind | Bus | Yes (Build) | cost deducted at execute, none refunded on later cancel | CommandBusDeterminism |
-| Train (all `EnqueueTrain` sites) | BuildMenu buttons/hotkeys | in `RequestTrain*` at execute | `TrainCommand` | Building | Bus | Yes via `NetTrainKind` (Market/Monastery/Dock/Barracks/Durg/TC) | **no cancel command, no refund** (single slot, spend is final) | TrainingAndTrade, CommandSerializer |
+| Train (all `EnqueueTrain` sites) | BuildMenu buttons/hotkeys | in `RequestTrain*` at execute | `TrainCommand` | Building | Bus | Yes via `NetTrainKind` (Market/Monastery/Dock/Barracks/Durg/TC) | **Town Center + Barracks (Prompt 9):** shared `ProductionQueue`, 5 slots, cancel-last (HUD button/Backspace, via `CommandBus`, refund 100%), refund on building destruction, not serialized for LAN (button disabled in LAN). Dock/Market/Monastery/Durg still single-slot, no cancel | TrainingAndTrade, ProductionQueueTests, ProductionQueuePlayModeTests |
 | Research (Barracks/Dock/Durg/Karmashala tiers, unique tech, elite) | BuildMenu | in `RequestResearch*` | called directly | Building | **Direct** | **No** | none | per-line tests |
 | Age advance / Economy tech | `RequestAgeUpAtSelected`, `ResearchEconomyTechAtSelected` | UI pre-check + method | `TownCenter.RequestAgeUp/...EconomyTech` | Building | **Direct** | **No** | none | AgeUpRequirement tests |
 | Market buy/sell | BuildMenu | in `Market` | `Market.Sell/Buy` | Market | **Direct** | **No** | n/a | TrainingAndTrade |
@@ -37,7 +37,7 @@ Bypass class: **SP** = matters for the single-player reference skirmish, **MP** 
 No Stop, Hold-position command, Patrol, shift-queued orders, production queue cancel, or research cancel exists. "Hold position" is only `UnitStance.StandGround`. Any such expectation is a missing feature, not a bypass.
 
 ## Save/load and orders
-`UnitSaveData` stores type, faction, position, health, stance, networkId. **No active order is saved** (gather/attack/build/route/garrison/repair state is dropped); units resume idle. In-flight `CommandBus` entries are also not saved. Training/research timers: not verified in this audit.
+`UnitSaveData` stores type, faction, position, health, stance, networkId. **No active order is saved** (gather/attack/build/route/garrison/repair state is dropped); units resume idle. In-flight `CommandBus` entries are also not saved. Town Center/Barracks training queues (all items, remaining time, paid cost) are saved and restored (Prompt 9). Research timers other than Infantry tier: not saved.
 
 ## AI
 `AiController` calls `RequestTrain*`, `RequestAgeUp`, `RequestResearch*`, `GatherFrom`, `BuildAt`, `MoveTo`, `AttackMove` directly, never through `CommandBus`. Consequence: AI actions execute immediately while equivalent player actions are delayed 4 ticks; fine offline, and the AI is disabled for the Enemy faction in LAN matches.
@@ -47,7 +47,7 @@ No Stop, Hold-position command, Patrol, shift-queued orders, production queue ca
 2. **AI direct calls** — SP: expected; not a defect. MP: N/A (AI disabled for human Enemy slot).
 3. **Attack on a building over the wire** — MP-only; target id is -1 for buildings.
 4. **`NetworkDriver.Dispatch` dropped TradeRoute/Heal/Convert** — MP-only; **fixed in this ticket**.
-5. **Refund/cancel** — SP-relevant: absent for training, research, and placed sites (audit milestone M2 item), not a bypass.
+5. **Refund/cancel** — Town Center/Barracks training now cancellable with refund (Prompt 9); still absent for other production buildings, research, and placed sites.
 6. **Unsaved orders** — SP-relevant on load.
 7. Obsolete: none identified.
 

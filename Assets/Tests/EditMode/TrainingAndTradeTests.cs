@@ -120,7 +120,7 @@ namespace KingdomsOfBharat.Tests
         }
 
         [Test]
-        public void Barracks_WhileTraining_RejectsAnotherTrainRequest()
+        public void Barracks_WhileTraining_QueuesAnotherRequestAndSpendsOnce()
         {
             ResourceStockpile stockpile = CreateStockpile(FactionId.Player);
             Barracks barracks = CreateBarracks(FactionId.Player);
@@ -129,7 +129,8 @@ namespace KingdomsOfBharat.Tests
             float foodAfterFirst = stockpile.GetTotal(ResourceType.Food);
             barracks.RequestTrainSiege();
 
-            Assert.AreEqual(foodAfterFirst, stockpile.GetTotal(ResourceType.Food));
+            Assert.AreEqual(2, barracks.Queue.Count);
+            Assert.AreEqual(foodAfterFirst - 90f, stockpile.GetTotal(ResourceType.Food));
         }
 
         [Test]

@@ -189,7 +189,7 @@ namespace KingdomsOfBharat.Tests
         }
 
         [Test]
-        public void RequestTrainTrebuchet_WhileAlreadyTraining_DoesNotDeductTwice()
+        public void RequestTrainTrebuchet_WhileAlreadyTraining_QueuesSecondAndDeductsExactlyOncePerItem()
         {
             ResourceStockpile stockpile = CreateStockpile();
             Barracks barracks = CreateBarracks(FactionId.Player);
@@ -199,7 +199,8 @@ namespace KingdomsOfBharat.Tests
             float woodAfterFirst = stockpile.GetTotal(ResourceType.Wood);
             barracks.RequestTrainTrebuchet();
 
-            Assert.AreEqual(woodAfterFirst, stockpile.GetTotal(ResourceType.Wood));
+            Assert.AreEqual(2, barracks.Queue.Count);
+            Assert.AreEqual(woodAfterFirst - (1000f - woodAfterFirst), stockpile.GetTotal(ResourceType.Wood), 0.01f);
         }
     }
 }

@@ -28,7 +28,7 @@ namespace KingdomsOfBharat.Buildings
 
         private FactionMember _factionMember;
         private RallyPoint _rally;
-        private float _remaining = -1f;
+        private readonly ProductionQueue _queue = new ProductionQueue();
         private float _ageUpRemaining = -1f;
         private AgeId _ageUpTarget;
 
@@ -69,7 +69,65 @@ namespace KingdomsOfBharat.Buildings
             }
         }
 
-        public bool IsTraining => _remaining >= 0f;
+        public bool IsTraining => !_queue.IsEmpty;
+        public ProductionQueue Queue => _queue;
+        public string LastTrainFailure => _queue.LastFailure;
+
+        // Save/load only: raw countdown of the active item (-1 = none).
+        internal float TrainingRemaining => _queue.Active != null ? _queue.Active.Remaining : -1f;
+
+        // Save/load only (legacy single-slot saves): restores one in-progress
+        // Worker without re-running the cost checks - already paid.
+        internal void RestoreTraining(float remaining)
+        {
+            _queue.Clear();
+            _queue.RestoreItem(new ProductionItem
+            {
+                Kind = 0,
+                Label = "Worker",
+                CostTypes = new[] { ResourceType.Food },
+                CostAmounts = new[] { workerFoodCost },
+                Total = remaining,
+                Remaining = remaining,
+            });
+        }
+
+        // Save/load only: replaces the whole queue with already-paid items.
+        internal void RestoreQueue(System.Collections.Generic.IEnumerable<ProductionItem> items)
+        {
+            _queue.Clear();
+            foreach (ProductionItem item in items)
+            {
+                _queue.RestoreItem(item);
+            }
+        }
+
+        // Wiping a match for a load/reset: drop the queue with NO refund
+        // (the snapshot being restored carries its own resources).
+        internal void DiscardQueue()
+        {
+            _queue.Clear();
+        }
+
+        // Destroyed building: refund whatever was still queued.
+        internal void RefundQueueForDestruction()
+        {
+            if (!_queue.IsEmpty && TryGetComponent(out FactionMember member))
+            {
+                _queue.CancelAll(member.Faction);
+            }
+        }
+
+        private void OnDestroy()
+        {
+            // A scene reload (rematch) also destroys this object; the queue
+            // simply goes away with it, no refund into a dying scene.
+            if (gameObject.scene.isLoaded)
+            {
+                RefundQueueForDestruction();
+            }
+        }
+
         public bool IsAgingUp => _ageUpRemaining >= 0f;
         public AgeId AgeUpTarget => _ageUpTarget;
         public float AgeUpProgress => IsAgingUp ? 1f - (_ageUpRemaining / AgeProfile.For(_ageUpTarget).ResearchTime) : 0f;
@@ -126,31 +184,18 @@ namespace KingdomsOfBharat.Buildings
 
         public void RequestTrain()
         {
-            if (IsTraining || !Population.HasRoom(Faction))
-            {
-                return;
-            }
-
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Food) < workerFoodCost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Food, -workerFoodCost);
             float ageTrainMultiplier = AgeProfile.For(AgeProgress.CurrentAge(Faction)).TrainTimeMultiplier;
-            _remaining = trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier * ageTrainMultiplier;
+            float time = trainTime * CivilizationProfile.For(CivilizationRegistry.For(Faction)).TrainTimeMultiplier * ageTrainMultiplier;
+            _queue.TryEnqueue(Faction, 0, "Worker", time, (ResourceType.Food, workerFoodCost));
         }
 
         private void TickTraining()
         {
-            _remaining -= Time.deltaTime;
-            if (_remaining <= 0f)
+            _queue.Tick(Faction, Time.deltaTime, _ =>
             {
                 GameObject spawned = WorkerFactory.Spawn(transform.position + rallyOffset, Faction);
                 _rally.ApplyTo(spawned);
-                _remaining = -1f;
-            }
+            });
         }
 
         public void RequestAgeUp()

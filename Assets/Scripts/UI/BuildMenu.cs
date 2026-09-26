@@ -458,6 +458,7 @@ namespace KingdomsOfBharat.UI
 
             // Roadmap item 31: fixed order used by LayoutCommandGrid every
             // frame - matches the field declaration order above.
+            CreateCancelQueueButton();
             _allGridButtons = new[]
             {
                 barracksButton, farmButton, houseButton, wallButton, gateButton, towerButton,
@@ -474,7 +475,7 @@ namespace KingdomsOfBharat.UI
                 siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2,
                 charaTierButton, skirmisherTierButton, batteringRamTierButton,
                 cavalryArcherTierButton, camelRiderTierButton, scorpionTierButton, ageButton,
-                improvedToolsButton, packMulesButton, tradeDiscountsButton,
+                improvedToolsButton, packMulesButton, tradeDiscountsButton, _cancelQueueButton,
             };
 
             if (gridPrevButton != null)
@@ -856,6 +857,7 @@ namespace KingdomsOfBharat.UI
 
             SetPlacementButtonsActive(showPlacement);
             workerButton.gameObject.SetActive(townCenter != null);
+            UpdateCancelQueueButton(townCenter, barracks);
             ageButton.gameObject.SetActive(townCenter != null);
             improvedToolsButton.gameObject.SetActive(townCenter != null);
             packMulesButton.gameObject.SetActive(townCenter != null);
@@ -1233,7 +1235,7 @@ namespace KingdomsOfBharat.UI
 
         private void UpdateBarracksButtons(Barracks barracks)
         {
-            bool canTrain = barracks.IsComplete && !barracks.IsTraining;
+            bool canTrain = barracks.IsComplete && !barracks.Queue.IsFull;
             soldierButton.interactable = canTrain;
             archerButton.interactable = canTrain;
             cavalryButton.interactable = canTrain;
@@ -1986,9 +1988,89 @@ namespace KingdomsOfBharat.UI
             monasteryButton.gameObject.SetActive(active);
         }
 
+        // Prompt 9: cancels the most recently queued item (AoE convention) at
+        // the selected Town Center/Barracks and refunds it. Built in code
+        // from a clone of workerButton (no scene wiring). Goes through
+        // CommandBus like Train; not serializable over LAN yet, so it is
+        // disabled during a network match instead of desyncing.
+        private Button _cancelQueueButton;
+        private TMP_Text _cancelQueueLabel;
+
+        private void CreateCancelQueueButton()
+        {
+            _cancelQueueButton = Instantiate(workerButton, workerButton.transform.parent);
+            _cancelQueueButton.name = "CancelQueueButton";
+            _cancelQueueButton.onClick.RemoveAllListeners();
+            _cancelQueueButton.onClick.AddListener(CancelLastQueuedAtSelected);
+            foreach (Transform child in _cancelQueueButton.transform)
+            {
+                if (child.name == "GridIcon")
+                {
+                    Destroy(child.gameObject);
+                }
+            }
+
+            foreach (TooltipTrigger old in _cancelQueueButton.GetComponents<TooltipTrigger>())
+            {
+                Destroy(old);
+            }
+
+            _cancelQueueLabel = _cancelQueueButton.GetComponentInChildren<TMP_Text>(true);
+            if (_cancelQueueLabel != null)
+            {
+                _cancelQueueLabel.enabled = true;
+                _cancelQueueLabel.text = "Cancel last queued";
+            }
+
+            SetupGridCell(_cancelQueueButton, "cmd_cancel");
+            _cancelQueueButton.gameObject.SetActive(false);
+        }
+
+        private void UpdateCancelQueueButton(TownCenter townCenter, Barracks barracks)
+        {
+            ProductionQueue queue = townCenter != null ? townCenter.Queue : (barracks != null ? barracks.Queue : null);
+            bool show = queue != null && !queue.IsEmpty;
+            _cancelQueueButton.gameObject.SetActive(show);
+            if (!show)
+            {
+                return;
+            }
+
+            _cancelQueueButton.interactable = !NetworkMatch.IsActive;
+            if (_cancelQueueLabel != null)
+            {
+                _cancelQueueLabel.text = NetworkMatch.IsActive
+                    ? "Cancel (not available in LAN matches yet)"
+                    : $"Cancel last queued: {queue.Items[queue.Count - 1].Label} (refund)";
+            }
+
+            if (Input.GetKeyDown(KeyCode.Backspace))
+            {
+                CancelLastQueuedAtSelected();
+            }
+        }
+
+        private void CancelLastQueuedAtSelected()
+        {
+            if (_selectionManager == null || NetworkMatch.IsActive)
+            {
+                return;
+            }
+
+            Building building = _selectionManager.SelectedBuilding;
+            ProductionQueue queue = building is TownCenter tc ? tc.Queue : (building is Barracks bk ? bk.Queue : null);
+            if (queue == null || queue.IsEmpty)
+            {
+                return;
+            }
+
+            FactionId faction = BuildingFaction(building);
+            CommandBus.Enqueue(new TrainCommand(faction, building, () => queue.CancelLast(faction)));
+        }
+
         private void UpdateTownCenterButtons(TownCenter townCenter)
         {
-            workerButton.interactable = !townCenter.IsTraining;
+            workerButton.interactable = !townCenter.Queue.IsFull;
 
             UpdateEconomyTechButton(improvedToolsButton, improvedToolsLabel, townCenter, EconomyTech.ImprovedTools);
             UpdateEconomyTechButton(packMulesButton, packMulesLabel, townCenter, EconomyTech.PackMules);

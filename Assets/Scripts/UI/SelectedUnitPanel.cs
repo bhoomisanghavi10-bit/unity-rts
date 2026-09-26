@@ -454,6 +454,16 @@ namespace KingdomsOfBharat.UI
                 ? $"Building... {(int)(site.Progress * 100f)}%"
                 : "Complete";
 
+            ProductionQueue queue = building is TownCenter tc ? tc.Queue : (building is Barracks bk ? bk.Queue : null);
+            if (queue != null)
+            {
+                string queueText = queue.Describe();
+                if (queueText.Length > 0)
+                {
+                    statusLabel.text += " | " + queueText;
+                }
+            }
+
             bool hasAttackable = building.TryGetComponent(out Attackable attackable);
             hpLabel.gameObject.SetActive(hasAttackable);
             SetHealthBar(hasAttackable, attackable);

@@ -84,8 +84,7 @@ namespace KingdomsOfBharat.Buildings
         private bool _siteResolved;
         private FactionMember _factionMember;
         private RallyPoint _rally;
-        private float _remaining = -1f;
-        private TrainingUnit _trainingUnit;
+        private readonly ProductionQueue _queue = new ProductionQueue();
 
         // Item 40's additive layer - one more independent research track
         // each for Attack/Armor, same "doesn't block the others" shape as
@@ -212,7 +211,9 @@ namespace KingdomsOfBharat.Buildings
         }
 
         public bool IsComplete => Site == null || Site.IsComplete;
-        public bool IsTraining => _remaining >= 0f;
+        public bool IsTraining => !_queue.IsEmpty;
+        public ProductionQueue Queue => _queue;
+        public string LastTrainFailure => _queue.LastFailure;
 
         public bool IsResearchingClassAttack => _classAttackResearchRemaining >= 0f;
         public bool IsResearchingClassArmor => _classArmorResearchRemaining >= 0f;
@@ -364,47 +365,98 @@ namespace KingdomsOfBharat.Buildings
 
         public void RequestTrain()
         {
-            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            if (!IsComplete)
             {
                 return;
             }
 
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Food) < soldierFoodCost
-                || stockpile.GetTotal(ResourceType.Gold) < soldierGoldCost)
-            {
-                return;
-            }
+            TryQueue(TrainingUnit.Soldier, (ResourceType.Food, soldierFoodCost), (ResourceType.Gold, soldierGoldCost));
+        }
 
-            stockpile.Add(ResourceType.Food, -soldierFoodCost);
-            stockpile.Add(ResourceType.Gold, -soldierGoldCost);
-            _trainingUnit = TrainingUnit.Soldier;
-            _remaining = ScaledTrainTime();
+        // Save/load only: raw countdown of the active item (-1 = none).
+        internal float TrainingRemaining => _queue.Active != null ? _queue.Active.Remaining : -1f;
+
+        // Legacy single-slot save field: only Padati/Dhanurdhara had a
+        // reference-catalog id. Kept so pre-queue saves still load.
+        internal string TrainingDefinitionId => _queue.Active == null ? null : ((TrainingUnit)_queue.Active.Kind) switch
+        {
+            TrainingUnit.Soldier => DefinitionCatalog.CholaPadati,
+            TrainingUnit.Archer => DefinitionCatalog.CholaDhanurdhara,
+            _ => null,
+        };
+
+        // Save/load only (legacy saves): restores one already-paid item.
+        internal void RestoreTraining(string definitionId, float remaining)
+        {
+            TrainingUnit unit = definitionId switch
+            {
+                DefinitionCatalog.CholaPadati => TrainingUnit.Soldier,
+                DefinitionCatalog.CholaDhanurdhara => TrainingUnit.Archer,
+                _ => throw new System.ArgumentException($"Barracks cannot restore training definition '{definitionId ?? "<null>"}'.", nameof(definitionId)),
+            };
+            _queue.Clear();
+            _queue.RestoreItem(new ProductionItem
+            {
+                Kind = (int)unit,
+                Label = unit.ToString(),
+                CostTypes = new ResourceType[0],
+                CostAmounts = new float[0],
+                Total = remaining,
+                Remaining = remaining,
+            });
+        }
+
+        // Save/load only: replaces the whole queue with already-paid items.
+        internal void RestoreQueue(System.Collections.Generic.IEnumerable<ProductionItem> items)
+        {
+            _queue.Clear();
+            foreach (ProductionItem item in items)
+            {
+                _queue.RestoreItem(item);
+            }
+        }
+
+        // Wiping a match for a load/reset: drop the queue with NO refund
+        // (the snapshot being restored carries its own resources).
+        internal void DiscardQueue()
+        {
+            _queue.Clear();
+        }
+
+        internal void RefundQueueForDestruction()
+        {
+            if (!_queue.IsEmpty && TryGetComponent(out FactionMember member))
+            {
+                _queue.CancelAll(member.Faction);
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (gameObject.scene.isLoaded)
+            {
+                RefundQueueForDestruction();
+            }
+        }
+
+        private void TryQueue(TrainingUnit unit, params (ResourceType type, float amount)[] cost)
+        {
+            _queue.TryEnqueue(Faction, (int)unit, unit.ToString(), ScaledTrainTime(), cost);
         }
 
         public void RequestTrainArcher()
         {
-            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            if (!IsComplete)
             {
                 return;
             }
 
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Food) < archerFoodCost
-                || stockpile.GetTotal(ResourceType.Gold) < archerGoldCost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Food, -archerFoodCost);
-            stockpile.Add(ResourceType.Gold, -archerGoldCost);
-            _trainingUnit = TrainingUnit.Archer;
-            _remaining = ScaledTrainTime();
+            TryQueue(TrainingUnit.Archer, (ResourceType.Food, archerFoodCost), (ResourceType.Gold, archerGoldCost));
         }
 
         public void RequestTrainCavalry()
         {
-            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            if (!IsComplete)
             {
                 return;
             }
@@ -417,37 +469,17 @@ namespace KingdomsOfBharat.Buildings
             float goldCost = cavalryGoldCost * CivilizationProfile.FindCategoryMultiplier(
                 CivilizationRegistry.For(Faction), StatType.ResourceCost, UnitClass.Cavalry);
 
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Food) < cavalryFoodCost
-                || stockpile.GetTotal(ResourceType.Gold) < goldCost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Food, -cavalryFoodCost);
-            stockpile.Add(ResourceType.Gold, -goldCost);
-            _trainingUnit = TrainingUnit.Cavalry;
-            _remaining = ScaledTrainTime();
+            TryQueue(TrainingUnit.Cavalry, (ResourceType.Food, cavalryFoodCost), (ResourceType.Gold, goldCost));
         }
 
         public void RequestTrainSiege()
         {
-            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            if (!IsComplete)
             {
                 return;
             }
 
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Food) < siegeFoodCost
-                || stockpile.GetTotal(ResourceType.Gold) < siegeGoldCost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Food, -siegeFoodCost);
-            stockpile.Add(ResourceType.Gold, -siegeGoldCost);
-            _trainingUnit = TrainingUnit.Siege;
-            _remaining = ScaledTrainTime();
+            TryQueue(TrainingUnit.Siege, (ResourceType.Food, siegeFoodCost), (ResourceType.Gold, siegeGoldCost));
         }
 
         // Spearman (Phase 2 content addition): the first Barracks-trained
@@ -460,7 +492,7 @@ namespace KingdomsOfBharat.Buildings
         // missing, same defensive pattern used everywhere else in Phase 2.
         public void RequestTrainSpearman()
         {
-            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            if (!IsComplete)
             {
                 return;
             }
@@ -469,17 +501,7 @@ namespace KingdomsOfBharat.Buildings
             float foodCost = def != null ? def.cost.food : 35f;
             float woodCost = def != null ? def.cost.wood : 15f;
 
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Food) < foodCost
-                || stockpile.GetTotal(ResourceType.Wood) < woodCost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Food, -foodCost);
-            stockpile.Add(ResourceType.Wood, -woodCost);
-            _trainingUnit = TrainingUnit.Spearman;
-            _remaining = ScaledTrainTime();
+            TryQueue(TrainingUnit.Spearman, (ResourceType.Food, foodCost), (ResourceType.Wood, woodCost));
         }
 
         // Wave 4 item 18: Scout (Chara) - the second Barracks-trained unit
@@ -489,7 +511,7 @@ namespace KingdomsOfBharat.Buildings
         // the generated asset is ever missing.
         public void RequestTrainChara()
         {
-            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            if (!IsComplete)
             {
                 return;
             }
@@ -498,17 +520,7 @@ namespace KingdomsOfBharat.Buildings
             float foodCost = def != null ? def.cost.food : 50f;
             float goldCost = def != null ? def.cost.gold : 0f;
 
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Food) < foodCost
-                || stockpile.GetTotal(ResourceType.Gold) < goldCost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Food, -foodCost);
-            stockpile.Add(ResourceType.Gold, -goldCost);
-            _trainingUnit = TrainingUnit.Chara;
-            _remaining = ScaledTrainTime();
+            TryQueue(TrainingUnit.Chara, (ResourceType.Food, foodCost), (ResourceType.Gold, goldCost));
         }
 
         // Wave 4 item 19: Skirmisher - the second wholly-new Wave 4 unit,
@@ -518,7 +530,7 @@ namespace KingdomsOfBharat.Buildings
         // Food, 25 Gold) if the generated asset is ever missing.
         public void RequestTrainSkirmisher()
         {
-            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            if (!IsComplete)
             {
                 return;
             }
@@ -527,17 +539,7 @@ namespace KingdomsOfBharat.Buildings
             float foodCost = def != null ? def.cost.food : 35f;
             float goldCost = def != null ? def.cost.gold : 25f;
 
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Food) < foodCost
-                || stockpile.GetTotal(ResourceType.Gold) < goldCost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Food, -foodCost);
-            stockpile.Add(ResourceType.Gold, -goldCost);
-            _trainingUnit = TrainingUnit.Skirmisher;
-            _remaining = ScaledTrainTime();
+            TryQueue(TrainingUnit.Skirmisher, (ResourceType.Food, foodCost), (ResourceType.Gold, goldCost));
         }
 
         // Wave 4 item 20: Battering Ram - the third wholly-new Wave 4 unit,
@@ -549,7 +551,7 @@ namespace KingdomsOfBharat.Buildings
         // missing.
         public void RequestTrainBatteringRam()
         {
-            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            if (!IsComplete)
             {
                 return;
             }
@@ -558,17 +560,7 @@ namespace KingdomsOfBharat.Buildings
             float foodCost = def != null ? def.cost.food : 60f;
             float woodCost = def != null ? def.cost.wood : 120f;
 
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Food) < foodCost
-                || stockpile.GetTotal(ResourceType.Wood) < woodCost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Food, -foodCost);
-            stockpile.Add(ResourceType.Wood, -woodCost);
-            _trainingUnit = TrainingUnit.BatteringRam;
-            _remaining = ScaledTrainTime();
+            TryQueue(TrainingUnit.BatteringRam, (ResourceType.Food, foodCost), (ResourceType.Wood, woodCost));
         }
 
         // Wave 4 item: Cavalry Archer - the fourth wholly-new Wave 4 unit,
@@ -581,7 +573,7 @@ namespace KingdomsOfBharat.Buildings
         // RequestTrainCavalry already established.
         public void RequestTrainCavalryArcher()
         {
-            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            if (!IsComplete)
             {
                 return;
             }
@@ -590,17 +582,7 @@ namespace KingdomsOfBharat.Buildings
             float foodCost = def != null ? def.cost.food : 60f;
             float goldCost = def != null ? def.cost.gold : 40f;
 
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Food) < foodCost
-                || stockpile.GetTotal(ResourceType.Gold) < goldCost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Food, -foodCost);
-            stockpile.Add(ResourceType.Gold, -goldCost);
-            _trainingUnit = TrainingUnit.CavalryArcher;
-            _remaining = ScaledTrainTime();
+            TryQueue(TrainingUnit.CavalryArcher, (ResourceType.Food, foodCost), (ResourceType.Gold, goldCost));
         }
 
         // Wave 4 item 22: Camel Rider - the fifth wholly-new Wave 4 unit,
@@ -615,7 +597,7 @@ namespace KingdomsOfBharat.Buildings
         // RequestTrainCavalryArcher already established.
         public void RequestTrainCamelRider()
         {
-            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            if (!IsComplete)
             {
                 return;
             }
@@ -624,17 +606,7 @@ namespace KingdomsOfBharat.Buildings
             float foodCost = def != null ? def.cost.food : 35f;
             float woodCost = def != null ? def.cost.wood : 15f;
 
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Food) < foodCost
-                || stockpile.GetTotal(ResourceType.Wood) < woodCost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Food, -foodCost);
-            stockpile.Add(ResourceType.Wood, -woodCost);
-            _trainingUnit = TrainingUnit.CamelRider;
-            _remaining = ScaledTrainTime();
+            TryQueue(TrainingUnit.CamelRider, (ResourceType.Food, foodCost), (ResourceType.Wood, woodCost));
         }
 
         // Wave 4 item 23: same "read cost from the generated UnitDefinition,
@@ -648,7 +620,7 @@ namespace KingdomsOfBharat.Buildings
         // line already established.
         public void RequestTrainScorpion()
         {
-            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            if (!IsComplete)
             {
                 return;
             }
@@ -657,17 +629,7 @@ namespace KingdomsOfBharat.Buildings
             float woodCost = def != null ? def.cost.wood : 100f;
             float goldCost = def != null ? def.cost.gold : 60f;
 
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Wood) < woodCost
-                || stockpile.GetTotal(ResourceType.Gold) < goldCost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Wood, -woodCost);
-            stockpile.Add(ResourceType.Gold, -goldCost);
-            _trainingUnit = TrainingUnit.Scorpion;
-            _remaining = ScaledTrainTime();
+            TryQueue(TrainingUnit.Scorpion, (ResourceType.Wood, woodCost), (ResourceType.Gold, goldCost));
         }
 
         // Wave 4 item 24: Trebuchet - the first single-tier trainable
@@ -679,13 +641,14 @@ namespace KingdomsOfBharat.Buildings
         // RequestTrainX with its own inline age check.
         public void RequestTrainTrebuchet()
         {
-            if (!IsComplete || IsTraining || !Population.HasRoom(Faction))
+            if (!IsComplete)
             {
                 return;
             }
 
             if (AgeProgress.CurrentAge(Faction) != AgeId.Imperial)
             {
+                _queue.Fail("Requires Imperial Age");
                 return;
             }
 
@@ -693,17 +656,7 @@ namespace KingdomsOfBharat.Buildings
             float woodCost = def != null ? def.cost.wood : 200f;
             float goldCost = def != null ? def.cost.gold : 150f;
 
-            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
-            if (stockpile.GetTotal(ResourceType.Wood) < woodCost
-                || stockpile.GetTotal(ResourceType.Gold) < goldCost)
-            {
-                return;
-            }
-
-            stockpile.Add(ResourceType.Wood, -woodCost);
-            stockpile.Add(ResourceType.Gold, -goldCost);
-            _trainingUnit = TrainingUnit.Trebuchet;
-            _remaining = ScaledTrainTime();
+            TryQueue(TrainingUnit.Trebuchet, (ResourceType.Wood, woodCost), (ResourceType.Gold, goldCost));
         }
 
         private float ScaledTrainTime(float baseTrainTime = -1f)
@@ -715,10 +668,9 @@ namespace KingdomsOfBharat.Buildings
 
         private void TickTraining()
         {
-            _remaining -= Time.deltaTime;
-            if (_remaining <= 0f)
+            _queue.Tick(Faction, Time.deltaTime, item =>
             {
-                GameObject spawned = _trainingUnit switch
+                GameObject spawned = (TrainingUnit)item.Kind switch
                 {
                     TrainingUnit.Archer => ArcherFactory.Spawn(transform.position + rallyOffset, Faction),
                     TrainingUnit.Cavalry => CavalryFactory.Spawn(transform.position + rallyOffset, Faction),
@@ -734,8 +686,7 @@ namespace KingdomsOfBharat.Buildings
                     _ => SoldierFactory.Spawn(transform.position + rallyOffset, Faction),
                 };
                 _rally.ApplyTo(spawned);
-                _remaining = -1f;
-            }
+            });
         }
 
         // Item 40's additive per-class research - same cost/no-blocking
@@ -857,6 +808,17 @@ namespace KingdomsOfBharat.Buildings
             stockpile.Add(ResourceType.Gold, -next.GoldCost);
             stockpile.Add(ResourceType.Wood, -next.WoodCost);
             _infantryTierResearchRemaining = next.ResearchTime;
+        }
+
+        // Save/load only: this ticket's one "research queue" reference
+        // example (Padati's own Infantry tier ladder) - the other ~11
+        // parallel research tracks on this class are out of scope and
+        // deliberately left uncaptured.
+        internal float InfantryTierResearchRemaining => _infantryTierResearchRemaining;
+
+        internal void RestoreInfantryTierResearch(float remaining)
+        {
+            _infantryTierResearchRemaining = remaining;
         }
 
         private void TickInfantryTierResearch()
