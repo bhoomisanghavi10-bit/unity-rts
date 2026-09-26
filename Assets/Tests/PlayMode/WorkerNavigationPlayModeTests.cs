@@ -113,7 +113,7 @@ namespace KingdomsOfBharat.PlayModeTests
             const float horizon = 240f; // sim seconds
             while (simSeconds < horizon)
             {
-                yield return new WaitForSeconds(1f);
+                yield return new WaitForSecondsRealtime(1f);
                 simSeconds += Speed;
                 ClearBoars();
             }
@@ -155,7 +155,7 @@ namespace KingdomsOfBharat.PlayModeTests
             foreach (Gatherer w in workers) w.GatherFrom(node);
 
             Time.timeScale = Speed;
-            for (int i = 0; i < 60; i++) yield return new WaitForSeconds(1f);
+            for (int i = 0; i < 60; i++) yield return new WaitForSecondsRealtime(1f);
             Time.timeScale = 1f;
 
             float banked = stock.GetTotal(ResourceType.Gold) - before;
@@ -181,7 +181,7 @@ namespace KingdomsOfBharat.PlayModeTests
             float waited = 0f;
             while (worker.OrderState != Gatherer.WorkerOrderState.Idle && waited < 120f)
             {
-                yield return new WaitForSeconds(0.5f);
+                yield return new WaitForSecondsRealtime(0.5f);
                 waited += 0.5f * Speed;
             }
             Time.timeScale = 1f;
@@ -212,7 +212,7 @@ namespace KingdomsOfBharat.PlayModeTests
             float waited = 0f;
             while (worker.OrderState != Gatherer.WorkerOrderState.MovingToDropOff && waited < 200f)
             {
-                yield return new WaitForSeconds(0.25f);
+                yield return new WaitForSecondsRealtime(0.25f);
                 waited += 0.25f * Speed;
             }
             Assert.AreEqual(Gatherer.WorkerOrderState.MovingToDropOff, worker.OrderState, "Worker filled up and set off to deposit.");
@@ -223,7 +223,7 @@ namespace KingdomsOfBharat.PlayModeTests
             {
                 if (b is TownCenter && b.GetComponent<FactionMember>().Faction == FactionId.Player) Object.Destroy(b.gameObject);
             }
-            for (int i = 0; i < 12; i++) yield return new WaitForSeconds(0.25f);
+            for (int i = 0; i < 12; i++) yield return new WaitForSecondsRealtime(0.25f);
             Time.timeScale = 1f;
 
             Assert.AreEqual(Gatherer.WorkerOrderState.WaitingForDropOff, worker.OrderState);

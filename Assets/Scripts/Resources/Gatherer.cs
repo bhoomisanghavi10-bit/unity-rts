@@ -56,6 +56,7 @@ namespace KingdomsOfBharat.ResourceGathering
         private float _resumeDeadline;
         private const float ResumeWindowSeconds = 45f;
         public WorkerOrderState OrderState => _state;
+        public ResourceNode TargetNode => _targetNode;
         public WorkerFailure LastFailure { get; private set; }
         // Why the worker last went Idle without a failure (diagnostics/tests).
         public string IdleReason { get; private set; } = "never started";

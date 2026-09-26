@@ -21,6 +21,9 @@ namespace KingdomsOfBharat.Buildings
         // AnimationDriver compatibility.
         public bool IsFarming => _harvesting;
 
+        // The Farm this worker is assigned to (null when unassigned).
+        public Farm Farm => _farm;
+
         // Item 5 (Renewable Resource): true while actively restoring a
         // depleted Farm's Food. See Update()'s autonomous switching.
         public bool IsReseeding => _reseeding;
@@ -34,7 +37,21 @@ namespace KingdomsOfBharat.Buildings
         {
             CancelWork();
             _farm = farm;
-            _mover.MoveTo(farm.transform.position);
+            // Walk to the Farm's nearest walkable edge: its centre sits inside
+            // its own footprint obstacle, which an agent can never reach.
+            _mover.MoveTo(ApproachPoint(farm));
+        }
+
+        // The nearest walkable point on the Farm's boundary from here (same
+        // footprint query drop-off buildings use); falls back to the bounds edge.
+        private Vector3 ApproachPoint(Farm farm)
+        {
+            if (farm.TryGetComponent(out BuildingFootprintTag footprint))
+            {
+                return footprint.GetNearestApproachPoint(transform.position, _mover.Radius + 0.1f);
+            }
+
+            return WorkerNav.ClosestPoint(farm, transform.position);
         }
 
         public void CancelWork()
@@ -70,7 +87,7 @@ namespace KingdomsOfBharat.Buildings
                 return; // wait for construction to finish (Builder's job)
             }
 
-            bool inRange = Vector3.Distance(transform.position, _farm.transform.position) <= interactionRange;
+            bool inRange = Vector3.Distance(transform.position, ApproachPoint(_farm)) <= interactionRange;
             bool wantHarvest = inRange && !_farm.IsDepleted;
             bool wantReseed = inRange && _farm.IsDepleted;
 

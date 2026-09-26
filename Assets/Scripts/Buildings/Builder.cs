@@ -23,6 +23,9 @@ namespace KingdomsOfBharat.Buildings
         // actually in range and contributing progress, not while walking over.
         public bool IsBuilding => _building;
 
+        // The site this worker is currently assigned to (null if none).
+        public ConstructionSite Site => _site;
+
         private UnitMover Mover => _mover != null ? _mover : (_mover = GetComponent<UnitMover>());
 
         public void BuildAt(ConstructionSite site)

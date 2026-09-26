@@ -98,6 +98,7 @@ namespace KingdomsOfBharat.AI
         // keeps the "who's gathering what" bookkeeping contained to one file.
         private readonly HashSet<ResourceNode> _claimedNodes = new HashSet<ResourceNode>();
 
+        private AiTelemetry _telemetry;
         private float _decisionTimer;
         private float _attackTimer;
         private float _diplomacyTimer;
@@ -199,6 +200,8 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
+            _telemetry = AiTelemetry.Attach(gameObject, myFaction);
+
             // Configured matches: the slot decides who controls this faction,
             // and starting forces already exist (StartingForces.SpawnAll).
             MatchConfiguration configuration = MatchConfiguration.Current;
@@ -211,6 +214,11 @@ namespace KingdomsOfBharat.AI
                 }
 
                 ApplyDifficulty();
+                // The AI builds around ITS Town Center. The configured path
+                // (unlike the legacy spawn below) never set this, so every
+                // building was placed around the Inspector default near the
+                // world origin - the middle of the map, far from its base.
+                townCenterPosition = StartingForces.StartFor(MapRegistry.Get(configuration.Map), myFaction);
                 AdoptTownCenter();
                 return;
             }
@@ -272,6 +280,7 @@ namespace KingdomsOfBharat.AI
                     && factionMember.Faction == myFaction)
                 {
                     _townCenter = townCenter;
+                    townCenterPosition = townCenter.transform.position;
                     return;
                 }
             }
@@ -632,15 +641,39 @@ namespace KingdomsOfBharat.AI
 
         private void AssignIdleWorkers()
         {
-            List<Unit> idleWorkers = new List<Unit>();
+            // Everything below is recomputed from the live world each pass
+            // (who is on which node/resource), not tracked in a claim list
+            // that can go stale when nodes deplete or workers die.
+            var idleWorkers = new List<Unit>();
+            var onNode = new Dictionary<ResourceNode, int>();
+            int[] onResource = new int[4];
+            int totalWorkers = 0;
             foreach (Unit unit in Unit.All)
             {
-                if (unit == _scoutUnit)
+                if (unit == null || unit == _scoutUnit || !IsMine(unit) || !unit.TryGetComponent(out Gatherer gatherer))
                 {
                     continue;
                 }
 
-                if (IsMine(unit) && unit.TryGetComponent(out Gatherer gatherer) && !gatherer.IsWorking)
+                totalWorkers++;
+                bool building = unit.TryGetComponent(out Builder builder) && builder.Site != null && !builder.Site.IsComplete;
+                // A worker staffing the Farm is busy, not idle (it has no
+                // Gatherer order, so IsWorking alone reads false for it).
+                if (unit.TryGetComponent(out FarmWorker staffing) && staffing.Farm != null)
+                {
+                    continue;
+                }
+                if (gatherer.IsWorking)
+                {
+                    ResourceNode target = gatherer.TargetNode;
+                    if (target != null)
+                    {
+                        onNode.TryGetValue(target, out int n);
+                        onNode[target] = n + 1;
+                        onResource[(int)target.ResourceType]++;
+                    }
+                }
+                else if (!building)
                 {
                     idleWorkers.Add(unit);
                 }
@@ -651,20 +684,166 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
-            ResourceNode[] allNodes = FindObjectsByType<ResourceNode>(FindObjectsSortMode.None);
+            ResourceStockpile stock = ResourceStockpile.For(myFaction);
+            float[] stockTotals =
+            {
+                stock.GetTotal(ResourceType.Food), stock.GetTotal(ResourceType.Wood),
+                stock.GetTotal(ResourceType.Gold), stock.GetTotal(ResourceType.Stone),
+            };
 
+            float[] needs = ComputeNeeds(stockTotals, totalWorkers);
             foreach (Unit unit in idleWorkers)
             {
-                ResourceNode nearest = FindUnclaimedNode(unit.transform.position, allNodes);
-                if (nearest == null)
+                ResourceType wanted = AiWorkerPlanner.ChooseResource(onResource, stockTotals, totalWorkers, needs);
+                ResourceNode node = FindNodeFor(unit.transform.position, wanted, onNode)
+                    ?? FindNodeFor(unit.transform.position, null, onNode);
+                if (node == null)
                 {
                     continue;
                 }
 
-                _claimedNodes.Add(nearest);
-                unit.TryGetComponent(out Gatherer gatherer);
-                gatherer.GatherFrom(nearest);
+                unit.GetComponent<Gatherer>().GatherFrom(node);
+                onNode.TryGetValue(node, out int count);
+                onNode[node] = count + 1;
+                onResource[(int)node.ResourceType]++;
+                _telemetry?.Note("workers", $"{unit.name} -> {node.ResourceType} (want {wanted})");
             }
+        }
+
+        // What the AI is currently trying to afford, as a shortfall per resource
+        // (Food, Wood, Gold, Stone): workers first, then the Barracks/Age chain
+        // that unlocks an army, then housing when population is nearly full.
+        private float[] ComputeNeeds(float[] stock, int workers)
+        {
+            float[] goal = new float[4];
+            if (workers < AiWorkerPlanner.WorkerTarget)
+            {
+                goal[(int)ResourceType.Food] += 50f;
+            }
+
+            if (_barracks == null)
+            {
+                float mult = CivilizationProfile.For(CivilizationRegistry.For(myFaction)).BuildCostMultiplier;
+                goal[(int)ResourceType.Wood] += barracksWoodCost * mult;
+                goal[(int)ResourceType.Stone] += barracksStoneCost * mult;
+                if (AgeProgress.CurrentAge(myFaction) == AgeId.Ancient && AgeProgress.HasNextAge(myFaction))
+                {
+                    AgeProfile next = AgeProfile.For(AgeProgress.NextAge(myFaction));
+                    goal[(int)ResourceType.Wood] += next.WoodCost;
+                    goal[(int)ResourceType.Stone] += next.StoneCost;
+                }
+            }
+            else
+            {
+                goal[(int)ResourceType.Food] += 50f;
+                goal[(int)ResourceType.Gold] += 20f;
+            }
+
+            if (Population.Cap(myFaction) - Population.Current(myFaction) <= populationBuffer)
+            {
+                goal[(int)ResourceType.Wood] += houseWoodCost;
+            }
+
+            float[] shortfall = new float[4];
+            for (int i = 0; i < 4; i++)
+            {
+                shortfall[i] = Mathf.Max(0f, goal[i] - stock[i]);
+            }
+
+            return shortfall;
+        }
+
+        // Nearest usable node (optionally of one type) with room for another
+        // worker, ties broken by resource-list order (creation order).
+        private ResourceNode FindNodeFor(Vector3 from, ResourceType? type, Dictionary<ResourceNode, int> onNode)
+        {
+            ResourceNode best = null;
+            float bestDistance = float.MaxValue;
+            foreach (ResourceNode node in ResourceNode.All)
+            {
+                if (node == null || node.IsDepleted || (type.HasValue && node.ResourceType != type.Value)
+                    || WaterProximity.IsInsideWater(node.transform.position) || IsNearHostileBuilding(node.transform.position))
+                {
+                    continue;
+                }
+
+                onNode.TryGetValue(node, out int count);
+                if (count >= AiWorkerPlanner.MaxWorkersPerNode)
+                {
+                    continue;
+                }
+
+                float distance = Vector3.Distance(from, node.transform.position);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = node;
+                }
+            }
+
+            return best;
+        }
+
+        // Do not send workers to gather inside an enemy building's fire range.
+        private bool IsNearHostileBuilding(Vector3 position)
+        {
+            foreach (Building building in Building.All)
+            {
+                if (building != null && building.TryGetComponent(out FactionMember member)
+                    && DiplomacyRegistry.IsHostile(myFaction, member.Faction)
+                    && Vector3.Distance(building.transform.position, position) < 15f)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // A site with no worker assigned gets the NEAREST free worker
+        // (recomputed every pass, so a builder that died or was reassigned is
+        // replaced instead of leaving the site unbuilt forever).
+        private void EnsureBuilder(ConstructionSite site)
+        {
+            if (site == null || site.IsComplete)
+            {
+                return;
+            }
+
+            var candidates = new List<Unit>();
+            foreach (Unit unit in Unit.All)
+            {
+                if (unit == null || !IsMine(unit) || !unit.TryGetComponent(out Builder builder))
+                {
+                    continue;
+                }
+
+                if (builder.Site == site)
+                {
+                    return; // already has a builder
+                }
+
+                if (unit != _scoutUnit && (builder.Site == null || builder.Site.IsComplete))
+                {
+                    candidates.Add(unit);
+                }
+            }
+
+            if (candidates.Count == 0)
+            {
+                return;
+            }
+
+            var positions = new Vector3[candidates.Count];
+            for (int i = 0; i < positions.Length; i++) positions[i] = candidates[i].transform.position;
+            Unit chosen = candidates[AiWorkerPlanner.PickNearest(positions, site.transform.position)];
+            if (chosen.TryGetComponent(out Gatherer gatherer))
+            {
+                gatherer.CancelGather();
+            }
+
+            chosen.GetComponent<Builder>().BuildAt(site);
+            _telemetry?.Note("builder", $"{chosen.name} -> {site.name}");
         }
 
         // Item 49 gap-closing: excludes Fish nodes (see AssignIdleFishingBoats
@@ -771,9 +950,13 @@ namespace KingdomsOfBharat.AI
 
             AgeProfile nextProfile = AgeProfile.For(AgeProgress.NextAge(myFaction));
             ResourceStockpile stockpile = ResourceStockpile.For(myFaction);
-            if (stockpile.GetTotal(ResourceType.Wood) < nextProfile.WoodCost * ageUpResourceBuffer
-                || stockpile.GetTotal(ResourceType.Stone) < nextProfile.StoneCost * ageUpResourceBuffer)
+            // RequestAgeUp re-validates the exact cost, so the AI only needs
+            // to hold the cost itself; the old 1.5x margin meant the wood
+            // needed for the Barracks-unlocking Age never accumulated.
+            if (stockpile.GetTotal(ResourceType.Wood) < nextProfile.WoodCost
+                || stockpile.GetTotal(ResourceType.Stone) < nextProfile.StoneCost)
             {
+                _telemetry?.Note("age", $"saving for {nextProfile.DisplayName}: wood {stockpile.GetTotal(ResourceType.Wood):0}/{nextProfile.WoodCost:0}, stone {stockpile.GetTotal(ResourceType.Stone):0}/{nextProfile.StoneCost:0}");
                 return;
             }
 
@@ -793,7 +976,9 @@ namespace KingdomsOfBharat.AI
         // design the slot itself was built around.
         private void TryResearchEconomyTechs()
         {
-            if (_townCenter == null || _townCenter.IsResearchingEconomyTech)
+            // Wood is what the Age-up/Barracks chain runs on: economy techs wait
+            // until an army building exists.
+            if (_townCenter == null || _townCenter.IsResearchingEconomyTech || _barracks == null)
             {
                 return;
             }
@@ -853,6 +1038,7 @@ namespace KingdomsOfBharat.AI
             if (stockpile.GetTotal(ResourceType.Wood) < barracksWoodCost * multiplier
                 || stockpile.GetTotal(ResourceType.Stone) < barracksStoneCost * multiplier)
             {
+                _telemetry?.Note("barracks", $"waiting for resources: wood {stockpile.GetTotal(ResourceType.Wood):0}/{barracksWoodCost * multiplier:0}, stone {stockpile.GetTotal(ResourceType.Stone):0}/{barracksStoneCost * multiplier:0}");
                 return;
             }
 
@@ -882,27 +1068,7 @@ namespace KingdomsOfBharat.AI
         // since AssignIdleWorkers immediately re-assigns anything idle).
         private void AssignBuilderIfNeeded()
         {
-            if (_barracksSite == null || _barracksBuilderAssigned || _barracksSite.IsComplete)
-            {
-                return;
-            }
-
-            foreach (Unit unit in Unit.All)
-            {
-                if (!IsMine(unit) || !unit.TryGetComponent(out Builder builder))
-                {
-                    continue;
-                }
-
-                if (unit.TryGetComponent(out Gatherer gatherer))
-                {
-                    gatherer.CancelGather();
-                }
-
-                builder.BuildAt(_barracksSite);
-                _barracksBuilderAssigned = true;
-                return;
-            }
+            EnsureBuilder(_barracksSite);
         }
 
         // Wave 2 item 7: symmetric with TryBuildBarracks/AssignBuilderIfNeeded
@@ -944,27 +1110,7 @@ namespace KingdomsOfBharat.AI
 
         private void AssignDurgBuilderIfNeeded()
         {
-            if (_durgSite == null || _durgBuilderAssigned || _durgSite.IsComplete)
-            {
-                return;
-            }
-
-            foreach (Unit unit in Unit.All)
-            {
-                if (!IsMine(unit) || !unit.TryGetComponent(out Builder builder))
-                {
-                    continue;
-                }
-
-                if (unit.TryGetComponent(out Gatherer gatherer))
-                {
-                    gatherer.CancelGather();
-                }
-
-                builder.BuildAt(_durgSite);
-                _durgBuilderAssigned = true;
-                return;
-            }
+            EnsureBuilder(_durgSite);
         }
 
         // Wave 2 item 8: symmetric with TryBuildDurg/AssignDurgBuilderIfNeeded
@@ -973,6 +1119,12 @@ namespace KingdomsOfBharat.AI
         // late-game unlock).
         private void TryBuildKarmashala()
         {
+            // Economy and an army first: research buildings wait for both.
+            if (_barracks == null || !_barracks.IsComplete || CountMyWorkers() < 10)
+            {
+                return;
+            }
+
             if (_karmashala != null || AgeProgress.CurrentAge(myFaction) == AgeId.Ancient)
             {
                 return;
@@ -1005,27 +1157,7 @@ namespace KingdomsOfBharat.AI
 
         private void AssignKarmashalaBuilderIfNeeded()
         {
-            if (_karmashalaSite == null || _karmashalaBuilderAssigned || _karmashalaSite.IsComplete)
-            {
-                return;
-            }
-
-            foreach (Unit unit in Unit.All)
-            {
-                if (!IsMine(unit) || !unit.TryGetComponent(out Builder builder))
-                {
-                    continue;
-                }
-
-                if (unit.TryGetComponent(out Gatherer gatherer))
-                {
-                    gatherer.CancelGather();
-                }
-
-                builder.BuildAt(_karmashalaSite);
-                _karmashalaBuilderAssigned = true;
-                return;
-            }
+            EnsureBuilder(_karmashalaSite);
         }
 
         private int _trainRotation;
@@ -1213,52 +1345,56 @@ namespace KingdomsOfBharat.AI
         // next tick. A known, accepted inefficiency at this scale.
         private void AssignFarmBuilderIfNeeded()
         {
-            if (_farmSite == null || _farmBuilderAssigned || _farmSite.IsComplete)
-            {
-                return;
-            }
-
-            foreach (Unit unit in Unit.All)
-            {
-                if (!IsMine(unit) || !unit.TryGetComponent(out Builder builder))
-                {
-                    continue;
-                }
-
-                if (unit.TryGetComponent(out Gatherer gatherer))
-                {
-                    gatherer.CancelGather();
-                }
-
-                builder.BuildAt(_farmSite);
-                _farmBuilderAssigned = true;
-                return;
-            }
+            EnsureBuilder(_farmSite);
         }
 
         private void AssignFarmWorkerIfNeeded()
         {
-            if (_farm == null || !_farm.IsComplete || _farmWorkerAssigned)
+            if (_farm == null || !_farm.IsComplete)
             {
                 return;
             }
 
+            // Recomputed each pass: staffing survives farmers dying, and the
+            // farm gets several workers (0.6 food/s each) instead of one.
+            int staffed = 0;
+            var candidates = new List<Unit>();
+            int workers = 0;
             foreach (Unit unit in Unit.All)
             {
-                if (!IsMine(unit) || !unit.TryGetComponent(out FarmWorker farmWorker))
+                if (unit == null || unit == _scoutUnit || !IsMine(unit) || !unit.TryGetComponent(out FarmWorker farmWorker))
                 {
                     continue;
                 }
 
-                if (unit.TryGetComponent(out Gatherer gatherer))
+                workers++;
+                if (farmWorker.Farm == _farm)
                 {
-                    gatherer.CancelGather();
+                    staffed++;
                 }
+                else if (!(unit.TryGetComponent(out Builder builder) && builder.Site != null && !builder.Site.IsComplete))
+                {
+                    candidates.Add(unit);
+                }
+            }
 
-                farmWorker.StaffAt(_farm);
-                _farmWorkerAssigned = true;
+            // Leave some workers on the map resources.
+            int wanted = Mathf.Min(AiWorkerPlanner.FarmStaffTarget, Mathf.Max(1, workers / 2));
+            if (staffed >= wanted || candidates.Count == 0)
+            {
                 return;
             }
+
+            var positions = new Vector3[candidates.Count];
+            for (int i = 0; i < positions.Length; i++) positions[i] = candidates[i].transform.position;
+            Unit chosen = candidates[AiWorkerPlanner.PickNearest(positions, _farm.transform.position)];
+            if (chosen.TryGetComponent(out Gatherer gatherer))
+            {
+                gatherer.CancelGather();
+            }
+
+            chosen.GetComponent<FarmWorker>().StaffAt(_farm);
+            _telemetry?.Note("farm", $"staffed {staffed + 1}/{wanted}");
         }
 
         // Item 49 gap-closing: builds one Dock, same single-instance shape
@@ -1267,6 +1403,13 @@ namespace KingdomsOfBharat.AI
         // no-op on RiverValley/Highlands.
         private void TryBuildDock()
         {
+            // An army comes first: the Dock's wood/stone otherwise delays the
+            // Age-up and Barracks that everything else depends on.
+            if (_barracks == null)
+            {
+                return;
+            }
+
             if (_dock != null || !WaterProximity.HasWater)
             {
                 return;
@@ -1341,27 +1484,7 @@ namespace KingdomsOfBharat.AI
 
         private void AssignDockBuilderIfNeeded()
         {
-            if (_dockSite == null || _dockBuilderAssigned || _dockSite.IsComplete)
-            {
-                return;
-            }
-
-            foreach (Unit unit in Unit.All)
-            {
-                if (!IsMine(unit) || !unit.TryGetComponent(out Builder builder))
-                {
-                    continue;
-                }
-
-                if (unit.TryGetComponent(out Gatherer gatherer))
-                {
-                    gatherer.CancelGather();
-                }
-
-                builder.BuildAt(_dockSite);
-                _dockBuilderAssigned = true;
-                return;
-            }
+            EnsureBuilder(_dockSite);
         }
 
         // Mostly Fishing Boats (economy), one War Galley every 4th train -
@@ -1416,6 +1539,7 @@ namespace KingdomsOfBharat.AI
             float multiplier = CivilizationProfile.For(CivilizationRegistry.For(myFaction)).BuildCostMultiplier;
             if (stockpile.GetTotal(ResourceType.Wood) < houseWoodCost * multiplier)
             {
+                _telemetry?.Note("house", $"population {Population.Current(myFaction)}/{Population.Cap(myFaction)}, waiting for wood {stockpile.GetTotal(ResourceType.Wood):0}/{houseWoodCost * multiplier:0}");
                 return;
             }
 
@@ -1441,27 +1565,7 @@ namespace KingdomsOfBharat.AI
         // Same shape as AssignBuilderIfNeeded/AssignFarmBuilderIfNeeded.
         private void AssignHouseBuilderIfNeeded()
         {
-            if (_houseSite == null || _houseBuilderAssigned || _houseSite.IsComplete)
-            {
-                return;
-            }
-
-            foreach (Unit unit in Unit.All)
-            {
-                if (!IsMine(unit) || !unit.TryGetComponent(out Builder builder))
-                {
-                    continue;
-                }
-
-                if (unit.TryGetComponent(out Gatherer gatherer))
-                {
-                    gatherer.CancelGather();
-                }
-
-                builder.BuildAt(_houseSite);
-                _houseBuilderAssigned = true;
-                return;
-            }
+            EnsureBuilder(_houseSite);
         }
 
         private void TryTrainWorkers()
@@ -1471,7 +1575,19 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
+            // One worker at a time (the shared queue holds several; queuing
+            // ahead would lock Food away from everything else), and stop at
+            // a workforce target so population room goes to an army.
+            if (_townCenter.IsTraining || CountMyWorkers() >= AiWorkerPlanner.WorkerTarget)
+            {
+                return;
+            }
+
             _townCenter.RequestTrain();
+            if (_townCenter.LastTrainFailure != null)
+            {
+                _telemetry?.Note("train", "worker: " + _townCenter.LastTrainFailure);
+            }
         }
 
         private void TryAttack()
@@ -1506,6 +1622,7 @@ namespace KingdomsOfBharat.AI
                 return;
             }
 
+            GetComponent<AiTelemetry>()?.NoteAttackOrder();
             foreach (Unit soldier in soldiers)
             {
                 soldier.TryGetComponent(out MeleeAttacker attacker);
