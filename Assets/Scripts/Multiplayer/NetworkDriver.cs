@@ -51,6 +51,12 @@ namespace KingdomsOfBharat.Multiplayer
                 case NetMessageKind.Train:
                 case NetMessageKind.Build:
                 case NetMessageKind.Attack:
+                // Command-audit fix: these three were serialized/sent but
+                // never dispatched here, so a peer's trade-route/heal/
+                // convert order was silently dropped on receive.
+                case NetMessageKind.TradeRoute:
+                case NetMessageKind.Heal:
+                case NetMessageKind.Convert:
                     Command command = CommandSerializer.ToCommand(envelope);
                     if (command != null)
                     {

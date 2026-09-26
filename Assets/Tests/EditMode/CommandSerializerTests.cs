@@ -217,5 +217,18 @@ namespace KingdomsOfBharat.Tests
             Assert.AreEqual(original.trainKind, roundTripped.trainKind);
             Assert.AreEqual(original.hash, roundTripped.hash);
         }
-    }
+    
+        // Command-audit: the receive side must tolerate a stale/unknown
+        // NetworkId for the ability kinds too (NetworkDriver.Dispatch now
+        // routes TradeRoute/Heal/Convert through ToCommand).
+        [Test]
+        public void ToCommand_AbilityKinds_StaleIds_ReturnNullWithoutThrowing()
+        {
+            foreach (NetMessageKind kind in new[] { NetMessageKind.TradeRoute, NetMessageKind.Heal, NetMessageKind.Convert })
+            {
+                var envelope = new NetMessageEnvelope { kind = kind, tick = 1, faction = (int)FactionId.Player, attackerNetId = 9999, targetNetId = 9998 };
+                Assert.IsNull(CommandSerializer.ToCommand(envelope), kind.ToString());
+            }
+        }
+}
 }
