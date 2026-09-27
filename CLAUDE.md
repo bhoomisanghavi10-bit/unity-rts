@@ -8,6 +8,45 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Remaining 4 civ Houses swapped to low-poly (2026-09-27).** Continues the low-poly
+  building-swap series (TownCenter, Barracks, Market, Dock, Tower done prior
+  sessions) onto House - only 4 civs (Chola/Rajput/Maurya/Vijayanagara), since
+  Maratha's House was already low-poly from a much earlier, separate pilot session
+  (confirmed live before starting, not assumed). **Civ mapping needed a real
+  correction, not shipped blind**: the standard masked-albedo color-distance method
+  gave an ambiguous, non-1:1 result (3 candidates competing for Chola/Rajput with
+  thin margins, Maurya unmatched with its best candidate worse than every other
+  civ's own best) - root cause was green grass/foliage patches in these particular
+  House UV atlases biasing the masked mean color. Resolved via a visual contact-
+  sheet comparison (immediately clear: warm orange/tan=Chola, pink/rose=Rajput,
+  gray/white=Maurya, dark olive=Vijayanagara), cross-checked numerically by
+  re-running the distance calc with green-dominant pixels also excluded (Maurya's
+  match improved from d=36.2 to d=17.4, confirming the visual read). All 4 imported
+  cleanly (14,656-23,141 verts, no cached-empty-mesh bug); House carries no
+  civ-blind rotation stomp (unlike Tower), so the plain identity-rotation import
+  path applied with no fix needed. Live-verified all 4 through the real
+  `BuildingModelFactory.Spawn` path: grounded (center.y≈0.02) at world height 2.60,
+  matching the established House scale convention (~2.58H) - this delivery, like
+  every prior one in this series, arrived pre-normalized by Meshy to already match
+  the target height, no extra scale correction needed. Screenshot-verified all 4
+  upright and correctly identified: Chola (temple-tower tiered cap), Maurya (small
+  gray/white domed house), Rajput (pink/rose domed pavilion cluster on pillars),
+  Vijayanagara (carved stone courtyard compound with relief walls) - each matching
+  its established per-civ architectural identity. **One disclosed verification
+  gap**: true top-down (steep-pitch) screenshots rendered solid black this session
+  (a rendering-tool quirk, confirmed not a scene-state problem since normal angled
+  shots kept working throughout) - not investigated further since House, unlike
+  Tower, has no rotation ambiguity needing a top-down shot to resolve; angled
+  screenshots + exact bounds data were sufficient. 834/834 EditMode tests pass
+  unchanged (1 pre-existing, unrelated `BuildingPrefabValidationTests` NRE, same
+  standing baseline). Old `_Source`+`_Decimated` (~533 MB) -> `_Lowpoly` (~55 MB),
+  -90% overall. One scoped commit (all 4 civs' `House.prefab` + `_Lowpoly/House/*`
+  + removed `_Source/House`+`_Decimated/House_decimated.asset*`, docs) -
+  deliberately excludes the same substantial unrelated concurrent uncommitted work
+  already flagged in prior sessions' own status entries, and leaves Maratha's
+  already-correct House untouched. **Next**: user's call - the other 3 remaining
+  building types per civ (Farm/Wall/Gate), or continuing the low-poly swap
+  elsewhere.
 - **All 5 civ Towers swapped to low-poly (2026-09-27).** Continues the low-poly
   building-swap series (TownCenter, Barracks, Market, Dock done prior sessions) onto
   Tower. Civ mapping for the 5 unlabeled Meshy glbs was re-derived via masked
