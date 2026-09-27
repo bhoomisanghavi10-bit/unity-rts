@@ -64,6 +64,21 @@ namespace KingdomsOfBharat.EditorTools
         [MenuItem("BharatRTS/Import Lowpoly/Maurya Barracks")]
         public static void ImportMauryaBarracks() => ImportBuilding("Maurya", "Barracks");
 
+        [MenuItem("BharatRTS/Import Lowpoly/Chola Market")]
+        public static void ImportCholaMarket() => ImportBuilding("Chola", "Market");
+
+        [MenuItem("BharatRTS/Import Lowpoly/Rajput Market")]
+        public static void ImportRajputMarket() => ImportBuilding("Rajput", "Market");
+
+        [MenuItem("BharatRTS/Import Lowpoly/Vijayanagara Market")]
+        public static void ImportVijayanagaraMarket() => ImportBuilding("Vijayanagara", "Market");
+
+        [MenuItem("BharatRTS/Import Lowpoly/Maratha Market")]
+        public static void ImportMarathaMarket() => ImportBuilding("Maratha", "Market");
+
+        [MenuItem("BharatRTS/Import Lowpoly/Maurya Market")]
+        public static void ImportMauryaMarket() => ImportBuilding("Maurya", "Market");
+
         // General per-civ building path. Staging folder Assets/importedmodels/<Civ><Building>Lowpoly
         // holds <Civ><Building>.glb + PNGs (made by Tools/glb_extract_pbr.py); the result overwrites
         // <Civ>/<Building>.prefab in place. glbName: see ImportTownCenter's note above.

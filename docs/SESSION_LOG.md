@@ -5,6 +5,124 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-27 — All 5 civ Markets swapped to low-poly (~555 MB -> ~66 MB for the 4
+civs closed this session, plus Chola closed earlier the same day)
+
+**Scope**: ad hoc, continuing the low-poly building-swap series (TownCenter, Barracks
+done in prior sessions) onto the Market building for all 5 civs, picking up a session
+that was already partway done (Chola fully wired; Rajput/Maurya glbs extracted and
+verts confirmed non-zero but never run through the importer; Vijayanagara/Maratha
+glbs extracted but Vijayanagara's glb import had failed to 0 verts from a low-disk
+glTFast crash in the prior session).
+
+**Pre-flight**: confirmed disk healthy (7.6Gi free) and UnityMCP genuinely connected
+(a real `read_console` call, not just a port check) before touching anything, per the
+task's own instruction (this exact task hit a full-disk crash in an earlier session).
+
+**Civ mapping re-verified, not trusted blind**: the prior session's own instructions
+flagged it had already caught and fixed one transposition error on this same task, so
+this session independently re-derived the unlabeled-glb -> civ mapping via masked
+mean-albedo-color distance (each staged `<Civ>Market_albedo.png` against each civ's
+existing `_Source/Market/Market_albedo.png`) before trusting it. All 4 diagonal
+(claimed-civ vs. own-existing-texture) distances were ~1-6, versus ~15-74 for every
+cross-civ pairing - a clean, unambiguous margin confirming Rajput/Maurya/
+Vijayanagara/Maratha were all already correctly labeled (Chola's own existing albedo
+is LFS-pointer-only in git history and wasn't independently re-checked this way -
+it was instead verified the direct way, by spawning and screenshotting it, matching
+its own delivered concept-art architecture).
+
+**Vijayanagara's cached-empty-mesh bug fixed via the documented rename workaround**:
+copying `VijayanagaraMarket.glb` to `VijayanagaraMarket2.glb` (new filename = new
+cache key) and reimporting produced a real mesh (20,020 verts / 9,991 tris) where the
+original filename still silently resolves to 0 verts even now that disk is healthy -
+confirms the cache-poisoning persists independent of later free space, exactly as
+the prior session's gotcha note predicted. `LowpolyBuildingImporter.ImportBuilding`
+already supported an optional `glbName` override (established by the TownCenter
+sessions' identical fix) - called directly via `execute_code` with
+`glbName: "VijayanagaraMarket2"` rather than adding a new dedicated menu item for a
+one-off rename.
+
+**All 5 imported and live-verified through the real production path** (a real match
+via `CivilizationSetup.BeginMatch`, real `BuildingModelFactory.Spawn("Market", civ,
+...)` calls, not raw `Resources.Load`), each checked with 3 screenshots (angled,
+level front-elevation, true top-down) against a live spawned instance, per this
+project's own standing "an angled shot alone can hide an upside-down/sideways model"
+rule:
+- **Chola** (already wired before this session): 9,758 tris, stone pavilion with
+  temple-style tiered roof and pillared base, correct materials (`Market (Instance)`
+  + URP/Lit, not magenta), grounded, blue team banner attached, correct square
+  footprint in top-down.
+- **Rajput**: 9,873 tris, domed sandstone pavilions linked by a pillared colonnade,
+  upright, grounded, correctly textured.
+- **Maurya**: 10,080 tris, a single large gilded/stone dome over a square platform
+  with colorful cloth market-stall awnings visible underneath between the pillars -
+  matches Maurya's established domed-architecture identity from its TownCenter/
+  Barracks sessions.
+- **Vijayanagara**: 9,991 tris, a raised carved-stone platform with temple-style
+  pillars and a cloth canopy stretched between them, matching its established
+  temple-complex identity.
+- **Maratha**: 10,213 tris, notably wider footprint than the other 4 (9.69x6.59 world
+  units vs. ~5.7x5.7-7.1 for the others) - a rustic open-air bazaar pavilion with a
+  peaked tiled roof on wooden pillars, goods sacks visible underneath, flanked by two
+  small domed stone corner shrines. A first close-range front-elevation shot (8 units
+  away) looked like an unrelated dark fortress wall and was initially confusing -
+  re-shot from further back once `Renderer.bounds` confirmed this Market's real world
+  footprint is genuinely ~1.7x wider than its siblings (not a bug, not upside down);
+  the wider re-shot confirmed the full pavilion silhouette matches the angled/top-down
+  views correctly.
+
+**EditMode suite**: 834/834 pass, both before and after the old-asset deletion pass
+(the 1 standing pre-existing failure, `BuildingPrefabValidationTests.
+ShippedBuildingPrefabsAndCatalog_HaveNoValidationErrors`, is the same baseline every
+recent session has logged - unrelated to this work). The run count is up from the
+822/823 baseline the task's own instructions cited, reflecting other concurrent
+uncommitted work already sitting in the tree (see below) that added its own tests -
+not a Market-work regression.
+
+**Old assets removed** after confirming (via `grep` across every `.prefab`/`.asset`/
+`.unity`/`.mat` for each deleted file's own `.meta` GUID) that nothing outside each
+building's own now-deleted `_Source`/`_Decimated` folder still referenced it:
+
+| Civ | Old (`_Source` + `_Decimated`) | New (`_Lowpoly`) | Reduction |
+|---|---|---|---|
+| Rajput | 152.3 MB | 16.5 MB | -89.2% |
+| Maurya | 135.8 MB | 16.4 MB | -87.9% |
+| Vijayanagara | 137.3 MB | 17.9 MB | -87.0% |
+| Maratha | 129.7 MB | 15.6 MB | -88.0% |
+| **Total (4 civs)** | **555.1 MB** | **66.4 MB** | **-88.0%** |
+
+(Chola's own before/after sizes weren't independently re-measured this session - it
+was already fully swapped and its old assets already deleted at session start.) The 4
+`Assets/importedmodels/<Civ>MarketLowpoly/` staging folders (glb + 3 extracted PNGs
+each) were deleted once each civ's prefab was confirmed re-spawning correctly
+post-import.
+
+**Gotchas confirmed/reinforced this session** (both already documented, now
+re-confirmed with fresh evidence): (1) the glTFast low-disk cached-empty-mesh bug
+persists across sessions and free-space recovery - only a new filename busts it,
+deleting/reimporting the same path does not; (2) a close-range single-angle
+screenshot can look wrong for a building that's simply larger/wider than its
+siblings, not actually broken - always cross-check against `Renderer.bounds` and a
+pulled-back re-shot before concluding something is a placement/orientation bug.
+
+**Scope discipline**: substantial unrelated concurrent uncommitted work already sits
+in the working tree at session start/end (`DefinitionCatalog.cs`, `Projectile.cs`,
+`Performance/`, PlayMode tests, `BuildingPrefabValidator.cs` + its one known
+pre-existing failing test, plus many `Progression/*.cs` files and other scripts) -
+none of it touched or staged; only Market-related paths (`LowpolyBuildingImporter.cs`,
+all 5 civs' `Market.prefab` + `_Lowpoly/Market/*` + the removed `_Source/Market` +
+`_Decimated/Market_decimated.asset*`) plus this doc and `CLAUDE.md` were staged and
+committed, via an explicit path list rather than `git add -A`. Every new/modified
+binary (`.png`/`.asset`/`.mat`/`.prefab`) was confirmed to resolve to a real
+`git-lfs` pointer (not a raw blob) before committing, matching the project's
+`Assets/Resources/buildings/**` LFS-tracking convention.
+
+**Next**: user's call - the other 6 remaining building types per civ (Tower/Farm/
+House/Wall/Gate/Dock/TownCenter_Durg), or continuing the low-poly swap on any other
+still-heavy asset category.
+
+---
+
 ## 2026-09-27 — Ad hoc: AoE IV building-placement/construction mechanics audit + fixes
 
 **Scope**: not a numbered roadmap item — the user pasted AoE IV's own building

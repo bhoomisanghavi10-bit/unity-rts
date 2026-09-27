@@ -8,6 +8,35 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **All 5 civ Markets swapped to low-poly (2026-09-27).** Continues the low-poly
+  building-swap series (TownCenter, Barracks done prior sessions) onto Market.
+  Civ identity for the 5 unlabeled Meshy glbs was re-derived via masked mean-albedo
+  color distance against each civ's existing `Market_albedo.png` (all 4 checkable
+  diagonal distances ~1-6 vs. ~15-74 cross-civ, a clean margin) rather than trusted
+  from a handoff note that had already caught one transposition mistake on this
+  same task. Vijayanagara's glb hit the documented glTFast low-disk cached-empty-
+  mesh bug (0 verts, persisted even after disk recovered) - fixed via the established
+  rename-to-a-new-filename workaround (`VijayanagaraMarket2.glb`), confirming the
+  cache poisoning survives free-space recovery, only a new filename busts it.
+  All 5 (9,758-10,213 tris each) live-verified via UnityMCP through the real
+  `BuildingModelFactory.Spawn` production path with 3 screenshots apiece (angled,
+  front-elevation, top-down): Chola (temple-pavilion), Rajput (domed sandstone
+  colonnade), Maurya (single gilded dome over cloth market-stall awnings, matching
+  its established domed identity), Vijayanagara (carved platform + cloth canopy),
+  Maratha (rustic open bazaar pavilion, notably wider footprint than the other 4 -
+  confirmed via `Renderer.bounds`, not a bug, just genuinely bigger; an initial
+  close-range front shot looked like an unrelated dark fort wall until re-shot from
+  further back). Old `_Source`+`_Decimated` (~555 MB for the 4 civs closed this
+  session) -> `_Lowpoly` (~66 MB), -88% overall (Chola was already swapped/cleaned
+  before this session). 834/834 EditMode tests pass unchanged (1 pre-existing,
+  unrelated `BuildingPrefabValidationTests` NRE, same standing baseline). One scoped
+  commit (`LowpolyBuildingImporter.cs`, all 5 civs' `Market.prefab` + `_Lowpoly/
+  Market/*` + removed `_Source/Market`+`_Decimated/Market_decimated.asset*`, docs) -
+  deliberately excludes substantial unrelated concurrent uncommitted work already
+  sitting in the tree (`DefinitionCatalog.cs`, `Projectile.cs`, `Performance/`,
+  PlayMode tests, `BuildingPrefabValidator.cs`, many `Progression/*.cs` files).
+  **Next**: user's call - the other 6 building types per civ (Tower/Farm/House/Wall/
+  Gate/Dock/TownCenter_Durg), or continuing the low-poly swap elsewhere.
 - **Ad hoc: AoE IV building-placement/construction mechanics audit + fixes
   (2026-09-27).** Not a numbered roadmap item — user pasted AoE IV's own
   building-mechanics writeup and asked to correct this project's building
