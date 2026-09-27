@@ -4,7 +4,9 @@ using KingdomsOfBharat.Core;
 namespace KingdomsOfBharat.Camera
 {
     // Drives an RTS-style camera rig: WASD/arrow pan, screen-edge pan, and
-    // scroll-wheel zoom (dolly along the camera's own height). Movement is
+    // scroll-wheel zoom (Camera.orthographicSize when the camera is
+    // Orthographic - this project's own AoE-style fixed isometric rig; a
+    // height dolly otherwise, for a Perspective camera). Movement is
     // applied in world space so panning stays level regardless of the
     // camera's downward tilt. Input accumulates into a target position,
     // then the actual transform eases toward it (SmoothDamp) each frame -
@@ -35,6 +37,24 @@ namespace KingdomsOfBharat.Camera
         // top-down view).
         [SerializeField] private float maxHeight = 60f;
 
+        // AoE-style fixed isometric camera: the scene's Main Camera is now
+        // Orthographic (fixed 30 deg pitch/45 deg yaw, matching the classic
+        // AoE II dimetric look, never rotated by this controller). Under an
+        // orthographic projection, dollying the camera - moving it along
+        // anything other than its own exact forward axis - PANS the framed
+        // ground point instead of scaling it; the minHeight/maxHeight dolly
+        // above only actually zooms a Perspective camera. Confirmed live:
+        // moving this rig's height from 20 to 60 while orthographic didn't
+        // shrink anything on screen, it panned the view off into
+        // unrendered terrain. So scroll zoom instead drives
+        // Camera.orthographicSize directly when orthographic is on -
+        // height/minHeight/maxHeight stay untouched by zoom in that case
+        // and the Perspective branch below is kept for backward
+        // compatibility if the project ever switches back.
+        [SerializeField] private float minOrthographicSize = 4f;
+        [SerializeField] private float maxOrthographicSize = 20f;
+        [SerializeField] private float orthoZoomSpeed = 100f;
+
         [Header("Smoothing")]
         [SerializeField] private float positionSmoothTime = 0.12f;
 
@@ -42,12 +62,14 @@ namespace KingdomsOfBharat.Camera
         [SerializeField] private Vector2 mapMin = new Vector2(-20f, -20f);
         [SerializeField] private Vector2 mapMax = new Vector2(20f, 20f);
 
+        private UnityEngine.Camera _camera;
         private Vector3 _targetPosition;
         private Vector3 _velocity;
         private bool _wasMatchStarted;
 
         private void Start()
         {
+            _camera = GetComponent<UnityEngine.Camera>();
             _targetPosition = transform.position;
         }
 
@@ -140,6 +162,14 @@ namespace KingdomsOfBharat.Camera
             float scroll = Input.GetAxis("Mouse ScrollWheel");
             if (Mathf.Approximately(scroll, 0f))
             {
+                return;
+            }
+
+            if (_camera != null && _camera.orthographic)
+            {
+                _camera.orthographicSize = Mathf.Clamp(
+                    _camera.orthographicSize - scroll * orthoZoomSpeed * Time.deltaTime,
+                    minOrthographicSize, maxOrthographicSize);
                 return;
             }
 
