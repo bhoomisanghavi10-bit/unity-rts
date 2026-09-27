@@ -8,6 +8,17 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **All 5 civ Imperial Barracks swapped to low-poly (2026-09-27).**
+  `LowpolyBuildingImporter` gained a general `ImportBuilding(civ, name)` path;
+  all 5 civs' Barracks (21.5-26k tris, 4.36 tall, no rescale needed) now live in
+  `<Civ>/_Lowpoly/Barracks/`. Old sources removed: 680 MB -> 75 MB (-89%). Each
+  live-verified (real spawn, angled/front/top-down, correct textures/collider/
+  team banner); EditMode 822/823 (pre-existing validator NRE only). No local
+  archive kept (user instruction); originals recoverable from git/LFS history.
+  **Next**: user's call - the other 8 building types per civ (Tower/Market/
+  Farm/House/Wall/Gate/Dock/TownCenter_Durg), or the TownCenter Ancient/
+  Classical/Durg tiers. Keep >1 GB free before glTFast imports (see the
+  TownCenter session's cached-empty-mesh gotcha in `docs/SESSION_LOG.md`).
 - **All 5 civ Imperial TownCenters swapped to low-poly (2026-09-27).** Rajput
   (32.6k tris), Vijayanagara (42.4k), Maratha (33.5k) and Maurya (36.3k) join
   Chola (38.5k): standalone prefabs in `<Civ>/_Lowpoly/TownCenter/`, 11.2 tall,

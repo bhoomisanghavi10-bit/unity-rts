@@ -49,6 +49,31 @@ namespace KingdomsOfBharat.EditorTools
                    $"Assets/Resources/buildings/{civ}/TownCenter.prefab", glbName);
         }
 
+        [MenuItem("BharatRTS/Import Lowpoly/Chola Barracks")]
+        public static void ImportCholaBarracks() => ImportBuilding("Chola", "Barracks");
+
+        [MenuItem("BharatRTS/Import Lowpoly/Rajput Barracks")]
+        public static void ImportRajputBarracks() => ImportBuilding("Rajput", "Barracks");
+
+        [MenuItem("BharatRTS/Import Lowpoly/Vijayanagara Barracks")]
+        public static void ImportVijayanagaraBarracks() => ImportBuilding("Vijayanagara", "Barracks");
+
+        [MenuItem("BharatRTS/Import Lowpoly/Maratha Barracks")]
+        public static void ImportMarathaBarracks() => ImportBuilding("Maratha", "Barracks");
+
+        [MenuItem("BharatRTS/Import Lowpoly/Maurya Barracks")]
+        public static void ImportMauryaBarracks() => ImportBuilding("Maurya", "Barracks");
+
+        // General per-civ building path. Staging folder Assets/importedmodels/<Civ><Building>Lowpoly
+        // holds <Civ><Building>.glb + PNGs (made by Tools/glb_extract_pbr.py); the result overwrites
+        // <Civ>/<Building>.prefab in place. glbName: see ImportTownCenter's note above.
+        public static void ImportBuilding(string civ, string buildingName, string glbName = null)
+        {
+            Import($"Assets/importedmodels/{civ}{buildingName}Lowpoly", $"{civ}{buildingName}",
+                   $"Assets/Resources/buildings/{civ}/_Lowpoly/{buildingName}", buildingName,
+                   $"Assets/Resources/buildings/{civ}/{buildingName}.prefab", glbName);
+        }
+
         static void Import(string srcFolder, string srcName, string destFolder, string buildingName, string prefabPath, string glbName = null)
         {
             Directory.CreateDirectory(Path.GetFullPath(destFolder));
