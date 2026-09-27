@@ -16,7 +16,11 @@ namespace KingdomsOfBharat.Buildings
     [RequireComponent(typeof(NavMeshObstacle))]
     public class Gate : Building
     {
-        [SerializeField] private float openRadius = 3f;
+        // Widened from 3 to 5 alongside the 2026-09-28 Ancient modular kit's
+        // real 7.2-wide gate mesh (was tuned for the old 2.4-wide
+        // placeholder) - a unit approaching the gate's outer edge, not just
+        // its exact center, still needs to fall within this radius to open it.
+        [SerializeField] private float openRadius = 5f;
         [SerializeField] private float checkInterval = 0.25f;
 
         private NavMeshObstacle _obstacle;

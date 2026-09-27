@@ -124,6 +124,13 @@ namespace KingdomsOfBharat.Multiplayer.Wire
         // structures with no pitch/roll). Unused (stays 0) for every
         // other BuildingKind, which all spawn at identity rotation.
         public float buildRotationY;
+        // Ancient modular wall kit (2026-09-28): which WallFactory.WallPieceKind
+        // to place for a Wall build specifically (0 = Straight, the
+        // previous and only behavior) - int rather than a dedicated enum
+        // to keep this file's dependency on KingdomsOfBharat.Buildings at
+        // zero, same reasoning as NetBuildKind's own header comment.
+        // Unused (stays 0) for every other BuildingKind.
+        public int wallPieceKind;
 
         // Attack. Also reused, unchanged shape, by TradeRoute (Wave 4 item
         // 26): attackerNetId = the trader unit, targetNetId = the

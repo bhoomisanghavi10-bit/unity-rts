@@ -13,7 +13,19 @@ namespace KingdomsOfBharat.Buildings
     // based on friendly proximity (see Gate.cs).
     public static class GateFactory
     {
-        private static readonly Vector3 Size = new Vector3(2.4f, 1.8f, 0.4f);
+        // Ancient-age modular wall kit (2026-09-28): the sourced Gate mesh
+        // is a real 3-tile-wide combined piece (two flanking towers + a
+        // lintel span - matching the "option 2" design already decided in
+        // project_lowpoly_asset_size_conventions memory), not the old
+        // single-tile placeholder box. Widening this Size constant is
+        // sufficient on its own - Gate has always been a single-click
+        // placement (never chain-dragged like Wall), so nothing about the
+        // placement flow itself needs a multi-slot concept; the player
+        // just leaves a matching gap in a Wall chain by eye, same as
+        // before. Depth (Z) is deliberately deeper than a straight wall's
+        // 0.4 too - real flanking gate towers project further forward/back
+        // than a thin wall run.
+        private static readonly Vector3 Size = new Vector3(7.2f, 6f, 2.6f);
         private const float MaxHealth = 220f;
 
         public static GameObject Place(Vector3 point, FactionId faction, float buildTime)
@@ -21,8 +33,16 @@ namespace KingdomsOfBharat.Buildings
             CivilizationId civ = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civ);
 
-            GameObject go = BuildingModelFactory.Spawn("Gate", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor, faction: faction);
+            // Age-aware visuals (matching Wall/Tower/TownCenter's existing
+            // convention - see BuildingModelFactory.BuildVisual's age-suffixed
+            // lookup chain): only an Ancient-tier Gate model exists so far
+            // (Buildings/Gate_Ancient), so a Classical/Durg/Imperial faction
+            // falls through to the original shared/civ-specific Gate lookup
+            // unchanged, same graceful-degradation behavior every other
+            // age-tiered building already relies on.
+            GameObject go = BuildingModelFactory.Spawn("Gate", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor, AgeProgress.CurrentAge(faction), faction: faction);
             go.name = faction == FactionId.Player ? "Gate" : "EnemyGate";
+            go.AddComponent<AgeTieredBuildingVisual>().Configure("Gate", Size);
             // Gate is exempt from BuildingFootprint's square-tile/margin
             // system, same reasoning as Wall (see WallFactory) - it has to
             // match a Wall segment's shape to slot into a chain. Only

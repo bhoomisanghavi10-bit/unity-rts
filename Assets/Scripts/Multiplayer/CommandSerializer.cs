@@ -59,7 +59,12 @@ namespace KingdomsOfBharat.Multiplayer
         // free-angle drag-placed Wall chains. Every other BuildingKind
         // keeps calling the 4-arg overload above, which passes 0 here -
         // unaffected.
-        public static NetMessageEnvelope ForBuild(int tick, FactionId faction, NetBuildKind buildKind, Vector3 point, float rotationY)
+        //
+        // Ancient modular wall kit (2026-09-28): wallPieceKind carries
+        // BuildingPlacer's WallFactory.WallPieceKind selection (0 =
+        // Straight, the previous and only behavior) for a Wall build -
+        // meaningless for every other buildKind, which all leave it 0.
+        public static NetMessageEnvelope ForBuild(int tick, FactionId faction, NetBuildKind buildKind, Vector3 point, float rotationY, int wallPieceKind = 0)
         {
             return new NetMessageEnvelope
             {
@@ -69,6 +74,7 @@ namespace KingdomsOfBharat.Multiplayer
                 buildKind = buildKind,
                 point = point,
                 buildRotationY = rotationY,
+                wallPieceKind = wallPieceKind,
             };
         }
 
@@ -403,7 +409,7 @@ namespace KingdomsOfBharat.Multiplayer
                 return null;
             }
 
-            return new BuildCommand(faction, placer, () => placer.ExecuteBuildFromNetwork(envelope.buildKind, envelope.point, envelope.buildRotationY));
+            return new BuildCommand(faction, placer, () => placer.ExecuteBuildFromNetwork(envelope.buildKind, envelope.point, envelope.buildRotationY, envelope.wallPieceKind));
         }
 
         private static Command ToAttackCommand(NetMessageEnvelope envelope, FactionId faction)

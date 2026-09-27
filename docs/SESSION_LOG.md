@@ -5,6 +5,192 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-28 — Ancient-age wall modular kit (6 pieces) added, wired into existing Wall/Gate mechanics
+
+**Scope**: ad hoc, user supplied 6 unlabeled Meshy AI glb files in
+`~/Downloads/Meshy_AI_assets_20260927_223753/` ("the ancient age wall modular
+kit with gate") and asked to add them to the project using the wall mechanics
+already built (chain-drag placement from the Wall system Session A epic,
+Repairable/GarrisonPoint/fortification-bonus machinery, age-tiered visuals).
+
+**Identification**: no descriptive filenames, node names, or material names in
+any of the 6 glbs (all generic `Mesh_0`/`Material_0`). Used `pygltflib` to read
+raw vertex positions and computed bounding boxes plus quick matplotlib
+top/front/side scatter plots for each, before touching Unity:
+- Long+thin (8.6x3.5x1.15), repeating merlon pattern along the whole run with
+  small end-post clusters at both ends -> **Straight segment**.
+- Two hollow-square towers connected by a thin walkway bridge (7.9x3.5x5.3) ->
+  **Gate**.
+- A pillar with 3 arms (one roughly perpendicular, two diagonal) -> **T-Junction**.
+- A pillar with 2 perpendicular arms (L-shaped in top view) -> **Corner**.
+- A standalone hollow-square turret with no arms (2.1x3.5x2.2) -> **End Post**.
+- A pillar with 4 diagonal arms (symmetric X shape, 8.1x3.5x8.1) -> **X-Junction**.
+
+All 6 confirmed by spawning through the real `BuildingModelFactory.Spawn` path
+and screenshotting via UnityMCP once wired (see below) - matches the
+`project_lowpoly_asset_size_conventions` memory's own predicted "6 piece types
+per style era" spec exactly (that memory was written the prior session,
+2026-09-27, anticipating this exact delivery).
+
+**Import**: extracted PBR textures for all 6 via the existing
+`Tools/glb_extract_pbr.py` (same tool every prior low-poly building session
+uses), staged under `Assets/importedmodels/<Name>Lowpoly/`, then imported via
+the existing `LowpolyBuildingImporter.ImportSharedBuilding` entry point - no
+importer code changes needed. Resulting shared (non-civ) prefabs:
+`Buildings/Wall_Ancient` (overwrites the old stale full-poly straight
+segment), `Buildings/Gate_Ancient`, `Buildings/Wall_Ancient_Corner`,
+`Buildings/Wall_Ancient_EndPost`, `Buildings/Wall_Ancient_TJunction`,
+`Buildings/Wall_Ancient_XJunction`.
+
+**Scale**: the importer bakes prefabs at raw import scale (no automatic
+target-height fit), and all 6 pieces shared the same raw Meshy-normalized
+height (3.5) regardless of piece type, so scale had to be computed and baked
+by hand onto each prefab's `{name}_model` child transform (via
+`PrefabUtility.InstantiatePrefab`/`SaveAsPrefabAsset` through
+`execute_code`, since `execute_code`'s CodeDom compiler doesn't accept
+top-level `using` statements - had to fully-qualify every type):
+- Straight: non-uniform fit to `(2.4, 3.2, 0.4)` — width matches the existing
+  `WallFactory.Size.x=2.4` chain-tile-spacing convention (unrelated to visual
+  fidelity, a hard functional constraint from `ComputeWallChain`), height
+  bumped from the stale `1.8` to the new `3.2` real target from the memory's
+  own table.
+- Corner/EndPost/TJunction/XJunction: **isotropic** scale (uniform XYZ,
+  preserving the delivery's own proportions) computed by height-match alone
+  (raw 3.5 -> new junction-piece target 6.0, factor 1.71429) - deliberately
+  NOT scaled to fit a fixed footprint box, since each piece's arms are meant
+  to extend beyond the pillar's own tile into the neighbor tile a straight
+  segment would occupy.
+- Gate: non-uniform fit to `(7.2, 6.0, 2.6)` - the raw delivery turned out
+  genuinely ~3-tile-wide (7.881 raw width, close to 3x2.4=7.2) with two real
+  flanking towers + a domed archway + lintel, not the old 2.4-wide
+  placeholder box - confirms the "option 2, 3-tile-wide combined gate"
+  design the memory's prior draft had already anticipated but never seen a
+  real delivery for.
+
+**Code (`WallFactory.cs`)**: new public `WallPieceKind` enum
+(Straight/Corner/EndPost/TJunction/XJunction). All 5 remain mechanically
+identical `Wall` buildings (same `MaxHealth`/armor/`GarrisonPoint`/
+`Repairable`/Vijayanagara-fortification-bonus/team-bonus code path) - only
+`PieceResourceName`/`PieceSize` differ per piece, both consumed inside the
+existing `Place(point, faction, buildTime, rotation, pieceKind=Straight)`
+overload (default param keeps every pre-existing 3-arg/4-arg call site
+unchanged). Junction pieces deliberately use a gameplay footprint/
+`NavMeshObstacle` box sized to just the pillar's own one-tile square
+(`JunctionSize = (2.4, 6.0, 2.4)`), not the piece's full L/T/X visual
+bounding box - a single axis-aligned obstacle sized to the true silhouette
+would over-block the open notch between arms; the arms are cosmetic
+overhang into the neighboring tile, same "modest roof overhang" idiom every
+other building in this project already uses. Only Straight is age-tiered
+(keeps `AgeTieredBuildingVisual`) - the 4 junction pieces are an
+Ancient-only delivery so far and deliberately skip it, since re-skinning a
+Corner as plain "Wall" on Age-up would silently swap its whole shape, not
+just its texture.
+
+**Code (`GateFactory.cs`/`Gate.cs`)**: `Size` widened to `(7.2, 6, 2.6)` (was
+the old `(2.4, 1.8, 0.4)` placeholder) - this needed **no multi-slot
+placement logic at all**, since Gate has always been a single-click
+placement (never chain-dragged like Wall); widening the one constant was
+sufficient, matching the memory's own re-scoped finding once a real gate
+delivery existed to check against. `Gate.openRadius` bumped `3f -> 5f` to
+match the wider mesh. Gate also gained age-tiering matching Wall's existing
+convention (`AgeTieredBuildingVisual`, resourceName `"Gate"` + age ->
+`Buildings/Gate_Ancient`; a Classical/Durg/Imperial faction falls through to
+the original shared/civ-specific Gate lookup unchanged, same graceful
+degradation every other age-tiered building already relies on).
+
+**Code (`BuildingPlacer.cs`) - piece selection**: reused the existing Wall
+drag-chain mechanic exactly, rather than adding 4 new `BuildingKind`/
+`NetBuildKind` values (would have meant new switch-arms across
+`ToNetBuildKind`/`ToBuildingKind`/`CanAfford`/`CurrentSize`/
+`CurrentFootprint`/`BuildMenu`'s button grid - a much bigger surface for a
+mechanically-identical building). `UpdateWallDrag`'s existing zero-drag
+degenerate case (a plain click yields a single-segment chain, unaffected by
+this session at all) is what a junction piece placement uses. New
+`_wallPieceVariant` field, cycled via Alpha1-5 while `_kind==Wall` (fixed,
+not rebindable via Settings/`GameSettings` - a deliberately smaller scope
+than every other hotkey in this project, documented in a new
+`HotkeyOverlay.WallPieceGroup` for discoverability anyway).
+`ConfirmWallChain`/`UpdateWallGhosts` both check `chain.Count==1` to decide
+whether to honor the selected variant (a single click) or force Straight
+(a real multi-segment drag - `ComputeWallChain`'s math assumes a uniform
+repeated tile, so a junction piece there wouldn't line up). Ghost preview
+size/color now reflects the real selected piece's own footprint/
+affordability for the single-click case too, not always the flat straight
+box.
+
+**Wire protocol**: `NetMessageEnvelope`/`CommandSerializer.ForBuild` gained
+one `int wallPieceKind` field (0=Straight) threaded through the existing
+`Wall` build message (meaningless/stays 0 for every other `BuildingKind`,
+same "every field exists on every message, only the one matching Kind is
+meaningful" convention this file already documents) - `ToBuildCommand`
+passes it through to `ExecuteBuildFromNetwork`. Kept the touched multiplayer
+surface to exactly one field rather than new enum values.
+
+**Cost**: a junction piece costs a flat 3x a straight tile's Stone cost (not
+independently balanced) - `WallJunctionCostMultiplier = 3f` applied inside
+both `ExecuteBuild`'s Wall case and `CanAfford`'s Wall case. **Found and
+fixed a real bug before it shipped, not after**: `CanAfford`/`ExecuteBuild`
+originally didn't know about `pieceKind` at all - a single click placing a
+Corner would have been approved by `CanAfford(Wall)` using only the
+Straight-tile cost, then `ExecuteBuild` would deduct the real 3x cost
+regardless of whether the player actually had enough Stone (silently letting
+the stockpile go negative). Fixed by threading `pieceKind` through both
+`CanAfford` and the affordability check in `ConfirmWallChain`/
+`UpdateWallGhosts` before considering this done.
+
+**Testing**: 868/869 EditMode tests pass unchanged (867 baseline + 0 new
+automated tests - this is asset-pipeline + UI-wiring work, matching this
+project's own precedent for prior building-import sessions, which verify via
+live UnityMCP checks instead of new unit tests for pure asset/scale data; 1
+pre-existing, unrelated `BuildingPrefabValidationTests` NRE, the same
+standing baseline), confirmed via two separate full runs (before and after a
+forced domain reload post-Play-mode, this project's own documented
+stale-static-state gotcha) - both landed at 868/869.
+
+**Live verification via UnityMCP through the real production path**: all 6
+pieces spawned directly via `WallFactory.Place`/`GateFactory.Place` and
+screenshotted (straight reads as a clean crenellated stone run with end
+pilasters; corner/end-post/T/X read correctly as turret-capped junctions in
+a wide identification shot; Gate reads as a genuine two-tower archway with a
+central dome). Then, separately, through the real `BuildingPlacer` UI path
+end to end (not just the factories directly, via reflection since
+`Input.GetKeyDown` can't be simulated from outside): `BeginPlacementWall()`
+correctly entered placement mode; setting `_wallPieceVariant=Corner` and
+invoking the real private `ConfirmWallChain` with a single-segment chain
+deducted exactly 15 Stone (5 base x 3 junction multiplier, Maurya's own
+build-cost multiplier=1) through the real `CommandBus`-enqueued,
+`SimClock`-ticked deferred execution path, and the resulting real `Wall`
+GameObject's `Visual` child was confirmed named `Wall_Ancient_Corner_model`;
+a second, 3-segment drag chain with the variant deliberately left on
+XJunction correctly ignored it and placed 3 real Straight tiles (each
+resolved to `Wall_Classical_model` - Maurya's own Classical-age start bonus,
+confirming the age-tiered Straight lookup and the "a real drag always
+forces Straight" rule both work together correctly) at exactly 3x the base
+Stone cost total, with zero junction multiplier applied to any of them.
+
+**Cleanup**: raw glb staging folders (~132MB total, `Assets/importedmodels/
+<Name>Lowpoly/`) deleted per `LowpolyBuildingImporter`'s own "transient
+staging area, delete after use" docstring, once the destination `_Lowpoly`
+mesh/material assets were confirmed independent (`Resources.Load` still
+resolves `Buildings/Wall_Ancient_XJunction` correctly post-deletion, since
+the mesh was copied into its own standalone `.asset` at import time, not
+referenced by path).
+
+**Not done, explicitly out of scope**: Classical/Durg wall/gate kits (only
+Ancient exists - no delivery for those tiers yet); real auto-tiling
+placement (snapping a Corner automatically where two chain-dragged runs
+meet) - the player still places each junction piece manually and aligns it
+by eye, same as Gate always has been; a proper HUD readout of the currently
+selected wall piece (relies on the F1 `HotkeyOverlay` + a console
+`Debug.Log` on change instead of a live on-screen indicator).
+
+One scoped commit: `WallFactory.cs`, `GateFactory.cs`, `Gate.cs`,
+`BuildingPlacer.cs`, `NetMessage.cs`, `CommandSerializer.cs`,
+`HotkeyOverlay.cs`, the updated `Wall_Ancient.prefab` + 5 new prefabs and
+their `_Lowpoly` mesh/material/texture assets, `CLAUDE.md`, this entry.
+
+---
+
 ## 2026-09-28 — Farm's common visual: 3 pre-rendered isometric sprite states
 
 **Scope**: ad hoc, direct follow-up to the previous session (2026-09-27),

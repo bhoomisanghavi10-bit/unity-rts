@@ -16,8 +16,53 @@ namespace KingdomsOfBharat.Buildings
     // support AoE's click-drag multi-segment chain placement.
     public static class WallFactory
     {
-        private static readonly Vector3 Size = new Vector3(2.4f, 1.8f, 0.4f);
+        // Ancient-age modular wall kit (2026-09-28): straight run + 4
+        // standalone junction pieces (Corner/EndPost/T/X), all mechanically
+        // identical Wall buildings (same HP/armor/garrison/repair/
+        // fortification bonuses) - only the visual resourceName and
+        // gameplay-footprint Size differ per piece. See PieceResourceName/
+        // PieceSize below and BuildingPlacer's wall-piece-variant selector
+        // (Alpha1-5 while placing a Wall).
+        public enum WallPieceKind { Straight, Corner, EndPost, TJunction, XJunction }
+
+        // Straight segment height was a stale 1.8 (shorter than the ~1.9
+        // worker unit) until the low-poly Ancient kit landed - now matches
+        // the kit's own real proportions (see
+        // project_lowpoly_asset_size_conventions memory: straight 3.0-3.5).
+        private static readonly Vector3 Size = new Vector3(2.4f, 3.2f, 0.4f);
+
+        // Corner/EndPost/T/X pieces read as turret caps rising above the
+        // wall line (AoE II convention) - taller than the straight run,
+        // per the same memory's table. The gameplay footprint deliberately
+        // stays a single wall-tile square (2.4x2.4), not the piece's full
+        // visual bounding box - each piece's arms/turret are cosmetic
+        // dressing that visually reaches into the neighboring tile a
+        // straight segment would otherwise occupy, same idea as a modest
+        // roof overhang on any other building; a single NavMeshObstacle box
+        // sized to the true L/T/X silhouette would over-block the notch
+        // between arms, so the obstacle only ever covers the pillar's own
+        // tile, matching this project's existing "square box, not exact
+        // shape" footprint convention everywhere else.
+        private static readonly Vector3 JunctionSize = new Vector3(2.4f, 6f, 2.4f);
+
         private const float MaxHealth = 250f;
+
+        private static string PieceResourceName(WallPieceKind kind)
+        {
+            return kind switch
+            {
+                WallPieceKind.Corner => "Wall_Ancient_Corner",
+                WallPieceKind.EndPost => "Wall_Ancient_EndPost",
+                WallPieceKind.TJunction => "Wall_Ancient_TJunction",
+                WallPieceKind.XJunction => "Wall_Ancient_XJunction",
+                _ => "Wall",
+            };
+        }
+
+        internal static Vector3 PieceSize(WallPieceKind kind)
+        {
+            return kind == WallPieceKind.Straight ? Size : JunctionSize;
+        }
 
         public static GameObject Place(Vector3 point, FactionId faction, float buildTime)
         {
@@ -34,26 +79,41 @@ namespace KingdomsOfBharat.Buildings
         // orientation from this same transform automatically, and
         // IsClearForKind's Wall/Gate overlap check is already a rotation-
         // agnostic circular distance test - both need no further changes.
-        public static GameObject Place(Vector3 point, FactionId faction, float buildTime, Quaternion rotation)
+        //
+        // pieceKind (2026-09-28 Ancient modular kit): only Straight is
+        // age-tiered (Wall_Ancient/Classical/Durg all exist or will exist -
+        // see BuildingModelFactory's age-suffixed lookup chain); the 4
+        // junction pieces are a one-off Ancient-only delivery so far, so
+        // they resolve their literal resourceName with no age suffix and
+        // deliberately skip AgeTieredBuildingVisual - re-skinning a Corner
+        // piece as a plain "Wall" on Age-up would silently swap its whole
+        // shape, not just its texture.
+        public static GameObject Place(Vector3 point, FactionId faction, float buildTime, Quaternion rotation, WallPieceKind pieceKind = WallPieceKind.Straight)
         {
             CivilizationId civ = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civ);
+            string resourceName = PieceResourceName(pieceKind);
+            Vector3 size = PieceSize(pieceKind);
+            AgeId? age = pieceKind == WallPieceKind.Straight ? AgeProgress.CurrentAge(faction) : (AgeId?)null;
 
-            GameObject go = BuildingModelFactory.Spawn("Wall", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor, AgeProgress.CurrentAge(faction), faction: faction);
+            GameObject go = BuildingModelFactory.Spawn(resourceName, civ, point + Vector3.up * (size.y * 0.5f), size, profile.PrimaryColor, age, faction: faction);
             go.transform.rotation = rotation;
             go.name = faction == FactionId.Player ? "Wall" : "EnemyWall";
-            go.AddComponent<AgeTieredBuildingVisual>().Configure("Wall", Size);
+            if (pieceKind == WallPieceKind.Straight)
+            {
+                go.AddComponent<AgeTieredBuildingVisual>().Configure("Wall", size);
+            }
             // Wall is exempt from BuildingFootprint's square-tile/margin
             // system (it blocks its full footprint edge-to-edge, no
             // passable margin, and keeps its own modular chain-placement
             // NavMeshObstacle below) - only tagged here so other buildings'
             // placement-overlap checks still see its real shape.
-            BuildingFootprint.Attach(go, new Vector2(Size.x, Size.z), carveObstacle: false);
+            BuildingFootprint.Attach(go, new Vector2(size.x, size.z), carveObstacle: false);
 
             go.AddComponent<Wall>();
             var site = go.AddComponent<ConstructionSite>();
             site.Configure(buildTime);
-            go.AddComponent<SelectionIndicator>().Configure(1.4f, -Size.y * 0.5f);
+            go.AddComponent<SelectionIndicator>().Configure(1.4f, -size.y * 0.5f);
             var attackable = go.AddComponent<Attackable>();
             // Phase 6: Vijayanagara's unique tech (Hampi Fortifications)
             // multiplies defensive-structure HP - same non-retroactive
@@ -91,7 +151,7 @@ namespace KingdomsOfBharat.Buildings
 
             var obstacle = go.AddComponent<NavMeshObstacle>();
             obstacle.shape = NavMeshObstacleShape.Box;
-            obstacle.size = Size;
+            obstacle.size = size;
             obstacle.carving = true;
 
             // See WorkerFactory: only Player vision feeds FogOfWarManager.

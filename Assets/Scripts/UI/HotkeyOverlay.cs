@@ -77,6 +77,22 @@ namespace KingdomsOfBharat.UI
             new Entry("Place Monastery", "PlaceMonastery", KeyCode.G),
         });
 
+        // Ancient modular wall kit (2026-09-28): only meaningful while
+        // actively placing a Wall (a plain click, not a drag, uses whichever
+        // piece is selected here) - see BuildingPlacer._wallPieceVariant.
+        // Fixed, not rebindable via Settings (these actionIds are never
+        // registered in GameSettings, so GetKey always falls through to the
+        // Default below) - a deliberately smaller scope than every other
+        // hotkey in this file.
+        private static readonly Group WallPieceGroup = new Group("Wall Piece (Placing Wall, Click Not Drag)", new[]
+        {
+            new Entry("Straight", "WallPieceStraight", KeyCode.Alpha1),
+            new Entry("Corner", "WallPieceCorner", KeyCode.Alpha2),
+            new Entry("End Post", "WallPieceEndPost", KeyCode.Alpha3),
+            new Entry("T-Junction", "WallPieceTJunction", KeyCode.Alpha4),
+            new Entry("X-Junction", "WallPieceXJunction", KeyCode.Alpha5),
+        });
+
         private static readonly Group TownCenterGroup = new Group("Town Center Selected", new[]
         {
             new Entry("Train Worker", "TrainWorker", KeyCode.G),
@@ -176,7 +192,7 @@ namespace KingdomsOfBharat.UI
         private static readonly Group[][] Columns =
         {
             new[] { GlobalGroup, DockGroup, MarketGroup, MonasteryGroup, GarrisonGroup, MillGroup },
-            new[] { PlacementGroup },
+            new[] { PlacementGroup, WallPieceGroup },
             new[] { TownCenterGroup, BarracksGroup, DurgGroup, KarmashalaGroup },
         };
 

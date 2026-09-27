@@ -65,12 +65,35 @@ namespace KingdomsOfBharat.Buildings
         // one drag, not a foundational design choice - tunable later.
         private const int MaxWallChainSegments = 30;
 
+        // Ancient modular wall kit (2026-09-28): a genuine drag (2+
+        // segments) always places Straight tiles - ComputeWallChain's math
+        // assumes a uniform repeated tile, so a junction piece there
+        // wouldn't line up. A plain click (the chain's own zero-drag
+        // degenerate case, count==1) places whichever piece is currently
+        // selected via the Alpha1-5 keys below, letting the player drop a
+        // Corner/EndPost/T/X-junction at the end of an otherwise-normal
+        // Wall chain drag.
+        private WallFactory.WallPieceKind _wallPieceVariant = WallFactory.WallPieceKind.Straight;
+
+        // A junction piece is a taller, bulkier standalone structure than
+        // one 2.4-wide straight tile - not independently balanced, just a
+        // flat multiple of the per-segment Stone cost.
+        private const float WallJunctionCostMultiplier = 3f;
+
         [Header("Gate")]
         [SerializeField] private KeyCode placeGateKey = KeyCode.K;
-        [SerializeField] private float gateStoneCost = 10f;
-        [SerializeField] private float gateWoodCost = 5f;
-        [SerializeField] private float gateBuildTime = 4f;
-        [SerializeField] private Vector3 gateSize = new Vector3(2.4f, 1.8f, 0.4f);
+        // Costs scaled up alongside the 2026-09-28 Ancient modular kit's
+        // real 3-tile-wide gate mesh (was tuned for the old 2.4-wide
+        // placeholder box) - roughly proportional to the ~3x footprint.
+        [SerializeField] private float gateStoneCost = 30f;
+        [SerializeField] private float gateWoodCost = 15f;
+        [SerializeField] private float gateBuildTime = 8f;
+        [SerializeField] private Vector3 gateSize = new Vector3(7.2f, 6f, 2.6f);
+        // Gate's own placement clearance (see IsClearForKind) - separate
+        // from wallClearance since the widened gate needs a bigger radius
+        // to register as clear of nearby buildings than a thin wall
+        // segment does.
+        [SerializeField] private float gateClearance = 4f;
 
         [Header("Tower")]
         [SerializeField] private KeyCode placeTowerKey = KeyCode.O;
@@ -556,10 +579,10 @@ namespace KingdomsOfBharat.Buildings
         // CancelPlacing() itself - callers decide when the placement
         // session actually ends (a chain confirms all its segments before
         // exiting placement mode once).
-        private void IssueBuildCommand(BuildingKind kind, Vector3 point, Quaternion rotation)
+        private void IssueBuildCommand(BuildingKind kind, Vector3 point, Quaternion rotation, WallFactory.WallPieceKind pieceKind = WallFactory.WallPieceKind.Straight)
         {
             FactionId faction = NetworkMatch.LocalFaction;
-            int tick = CommandBus.Enqueue(new BuildCommand(faction, this, () => ExecuteBuild(kind, point, rotation)));
+            int tick = CommandBus.Enqueue(new BuildCommand(faction, this, () => ExecuteBuild(kind, point, rotation, pieceKind)));
 
             // Phase 5 LAN transport MVP: the remote peer needs this exact
             // order too, scheduled for the exact same tick - see
@@ -567,7 +590,7 @@ namespace KingdomsOfBharat.Buildings
             // (NetworkMatch.IsActive stays false).
             if (NetworkMatch.IsActive)
             {
-                NetworkMatch.SendCommand(CommandSerializer.ForBuild(tick, faction, ToNetBuildKind(kind), point, rotation.eulerAngles.y));
+                NetworkMatch.SendCommand(CommandSerializer.ForBuild(tick, faction, ToNetBuildKind(kind), point, rotation.eulerAngles.y, (int)pieceKind));
             }
         }
 
@@ -576,8 +599,34 @@ namespace KingdomsOfBharat.Buildings
         // ComputeWallChain trivially returns a single segment at the
         // cursor - identical to the old single-ghost preview, meaning a
         // plain click-without-drag is completely unaffected by this path.
+        // Ancient modular wall kit (2026-09-28): Alpha1-5 pick which piece a
+        // subsequent plain click (not a drag) will place - see
+        // _wallPieceVariant's own comment. Logged on change since there's no
+        // dedicated HUD readout for the current selection yet.
+        private static readonly WallFactory.WallPieceKind[] WallVariantHotkeys =
+        {
+            WallFactory.WallPieceKind.Straight,
+            WallFactory.WallPieceKind.Corner,
+            WallFactory.WallPieceKind.EndPost,
+            WallFactory.WallPieceKind.TJunction,
+            WallFactory.WallPieceKind.XJunction,
+        };
+
+        private void UpdateWallPieceSelection()
+        {
+            for (int i = 0; i < WallVariantHotkeys.Length; i++)
+            {
+                if (Input.GetKeyDown(KeyCode.Alpha1 + i))
+                {
+                    _wallPieceVariant = WallVariantHotkeys[i];
+                    Debug.Log($"BuildingPlacer: wall piece set to {_wallPieceVariant}");
+                }
+            }
+        }
+
         private void UpdateWallDrag()
         {
+            UpdateWallPieceSelection();
             bool hasGround = TryGetGroundPoint(out Vector3 current);
 
             if (!_wallDragActive && Input.GetMouseButtonDown(0) && hasGround)
@@ -653,9 +702,15 @@ namespace KingdomsOfBharat.Buildings
                     grounded = position;
                 }
 
+                // A single ghost (no drag yet) previews the currently
+                // selected piece's own real footprint size; a real
+                // multi-segment drag always previews Straight tiles
+                // (matches ConfirmWallChain's own count==1 rule).
+                Vector3 ghostSize = chain.Count == 1 ? WallFactory.PieceSize(_wallPieceVariant) : wallSize;
+
                 GameObject ghost = _wallGhosts[i];
-                ghost.transform.SetPositionAndRotation(grounded + Vector3.up * (wallSize.y * 0.5f), rotation);
-                ghost.transform.localScale = wallSize;
+                ghost.transform.SetPositionAndRotation(grounded + Vector3.up * (ghostSize.y * 0.5f), rotation);
+                ghost.transform.localScale = ghostSize;
 
                 // Cumulative affordability preview: the tail of a long
                 // drag reddens once the running cost would exceed the
@@ -665,7 +720,9 @@ namespace KingdomsOfBharat.Buildings
                 // (IsClearForKind/CanAfford), so this is preview-only and
                 // can't itself let an unaffordable segment through.
                 bool clear = IsClearForKind(BuildingKind.Wall, grounded);
-                bool affordableSoFar = CanAffordWallCount(i + 1);
+                bool affordableSoFar = chain.Count == 1
+                    ? CanAfford(BuildingKind.Wall, _wallPieceVariant)
+                    : CanAffordWallCount(i + 1);
                 ghost.GetComponent<MeshRenderer>().sharedMaterial.color = clear && affordableSoFar
                     ? new Color(0.3f, 1f, 0.3f, 0.5f)
                     : new Color(1f, 0.3f, 0.3f, 0.5f);
@@ -695,6 +752,11 @@ namespace KingdomsOfBharat.Buildings
         // guard.
         private void ConfirmWallChain(System.Collections.Generic.List<(Vector3 position, Quaternion rotation)> chain)
         {
+            // A real drag (2+ segments) is always Straight tiles - only a
+            // plain click (the chain's zero-drag degenerate case) honors
+            // the player's selected junction piece. See _wallPieceVariant.
+            WallFactory.WallPieceKind pieceKind = chain.Count == 1 ? _wallPieceVariant : WallFactory.WallPieceKind.Straight;
+
             foreach ((Vector3 position, Quaternion rotation) in chain)
             {
                 if (!TryGetGroundHeightAt(position, out Vector3 grounded))
@@ -702,12 +764,12 @@ namespace KingdomsOfBharat.Buildings
                     continue;
                 }
 
-                if (!IsClearForKind(BuildingKind.Wall, grounded) || !CanAfford(BuildingKind.Wall))
+                if (!IsClearForKind(BuildingKind.Wall, grounded) || !CanAfford(BuildingKind.Wall, pieceKind))
                 {
                     continue;
                 }
 
-                IssueBuildCommand(BuildingKind.Wall, grounded, rotation);
+                IssueBuildCommand(BuildingKind.Wall, grounded, rotation, pieceKind);
             }
         }
 
@@ -717,9 +779,9 @@ namespace KingdomsOfBharat.Buildings
         // (internal rather than the private ExecuteBuild it forwards to,
         // exactly as much visibility as the network layer needs and no
         // more).
-        internal void ExecuteBuildFromNetwork(NetBuildKind netKind, Vector3 point, float rotationY)
+        internal void ExecuteBuildFromNetwork(NetBuildKind netKind, Vector3 point, float rotationY, int wallPieceKind = 0)
         {
-            ExecuteBuild(ToBuildingKind(netKind), point, Quaternion.Euler(0f, rotationY, 0f));
+            ExecuteBuild(ToBuildingKind(netKind), point, Quaternion.Euler(0f, rotationY, 0f), (WallFactory.WallPieceKind)wallPieceKind);
         }
 
         private static NetBuildKind ToNetBuildKind(BuildingKind kind)
@@ -772,9 +834,9 @@ namespace KingdomsOfBharat.Buildings
         // reason Barracks.RequestTrain re-validates instead of trusting
         // TrainCommand's enqueue-time state. Silently no-ops if either check
         // now fails, matching RequestTrain's own convention.
-        private void ExecuteBuild(BuildingKind kind, Vector3 point, Quaternion rotation)
+        private void ExecuteBuild(BuildingKind kind, Vector3 point, Quaternion rotation, WallFactory.WallPieceKind pieceKind = WallFactory.WallPieceKind.Straight)
         {
-            if (!IsClearForKind(kind, point) || !CanAfford(kind))
+            if (!IsClearForKind(kind, point) || !CanAfford(kind, pieceKind))
             {
                 return;
             }
@@ -826,9 +888,15 @@ namespace KingdomsOfBharat.Buildings
                 }
                 case BuildingKind.Wall:
                 {
-                    float stone = wallStoneCost * multiplier * StoneMultiplierFor(kind);
+                    // Ancient modular wall kit (2026-09-28): a junction
+                    // piece (Corner/EndPost/T/X) is a taller, sturdier
+                    // structure than one straight tile - costs more Stone
+                    // proportionally, same multiplier this whole switch
+                    // already uses for every other bonus/discount stack.
+                    float pieceCostMultiplier = pieceKind == WallFactory.WallPieceKind.Straight ? 1f : WallJunctionCostMultiplier;
+                    float stone = wallStoneCost * multiplier * StoneMultiplierFor(kind) * pieceCostMultiplier;
                     stockpile.Add(ResourceType.Stone, -stone);
-                    spawned = WallFactory.Place(point, NetworkMatch.LocalFaction, wallBuildTime, rotation);
+                    spawned = WallFactory.Place(point, NetworkMatch.LocalFaction, wallBuildTime, rotation, pieceKind);
                     RecordCost(spawned, ResourceType.Stone, stone);
                     break;
                 }
@@ -953,7 +1021,7 @@ namespace KingdomsOfBharat.Buildings
             cost.Record(type, amount);
         }
 
-        private bool CanAfford(BuildingKind kind)
+        private bool CanAfford(BuildingKind kind, WallFactory.WallPieceKind pieceKind = WallFactory.WallPieceKind.Straight)
         {
             ResourceStockpile stockpile = ResourceStockpile.For(NetworkMatch.LocalFaction);
             // Phase 6 gap-close: EconomyTechProgress's TradeDiscounts tech
@@ -971,7 +1039,10 @@ namespace KingdomsOfBharat.Buildings
                 case BuildingKind.House:
                     return stockpile.GetTotal(ResourceType.Wood) >= houseWoodCost * multiplier * WoodMultiplierFor(kind);
                 case BuildingKind.Wall:
-                    return stockpile.GetTotal(ResourceType.Stone) >= wallStoneCost * multiplier * StoneMultiplierFor(kind);
+                {
+                    float pieceCostMultiplier = pieceKind == WallFactory.WallPieceKind.Straight ? 1f : WallJunctionCostMultiplier;
+                    return stockpile.GetTotal(ResourceType.Stone) >= wallStoneCost * multiplier * StoneMultiplierFor(kind) * pieceCostMultiplier;
+                }
                 case BuildingKind.Gate:
                     return stockpile.GetTotal(ResourceType.Stone) >= gateStoneCost * multiplier * StoneMultiplierFor(kind)
                         && stockpile.GetTotal(ResourceType.Wood) >= gateWoodCost * multiplier;
@@ -1082,7 +1153,7 @@ namespace KingdomsOfBharat.Buildings
         private bool IsClearForKind(BuildingKind kind, Vector3 point)
         {
             bool clear = kind == BuildingKind.Wall || kind == BuildingKind.Gate
-                ? BarracksFactory.IsClear(point, wallClearance)
+                ? BarracksFactory.IsClear(point, kind == BuildingKind.Gate ? gateClearance : wallClearance)
                 : BuildingFootprint.IsClear(point, CurrentFootprint(kind));
 
             // AoE-style stationary-resource rule: blocked by a gold/stone/
