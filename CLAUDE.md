@@ -8,6 +8,36 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **All 5 civ Docks swapped to low-poly (2026-09-27).** Continues the low-poly
+  building-swap series (TownCenter, Barracks, Market done prior sessions) onto Dock.
+  User initially described the delivery as Tower models; corrected mid-task before any
+  Tower-specific code was touched - they're Imperial-age Docks. Civ mapping for the 5
+  unlabeled Meshy glbs was re-derived via masked mean-albedo color distance; 2 of the 5
+  tied on raw RGB (Chola vs. Maurya's existing `Dock_albedo.png` are themselves only
+  ~4.3 apart in mean color) - disambiguated via HSV hue (28.9°/32.3° cleanly matching
+  Chola's 29.5°/Maurya's 33.0° references) cross-checked against direct visual
+  inspection of the UV-atlas textures. All 5 imported cleanly on the first attempt
+  (9,647-10,184 tris, no cached-empty-mesh bug this time) and live-verified via
+  UnityMCP through the real `BuildingModelFactory.Spawn` path with 3 screenshots
+  apiece: Chola (temple-tower pier), Rajput (domed sandstone waterfront palace +
+  stepped jetty), Maurya (single gilded dome on a wooden pier), Vijayanagara (carved
+  stone temple platform on a pier), Maratha (dark fortified bastion + pier) - each
+  matching its established per-civ architectural identity from the TownCenter/Barracks/
+  Market sessions. World height consistently 3.80 across all 5, matching the
+  established Dock scale convention. Hit 2 environment snags mid-verification, both
+  resolved, neither a code bug: the Editor had no scene loaded after a test run (fixed
+  by explicitly reloading `Main.unity`), and the first test-dock placement landed
+  inside the real Player starting base, picked up by nearby unrelated buildings (fixed
+  by relocating to a clear terrain corner and temporarily disabling
+  `FogOfWarManager`'s renderer, the project's documented technique). 834/834 EditMode
+  tests pass unchanged (1 pre-existing, unrelated `BuildingPrefabValidationTests` NRE,
+  same standing baseline). Old `_Source`+`_Decimated` (~708 MB) -> `_Lowpoly` (~85 MB),
+  -88% overall. One scoped commit (all 5 civs' `Dock.prefab` + `_Lowpoly/Dock/*` +
+  removed `_Source/Dock`+`_Decimated/Dock_decimated.asset*`, docs) - deliberately
+  excludes the same substantial unrelated concurrent uncommitted work already flagged
+  in the Market session's own status entry. **Next**: user's call - the other 4
+  remaining building types per civ (Tower/Farm/House/Wall/Gate), or continuing the
+  low-poly swap elsewhere.
 - **All 5 civ Markets swapped to low-poly (2026-09-27).** Continues the low-poly
   building-swap series (TownCenter, Barracks done prior sessions) onto Market.
   Civ identity for the 5 unlabeled Meshy glbs was re-derived via masked mean-albedo

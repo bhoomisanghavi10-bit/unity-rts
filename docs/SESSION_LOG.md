@@ -5,6 +5,95 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-27 — All 5 civ Docks swapped to low-poly (~708 MB -> ~85 MB, -88%)
+
+**Scope**: ad hoc, continuing the low-poly building-swap series (TownCenter, Barracks,
+Market done in prior sessions) onto the Dock building for all 5 civs. User supplied 5
+unlabeled Meshy glbs at `~/Downloads/Meshy_AI_assets_20260927_123642/<uuid>/
+Meshy_AI_model.glb`. **Correction mid-task**: the user's first message described these
+as Tower models; before touching any Tower-specific code (found `BuildingModelFactory`
+carries a civ-blind `ImportRotationCorrections["Tower"]` runtime rotation stomp that
+Dock doesn't have), the user corrected this - they're actually Imperial-age Docks for
+all 5 civs. Confirmed `DockFactory.cs` and `BuildingModelFactory.cs` have no
+Dock-specific rotation dict entry, so this followed the plain Market/TownCenter/
+Barracks pattern (raw mesh lying on its back at import, `-90 X` correction), not
+Tower's civ-blind-stomp pattern.
+
+**Civ mapping identified via masked mean-albedo color distance, same method as the
+Market session** - but this time 2 of the 5 candidates tied on raw RGB distance (both
+scored closest to Maurya, with margins of only 2.5 and 0.5 over Chola, versus ~18-39
+margins for the other 3 clean matches) because Chola's and Maurya's existing
+`Dock_albedo.png` textures are themselves nearly identical in mean RGB (~4.3 apart).
+Resolved by computing HSV hue instead of raw RGB: the ambiguous pair's hues (28.9° and
+32.3°) matched Chola's (29.5°) and Maurya's (33.0°) references unambiguously, cross-
+checked against a direct visual comparison of the (UV-atlas, spatially incoherent)
+albedo textures - the redder-toned candidate visually matched Chola's warmer reference,
+the more monochrome-sepia candidate matched Maurya's. Final mapping (all 5 civs
+accounted for exactly once): `01a0e2d9-fa6d-...` -> Vijayanagara, `01a0e2da-74d9-...`
+-> Rajput, `01a0e2da-ef40-...` -> Chola, `01a0e2db-5eef-...` -> Maratha,
+`01a0e2db-f530-...` -> Maurya.
+
+All 5 glbs imported cleanly on the first attempt (9,647-10,184 tris each, no cached-
+empty-mesh bug this time) via `LowpolyBuildingImporter.ImportBuilding(civ, "Dock")`
+(the existing generic per-building path, no new menu items needed). Live-verified all
+5 through the real `BuildingModelFactory.Spawn("Dock", ...)` production path with 3
+screenshots each (angled, front-elevation, top-down): Chola (a temple-tower-shaped
+pier structure, matching its tiered-pyramidal TownCenter motif), Rajput (a sandstone
+waterfront palace with domed corner turrets and a stepped jetty, matching its
+established domed-pavilion identity), Maurya (a single gilded/stone dome on a wooden
+pier with a cart wheel, matching its domed-architecture identity), Vijayanagara (a
+carved-stone temple platform on a wooden pier, matching its temple-complex identity),
+Maratha (a dark fortified stone bastion with a wooden pier, matching its military/
+fortification identity). World height consistently 3.80 units across all 5, matching
+the established Dock scale convention from prior sessions.
+
+**Verification hit 2 real environment snags, both worked through, neither a code
+bug**: (1) the first `BeginMatch` call after entering Play mode NRE'd with
+`setupObj=null` - the Editor had somehow ended up with no scene loaded at all
+(`SceneManager.GetActiveScene()` returned an empty name/path, only a leftover
+`MissionSelectMenu` root from an earlier test run) - fixed by exiting Play mode,
+explicitly loading `Assets/Scenes/Main.unity` via `manage_scene`, then re-entering
+Play; (2) the first round of test-dock spawns at `z=10` landed inside the Player's
+real starting-base area (`TownCenter` at `(0,*,20)`), so angled/front shots picked up
+unrelated nearby starting buildings instead of the test docks - moved all 5 test docks
+to a clear corner of the 100x100 terrain (`z=45`, spread across `x=-36..12`, confirmed
+via `Terrain.activeTerrain.terrainData.size`) and disabled `FogOfWarManager`'s
+`MeshRenderer` for the shoot (re-enabled afterward), per this project's own documented
+"fog-of-war looks like a render bug" technique.
+
+**EditMode suite**: 834/834 pass, both before and after the old-asset deletion pass
+(the 1 standing pre-existing `BuildingPrefabValidationTests` failure, unrelated to this
+work, same baseline as every recent session).
+
+**Old assets removed** after confirming (via GUID grep across every `.prefab`/
+`.asset`/`.unity`/`.mat`) that nothing outside each building's own `_Source`/
+`_Decimated` folder referenced it, and the 5 `Assets/importedmodels/<Civ>DockLowpoly/`
+staging folders deleted once each prefab was confirmed re-spawning correctly:
+
+| Civ | Old (`_Source` + `_Decimated`) | New (`_Lowpoly`) | Reduction |
+|---|---|---|---|
+| Chola | 163.0 MB | 20.1 MB | -87.7% |
+| Rajput | 134.8 MB | 17.1 MB | -87.3% |
+| Maurya | 135.3 MB | 16.4 MB | -87.9% |
+| Vijayanagara | 144.3 MB | 16.3 MB | -88.7% |
+| Maratha | 130.4 MB | 15.4 MB | -88.2% |
+| **Total (5 civs)** | **707.8 MB** | **85.2 MB** | **-88.0%** |
+
+**Scope discipline**: the same substantial unrelated concurrent uncommitted work
+flagged in the Market session's own log entry still sits in the working tree
+(`DefinitionCatalog.cs`, `Projectile.cs`, `Performance/`, PlayMode tests,
+`BuildingPrefabValidator.cs`, many `Progression/*.cs` files, etc.) - none of it
+touched; only Dock-related paths (all 5 civs' `Dock.prefab` + `_Lowpoly/Dock/*` + the
+removed `_Source/Dock` + `_Decimated/Dock_decimated.asset*`) plus this doc and
+`CLAUDE.md` were staged and committed via an explicit path list. Every new/modified
+binary confirmed to resolve to a real `git-lfs` pointer before committing.
+
+**Next**: user's call - the other 4 remaining building types per civ (Tower/Farm/
+House/Wall/Gate/TownCenter_Durg is now down to Tower/Farm/House/Wall/Gate), or
+continuing the low-poly swap elsewhere.
+
+---
+
 ## 2026-09-27 — All 5 civ Markets swapped to low-poly (~555 MB -> ~66 MB for the 4
 civs closed this session, plus Chola closed earlier the same day)
 
