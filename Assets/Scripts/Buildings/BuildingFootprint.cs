@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -114,6 +116,83 @@ namespace KingdomsOfBharat.Buildings
             }
 
             return true;
+        }
+
+        // AoE-style stationary-resource placement rule: a foundation can't
+        // be placed on top of a stationary map resource - gold/stone
+        // deposits, berry bushes/fruit, fish, Relics - EXCEPT trees
+        // (Wood-type nodes), which are "Stealth Forest, straggler trees...
+        // and felled trees" in the real rule and get removed instead (see
+        // ClearTreesInFootprint below), not treated as a blocker. This
+        // project has no separate "straggler tree" concept - every Wood
+        // ResourceNode (tree) is treated the same, matching the rule's own
+        // "an exception to the resource placement restriction" for the
+        // whole tree category.
+        public static bool OverlapsBlockingResource(Vector3 point, Vector2 footprint)
+        {
+            float halfX = footprint.x * 0.5f;
+            float halfZ = footprint.y * 0.5f;
+
+            foreach (ResourceNode node in ResourceNode.All)
+            {
+                // ResourceNode.All can briefly hold a since-destroyed entry
+                // (e.g. a test/caller that removed it from the scene
+                // without going through Harvest's own self-deregistering
+                // Destroy path) - skip defensively rather than let a stale
+                // reference throw here.
+                if (node == null || node.ResourceType == ResourceType.Wood)
+                {
+                    continue;
+                }
+
+                Vector3 pos = node.transform.position;
+                if (Mathf.Abs(point.x - pos.x) < halfX && Mathf.Abs(point.z - pos.z) < halfZ)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // "Buildings placed over these resources will permanently remove
+        // them" - only ever called once IsClear/OverlapsBlockingResource
+        // has already allowed the placement to proceed, so this only ever
+        // finds Wood (tree) nodes to remove. Harvest(node.Amount) both
+        // zeroes the node and lets ResourceNode's own IsDepleted/Changed/
+        // self-destroy path run exactly as it would from being chopped
+        // down normally - no separate destroy call needed here.
+        public static void ClearTreesInFootprint(Vector3 point, Vector2 footprint)
+        {
+            float halfX = footprint.x * 0.5f;
+            float halfZ = footprint.y * 0.5f;
+
+            // ResourceNode.Harvest can destroy the node (mutating
+            // ResourceNode.All mid-enumeration), so collect matches first.
+            List<ResourceNode> toClear = null;
+            foreach (ResourceNode node in ResourceNode.All)
+            {
+                if (node == null || node.ResourceType != ResourceType.Wood)
+                {
+                    continue;
+                }
+
+                Vector3 pos = node.transform.position;
+                if (Mathf.Abs(point.x - pos.x) < halfX && Mathf.Abs(point.z - pos.z) < halfZ)
+                {
+                    (toClear ??= new List<ResourceNode>()).Add(node);
+                }
+            }
+
+            if (toClear == null)
+            {
+                return;
+            }
+
+            foreach (ResourceNode node in toClear)
+            {
+                node.Harvest(node.Amount);
+            }
         }
     }
 

@@ -1,6 +1,9 @@
 using UnityEngine;
 using KingdomsOfBharat.Vfx;
 using KingdomsOfBharat.Audio;
+using KingdomsOfBharat.Combat;
+using KingdomsOfBharat.Core;
+using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.Buildings
 {
@@ -82,6 +85,22 @@ namespace KingdomsOfBharat.Buildings
             ApplyHeight(_finalScale.y);
         }
 
+        // Save/load only: snaps directly to an arbitrary saved progress
+        // fraction (unlike CompleteImmediately, which only ever snaps to
+        // 1.0) - restores a building that was mid-construction when the
+        // match was saved, without replaying Update() ticks to get there.
+        // No active builder is implied by this alone - a restored
+        // foundation sits exactly as idle as this project's existing
+        // "placed but nobody's building it yet" state, matching how a
+        // completed restore always did.
+        internal void RestoreProgress(float progress)
+        {
+            EnsureInitialized();
+            _progress = Mathf.Clamp01(progress);
+            IsComplete = _progress >= 1f;
+            ApplyHeight(Mathf.Lerp(0.01f, _finalScale.y, _progress));
+        }
+
         // Lazily resolved instead of purely in Awake() - same "AddComponent
         // ordering hazard" this codebase already works around elsewhere
         // (see Barracks/Dock's lazy Site/FactionMember getters): a caller
@@ -138,6 +157,52 @@ namespace KingdomsOfBharat.Buildings
             {
                 IsComplete = true;
                 SfxPlayer.PlayBuildComplete(transform.position);
+            }
+        }
+
+        // AoE-style cancel rule: as long as this foundation isn't complete,
+        // the owner can cancel it for a refund of BuildingCost's recorded
+        // spend, scaled by the fraction of health still remaining
+        // (Attackable.Health/MaxHealth) - a pristine foundation refunds in
+        // full, a damaged one only partially, matching "resources can be
+        // fully refunded if the player cancels the building at any point
+        // during its construction, as long as it hasn't taken damage... if
+        // a building does take damage before it is complete and then is
+        // canceled, only a portion of the resources are returned depending
+        // on how much damage the building took." A foundation whose HP
+        // already reached zero is destroyed through Attackable's own
+        // TakeDamage path instead (a plain Destroy(gameObject), no refund
+        // at all) - this method is simply unreachable for that case, since
+        // the GameObject is already gone by the time anything could call it.
+        public void CancelAndRefund()
+        {
+            if (IsComplete)
+            {
+                return;
+            }
+
+            float fraction = 1f;
+            if (TryGetComponent(out Attackable attackable) && attackable.MaxHealth > 0f)
+            {
+                fraction = Mathf.Clamp01(attackable.Health / attackable.MaxHealth);
+            }
+
+            if (fraction > 0f && TryGetComponent(out BuildingCost cost) && TryGetComponent(out FactionMember member))
+            {
+                cost.Refund(ResourceStockpile.For(member.Faction), fraction);
+            }
+
+            // Same Application.isPlaying-gated Destroy/DestroyImmediate
+            // split as ResourceNode.Harvest - Destroy(gameObject) alone is
+            // a real Editor error outside Play mode (and, at runtime, is
+            // deferred to end-of-frame rather than immediate).
+            if (Application.isPlaying)
+            {
+                Destroy(gameObject);
+            }
+            else
+            {
+                DestroyImmediate(gameObject);
             }
         }
 

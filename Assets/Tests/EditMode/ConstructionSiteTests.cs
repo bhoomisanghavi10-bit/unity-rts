@@ -1,6 +1,10 @@
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 using KingdomsOfBharat.Buildings;
+using KingdomsOfBharat.Combat;
+using KingdomsOfBharat.Core;
+using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.Tests
 {
@@ -104,6 +108,112 @@ namespace KingdomsOfBharat.Tests
         public void SpeedMultiplier_MatchesAoeIIDiminishingReturnsFormula(int activeBuilders, float expectedMultiplier)
         {
             Assert.AreEqual(expectedMultiplier, ConstructionSite.SpeedMultiplier(activeBuilders), 0.0001f);
+        }
+
+        // AoE-style cancel-construction rule: "resources can be fully
+        // refunded if the player cancels the building at any point during
+        // its construction, as long as it hasn't taken damage... if a
+        // building does take damage before it is complete and then is
+        // canceled, only a portion of the resources are returned depending
+        // on how much damage the building took." Enemy2 isolates this
+        // faction's stockpile from other fixtures, same convention as
+        // WorkerOrderTests.
+        private const FactionId CancelTestFaction = FactionId.Enemy2;
+        private GameObject _stockpileGo;
+
+        [TearDown]
+        public void TearDownStockpile()
+        {
+            if (_stockpileGo != null)
+            {
+                Object.DestroyImmediate(_stockpileGo);
+                _stockpileGo = null;
+            }
+        }
+
+        private ResourceStockpile NewStockpile()
+        {
+            _stockpileGo = new GameObject("Stockpile");
+            var stockpile = _stockpileGo.AddComponent<ResourceStockpile>();
+            stockpile.Configure(CancelTestFaction);
+            return stockpile;
+        }
+
+        private GameObject NewFoundationWithCost(float maxHealth, float woodCost)
+        {
+            var root = new GameObject("Foundation");
+            var visual = new GameObject("Visual");
+            visual.transform.SetParent(root.transform, false);
+            visual.transform.localScale = Vector3.one;
+            _root = root;
+
+            root.AddComponent<FactionMember>().Configure(CancelTestFaction);
+            var attackable = root.AddComponent<Attackable>();
+            attackable.Configure(maxHealth);
+            root.AddComponent<BuildingCost>().Record(ResourceType.Wood, woodCost);
+            root.AddComponent<ConstructionSite>().EnsureInitialized();
+
+            return root;
+        }
+
+        [Test]
+        public void CancelAndRefund_UndamagedFoundation_RefundsFullCost()
+        {
+            ResourceStockpile stockpile = NewStockpile();
+            GameObject foundation = NewFoundationWithCost(maxHealth: 300f, woodCost: 100f);
+
+            foundation.GetComponent<ConstructionSite>().CancelAndRefund();
+
+            Assert.AreEqual(100f, stockpile.GetTotal(ResourceType.Wood), 0.001f);
+        }
+
+        [Test]
+        public void CancelAndRefund_DamagedFoundation_RefundsProportionally()
+        {
+            ResourceStockpile stockpile = NewStockpile();
+            GameObject foundation = NewFoundationWithCost(maxHealth: 300f, woodCost: 100f);
+
+            // Attackable.TakeDamage unconditionally spawns a VfxFactory
+            // burst (stopAction: Destroy), which logs an Editor-only
+            // "Destroy may not be called from edit mode!" once that
+            // particle system's own cleanup fires outside Play mode - same
+            // documented, expected situation BuildingAttackerTests'
+            // TickIgnoringVfxLogs works around, not a real bug here.
+            LogAssert.ignoreFailingMessages = true;
+            foundation.GetComponent<Attackable>().TakeDamage(150f);
+            LogAssert.ignoreFailingMessages = false;
+
+            foundation.GetComponent<ConstructionSite>().CancelAndRefund();
+
+            // Health drops from 300 to 150 (half remaining) - refund should
+            // be half of the recorded 100 Wood.
+            Assert.AreEqual(50f, stockpile.GetTotal(ResourceType.Wood), 0.001f);
+        }
+
+        [Test]
+        public void CancelAndRefund_DestroysTheFoundation()
+        {
+            NewStockpile();
+            GameObject foundation = NewFoundationWithCost(maxHealth: 300f, woodCost: 100f);
+
+            foundation.GetComponent<ConstructionSite>().CancelAndRefund();
+
+            Assert.IsTrue(foundation == null, "Canceling should destroy the foundation GameObject");
+            _root = null;
+        }
+
+        [Test]
+        public void CancelAndRefund_OnAlreadyCompleteSite_DoesNothing()
+        {
+            ResourceStockpile stockpile = NewStockpile();
+            GameObject foundation = NewFoundationWithCost(maxHealth: 300f, woodCost: 100f);
+            foundation.GetComponent<ConstructionSite>().CompleteImmediately();
+
+            foundation.GetComponent<ConstructionSite>().CancelAndRefund();
+
+            Assert.AreEqual(0f, stockpile.GetTotal(ResourceType.Wood), 0.001f,
+                "A completed building must not be refunded through the cancel path");
+            Assert.IsFalse(foundation == null, "A completed building should not be destroyed by CancelAndRefund");
         }
     }
 }

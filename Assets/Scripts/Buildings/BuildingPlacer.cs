@@ -787,72 +787,170 @@ namespace KingdomsOfBharat.Buildings
             float multiplier = CivilizationProfile.For(CivilizationRegistry.For(NetworkMatch.LocalFaction)).BuildCostMultiplier
                 * (EconomyTechProgress.HasResearched(NetworkMatch.LocalFaction, EconomyTech.TradeDiscounts) ? EconomyTechDefinition.For(EconomyTech.TradeDiscounts).Bonus : 1f);
 
+            // AoE-style "footprint placed over a tree permanently removes
+            // it" rule - IsClearForKind already let this through (trees
+            // don't block placement, only gold/stone/farm-type resources
+            // do), so this is the moment the footprint is actually
+            // committed and any tree under it is felled for good.
+            BuildingFootprint.ClearTreesInFootprint(point, ResourceCheckFootprint(kind));
+
+            GameObject spawned = null;
             switch (kind)
             {
                 case BuildingKind.Barracks:
-                    stockpile.Add(ResourceType.Wood, -barracksWoodCost * multiplier);
-                    stockpile.Add(ResourceType.Stone, -barracksStoneCost * multiplier);
-                    BarracksFactory.Place(point, NetworkMatch.LocalFaction, barracksBuildTime);
+                {
+                    float wood = barracksWoodCost * multiplier;
+                    float stone = barracksStoneCost * multiplier;
+                    stockpile.Add(ResourceType.Wood, -wood);
+                    stockpile.Add(ResourceType.Stone, -stone);
+                    spawned = BarracksFactory.Place(point, NetworkMatch.LocalFaction, barracksBuildTime);
+                    RecordCost(spawned, ResourceType.Wood, wood);
+                    RecordCost(spawned, ResourceType.Stone, stone);
                     break;
+                }
                 case BuildingKind.Farm:
-                    stockpile.Add(ResourceType.Wood, -farmWoodCost * multiplier);
-                    FarmFactory.Place(point, NetworkMatch.LocalFaction, farmBuildTime);
+                {
+                    float wood = farmWoodCost * multiplier;
+                    stockpile.Add(ResourceType.Wood, -wood);
+                    spawned = FarmFactory.Place(point, NetworkMatch.LocalFaction, farmBuildTime);
+                    RecordCost(spawned, ResourceType.Wood, wood);
                     break;
+                }
                 case BuildingKind.House:
-                    stockpile.Add(ResourceType.Wood, -houseWoodCost * multiplier * WoodMultiplierFor(kind));
-                    HouseFactory.Place(point, NetworkMatch.LocalFaction, houseBuildTime);
+                {
+                    float wood = houseWoodCost * multiplier * WoodMultiplierFor(kind);
+                    stockpile.Add(ResourceType.Wood, -wood);
+                    spawned = HouseFactory.Place(point, NetworkMatch.LocalFaction, houseBuildTime);
+                    RecordCost(spawned, ResourceType.Wood, wood);
                     break;
+                }
                 case BuildingKind.Wall:
-                    stockpile.Add(ResourceType.Stone, -wallStoneCost * multiplier * StoneMultiplierFor(kind));
-                    WallFactory.Place(point, NetworkMatch.LocalFaction, wallBuildTime, rotation);
+                {
+                    float stone = wallStoneCost * multiplier * StoneMultiplierFor(kind);
+                    stockpile.Add(ResourceType.Stone, -stone);
+                    spawned = WallFactory.Place(point, NetworkMatch.LocalFaction, wallBuildTime, rotation);
+                    RecordCost(spawned, ResourceType.Stone, stone);
                     break;
+                }
                 case BuildingKind.Gate:
-                    stockpile.Add(ResourceType.Stone, -gateStoneCost * multiplier * StoneMultiplierFor(kind));
-                    stockpile.Add(ResourceType.Wood, -gateWoodCost * multiplier);
-                    GateFactory.Place(point, NetworkMatch.LocalFaction, gateBuildTime);
+                {
+                    float stone = gateStoneCost * multiplier * StoneMultiplierFor(kind);
+                    float wood = gateWoodCost * multiplier;
+                    stockpile.Add(ResourceType.Stone, -stone);
+                    stockpile.Add(ResourceType.Wood, -wood);
+                    spawned = GateFactory.Place(point, NetworkMatch.LocalFaction, gateBuildTime);
+                    RecordCost(spawned, ResourceType.Stone, stone);
+                    RecordCost(spawned, ResourceType.Wood, wood);
                     break;
+                }
                 case BuildingKind.Tower:
-                    stockpile.Add(ResourceType.Wood, -towerWoodCost * multiplier);
-                    stockpile.Add(ResourceType.Stone, -towerStoneCost * multiplier * StoneMultiplierFor(kind));
-                    TowerFactory.Place(point, NetworkMatch.LocalFaction, towerBuildTime);
+                {
+                    float wood = towerWoodCost * multiplier;
+                    float stone = towerStoneCost * multiplier * StoneMultiplierFor(kind);
+                    stockpile.Add(ResourceType.Wood, -wood);
+                    stockpile.Add(ResourceType.Stone, -stone);
+                    spawned = TowerFactory.Place(point, NetworkMatch.LocalFaction, towerBuildTime);
+                    RecordCost(spawned, ResourceType.Wood, wood);
+                    RecordCost(spawned, ResourceType.Stone, stone);
                     break;
+                }
                 case BuildingKind.Market:
-                    stockpile.Add(ResourceType.Wood, -marketWoodCost * multiplier);
-                    stockpile.Add(ResourceType.Gold, -marketGoldCost * multiplier);
-                    MarketFactory.Place(point, NetworkMatch.LocalFaction, marketBuildTime);
+                {
+                    float wood = marketWoodCost * multiplier;
+                    float gold = marketGoldCost * multiplier;
+                    stockpile.Add(ResourceType.Wood, -wood);
+                    stockpile.Add(ResourceType.Gold, -gold);
+                    spawned = MarketFactory.Place(point, NetworkMatch.LocalFaction, marketBuildTime);
+                    RecordCost(spawned, ResourceType.Wood, wood);
+                    RecordCost(spawned, ResourceType.Gold, gold);
                     break;
+                }
                 case BuildingKind.Dock:
-                    stockpile.Add(ResourceType.Wood, -dockWoodCost * multiplier);
-                    stockpile.Add(ResourceType.Stone, -dockStoneCost * multiplier);
-                    DockFactory.Place(point, NetworkMatch.LocalFaction, dockBuildTime);
+                {
+                    float wood = dockWoodCost * multiplier;
+                    float stone = dockStoneCost * multiplier;
+                    stockpile.Add(ResourceType.Wood, -wood);
+                    stockpile.Add(ResourceType.Stone, -stone);
+                    spawned = DockFactory.Place(point, NetworkMatch.LocalFaction, dockBuildTime);
+                    RecordCost(spawned, ResourceType.Wood, wood);
+                    RecordCost(spawned, ResourceType.Stone, stone);
                     break;
+                }
                 case BuildingKind.LumberCamp:
-                    stockpile.Add(ResourceType.Wood, -lumberCampWoodCost * multiplier);
-                    LumberCampFactory.Place(point, NetworkMatch.LocalFaction, lumberCampBuildTime);
+                {
+                    float wood = lumberCampWoodCost * multiplier;
+                    stockpile.Add(ResourceType.Wood, -wood);
+                    spawned = LumberCampFactory.Place(point, NetworkMatch.LocalFaction, lumberCampBuildTime);
+                    RecordCost(spawned, ResourceType.Wood, wood);
                     break;
+                }
                 case BuildingKind.MiningCamp:
-                    stockpile.Add(ResourceType.Wood, -miningCampWoodCost * multiplier);
-                    MiningCampFactory.Place(point, NetworkMatch.LocalFaction, miningCampBuildTime);
+                {
+                    float wood = miningCampWoodCost * multiplier;
+                    stockpile.Add(ResourceType.Wood, -wood);
+                    spawned = MiningCampFactory.Place(point, NetworkMatch.LocalFaction, miningCampBuildTime);
+                    RecordCost(spawned, ResourceType.Wood, wood);
                     break;
+                }
                 case BuildingKind.Mill:
-                    stockpile.Add(ResourceType.Wood, -millWoodCost * multiplier);
-                    MillFactory.Place(point, NetworkMatch.LocalFaction, millBuildTime);
+                {
+                    float wood = millWoodCost * multiplier;
+                    stockpile.Add(ResourceType.Wood, -wood);
+                    spawned = MillFactory.Place(point, NetworkMatch.LocalFaction, millBuildTime);
+                    RecordCost(spawned, ResourceType.Wood, wood);
                     break;
+                }
                 case BuildingKind.Durg:
-                    stockpile.Add(ResourceType.Wood, -durgWoodCost * multiplier);
-                    stockpile.Add(ResourceType.Stone, -durgStoneCost * multiplier);
-                    DurgFactory.Place(point, NetworkMatch.LocalFaction, durgBuildTime);
+                {
+                    float wood = durgWoodCost * multiplier;
+                    float stone = durgStoneCost * multiplier;
+                    stockpile.Add(ResourceType.Wood, -wood);
+                    stockpile.Add(ResourceType.Stone, -stone);
+                    spawned = DurgFactory.Place(point, NetworkMatch.LocalFaction, durgBuildTime);
+                    RecordCost(spawned, ResourceType.Wood, wood);
+                    RecordCost(spawned, ResourceType.Stone, stone);
                     break;
+                }
                 case BuildingKind.Karmashala:
-                    stockpile.Add(ResourceType.Wood, -karmashalaWoodCost * multiplier);
-                    KarmashalaFactory.Place(point, NetworkMatch.LocalFaction, karmashalaBuildTime);
+                {
+                    float wood = karmashalaWoodCost * multiplier;
+                    stockpile.Add(ResourceType.Wood, -wood);
+                    spawned = KarmashalaFactory.Place(point, NetworkMatch.LocalFaction, karmashalaBuildTime);
+                    RecordCost(spawned, ResourceType.Wood, wood);
                     break;
+                }
                 case BuildingKind.Monastery:
-                    stockpile.Add(ResourceType.Wood, -monasteryWoodCost * multiplier);
-                    stockpile.Add(ResourceType.Stone, -monasteryStoneCost * multiplier);
-                    MonasteryFactory.Place(point, NetworkMatch.LocalFaction, monasteryBuildTime);
+                {
+                    float wood = monasteryWoodCost * multiplier;
+                    float stone = monasteryStoneCost * multiplier;
+                    stockpile.Add(ResourceType.Wood, -wood);
+                    stockpile.Add(ResourceType.Stone, -stone);
+                    spawned = MonasteryFactory.Place(point, NetworkMatch.LocalFaction, monasteryBuildTime);
+                    RecordCost(spawned, ResourceType.Wood, wood);
+                    RecordCost(spawned, ResourceType.Stone, stone);
                     break;
+                }
             }
+        }
+
+        // Attaches (or reuses) a BuildingCost on the just-spawned
+        // foundation and records one resource line of what was actually
+        // deducted above - see BuildingCost.cs/ConstructionSite.CancelAndRefund
+        // for why this is tracked (a canceled foundation refunds a
+        // fraction of the real spend, not a hardcoded guess).
+        private static void RecordCost(GameObject building, ResourceType type, float amount)
+        {
+            if (building == null || amount <= 0f)
+            {
+                return;
+            }
+
+            if (!building.TryGetComponent(out BuildingCost cost))
+            {
+                cost = building.AddComponent<BuildingCost>();
+            }
+
+            cost.Record(type, amount);
         }
 
         private bool CanAfford(BuildingKind kind)
@@ -951,6 +1049,24 @@ namespace KingdomsOfBharat.Buildings
             }
         }
 
+        // Same idea as CurrentFootprint above, but for the stationary-
+        // resource overlap check specifically: Wall/Gate don't have a
+        // BuildingFootprint.Square entry (CurrentFootprint's own switch
+        // never reaches them, since IsClearForKind branches around it for
+        // those two), so this uses their real wallSize/gateSize (X,Z)
+        // rectangle instead - a resource pile should block them exactly
+        // where their real footprint would sit, not the smaller
+        // wallClearance circle used for building-to-building spacing.
+        private Vector2 ResourceCheckFootprint(BuildingKind kind)
+        {
+            return kind switch
+            {
+                BuildingKind.Wall => new Vector2(wallSize.x, wallSize.z),
+                BuildingKind.Gate => new Vector2(gateSize.x, gateSize.z),
+                _ => CurrentFootprint(kind),
+            };
+        }
+
         // Item 49: Dock needs an extra gate beyond the generic "not on top
         // of another building" check every other kind uses - it has to
         // actually be near water to be useful, and can't be placed
@@ -968,6 +1084,20 @@ namespace KingdomsOfBharat.Buildings
             bool clear = kind == BuildingKind.Wall || kind == BuildingKind.Gate
                 ? BarracksFactory.IsClear(point, wallClearance)
                 : BuildingFootprint.IsClear(point, CurrentFootprint(kind));
+
+            // AoE-style stationary-resource rule: blocked by a gold/stone/
+            // farm-type resource under the footprint, but NOT by a tree
+            // (Wood) - see BuildingFootprint.OverlapsBlockingResource/
+            // ClearTreesInFootprint. Wall/Gate use their own smaller
+            // rectangular footprint here (not the wallClearance circle
+            // above, which exists only so chain segments can sit
+            // edge-to-edge against each other) since a resource pile is a
+            // real physical obstruction regardless of that clearance
+            // exception.
+            if (clear && BuildingFootprint.OverlapsBlockingResource(point, ResourceCheckFootprint(kind)))
+            {
+                clear = false;
+            }
 
             if (kind != BuildingKind.Dock)
             {

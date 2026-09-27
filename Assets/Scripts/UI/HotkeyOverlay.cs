@@ -54,6 +54,7 @@ namespace KingdomsOfBharat.UI
             new Entry("Diplomacy", "ToggleDiplomacy", KeyCode.F11),
             new Entry("Hotkey Reference", "ToggleHotkeyOverlay", KeyCode.F1),
             new Entry("Ring Town Bell (Send Workers Home)", "TownBell", KeyCode.F8),
+            new Entry("Cancel Construction (Refund)", "CancelConstruction", KeyCode.Delete),
             new Entry("Select Next Idle Worker", "SelectIdleWorker", KeyCode.F6),
             new Entry("Toggle Cheat Console", "ToggleCheatConsole", KeyCode.BackQuote),
         });

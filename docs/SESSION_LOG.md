@@ -5,6 +5,92 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-27 — Ad hoc: AoE IV building-placement/construction mechanics audit + fixes
+
+**Scope**: not a numbered roadmap item — the user pasted AoE IV's own building
+mechanics writeup (grid footprints, stationary-resource/tree placement rules,
+resources-refunded-on-cancel) and asked to audit and correct this project's building
+logic against it. Investigated each rule against the actual code (`BuildingPlacer.cs`,
+`BuildingFootprint.cs`, `ConstructionSite.cs`, `ResourceNode.cs`) before writing
+anything, rather than assuming the writeup's premises:
+
+- Grid-square footprints, Wall/Gate freeform, thin walkable edge on every non-Wall
+  building even when complete, resources deducted at footprint-placement time, and
+  zero refund if a foundation is destroyed by combat before completion - all **already
+  correct** (`BuildingFootprint.cs`'s Margin-shrunk `NavMeshObstacle`, `WallFactory`'s
+  own full-footprint obstacle, `Attackable.TakeDamage`'s unconditional
+  `Destroy(gameObject)` on death with no refund path anywhere).
+- **Two real, confirmed gaps, both fixed this session**:
+  1. Placement had no concept of stationary map resources at all - a foundation could
+     be dropped directly on a Gold mine/Stone quarry/berry bush/Fish/Relic. New
+     `BuildingFootprint.OverlapsBlockingResource`/`ClearTreesInFootprint`: any non-Wood
+     `ResourceNode` under the footprint blocks placement; a Wood (tree) node is the
+     one explicit exception in the real rule ("Stealth Forest, straggler trees... are
+     an exception") - it doesn't block, and is instead permanently removed
+     (`Harvest(node.Amount)`, same self-destroy path as being chopped down) the moment
+     the building is actually placed. Wired into `BuildingPlacer.IsClearForKind`
+     (blocking check) and `ExecuteBuild` (the actual removal), via a new
+     `ResourceCheckFootprint(kind)` helper that also covers Wall/Gate's own
+     non-square footprint.
+  2. Canceling an unfinished foundation for a refund didn't exist at all - only
+     canceling a *queued unit* (`ProductionQueue.Cancel`) did. New `BuildingCost.cs`
+     (records the exact resources actually deducted, after every civ/tech multiplier,
+     right at placement) and `ConstructionSite.CancelAndRefund()` (refunds
+     `BuildingCost`'s recorded spend scaled by `Attackable.Health/MaxHealth` - full
+     refund if undamaged, proportionally less if damaged, no-op if already complete,
+     matching "resources can be fully refunded... as long as it hasn't taken damage...
+     only a portion... depending on how much damage the building took"). Wired into
+     `BuildingPlacer.ExecuteBuild`'s 13 building-kind cases (each now records its own
+     paid amount via a small `RecordCost` helper) and a new global `BuildMenu` action
+     (`CancelConstructionAtSelected`, bound to a new Delete hotkey plus a
+     code-instantiated button cloned from `workerButton` - same "no scene wiring
+     needed" convention `_cancelQueueButton` already established - shown whenever the
+     selected building's `ConstructionSite` exists and isn't complete, regardless of
+     building type). Goes through `CommandBus`/`TrainCommand` like every other
+     player-issued order.
+- **Explicitly out of scope, flagged not attempted** (real new mechanics, bigger than
+  this session's "audit and correct" ask): a footprint placed over an allied/Gaia unit
+  auto-nudging that unit to the edge; an enemy unit under the footprint blocking
+  construction for as long as it's there; Shore Fish being *temporarily* hidden (not
+  permanently destroyed) and restored if the Dock/building placed over it is later
+  destroyed (this project's Fish nodes are plain `ResourceType.Food`, indistinguishable
+  in code from a berry bush - would need a dedicated marker plus a fish-specific
+  reversible-hide path, not the generic tree-removal one written this session);
+  influence areas (no such system exists in this project at all).
+
+Also fixed 2 real bugs found while verifying, both real correctness issues rather than
+test-only friction:
+- `ConstructionSite.CancelAndRefund` originally called a bare `Destroy(gameObject)`,
+  which is a genuine Editor error outside Play mode (and end-of-frame-deferred, not
+  immediate, even at runtime) - switched to the same `Application.isPlaying`-gated
+  `Destroy`/`DestroyImmediate` split `ResourceNode.Harvest` already uses.
+- `BuildingFootprint.OverlapsBlockingResource`/`ClearTreesInFootprint` didn't guard
+  against a stale/destroyed entry lingering in the shared static `ResourceNode.All`
+  list (surfaced by another test fixture's own incidental leak, not caused by this
+  session's code) - both now skip a null entry defensively rather than throw.
+
+14 new EditMode tests (`BuildingFootprintTests.cs`: `OverlapsBlockingResource`/
+`ClearTreesInFootprint` across Gold/Stone/Food/Wood and in/out-of-footprint cases;
+`ConstructionSiteTests.cs`: `CancelAndRefund`'s full-refund/proportional-refund/
+destroys-the-foundation/no-op-when-complete cases). 834/834 EditMode tests pass (the 1
+pre-existing, unrelated `BuildingPrefabValidationTests` NRE is the same standing
+baseline every recent session has logged). Live-verified via UnityMCP through the real
+production path: a real match (`CivilizationSetup.BeginMatch(Maurya)`), a real Gold
+node blocked a House-footprint placement check while an identically-positioned tree
+did not; a real `ExecuteBuild(Barracks, ...)` call over a real tree removed the tree
+and deducted exactly 100 Wood/50 Stone with a `BuildingCost` correctly attached; a real
+`BuildMenu.CancelConstructionAtSelected()` call (via the real `SelectionManager`/
+`CommandBus` path, not a shortcut) refunded the full 100 Wood/50 Stone a tick later for
+an undamaged foundation, and refunded exactly the health-proportional 50.667
+Wood/25.333 Stone for one damaged to 152/300 HP via a real `Attackable.TakeDamage`
+call; a completed foundation correctly refused the same cancel call with zero refund
+and no destruction. Full EditMode suite re-confirmed 834/834 after exiting Play mode.
+One scoped commit (`BuildingCost.cs` new, `BuildingFootprint.cs`, `ConstructionSite.cs`,
+`BuildingPlacer.cs`, `BuildMenu.cs`, `SettingsMenu.cs`, `HotkeyOverlay.cs`,
+`BuildingFootprintTests.cs`, `ConstructionSiteTests.cs`, docs).
+
+---
+
 ## 2026-09-17 — Wave 6 item 35: Relics + Monastery collection (economic only)
 
 **Scope**: Wave 6 item 35, per the user's "Let's do Relics + Monastery" request, after

@@ -459,6 +459,7 @@ namespace KingdomsOfBharat.UI
             // Roadmap item 31: fixed order used by LayoutCommandGrid every
             // frame - matches the field declaration order above.
             CreateCancelQueueButton();
+            CreateCancelConstructionButton();
             _allGridButtons = new[]
             {
                 barracksButton, farmButton, houseButton, wallButton, gateButton, towerButton,
@@ -476,6 +477,7 @@ namespace KingdomsOfBharat.UI
                 charaTierButton, skirmisherTierButton, batteringRamTierButton,
                 cavalryArcherTierButton, camelRiderTierButton, scorpionTierButton, ageButton,
                 improvedToolsButton, packMulesButton, tradeDiscountsButton, _cancelQueueButton,
+                _cancelConstructionButton,
             };
 
             if (gridPrevButton != null)
@@ -575,6 +577,7 @@ namespace KingdomsOfBharat.UI
             _keyTrainPurohita = GameSettings.GetKey("TrainPurohita", KeyCode.C);
             _keyUngarrison = GameSettings.GetKey("Ungarrison", KeyCode.U);
             _keyTownBell = GameSettings.GetKey("TownBell", KeyCode.F8);
+            _keyCancelConstruction = GameSettings.GetKey("CancelConstruction", KeyCode.Delete);
         }
 
         // Command-card buttons get their own dedicated 4-state sprite set
@@ -858,6 +861,7 @@ namespace KingdomsOfBharat.UI
             SetPlacementButtonsActive(showPlacement);
             workerButton.gameObject.SetActive(townCenter != null);
             UpdateCancelQueueButton(townCenter, barracks);
+            UpdateCancelConstructionButton(ownsSelected ? selected : null);
             ageButton.gameObject.SetActive(townCenter != null);
             improvedToolsButton.gameObject.SetActive(townCenter != null);
             packMulesButton.gameObject.SetActive(townCenter != null);
@@ -1995,6 +1999,92 @@ namespace KingdomsOfBharat.UI
         // disabled during a network match instead of desyncing.
         private Button _cancelQueueButton;
         private TMP_Text _cancelQueueLabel;
+
+        // AoE-style cancel-construction rule: as long as the selected
+        // building's ConstructionSite isn't complete, canceling it refunds
+        // BuildingCost's recorded spend (full refund if undamaged, less if
+        // it's taken damage - see ConstructionSite.CancelAndRefund). Built
+        // in code from a clone of workerButton, same "no scene wiring
+        // needed" convention as _cancelQueueButton above. Bound to a
+        // dedicated global hotkey (not gated to any one building-type
+        // context) since it applies to ANY foundation, not just
+        // Barracks/TownCenter's training queue.
+        private Button _cancelConstructionButton;
+        private TMP_Text _cancelConstructionLabel;
+        private KeyCode _keyCancelConstruction;
+
+        private void CreateCancelConstructionButton()
+        {
+            _cancelConstructionButton = Instantiate(workerButton, workerButton.transform.parent);
+            _cancelConstructionButton.name = "CancelConstructionButton";
+            _cancelConstructionButton.onClick.RemoveAllListeners();
+            _cancelConstructionButton.onClick.AddListener(CancelConstructionAtSelected);
+            foreach (Transform child in _cancelConstructionButton.transform)
+            {
+                if (child.name == "GridIcon")
+                {
+                    Destroy(child.gameObject);
+                }
+            }
+
+            foreach (TooltipTrigger old in _cancelConstructionButton.GetComponents<TooltipTrigger>())
+            {
+                Destroy(old);
+            }
+
+            _cancelConstructionLabel = _cancelConstructionButton.GetComponentInChildren<TMP_Text>(true);
+            if (_cancelConstructionLabel != null)
+            {
+                _cancelConstructionLabel.enabled = true;
+                _cancelConstructionLabel.text = "Cancel Construction (Refund)";
+            }
+
+            SetupGridCell(_cancelConstructionButton, "cmd_cancel");
+            _cancelConstructionButton.gameObject.SetActive(false);
+        }
+
+        private void UpdateCancelConstructionButton(Building selected)
+        {
+            bool show = selected != null
+                && selected.TryGetComponent(out ConstructionSite site)
+                && !site.IsComplete;
+            _cancelConstructionButton.gameObject.SetActive(show);
+            if (!show)
+            {
+                return;
+            }
+
+            if (Input.GetKeyDown(_keyCancelConstruction))
+            {
+                CancelConstructionAtSelected();
+            }
+        }
+
+        private void CancelConstructionAtSelected()
+        {
+            if (_selectionManager == null)
+            {
+                return;
+            }
+
+            Building building = _selectionManager.SelectedBuilding;
+            if (building == null
+                || !building.TryGetComponent(out ConstructionSite site) || site.IsComplete
+                || !building.TryGetComponent(out FactionMember member))
+            {
+                return;
+            }
+
+            FactionId faction = member.Faction;
+            CommandBus.Enqueue(new TrainCommand(faction, building, () =>
+            {
+                if (building == null || !building.TryGetComponent(out ConstructionSite currentSite))
+                {
+                    return;
+                }
+                currentSite.CancelAndRefund();
+            }));
+        }
 
         private void CreateCancelQueueButton()
         {

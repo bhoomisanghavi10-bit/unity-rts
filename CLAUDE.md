@@ -8,6 +8,43 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Ad hoc: AoE IV building-placement/construction mechanics audit + fixes
+  (2026-09-27).** Not a numbered roadmap item — user pasted AoE IV's own
+  building-mechanics writeup and asked to correct this project's building
+  logic against it. Most of it was already correct (grid footprints,
+  Wall/Gate freeform, thin walkable edge, resources deducted at placement,
+  zero refund on combat-destroyed foundations). Two real gaps found and
+  fixed: (1) placement had no concept of stationary map resources at all —
+  new `BuildingFootprint.OverlapsBlockingResource`/`ClearTreesInFootprint`
+  block placement on Gold/Stone/Food nodes while treating Wood (trees) as
+  the AoE-documented exception — buildable over, and permanently removed
+  when the footprint commits; (2) canceling an unfinished foundation for a
+  refund didn't exist at all — new `BuildingCost.cs` (records what was
+  actually paid, post-multiplier) + `ConstructionSite.CancelAndRefund()`
+  (full refund if undamaged, proportional to `Health/MaxHealth` if
+  damaged, no-op once complete), wired into `BuildingPlacer.ExecuteBuild`'s
+  13 building cases and a new global `BuildMenu` action bound to Delete
+  (works on any selected building with an incomplete `ConstructionSite`,
+  not gated to one building-type context) — goes through
+  `CommandBus`/`TrainCommand` like every other order. Explicitly out of
+  scope, flagged not attempted: pushing allied/Gaia units off a placed
+  footprint, an enemy unit blocking construction just by standing on it,
+  Shore Fish being temporarily hidden/restored rather than permanently
+  removed (this project's Fish nodes are plain `ResourceType.Food`, no
+  dedicated marker), and influence areas (no such system exists here). 14
+  new EditMode tests, 834/834 pass (1 pre-existing, unrelated
+  `BuildingPrefabValidationTests` NRE, same standing baseline as every
+  recent session). Live-verified via UnityMCP through the real production
+  path: a real Gold node blocked placement while an identical tree didn't;
+  a real `ExecuteBuild(Barracks)` over a real tree removed the tree and
+  recorded the exact Wood/Stone spent; a real `CancelConstructionAtSelected`
+  call (through `SelectionManager`/`CommandBus`, not a shortcut) refunded
+  in full for an undamaged foundation and exactly proportionally for one
+  damaged to 152/300 HP via a real `TakeDamage` call; a completed building
+  correctly refused the cancel with zero refund. One scoped commit
+  (`BuildingCost.cs` new, `BuildingFootprint.cs`, `ConstructionSite.cs`,
+  `BuildingPlacer.cs`, `BuildMenu.cs`, `SettingsMenu.cs`,
+  `HotkeyOverlay.cs`, 2 test files, docs).
 - **All 5 civ Imperial Barracks swapped to low-poly (2026-09-27).**
   `LowpolyBuildingImporter` gained a general `ImportBuilding(civ, name)` path;
   all 5 civs' Barracks (21.5-26k tris, 4.36 tall, no rescale needed) now live in

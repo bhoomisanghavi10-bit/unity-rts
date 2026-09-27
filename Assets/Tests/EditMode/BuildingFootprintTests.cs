@@ -3,6 +3,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.AI;
 using KingdomsOfBharat.Buildings;
+using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.Tests
 {
@@ -33,9 +34,27 @@ namespace KingdomsOfBharat.Tests
                 {
                     Building.All.Remove(building);
                 }
+                if (go.TryGetComponent(out ResourceNode node))
+                {
+                    ResourceNode.All.Remove(node);
+                }
                 Object.DestroyImmediate(go);
             }
             _spawned.Clear();
+        }
+
+        private ResourceNode NewResourceNode(ResourceType type, float amount, Vector3 position)
+        {
+            var go = new GameObject("TestResourceNode");
+            go.transform.position = position;
+            ResourceNode node = go.AddComponent<ResourceNode>();
+            node.Configure(type, amount);
+            if (!ResourceNode.All.Contains(node))
+            {
+                ResourceNode.All.Add(node);
+            }
+            _spawned.Add(go);
+            return node;
         }
 
         // Registers directly in Building.All rather than relying on
@@ -202,6 +221,75 @@ namespace KingdomsOfBharat.Tests
             // actually gates the Margin subtraction rather than always
             // applying it.
             Assert.AreEqual(2f, Vector3.Distance(go.transform.position, approach), 0.01f);
+        }
+
+        // AoE-style stationary-resource placement rule: gold/stone/food
+        // (mine/quarry/bush/fish/relic) nodes block a foundation from being
+        // placed on top of them - see BuildingFootprint.OverlapsBlockingResource.
+        [TestCase(ResourceType.Gold)]
+        [TestCase(ResourceType.Stone)]
+        [TestCase(ResourceType.Food)]
+        public void OverlapsBlockingResource_ReturnsTrue_ForNonWoodResourceUnderFootprint(ResourceType type)
+        {
+            NewResourceNode(type, 100f, Vector3.zero);
+
+            bool overlaps = BuildingFootprint.OverlapsBlockingResource(Vector3.zero, BuildingFootprint.Square(BuildingFootprint.HouseTiles));
+
+            Assert.IsTrue(overlaps);
+        }
+
+        // Trees are the one explicit exception in the real rule ("Stealth
+        // Forest, straggler trees... are an exception to the resource
+        // placement restriction") - a Wood node must never block placement.
+        [Test]
+        public void OverlapsBlockingResource_ReturnsFalse_ForWoodTreeUnderFootprint()
+        {
+            NewResourceNode(ResourceType.Wood, 100f, Vector3.zero);
+
+            bool overlaps = BuildingFootprint.OverlapsBlockingResource(Vector3.zero, BuildingFootprint.Square(BuildingFootprint.HouseTiles));
+
+            Assert.IsFalse(overlaps);
+        }
+
+        [Test]
+        public void OverlapsBlockingResource_ReturnsFalse_WhenResourceIsOutsideFootprint()
+        {
+            NewResourceNode(ResourceType.Gold, 100f, new Vector3(50f, 0f, 50f));
+
+            bool overlaps = BuildingFootprint.OverlapsBlockingResource(Vector3.zero, BuildingFootprint.Square(BuildingFootprint.HouseTiles));
+
+            Assert.IsFalse(overlaps);
+        }
+
+        // "Buildings placed over these resources will permanently remove
+        // them" - a tree under a just-placed footprint is destroyed
+        // (Harvested to zero, same self-destroy path as being chopped
+        // down), while one outside the footprint is left alone.
+        [Test]
+        public void ClearTreesInFootprint_DestroysOnlyTreesUnderFootprint()
+        {
+            ResourceNode inside = NewResourceNode(ResourceType.Wood, 100f, Vector3.zero);
+            ResourceNode outside = NewResourceNode(ResourceType.Wood, 100f, new Vector3(50f, 0f, 50f));
+
+            BuildingFootprint.ClearTreesInFootprint(Vector3.zero, BuildingFootprint.Square(BuildingFootprint.HouseTiles));
+
+            Assert.IsTrue(inside == null || inside.Equals(null), "Tree under the footprint should have been removed");
+            Assert.IsFalse(outside == null || outside.Equals(null), "Tree outside the footprint should be untouched");
+        }
+
+        // Non-Wood resources are never touched by clearing, even if they'd
+        // otherwise sit under a footprint - OverlapsBlockingResource is what
+        // keeps them from ever getting this far in practice, but
+        // ClearTreesInFootprint itself must stay Wood-only regardless.
+        [Test]
+        public void ClearTreesInFootprint_LeavesNonWoodResourcesUntouched()
+        {
+            ResourceNode gold = NewResourceNode(ResourceType.Gold, 100f, Vector3.zero);
+
+            BuildingFootprint.ClearTreesInFootprint(Vector3.zero, BuildingFootprint.Square(BuildingFootprint.HouseTiles));
+
+            Assert.IsFalse(gold == null || gold.Equals(null));
+            Assert.AreEqual(100f, gold.Amount);
         }
     }
 }
