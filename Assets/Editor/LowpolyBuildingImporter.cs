@@ -144,14 +144,24 @@ namespace KingdomsOfBharat.EditorTools
             model.AddComponent<MeshRenderer>().sharedMaterial = mat;
             // BuildingModelFactory.ImportRotationCorrections["Tower"] stomps
             // Euler(0,0,-90) onto the instantiated prefab root at every spawn,
-            // civ-blind. This importer always bakes the model child at
-            // identity, which is correct for every other building - but for
-            // Tower specifically, if the raw glb mesh is already Y-up at
-            // identity (tall axis = Y, not X), the stomp would rotate it onto
-            // its side. Baking the exact inverse (Euler(0,0,90)) onto this
-            // child cancels the stomp algebraically for same-axis rotations
+            // civ-blind, keyed by resourceName ("Tower") - which is what every
+            // age-tiered Tower spawn call passes regardless of buildingName
+            // suffix (Tower_Ancient/Tower_Classical/Tower_Durg all resolve
+            // through the same "Tower" resourceName + age lookup in
+            // BuildingModelFactory.BuildVisual), so the stomp applies to all
+            // of them identically, not just the Imperial-tier "Tower" prefab.
+            // This importer always bakes the model child at identity, which
+            // is correct for every other building - but for Tower (any age
+            // tier), if the raw glb mesh is already Y-up at identity (tall
+            // axis = Y, not X), the stomp would rotate it onto its side.
+            // Baking the exact inverse (Euler(0,0,90)) onto this child
+            // cancels the stomp algebraically for same-axis rotations
             // (-90 + 90 = 0), restoring the mesh's own correct orientation.
-            if (buildingName == "Tower")
+            // NOTE: this is only correct when the raw delivery is indeed
+            // already Y-up at identity (confirmed per-delivery via a live
+            // spawn-stack screenshot, never assumed) - a delivery with a
+            // different up-axis convention would need a different fix.
+            if (buildingName == "Tower" || buildingName.StartsWith("Tower_"))
             {
                 model.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
             }

@@ -8,6 +8,47 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Shared Tower Ancient/Classical/Durg age tiers swapped to low-poly (2026-09-27).**
+  Continues the low-poly building-swap series onto the shared (non-civ) Tower age
+  tiers, using the `ImportSharedBuilding` entry point added the immediately preceding
+  session. User supplied 3 unlabeled Meshy glbs, one per age tier; per the user's
+  explicit request, checked each glb's material structure first - all 3 have exactly
+  one material covering the whole mesh, same as the preceding TownCenter delivery, no
+  separate player-color region, relies on the existing civ-tint pass, no special
+  handling needed. Age-tier identification (not civ mapping - these are shared, one
+  model per tier) via masked mean-albedo color distance against each tier's existing
+  `Tower_{Ancient,Classical,Durg}_albedo.png` came back unambiguous (best distances
+  1.2-4.5, next-best all above 25), cross-checked visually: dark wood/lattice=Ancient,
+  lighter stone-and-wood=Classical, pale ashlar stone with archways=Durg. **Real
+  rotation bug found and fixed via the documented algebraic method, not shipped
+  blind**: all 3 imported with Y-tallest bounds at identity (plausible tall-narrow
+  shape), but spawning through the real `BuildingModelFactory.Spawn` path (required -
+  the civ-blind `ImportRotationCorrections["Tower"]` stomp, keyed by resourceName
+  "Tower" regardless of age suffix, only applies at spawn time) showed all 3 tipped
+  onto their side - this batch's raw mesh ships already-correct Y-up at identity, so
+  the existing stomp (tuned for a different up-axis convention) rotated it wrong.
+  Generalized `LowpolyBuildingImporter.cs`'s existing Tower-specific child-rotation fix
+  from the literal `buildingName == "Tower"` (which never matched the age-suffixed
+  names) to also match `"Tower_" `-prefixed names, then baked the same algebraic
+  inverse `Euler(0,0,90)` onto the imported model's child transform, cancelling the
+  stomp by same-axis angle addition. Re-imported and re-verified all 3 live via
+  UnityMCP through the real spawn path with 3 screenshots apiece (angled,
+  front-elevation, top-down): Ancient (wooden watchtower on stilts with palisade base
+  and thatched lookout cap), Classical (sturdy ashlar-stone watchtower with wooden
+  pyramidal lookout roof), Durg (solid crenellated stone tower with arrow-slit
+  windows) - a plausible fortification progression, each confirmed civ-blind
+  (Chola/Maurya/Maratha all measured identical). World height consistently 8.00
+  across all 3 post-fix, matching the established Tower scale convention. 834/834
+  EditMode tests pass unchanged (1 pre-existing, unrelated
+  `BuildingPrefabValidationTests` NRE, same standing baseline). Old
+  `_Source`+`_Decimated` (~530 MB) -> `_Lowpoly` (~41 MB), -92% overall. One scoped
+  commit (`LowpolyBuildingImporter.cs`'s generalized Tower-rotation branch, all 3
+  `Tower_{Ancient,Classical,Durg}.prefab` + `_Lowpoly/Tower_{Ancient,Classical,Durg}/*`
+  + removed shared `_Source`+`_Decimated`, docs) - deliberately excludes the same
+  substantial unrelated concurrent uncommitted work already flagged in prior sessions'
+  own status entries. **Next**: user's call - the still-un-swapped shared Wall
+  Ancient/Classical tiers (now also unblocked by `ImportSharedBuilding`), the
+  remaining per-civ Farm/Wall/Gate, or continuing elsewhere.
 - **Shared TownCenter Ancient/Classical age tiers swapped to low-poly (2026-09-27).**
   Continues the low-poly building-swap series onto the last two un-swapped TownCenter
   age tiers - unlike every civ-specific target in this series,

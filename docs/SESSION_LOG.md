@@ -5,6 +5,89 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-27 — Shared Tower Ancient/Classical/Durg age tiers swapped to low-poly (~530 MB -> ~41 MB, -92%)
+
+**Scope**: ad hoc, continuing the low-poly building-swap series onto the shared
+(non-civ) Tower age tiers - `Tower_Ancient.prefab`/`Tower_Classical.prefab`/
+`Tower_Durg.prefab` - using the `ImportSharedBuilding` entry point added the immediately
+preceding session for TownCenter's own shared Ancient/Classical tiers. User supplied 3
+unlabeled Meshy glbs at
+`~/Downloads/Meshy_AI_assets_20260927_141013/<uuid>/Meshy_AI_model.glb` - confirmed the
+folder shape (3 UUID folders, one glb each, matching the 3 existing un-swapped shared
+Tower prefabs) before starting. Disk dropped to 2.0-2.3 GiB free over the course of the
+session (tighter than recent sessions, still above the 1 GB floor, monitored throughout).
+Per the user's explicit request, checked each glb's material structure before importing:
+all 3 have exactly one material ("BakedMaterial") covering the whole mesh - same shape
+as the immediately preceding TownCenter delivery, no separate dedicated player-color
+region; the whole model relies on the existing civ-tint pass
+(`BuildingModelFactory.TintMaterials`), no special handling needed or added.
+
+**Civ mapping N/A** (these are shared, one model per age tier, not per civ) - instead
+identified which of the 3 candidates is which **age tier** via masked mean-albedo color
+distance against each tier's existing `Tower_{Ancient,Classical,Durg}_albedo.png`
+(all 3 `_Source` folders still present pre-swap) - an unusually clean, unambiguous
+result (best distances 1.2-4.5, next-best all above 25), cross-checked with a visual
+contact sheet anyway per this series' standing practice, confirming by eye: dark
+wood/lattice = Ancient, lighter stone-and-wood = Classical, pale ashlar stone with
+archways = Durg. Final mapping: candidate1 (`01a0e32b-d13f-...`) -> Ancient, candidate2
+(`01a0e32c-cdc4-...`) -> Classical, candidate3 (`01a0e32f-a858-...`) -> Durg.
+
+**Real rotation bug found and fixed via the documented algebraic method, not shipped
+blind**: all 3 imported cleanly (13,207-19,777 tris) with Y-tallest bounds at identity
+rotation (a plausible tall-narrow tower shape) - but spawning through the real
+`BuildingModelFactory.Spawn("Tower", ..., age: ...)` path (required, since the civ-blind
+`ImportRotationCorrections["Tower"]` stomp - keyed by resourceName "Tower", which every
+age-tiered Tower spawn call passes regardless of age suffix - only applies at spawn
+time, not visible from the saved prefab alone) showed all 3 tipped onto their side (the
+bounding box's tallest axis flipped from Y to X, matching the fallback height parameter
+exactly - the tell). This is the same class of bug the original per-civ Tower low-poly
+session hit: this batch's raw mesh ships already-correct Y-up at identity, so the
+existing civ-blind `Euler(0,0,-90)` stomp (tuned for a different up-axis convention)
+rotates it wrong. Generalized `LowpolyBuildingImporter.cs`'s existing Tower-specific
+child-rotation fix - previously gated on the literal string `buildingName == "Tower"`,
+which never matched "Tower_Ancient"/"Tower_Classical"/"Tower_Durg" - to
+`buildingName == "Tower" || buildingName.StartsWith("Tower_")`, since the runtime stomp
+this fix cancels is keyed by resourceName, not by the age-suffixed buildingName; baked
+the same algebraic inverse `Euler(0,0,90)` onto the imported model's inner child
+transform, which cancels the stomp by simple same-axis angle addition (-90 + 90 = 0),
+composing to identity at spawn - documented in the importer's own comment as
+delivery-specific (needs re-verifying, not assumed, for any future Tower delivery with
+a different up-axis convention). Re-imported and re-verified all 3 live via UnityMCP
+through the real `BuildingModelFactory.Spawn` path with 3 screenshots apiece (angled,
+front-elevation, top-down): Ancient (a wooden watchtower on stilts with a palisade
+base and thatched lookout cap), Classical (a sturdy ashlar-stone watchtower with a
+wooden pyramidal lookout roof), Durg (a solid crenellated stone tower with arrow-slit
+windows) - a plausible fortification progression across the 3 earliest age tiers, each
+confirmed civ-blind (Chola/Maurya/Maratha all measured identical bounds). World height
+consistently 8.00 across all 3 post-fix, matching the established Tower scale
+convention from the per-civ Imperial-tier session.
+
+**EditMode suite**: 834/834 pass, both before and after the old-asset deletion pass
+(the 1 standing pre-existing `BuildingPrefabValidationTests` failure, unrelated to this
+work, same baseline as every recent session).
+
+**Old assets removed** after confirming (via GUID grep across every `.prefab`/`.asset`/
+`.unity`/`.mat`) that nothing outside each building's own `_Source`/`_Decimated` folder
+referenced it, and the 3 `Assets/importedmodels/Tower_{Ancient,Classical,Durg}Lowpoly/`
+staging folders deleted once each prefab was confirmed re-spawning correctly:
+
+| Age tier | Old (`_Source` + `_Decimated`) | New (`_Lowpoly`) | Reduction |
+|---|---|---|---|
+| Ancient | 196,096 KB | 15,000 KB | -92.3% |
+| Classical | 178,156 KB | 14,492 KB | -91.9% |
+| Durg | 168,956 KB | 12,988 KB | -92.3% |
+| **Total** | **543,208 KB (~530 MB)** | **42,480 KB (~41 MB)** | **-92.2%** |
+
+One scoped commit (`LowpolyBuildingImporter.cs`'s generalized Tower-rotation branch, all
+3 `Tower_{Ancient,Classical,Durg}.prefab` + `_Lowpoly/Tower_{Ancient,Classical,Durg}/*` +
+removed shared `_Source`+`_Decimated`, docs) - deliberately excludes the same
+substantial unrelated concurrent uncommitted work already flagged in prior sessions' own
+status entries. **Next**: user's call - the still-un-swapped shared Wall
+Ancient/Classical tiers (now also unblocked by `ImportSharedBuilding`), the remaining
+per-civ Farm/Wall/Gate, or continuing elsewhere.
+
+---
+
 ## 2026-09-27 — Shared TownCenter Ancient/Classical age tiers swapped to low-poly (~269 MB -> ~28 MB, -89%)
 
 **Scope**: ad hoc, continuing the low-poly building-swap series onto the last two
