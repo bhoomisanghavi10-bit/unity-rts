@@ -381,11 +381,20 @@ namespace KingdomsOfBharat.Selection
                 && hit.collider.TryGetComponent(out site)
                 && !site.IsComplete
                 && IsFriendlyToPlayer(site);
+            // AoE reference: "If a Farm is not currently being tended,
+            // another player's Villager can capture it by simply starting
+            // to gather from it themselves" - an untended (IsCapturable)
+            // hostile Farm is now also a valid click target alongside the
+            // usual friendly case; an occupied hostile Farm still isn't,
+            // so it correctly falls through to the existing attack branch
+            // below, unchanged. Allied farms are untouched either way -
+            // still gated by IsFriendlyToPlayer's own same-faction-or-
+            // allied definition below in the per-unit loop.
             Farm farm = null;
             bool hitFarm = !hitNode && !hitSite
                 && hit.collider.TryGetComponent(out farm)
                 && farm.IsComplete
-                && IsFriendlyToPlayer(farm);
+                && (IsFriendlyToPlayer(farm) || farm.IsCapturable);
             Livestock livestock = null;
             bool hitLivestock = !hitNode && !hitSite && !hitFarm
                 && hit.collider.TryGetComponent(out livestock);
@@ -550,6 +559,24 @@ namespace KingdomsOfBharat.Selection
                     builder?.BuildAt(site);
                 }
                 else if (hitFarm && farmWorker != null && IsSameFaction(unit, farm))
+                {
+                    gatherer?.CancelGather();
+                    builder?.CancelBuild();
+                    attacker?.CancelAttack();
+                    livestockWorker?.CancelWork();
+                    repairer?.CancelRepair();
+                    healer?.CancelHeal();
+                    purohita?.CancelConvert();
+                    relicCarrier?.CancelCarry();
+                    farmWorker.StaffAt(farm);
+                }
+                // Cross-faction capture: an untended hostile Farm (see
+                // hitFarm's own gate above) can be claimed by walking a
+                // worker to it and starting to gather - the actual
+                // ownership transfer happens inside Farm.BeginWorking once
+                // the worker is in range and begins harvesting, not at
+                // click time, matching "starts to gather" literally.
+                else if (hitFarm && farmWorker != null && !IsFriendlyToPlayer(farm) && farm.IsCapturable)
                 {
                     gatherer?.CancelGather();
                     builder?.CancelBuild();

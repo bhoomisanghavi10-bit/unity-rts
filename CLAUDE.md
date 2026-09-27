@@ -8,6 +8,66 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Farm civ-models removed + Farm mechanics corrected against a pasted AoE II
+  reference (2026-09-27).** Two-part user request: (1) deleted all 5 civs'
+  civ-specific `Farm.prefab`+`_Source`+`_Decimated` (a new common shared model is
+  coming later; `BuildingModelFactory`'s fallback chain already resolves to the
+  existing shared `Buildings/Farm` placeholder once the civ overrides are gone) -
+  ~681 MB freed. **Found and flagged, not fixed**: that shared placeholder has a
+  null `MeshFilter` mesh and a zero-size `BoxCollider` - Farms are currently
+  invisible/unclickable in a real match until the user's new common model lands
+  (pre-existing, never exercised before since every civ always had its own
+  override). (2) Checked `Farm`/`FarmWorker`/`SelectionManager` against the
+  reference; found one clear bug (multiple villagers could stack their food rate
+  on one Farm) plus 3 missing mechanics - user picked all 3 via AskUserQuestion.
+  Used Plan Mode given the size. **One villager at a time**:
+  `Farm.BeginWorking(FactionId)` now returns `bool` and refuses a second claim
+  outright (same-faction or not) while already tended; `FarmWorker` retries
+  every tick on refusal rather than stacking. **Cross-faction capture**
+  (reference: an untended Farm can be captured by simply starting to gather it):
+  new `Farm.IsCapturable`, a successful different-faction claim reassigns
+  ownership via `FactionMember.Configure` (same mechanism `PurohitaConverter`
+  already uses, no live re-tint - matches this project's own accepted gap);
+  `SelectionManager.hitFarm`'s gate broadened accordingly, Player-only (no AI
+  hook, new capability not a regression). **Farming upgrade techs** (Horse
+  Collar/Heavy Plow/Crop Rotation, 175 base -> 550 Food at Imperial): new
+  `Progression/FarmTechProgress.cs` (age-gated single track, mirrors
+  `UpgradeProgress.cs`, costs reused from this project's own per-age-gate
+  convention), new `TownCenter.RequestResearchFarmTech()`, and a real
+  **retroactive proportional-squared top-up** for already-built Farms
+  (`bonusDelta * proportionRemaining^2`, matching the reference's own worked
+  example exactly - 50% remaining credits 25% of that tech's own bonus).
+  **Mill-queued auto-reseed** (disclosed simplification: a per-faction toggle,
+  not a literal per-Mill-radius queue, since Farms have no linked-drop-off
+  relationship to piggyback on): new `Core/MillAutoReseedRegistry.cs`,
+  `Mill.RequestToggleAutoReseed()` - Mill's first selected-context button ever
+  (previously placement-only). New hotkeys F (Research Farming Upgrade, Town
+  Center) and A (Toggle Auto-Reseed, new Mill context). Also found and included
+  a genuine pre-existing repo-integrity gap while wiring
+  `FarmTechProgress.Reset()`: `Progression/ProgressionRegistry.cs` was
+  referenced by the already-committed `CivilizationSetup.cs` but was itself
+  never actually committed by whichever earlier session introduced it (no git
+  history at all) - included it in this session's commit since the new reset
+  wiring depends on it, flagged rather than silently folded in. 854/854
+  EditMode tests pass (834 baseline + 20 new, 1 pre-existing unrelated
+  `BuildingPrefabValidationTests` NRE, same standing baseline); also fixed 2
+  now-stale `BuildingModelFactoryTests.cs` assertions that expected Chola's Farm
+  at its own civ-specific path. Live-verified all 4 parts via UnityMCP through
+  the real production path in a running match (mutex refusal, capture
+  reassigning `FactionMember.Faction`, a real 50%-drained Farm crediting
+  exactly 31.25 Food on tech completion, a real Mill auto-reseeding a real
+  worker-less depleted Farm by exactly 15 Food/s). One scoped commit
+  (`Farm.cs`/`FarmWorker.cs`/`Mill.cs`/`TownCenter.cs`/`SelectionManager.cs`/
+  `CivilizationSetup.cs`, new `FarmTechProgress.cs`/`MillAutoReseedRegistry.cs`/
+  `ProgressionRegistry.cs`, `BuildMenu.cs`/`SettingsMenu.cs`/`HotkeyOverlay.cs`,
+  the 5 civs' Farm model deletions, `FarmTests.cs`/`BuildingModelFactoryTests.cs`
+  + 2 new test files, docs) - deliberately excludes the substantial unrelated
+  concurrent uncommitted work already sitting in the tree (`DefinitionCatalog.cs`,
+  `Projectile.cs`, `Performance/`, PlayMode tests, `BuildingPrefabValidator.cs`,
+  `AnimationDriver.cs`, `RTSCameraController.cs`, `MeleeAttacker.cs`, several
+  `*LineProgress.cs` files, `EconomyTechProgress.cs`). **Next**: the user's own
+  new common Farm model (unblocks Farms rendering/being clickable again), or
+  any other item.
 - **Lumber Camp/Mining Camp/Mill swapped to low-poly (2026-09-27).** Continues the
   low-poly building-swap series onto the 3 remaining shared, non-age-tiered economic
   buildings, using the `ImportSharedBuilding` entry point from earlier the same day.

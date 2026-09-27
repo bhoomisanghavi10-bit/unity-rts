@@ -57,6 +57,8 @@ namespace KingdomsOfBharat.UI
             new RebindableAction("ResearchImprovedTools", "Research Improved Tools (Town Center)", KeyCode.I),
             new RebindableAction("ResearchPackMules", "Research Pack Mules (Town Center)", KeyCode.P),
             new RebindableAction("ResearchTradeDiscounts", "Research Trade Discounts (Town Center)", KeyCode.D),
+            new RebindableAction("ResearchFarmTech", "Research Farming Upgrade (Town Center)", KeyCode.F),
+            new RebindableAction("ToggleAutoReseed", "Toggle Auto-Reseed Farms (Mill)", KeyCode.A),
             new RebindableAction("TrainUnit", "Train Soldier (Barracks)", KeyCode.T),
             new RebindableAction("TrainArcher", "Train Archer (Barracks)", KeyCode.A),
             new RebindableAction("TrainCavalry", "Train Cavalry (Barracks)", KeyCode.N),

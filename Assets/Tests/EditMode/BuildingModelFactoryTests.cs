@@ -63,13 +63,18 @@ namespace KingdomsOfBharat.Tests
             }
         }
 
+        // Farm deliberately excluded: its 5 civ-specific models were removed
+        // (a new shared common model is replacing them), so Farm now
+        // correctly falls back to the shared Buildings/Farm path for every
+        // civ - covered by Spawn_FallsBackToSharedModel_ForEveryCiv... above,
+        // not this civ-specific-path assertion.
         private static readonly string[] CholaBuildingNames =
         {
-            "TownCenter", "Barracks", "Tower", "Market", "House", "Gate", "Wall", "Dock", "Farm"
+            "TownCenter", "Barracks", "Tower", "Market", "House", "Gate", "Wall", "Dock"
         };
 
         [Test]
-        public void CholaBuildingModels_ExistAtTheExactResourcePath_ForAllNineBuildings()
+        public void CholaBuildingModels_ExistAtTheExactResourcePath_ForAllEightBuildings()
         {
             foreach (string name in CholaBuildingNames)
             {

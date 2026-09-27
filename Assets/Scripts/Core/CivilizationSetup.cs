@@ -238,6 +238,7 @@ namespace KingdomsOfBharat.Core
             DiplomacyRegistry.Reset();
             TeamColorBuildingTint.Reset();
             TeamColorUnitTint.Reset();
+            MillAutoReseedRegistry.Reset();
             // Repository-audit finding F08: every per-faction progression
             // registry (Score/Upgrade/UniqueTech/EconomyTech/Hero/
             // UniqueUnitElite/the 13 unit-tier ladders) is a static

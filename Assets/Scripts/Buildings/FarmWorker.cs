@@ -1,4 +1,5 @@
 using UnityEngine;
+using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Units;
 
 namespace KingdomsOfBharat.Buildings
@@ -12,6 +13,7 @@ namespace KingdomsOfBharat.Buildings
         [SerializeField] private float interactionRange = 2.5f;
 
         private UnitMover _mover;
+        private FactionMember _factionMember;
         private Farm _farm;
         private bool _harvesting;
         private bool _reseeding;
@@ -31,6 +33,7 @@ namespace KingdomsOfBharat.Buildings
         private void Awake()
         {
             _mover = GetComponent<UnitMover>();
+            _factionMember = GetComponent<FactionMember>();
         }
 
         public void StaffAt(Farm farm)
@@ -93,8 +96,19 @@ namespace KingdomsOfBharat.Buildings
 
             if (wantHarvest && !_harvesting)
             {
-                _farm.BeginWorking();
-                _harvesting = true;
+                // AoE reference: only one Villager may gather a Farm at a
+                // time. A false return means someone else is already
+                // working it (or, for a hostile/untended Farm, this claim
+                // just captured it) - either way, only mark ourselves as
+                // harvesting on an actual successful claim; a refusal
+                // leaves the worker idle in place, retrying every tick
+                // until the Farm frees up (same auto-retry spirit as
+                // Gatherer's own "resource unavailable" handling).
+                FactionId myFaction = _factionMember != null ? _factionMember.Faction : FactionId.Player;
+                if (_farm.BeginWorking(myFaction))
+                {
+                    _harvesting = true;
+                }
             }
             else if (!wantHarvest && _harvesting)
             {

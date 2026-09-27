@@ -245,6 +245,10 @@ namespace KingdomsOfBharat.UI
         [SerializeField] private TMP_Text packMulesLabel;
         [SerializeField] private Button tradeDiscountsButton;
         [SerializeField] private TMP_Text tradeDiscountsLabel;
+        [SerializeField] private Button farmTechButton;
+        [SerializeField] private TMP_Text farmTechLabel;
+        [SerializeField] private Button autoReseedButton;
+        [SerializeField] private TMP_Text autoReseedLabel;
 
         // Roadmap item 31: command-panel icon grid + paging, replacing the
         // old fixed-Y vertical stack. gridPageLabel/nav buttons are hidden
@@ -274,6 +278,8 @@ namespace KingdomsOfBharat.UI
         private KeyCode _keyResearchImprovedTools;
         private KeyCode _keyResearchPackMules;
         private KeyCode _keyResearchTradeDiscounts;
+        private KeyCode _keyResearchFarmTech;
+        private KeyCode _keyToggleAutoReseed;
         private KeyCode _keyTrainSoldier;
         private KeyCode _keyTrainArcher;
         private KeyCode _keyTrainCavalry;
@@ -455,6 +461,8 @@ namespace KingdomsOfBharat.UI
             improvedToolsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.ImprovedTools));
             packMulesButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.PackMules));
             tradeDiscountsButton.onClick.AddListener(() => ResearchEconomyTechAtSelected(EconomyTech.TradeDiscounts));
+            farmTechButton.onClick.AddListener(ResearchFarmTechAtSelected);
+            autoReseedButton.onClick.AddListener(ToggleAutoReseedAtSelected);
 
             // Roadmap item 31: fixed order used by LayoutCommandGrid every
             // frame - matches the field declaration order above.
@@ -476,7 +484,7 @@ namespace KingdomsOfBharat.UI
                 siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2,
                 charaTierButton, skirmisherTierButton, batteringRamTierButton,
                 cavalryArcherTierButton, camelRiderTierButton, scorpionTierButton, ageButton,
-                improvedToolsButton, packMulesButton, tradeDiscountsButton, _cancelQueueButton,
+                improvedToolsButton, packMulesButton, tradeDiscountsButton, farmTechButton, autoReseedButton, _cancelQueueButton,
                 _cancelConstructionButton,
             };
 
@@ -501,6 +509,8 @@ namespace KingdomsOfBharat.UI
             _keyResearchImprovedTools = GameSettings.GetKey("ResearchImprovedTools", KeyCode.I);
             _keyResearchPackMules = GameSettings.GetKey("ResearchPackMules", KeyCode.P);
             _keyResearchTradeDiscounts = GameSettings.GetKey("ResearchTradeDiscounts", KeyCode.D);
+            _keyResearchFarmTech = GameSettings.GetKey("ResearchFarmTech", KeyCode.F);
+            _keyToggleAutoReseed = GameSettings.GetKey("ToggleAutoReseed", KeyCode.A);
             _keyTrainSoldier = GameSettings.GetKey("TrainUnit", KeyCode.T);
             _keyTrainArcher = GameSettings.GetKey("TrainArcher", KeyCode.A);
             _keyTrainCavalry = GameSettings.GetKey("TrainCavalry", KeyCode.N);
@@ -603,7 +613,7 @@ namespace KingdomsOfBharat.UI
                 siegeButton, spearmanButton, charaButton, skirmisherButton, batteringRamButton, trebuchetButton, cavalryArcherButton, camelRiderButton, scorpionButton, uniqueUnitButton, uniqueUnitButton2, heroButton, ungarrisonButton,
                 fishingBoatButton, warGalleyButton, sellWoodButton, buyWoodButton, sellFoodButton,
                 buyFoodButton, sellStoneButton, buyStoneButton, vanikButton, vaidyaButton, purohitaButton, attackUpgradeButton, armorUpgradeButton,
-                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2, charaTierButton, skirmisherTierButton, batteringRamTierButton, cavalryArcherTierButton, camelRiderTierButton, scorpionTierButton, navalTierButton, fireShipButton, fireShipTierButton, tradeShipButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton,
+                uniqueTechButton, infantryTierButton, spearmanTierButton, archerTierButton, cavalryTierButton, siegeTierButton, elephantTierButton, eliteTierButton, eliteTierButton2, charaTierButton, skirmisherTierButton, batteringRamTierButton, cavalryArcherTierButton, camelRiderTierButton, scorpionTierButton, navalTierButton, fireShipButton, fireShipTierButton, tradeShipButton, ageButton, improvedToolsButton, packMulesButton, tradeDiscountsButton, farmTechButton, autoReseedButton,
             };
 
             foreach (Button button in buttons)
@@ -713,6 +723,8 @@ namespace KingdomsOfBharat.UI
             SetupGridCell(improvedToolsButton, null);
             SetupGridCell(packMulesButton, null);
             SetupGridCell(tradeDiscountsButton, null);
+            SetupGridCell(farmTechButton, null);
+            SetupGridCell(autoReseedButton, null);
         }
 
         // Roadmap item 31: replaces the old AddCommandIcon (icon-left/
@@ -850,13 +862,18 @@ namespace KingdomsOfBharat.UI
             // Wave 4 item 27: Vaidya/Purohita training lives on the new
             // Monastery building.
             Monastery monastery = ownsSelected ? selected as Monastery : null;
+            // Farm mechanics correction (AoE reference check): Mill-queued
+            // auto-reseed toggle lives on Mill, its own new selected
+            // context (previously Mill had no selected-context buttons at
+            // all, only a placement button).
+            Mill mill = ownsSelected ? selected as Mill : null;
             // General garrisoning system (2026-09-01): every building with
             // a GarrisonPoint (TownCenter/Tower/Wall) shows the Ungarrison
             // button when occupied - no longer restricted to Wall/Tower's
             // type, since TownCenter now has one too.
             GarrisonPoint garrisonPoint = ownsSelected ? selected.GetComponent<GarrisonPoint>() : null;
 
-            HandleHotkeys(townCenter, barracks, dock, durg, karmashala, garrisonPoint, market, monastery);
+            HandleHotkeys(townCenter, barracks, dock, durg, karmashala, garrisonPoint, market, monastery, mill);
 
             SetPlacementButtonsActive(showPlacement);
             workerButton.gameObject.SetActive(townCenter != null);
@@ -866,6 +883,8 @@ namespace KingdomsOfBharat.UI
             improvedToolsButton.gameObject.SetActive(townCenter != null);
             packMulesButton.gameObject.SetActive(townCenter != null);
             tradeDiscountsButton.gameObject.SetActive(townCenter != null);
+            farmTechButton.gameObject.SetActive(townCenter != null);
+            autoReseedButton.gameObject.SetActive(mill != null);
             soldierButton.gameObject.SetActive(barracks != null);
             archerButton.gameObject.SetActive(barracks != null);
             cavalryButton.gameObject.SetActive(barracks != null);
@@ -987,6 +1006,11 @@ namespace KingdomsOfBharat.UI
             if (monastery != null)
             {
                 UpdateMonasteryButtons(monastery);
+            }
+
+            if (mill != null)
+            {
+                UpdateMillButtons(mill);
             }
 
             // Roadmap item 31: runs last, after every context branch above
@@ -1144,7 +1168,7 @@ namespace KingdomsOfBharat.UI
         // disabled. Gated per-parameter (not a single "selected something"
         // check) so a key only ever acts on the currently selected building
         // of the matching type, fixing the old per-building Update() bug.
-        private void HandleHotkeys(TownCenter townCenter, Barracks barracks, Dock dock, Durg durg, Karmashala karmashala, GarrisonPoint garrisonPoint, Market market, Monastery monastery)
+        private void HandleHotkeys(TownCenter townCenter, Barracks barracks, Dock dock, Durg durg, Karmashala karmashala, GarrisonPoint garrisonPoint, Market market, Monastery monastery, Mill mill)
         {
             if (townCenter != null)
             {
@@ -1153,6 +1177,12 @@ namespace KingdomsOfBharat.UI
                 if (Input.GetKeyDown(_keyResearchImprovedTools)) ResearchEconomyTechAtSelected(EconomyTech.ImprovedTools);
                 if (Input.GetKeyDown(_keyResearchPackMules)) ResearchEconomyTechAtSelected(EconomyTech.PackMules);
                 if (Input.GetKeyDown(_keyResearchTradeDiscounts)) ResearchEconomyTechAtSelected(EconomyTech.TradeDiscounts);
+                if (Input.GetKeyDown(_keyResearchFarmTech)) ResearchFarmTechAtSelected();
+            }
+
+            if (mill != null)
+            {
+                if (Input.GetKeyDown(_keyToggleAutoReseed)) ToggleAutoReseedAtSelected();
             }
 
             if (barracks != null)
@@ -2165,6 +2195,7 @@ namespace KingdomsOfBharat.UI
             UpdateEconomyTechButton(improvedToolsButton, improvedToolsLabel, townCenter, EconomyTech.ImprovedTools);
             UpdateEconomyTechButton(packMulesButton, packMulesLabel, townCenter, EconomyTech.PackMules);
             UpdateEconomyTechButton(tradeDiscountsButton, tradeDiscountsLabel, townCenter, EconomyTech.TradeDiscounts);
+            UpdateFarmTechButton(townCenter);
 
             if (townCenter.IsAgingUp)
             {
@@ -2219,6 +2250,44 @@ namespace KingdomsOfBharat.UI
 
             button.interactable = !townCenter.IsResearchingEconomyTech;
             label.text = $"{definition.Name} ({(int)definition.WoodCost} Wood, {(int)definition.GoldCost} Gold)";
+        }
+
+        // Horse Collar/Heavy Plow/Crop Rotation - same 3-state "Researching.../
+        // (Max)/needs {Age}/Upgrade to X" shape as UpdateUpgradeButton, since
+        // FarmTechProgress is age-gated and sequential like the unit tier
+        // lines, unlike EconomyTech's free-pick-any-of-3 shared slot.
+        private void UpdateFarmTechButton(TownCenter townCenter)
+        {
+            FactionId faction = NetworkMatch.LocalFaction;
+
+            if (townCenter.IsResearchingFarmTech)
+            {
+                farmTechButton.interactable = false;
+                farmTechLabel.text = $"Researching Farming... {(int)(townCenter.FarmTechResearchProgress * 100f)}%";
+                return;
+            }
+
+            if (!FarmTechProgress.HasNextTier(faction))
+            {
+                farmTechButton.interactable = false;
+                farmTechLabel.text = "Farming (Max)";
+                return;
+            }
+
+            if (!FarmTechProgress.NextTierAgeRequirementMet(faction))
+            {
+                farmTechButton.interactable = false;
+                farmTechLabel.text = $"Research {FarmTechProgress.NextTierName(faction)} (needs {FarmTechProgress.NextTierRequiredAge(faction)} Age)";
+                return;
+            }
+
+            farmTechButton.interactable = true;
+            farmTechLabel.text = $"Research {FarmTechProgress.NextTierName(faction)} ({(int)FarmTechProgress.NextTierGoldCost(faction)} Gold, {(int)FarmTechProgress.NextTierWoodCost(faction)} Wood)";
+        }
+
+        private void UpdateMillButtons(Mill mill)
+        {
+            autoReseedLabel.text = mill.AutoReseedEnabled ? "Auto-Reseed Farms: On" : "Auto-Reseed Farms: Off";
         }
 
         private void TrainWorkerAtSelected()
@@ -2645,6 +2714,22 @@ namespace KingdomsOfBharat.UI
             if (_selectionManager != null && _selectionManager.SelectedBuilding is TownCenter townCenter)
             {
                 townCenter.RequestResearchEconomyTech(tech);
+            }
+        }
+
+        private void ResearchFarmTechAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is TownCenter townCenter)
+            {
+                townCenter.RequestResearchFarmTech();
+            }
+        }
+
+        private void ToggleAutoReseedAtSelected()
+        {
+            if (_selectionManager != null && _selectionManager.SelectedBuilding is Mill mill)
+            {
+                mill.RequestToggleAutoReseed();
             }
         }
 

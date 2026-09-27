@@ -84,6 +84,12 @@ namespace KingdomsOfBharat.UI
             new Entry("Improved Tools", "ResearchImprovedTools", KeyCode.I),
             new Entry("Pack Mules", "ResearchPackMules", KeyCode.P),
             new Entry("Trade Discounts", "ResearchTradeDiscounts", KeyCode.D),
+            new Entry("Research Farming Upgrade", "ResearchFarmTech", KeyCode.F),
+        });
+
+        private static readonly Group MillGroup = new Group("Mill Selected", new[]
+        {
+            new Entry("Toggle Auto-Reseed Farms", "ToggleAutoReseed", KeyCode.A),
         });
 
         private static readonly Group BarracksGroup = new Group("Barracks Selected", new[]
@@ -169,7 +175,7 @@ namespace KingdomsOfBharat.UI
         // group identity - purely a layout concern.
         private static readonly Group[][] Columns =
         {
-            new[] { GlobalGroup, DockGroup, MarketGroup, MonasteryGroup, GarrisonGroup },
+            new[] { GlobalGroup, DockGroup, MarketGroup, MonasteryGroup, GarrisonGroup, MillGroup },
             new[] { PlacementGroup },
             new[] { TownCenterGroup, BarracksGroup, DurgGroup, KarmashalaGroup },
         };

@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Core;
+using KingdomsOfBharat.Progression;
 using KingdomsOfBharat.ResourceGathering;
 
 namespace KingdomsOfBharat.Tests
@@ -43,6 +44,12 @@ namespace KingdomsOfBharat.Tests
                 }
             }
             _spawned.Clear();
+            // Both static, process-lifetime registries - reset between
+            // tests so one test's tier/toggle state can't leak into the
+            // next, same convention every other Progression static class's
+            // ResetForTests already establishes.
+            FarmTechProgress.ResetForTests();
+            MillAutoReseedRegistry.Reset();
         }
 
         private GameObject CreateGameObject(string name)
@@ -84,7 +91,7 @@ namespace KingdomsOfBharat.Tests
             Farm farm = CreateFarm();
             float before = farm.RemainingFood;
 
-            farm.BeginWorking();
+            farm.BeginWorking(FactionId.Player);
             farm.Tick(1f); // 1 worker, 1s -> 0.6 Food (default foodPerSecondPerWorker)
 
             Assert.AreEqual(before - 0.6f, farm.RemainingFood, 0.01f);
@@ -96,7 +103,7 @@ namespace KingdomsOfBharat.Tests
         {
             CreateStockpile();
             Farm farm = CreateFarm();
-            farm.BeginWorking();
+            farm.BeginWorking(FactionId.Player);
 
             // Far more than enough real time to fully drain a 175-cap Farm
             // at 0.6/s in one call - proves the per-tick clamp, not just
@@ -117,7 +124,7 @@ namespace KingdomsOfBharat.Tests
         {
             ResourceStockpile stockpile = CreateStockpile();
             Farm farm = CreateFarm();
-            farm.BeginWorking();
+            farm.BeginWorking(FactionId.Player);
             farm.Tick(10000f); // fully deplete first
             Assert.IsTrue(farm.IsDepleted);
 
@@ -134,7 +141,7 @@ namespace KingdomsOfBharat.Tests
         {
             ResourceStockpile stockpile = CreateStockpile(wood: 0f);
             Farm farm = CreateFarm();
-            farm.BeginWorking();
+            farm.BeginWorking(FactionId.Player);
             farm.Tick(10000f);
 
             farm.StopWorking();
@@ -150,7 +157,7 @@ namespace KingdomsOfBharat.Tests
         {
             CreateStockpile();
             Farm farm = CreateFarm();
-            farm.BeginWorking();
+            farm.BeginWorking(FactionId.Player);
             farm.Tick(1f); // drain a small, known amount (0.6 Food)
             farm.StopWorking();
 
@@ -165,7 +172,7 @@ namespace KingdomsOfBharat.Tests
         {
             CreateStockpile();
             Farm farm = CreateFarm();
-            farm.BeginWorking();
+            farm.BeginWorking(FactionId.Player);
             farm.Tick(10000f);
             farm.StopWorking();
 
@@ -215,6 +222,104 @@ namespace KingdomsOfBharat.Tests
             updateMethod.Invoke(farmWorker, null);
             Assert.IsTrue(farmWorker.IsFarming, "Must resume harvesting once the Farm is full again.");
             Assert.IsFalse(farmWorker.IsReseeding);
+        }
+
+        // AoE reference: "Farms may only be gathered from by one Villager
+        // at a time." A second claim is refused outright, whether it's the
+        // same faction trying to double up or a different faction trying
+        // to steal an already-tended Farm out from under its worker.
+        [Test]
+        public void BeginWorking_RefusesSecondWorker_WhileAlreadyTended()
+        {
+            Farm farm = CreateFarm();
+
+            Assert.IsTrue(farm.BeginWorking(FactionId.Player));
+            Assert.IsFalse(farm.BeginWorking(FactionId.Player), "A second same-faction worker must be refused.");
+            Assert.IsFalse(farm.BeginWorking(FactionId.Enemy), "A tended Farm must not be capturable.");
+        }
+
+        // AoE reference: "If a Farm is not currently being tended, another
+        // player's Villager can capture it by simply starting to gather
+        // from it themselves."
+        [Test]
+        public void BeginWorking_DifferentFaction_CapturesFarm_WhenUntended()
+        {
+            Farm farm = CreateFarm();
+
+            Assert.IsTrue(farm.BeginWorking(FactionId.Enemy));
+            Assert.AreEqual(FactionId.Enemy, farm.GetComponent<FactionMember>().Faction,
+                "A successful claim by a different faction must reassign ownership.");
+        }
+
+        [Test]
+        public void BeginWorking_DifferentFaction_PreservesRemainingFood_OnCapture()
+        {
+            CreateStockpile();
+            Farm farm = CreateFarm();
+            farm.BeginWorking(FactionId.Player);
+            farm.Tick(1f); // drains 0.6 Food
+            farm.StopWorking();
+            float before = farm.RemainingFood;
+
+            Assert.IsTrue(farm.BeginWorking(FactionId.Enemy));
+            Assert.AreEqual(before, farm.RemainingFood, 0.01f, "Capture must not reset the Farm's stored Food.");
+        }
+
+        // Farming upgrade techs (Horse Collar/Heavy Plow/Crop Rotation):
+        // a Farm built before the research completes gets the bonus
+        // proportional to the SQUARE of its remaining-food fraction, per
+        // the reference's own worked example (50% remaining -> 25% of that
+        // tech's own bonus credited).
+        [Test]
+        public void Tick_FarmTechBonus_CreditsRetroactively_ProportionalToSquareOfRemainingFraction()
+        {
+            CreateStockpile();
+            Farm farm = CreateFarm();
+            farm.BeginWorking(FactionId.Player);
+            farm.Tick(farm.MaxFood * 0.5f / 0.6f); // drain to exactly 50% of the 175 base
+            farm.StopWorking();
+            Assert.AreEqual(87.5f, farm.RemainingFood, 0.01f, "Sanity check on the drain amount.");
+
+            FarmTechProgress.Advance(FactionId.Player); // tier 1, +125 Food
+            farm.Tick(0f); // top-up check runs before the reseed/harvest branches
+
+            // bonusDelta=125, proportion=0.5, credited = 125 * 0.5^2 = 31.25
+            Assert.AreEqual(118.75f, farm.RemainingFood, 0.01f);
+        }
+
+        [Test]
+        public void RemainingFood_StartsAtFullEffectiveMax_WhenFarmTechAlreadyResearched()
+        {
+            // Reference: "If the research is completed while a Farm is
+            // being built, the full food bonus applies to that Farm" - a
+            // Farm that doesn't exist yet when the tech completes should
+            // simply start at the new, already-current max.
+            FarmTechProgress.Advance(FactionId.Player);
+            Farm farm = CreateFarm();
+
+            Assert.AreEqual(300f, farm.MaxFood, 0.01f);
+            Assert.AreEqual(300f, farm.RemainingFood, 0.01f);
+        }
+
+        // Mill-queued auto-reseed (reference: "Farms can be automatically
+        // reseeded if they are queued in the Mill (or equivalent)") -
+        // restores Food at the same rate a single manually-assigned
+        // reseeder would, with no FarmWorker ever calling BeginReseed.
+        [Test]
+        public void Tick_MillAutoReseed_RestoresFoodWithoutAnyAssignedReseeder()
+        {
+            ResourceStockpile stockpile = CreateStockpile();
+            Farm farm = CreateFarm();
+            farm.BeginWorking(FactionId.Player);
+            farm.Tick(10000f);
+            farm.StopWorking();
+            Assert.IsTrue(farm.IsDepleted);
+
+            MillAutoReseedRegistry.Toggle(FactionId.Player);
+            farm.Tick(1f);
+
+            Assert.AreEqual(15f, farm.RemainingFood, 0.01f);
+            Assert.AreEqual(1000f - 15f * farm.WoodCostPerFood, stockpile.GetTotal(ResourceType.Wood), 0.01f);
         }
     }
 }

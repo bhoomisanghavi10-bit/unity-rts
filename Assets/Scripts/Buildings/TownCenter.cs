@@ -43,6 +43,13 @@ namespace KingdomsOfBharat.Buildings
         private float _economyTechRemaining = -1f;
         private EconomyTech _economyTechTarget;
 
+        // Farming upgrade techs (Horse Collar/Heavy Plow/Crop Rotation) -
+        // its own independent track, same reasoning as EconomyTech's own
+        // comment: age-gated and sequential (see FarmTechProgress), so it
+        // runs in parallel with Worker training/Age-up/EconomyTech rather
+        // than sharing any of their slots.
+        private float _farmTechRemaining = -1f;
+
         // Self-added in Awake (not lazily like ConstructionSite/FactionMember
         // below) rather than requiring a Factory change: RallyPoint only
         // needs this component's own Building/rallyOffset, both already
@@ -164,6 +171,11 @@ namespace KingdomsOfBharat.Buildings
             : 0f;
         public bool HasResearchedEconomyTech(EconomyTech tech) => EconomyTechProgress.HasResearched(Faction, tech);
 
+        public bool IsResearchingFarmTech => _farmTechRemaining >= 0f;
+        public float FarmTechResearchProgress => IsResearchingFarmTech
+            ? 1f - (_farmTechRemaining / FarmTechProgress.NextTierResearchTime(Faction))
+            : 0f;
+
         private void Update()
         {
             if (IsTraining)
@@ -179,6 +191,11 @@ namespace KingdomsOfBharat.Buildings
             if (IsResearchingEconomyTech)
             {
                 TickEconomyTech();
+            }
+
+            if (IsResearchingFarmTech)
+            {
+                TickFarmTech();
             }
         }
 
@@ -278,6 +295,41 @@ namespace KingdomsOfBharat.Buildings
             {
                 EconomyTechProgress.MarkResearched(Faction, _economyTechTarget);
                 _economyTechRemaining = -1f;
+            }
+        }
+
+        // Horse Collar/Heavy Plow/Crop Rotation - same shape as
+        // RequestResearchEconomyTech but age-gated and sequential (see
+        // FarmTechProgress.NextTierAgeRequirementMet), so this refuses
+        // outright rather than just checking affordability.
+        public void RequestResearchFarmTech()
+        {
+            if (IsResearchingFarmTech || !FarmTechProgress.NextTierAgeRequirementMet(Faction))
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(Faction);
+            float goldCost = FarmTechProgress.NextTierGoldCost(Faction);
+            float woodCost = FarmTechProgress.NextTierWoodCost(Faction);
+            if (stockpile.GetTotal(ResourceType.Gold) < goldCost
+                || stockpile.GetTotal(ResourceType.Wood) < woodCost)
+            {
+                return;
+            }
+
+            stockpile.Add(ResourceType.Gold, -goldCost);
+            stockpile.Add(ResourceType.Wood, -woodCost);
+            _farmTechRemaining = FarmTechProgress.NextTierResearchTime(Faction);
+        }
+
+        private void TickFarmTech()
+        {
+            _farmTechRemaining -= Time.deltaTime;
+            if (_farmTechRemaining <= 0f)
+            {
+                FarmTechProgress.Advance(Faction);
+                _farmTechRemaining = -1f;
             }
         }
     }
