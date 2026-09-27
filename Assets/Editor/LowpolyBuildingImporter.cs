@@ -89,6 +89,21 @@ namespace KingdomsOfBharat.EditorTools
                    $"Assets/Resources/buildings/{civ}/{buildingName}.prefab", glbName);
         }
 
+        // Shared (non-civ) building path - for age-tiered buildings that are the
+        // same model across every civ (TownCenter_Ancient/TownCenter_Classical,
+        // Tower_Ancient/Tower_Classical, Wall_Ancient/Wall_Classical), per
+        // BuildingModelFactory's own "shared non-civ age tiers live at
+        // Buildings/{resourceName}_{ageId}" convention (no civ subfolder).
+        // Staging folder Assets/importedmodels/<BuildingName>Lowpoly holds
+        // <BuildingName>.glb + PNGs; the result overwrites the existing
+        // Assets/Resources/buildings/<BuildingName>.prefab in place.
+        public static void ImportSharedBuilding(string buildingName, string glbName = null)
+        {
+            Import($"Assets/importedmodels/{buildingName}Lowpoly", buildingName,
+                   $"Assets/Resources/buildings/_Lowpoly/{buildingName}", buildingName,
+                   $"Assets/Resources/buildings/{buildingName}.prefab", glbName);
+        }
+
         static void Import(string srcFolder, string srcName, string destFolder, string buildingName, string prefabPath, string glbName = null)
         {
             Directory.CreateDirectory(Path.GetFullPath(destFolder));

@@ -8,6 +8,37 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Shared TownCenter Ancient/Classical age tiers swapped to low-poly (2026-09-27).**
+  Continues the low-poly building-swap series onto the last two un-swapped TownCenter
+  age tiers - unlike every civ-specific target in this series,
+  `TownCenter_Ancient.prefab`/`TownCenter_Classical.prefab` are **shared (non-civ)
+  assets**, one model reused across all 5 civs. User supplied 2 separate glbs (one per
+  age tier, "with player color material" - a single tintable material per mesh,
+  handled by the existing civ-tint pass, no special handling needed). New
+  `LowpolyBuildingImporter.ImportSharedBuilding(buildingName, glbName=null)` added -
+  the existing `ImportBuilding(civ, buildingName)` always wrote to a civ-scoped path,
+  wrong for a shared asset; the new entry point writes to the shared
+  `Assets/Resources/buildings/{buildingName}.prefab` path directly, reusable for the
+  still-un-swapped Tower/Wall Ancient/Classical shared tiers too. Both imported
+  cleanly (9,877/9,797 tris); raw bounds came out wider than tall (a "wide sprawling
+  building" shape this series' own gotchas flag as a bounds-alone trap), so verified
+  through the full real spawn stack (angled/front-elevation/top-down) rather than
+  trusted from bounds - both confirmed upright, grounded, and civ-blind at identity
+  rotation (no `ImportRotationCorrections` entry for "TownCenter"): Ancient a modest
+  thatched-roof structure on stilts, Classical a more developed wooden pagoda-style
+  structure with roof finials - a plausible visual progression matching the two
+  earliest age tiers. Post-swap height 10.2 uniformly for both (was 6.66/8.56
+  pre-swap - factory's own scale-normalization target, not a bug, matches this
+  series' repeated pre-normalized-by-Meshy pattern). 834/834 EditMode tests pass
+  unchanged (1 pre-existing, unrelated `BuildingPrefabValidationTests` NRE, same
+  standing baseline). Old `_Source`+`_Decimated` (~269 MB) -> `_Lowpoly` (~28 MB),
+  -89.5% overall. One scoped commit (`LowpolyBuildingImporter.cs`'s new
+  `ImportSharedBuilding`, both prefabs + `_Lowpoly/TownCenter_{Ancient,Classical}/*` +
+  removed shared `_Source`+`_Decimated`, docs) - deliberately excludes the same
+  substantial unrelated concurrent uncommitted work already flagged in prior
+  sessions' own status entries. **Next**: user's call - the still-un-swapped shared
+  Tower/Wall Ancient/Classical tiers (now unblocked by `ImportSharedBuilding`),
+  Farm/Wall/Gate per civ, or continuing elsewhere.
 - **All 5 civ TownCenters (Durg age tier) swapped to low-poly (2026-09-27).** Continues
   the low-poly building-swap series (TownCenter [Imperial], Barracks, Market, Dock,
   Tower, House all done prior sessions) onto TownCenter_Durg - a separate target from

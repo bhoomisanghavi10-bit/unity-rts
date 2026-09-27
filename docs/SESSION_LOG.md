@@ -5,6 +5,80 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-27 — Shared TownCenter Ancient/Classical age tiers swapped to low-poly (~269 MB -> ~28 MB, -89%)
+
+**Scope**: ad hoc, continuing the low-poly building-swap series onto the last two
+un-swapped TownCenter age tiers: `TownCenter_Ancient.prefab`/`TownCenter_Classical.prefab`
+- unlike every other target in this series, these are **shared (non-civ) assets**, one
+model reused across all 5 civs (per `BuildingModelFactory`'s own "shared non-civ age
+tiers live at Buildings/{resourceName}_{ageId}" convention, same shape as the
+still-un-swapped `Tower_Ancient`/`Tower_Classical`/`Wall_Ancient`/`Wall_Classical`).
+User supplied 2 separate glbs, one per age tier, delivered and clarified mid-turn:
+`~/Downloads/ancinet age towncenter.glb` -> Ancient, `~/Downloads/
+Meshy_AI__0927135733_texture.glb` -> Classical (confirmed as genuinely different files
+via `md5`, not a duplicate, before treating them as two separate deliveries). Both
+described by the user as having a "player color material" - each glb has exactly one
+material covering the whole mesh (confirmed via direct glTF JSON inspection), so this
+just means the entire model is meant to receive the existing civ-tint pass
+(`BuildingModelFactory.TintMaterials`) the same as every other imported building in this
+project - no special handling needed beyond the standard import pipeline. Disk had
+2.8 GiB free throughout, above the 1 GB floor.
+
+**New importer entry point needed**: `LowpolyBuildingImporter`'s existing
+`ImportBuilding(civ, buildingName)` always writes to the civ-scoped
+`Assets/Resources/buildings/{civ}/{buildingName}.prefab` path - wrong for a shared
+asset. Added `ImportSharedBuilding(buildingName, glbName=null)`, a thin wrapper over the
+same private `Import` helper pointed at the shared (no-civ-subfolder) paths
+(`Assets/Resources/buildings/_Lowpoly/{buildingName}` /
+`Assets/Resources/buildings/{buildingName}.prefab`) - the first reusable path for any
+future shared-tier swap (Tower/Wall Ancient/Classical) too.
+
+Both glbs imported cleanly (9,877/9,797 tris, 11,017/15,088 source verts, no
+cached-empty-mesh bug). Measured the existing pre-swap shared spawn heights first as a
+reference via the real `BuildingModelFactory.Spawn("TownCenter", civ, ..., age:
+AgeId.Ancient|Classical)` path, confirmed civ-blind (identical for Chola and Maurya):
+Ancient=6.66, Classical=8.56. Both imports' raw bounds came out wider than tall
+(X/Z extents ~15.6/14.5 vs. Y extent ~10.2) - the same "wide sprawling building" shape
+flagged as a bounds-alone trap in this series' own gotchas, so verified through the full
+real spawn stack with angled, front-elevation, and top-down screenshots rather than
+trusting bounds alone. Both confirmed upright and correctly grounded at identity
+rotation (no `ImportRotationCorrections` entry exists for "TownCenter", only "Tower" -
+re-confirmed fresh, not assumed from a prior session): Ancient reads as a modest
+thatched-roof wooden structure on stilts with storage baskets/pottery visible, Classical
+a more developed wooden pagoda-style structure with roof finials and wraparound steps -
+a plausible visual progression for the two earliest age tiers, and correctly civ-blind
+(identical for both tested civs). Post-swap heights came out at a uniform 10.2 for both
+tiers (was 6.66/8.56 pre-swap - the factory's own scale-normalization logic reads a
+different target height for this delivery than the original source models did; not a
+bug, matches this series' repeated "arrives pre-normalized by Meshy, factory scales to
+its own target" pattern).
+
+**EditMode suite**: 834/834 pass, both before and after the old-asset deletion pass (the
+1 standing pre-existing `BuildingPrefabValidationTests` failure, unrelated to this work,
+same baseline as every recent session).
+
+**Old assets removed** after confirming (via GUID grep across every `.prefab`/`.asset`/
+`.unity`/`.mat`) that nothing outside each building's own `_Source`/`_Decimated` folder
+referenced it, and the 2 `Assets/importedmodels/TownCenter_{Ancient,Classical}Lowpoly/`
+staging folders deleted once each prefab was confirmed re-spawning correctly:
+
+| Age tier | Old (`_Source` + `_Decimated`) | New (`_Lowpoly`) | Reduction |
+|---|---|---|---|
+| Ancient | 135,296 KB | 14,204 KB | -89.5% |
+| Classical | 139,740 KB | 14,636 KB | -89.5% |
+| **Total** | **275,036 KB (~269 MB)** | **28,840 KB (~28 MB)** | **-89.5%** |
+
+One scoped commit (`LowpolyBuildingImporter.cs`'s new `ImportSharedBuilding` entry
+point, `TownCenter_Ancient.prefab`/`TownCenter_Classical.prefab` +
+`_Lowpoly/TownCenter_{Ancient,Classical}/*` + removed shared `_Source/TownCenter_
+{Ancient,Classical}` + `_Decimated/TownCenter_{Ancient,Classical}_decimated.asset*`,
+docs) - deliberately excludes the same substantial unrelated concurrent uncommitted
+work already flagged in prior sessions' own status entries. **Next**: user's call - the
+still-un-swapped shared Tower/Wall Ancient/Classical tiers (now unblocked by the new
+`ImportSharedBuilding` path), Farm/Wall/Gate per civ, or continuing elsewhere.
+
+---
+
 ## 2026-09-27 — All 5 civ TownCenters (Durg age tier) swapped to low-poly (~888 MB -> ~81 MB, -91%)
 
 **Scope**: ad hoc, continuing the low-poly building-swap series (TownCenter [Imperial],
