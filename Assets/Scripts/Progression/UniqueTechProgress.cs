@@ -20,5 +20,20 @@ namespace KingdomsOfBharat.Progression
         {
             Researched[faction] = true;
         }
+
+        // Production reset: called from ProgressionRegistry.ResetAllForNewMatch
+        // (itself called from CivilizationSetup.BeginMatchCore) so a
+        // faction's unique-tech flag doesn't leak into the next match
+        // started in the same Editor/Player process. Previously this class
+        // had no reset at all - the gap that let a stale flag from one
+        // match/test silently survive into the next (see
+        // docs/SESSION_LOG.md / Kingdoms_of_Bharat_Repository_Audit.md
+        // finding F08).
+        internal static void Reset()
+        {
+            Researched.Clear();
+        }
+
+        internal static void ResetForTests() => Reset();
     }
 }

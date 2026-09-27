@@ -35,6 +35,18 @@ namespace KingdomsOfBharat.Units
         private Unit _unit;
         private HumanAnimationSet.Clips _clips;
         private AnimationClip _currentClip;
+        // The playable actually feeding _output - tracked so SetClip can
+        // destroy the previous one before creating a new one. Without
+        // this, every clip switch (Idle<->Walk<->Attack, which happens
+        // constantly as a unit starts/stops moving or fighting) leaves the
+        // old AnimationClipPlayable orphaned in the graph: disconnecting a
+        // source via SetSourcePlayable does not destroy the playable it
+        // replaces, so PlayableGraph.GetPlayableCount() grew without bound
+        // over a long session - a real, previously-unnoticed leak, not
+        // just a hypothetical one (confirmed live: see
+        // ArcherPresentationTests.RepeatedClipSwitches_
+        // DoNotGrowThePlayableGraphUnbounded).
+        private Playable _currentPlayable;
 
         public void Configure(HumanAnimationSet.Clips clips, NavMeshAgent agent, Unit unit)
         {
@@ -88,14 +100,61 @@ namespace KingdomsOfBharat.Units
                 return;
             }
 
-            var playable = AnimationClipPlayable.Create(_graph, clip);
-            _output.SetSourcePlayable(playable);
+            // Destroy the outgoing playable before replacing it - see
+            // _currentPlayable's own comment for why this matters.
+            if (_currentPlayable.IsValid())
+            {
+                _currentPlayable.Destroy();
+            }
+
+            _currentPlayable = AnimationClipPlayable.Create(_graph, clip);
+            _output.SetSourcePlayable(_currentPlayable);
             if (!_graph.IsPlaying())
             {
                 _graph.Play();
             }
 
             _currentClip = clip;
+        }
+
+        // Where the currently-playing clip's own local time sits, as a
+        // 0..1 fraction of its length - used by MeleeAttacker's opt-in
+        // ranged-projectile mode (see SetProjectile) to fire a shot at a
+        // specific moment in the swing/draw animation instead of the
+        // instant the attack becomes off cooldown. Returns -1 whenever
+        // that can't be answered (no graph, a different clip currently
+        // playing, or a zero-length clip) so callers have an unambiguous
+        // "not available" sentinel rather than a misleading 0.
+        public float NormalizedTimeInClip(AnimationClip clip)
+        {
+            if (clip == null || _currentClip != clip || !_graph.IsValid() || !_currentPlayable.IsValid() || clip.length <= 0f)
+            {
+                return -1f;
+            }
+
+            double loopRelative = _currentPlayable.GetTime() % clip.length;
+            return (float)(loopRelative / clip.length);
+        }
+
+        // Test-only: lets an EditMode test confirm the graph's own
+        // playable count stays bounded across repeated clip switches
+        // instead of growing linearly, without depending on real Update()
+        // frames to drive it.
+        internal void ForceSetClipForTest(AnimationClip clip) => SetClip(clip);
+        internal int PlayableCountForTest => _graph.IsValid() ? _graph.GetPlayableCount() : 0;
+
+        // Test-only: lets an EditMode test deterministically position the
+        // currently-playing clip's own local time, since the PlayableGraph
+        // itself isn't guaranteed to auto-advance outside Play mode -
+        // without this, testing NormalizedTimeInClip/marker-crossing
+        // behavior would depend on real per-frame graph evaluation this
+        // test environment can't reliably drive.
+        internal void SetPlayableTimeForTest(double time)
+        {
+            if (_currentPlayable.IsValid())
+            {
+                _currentPlayable.SetTime(time);
+            }
         }
 
         // Mirrors UnitStatus.Describe's priority order (Attacking >

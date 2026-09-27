@@ -75,9 +75,11 @@ namespace KingdomsOfBharat.Progression
 
         // Test-only: static state persists for the whole Editor/Test-Runner
         // domain, same isolation need as every other line's ResetForTests.
-        internal static void ResetForTests()
+        internal static void Reset()
         {
             FactionTiers.Clear();
         }
+
+        internal static void ResetForTests() => Reset();
     }
 }

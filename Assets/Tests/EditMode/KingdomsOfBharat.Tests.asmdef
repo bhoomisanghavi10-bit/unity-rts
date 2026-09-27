@@ -3,6 +3,7 @@
     "rootNamespace": "",
     "references": [
         "KingdomsOfBharat.Runtime",
+        "KingdomsOfBharat.Editor",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

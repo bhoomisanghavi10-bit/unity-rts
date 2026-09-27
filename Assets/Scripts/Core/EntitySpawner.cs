@@ -5,19 +5,9 @@ using KingdomsOfBharat.Combat;
 
 namespace KingdomsOfBharat.Core
 {
-    // Item 6 (Scenario Editor, heavy path session 1): the type-string ->
-    // factory-call dispatch that used to live only inside SaveManager's
-    // RestoreUnits/RestoreBuildings, extracted so both save/load and the new
-    // custom-scenario placement system (ScenarioEditorMenu/
-    // CivilizationSetup.BeginCustomScenarioMatch) share one source of truth
-    // instead of two copies drifting apart. Pure extraction - same cases,
-    // same factory calls, same behavior SaveManager already had.
-    //
-    // The type list here is deliberately the same (restricted) roster
-    // SaveManager already supported, not the full building/unit roster this
-    // project has elsewhere (e.g. no Dock/LumberCamp/MiningCamp/Mill, no
-    // FishingBoat/WarGalley) - extending that roster is a separate,
-    // pre-existing gap, not something this refactor silently expands.
+    // Shared save/scenario spawning boundary. Stable definition IDs use the catalog;
+    // legacy type names retain the original factory dispatch during roster migration.
+    // The legacy palette intentionally remains limited to its original roster.
     public static class EntitySpawner
     {
         public static readonly string[] BuildingTypes =
@@ -32,6 +22,8 @@ namespace KingdomsOfBharat.Core
 
         public static GameObject SpawnBuilding(string buildingType, FactionId faction, Vector3 position)
         {
+            if (IsDefinitionId(buildingType))
+                return SpawnDefinition(buildingType, DefinitionKind.Building, faction, position);
             return buildingType switch
             {
                 "TownCenter" => TownCenterFactory.Place(position, faction),
@@ -48,6 +40,8 @@ namespace KingdomsOfBharat.Core
 
         public static GameObject SpawnUnit(string unitType, FactionId faction, Vector3 position)
         {
+            if (IsDefinitionId(unitType))
+                return SpawnDefinition(unitType, DefinitionKind.Unit, faction, position);
             return unitType switch
             {
                 "Worker" => WorkerFactory.Spawn(position, faction),
@@ -57,6 +51,23 @@ namespace KingdomsOfBharat.Core
                 "Siege" => SiegeFactory.Spawn(position, faction),
                 _ => null,
             };
+        }
+
+        // Legacy names remain adapters during the roster migration. Namespaced IDs
+        // are strict: a typo must never silently fall through to a generic factory.
+        internal static bool IsDefinitionId(string id) => id != null && id.Contains(".");
+
+        private static GameObject SpawnDefinition(string id, DefinitionKind kind, FactionId faction, Vector3 position)
+        {
+            ValidateDefinition(id, kind);
+            return DefinitionCatalog.Default.Spawn(id, position, faction);
+        }
+
+        internal static void ValidateDefinition(string id, DefinitionKind kind)
+        {
+            EntityDefinition definition = DefinitionCatalog.Default.Get(id);
+            if (definition.Kind != kind)
+                throw new System.ArgumentException($"Definition '{id}' is {definition.Kind}, expected {kind}.", nameof(id));
         }
     }
 }

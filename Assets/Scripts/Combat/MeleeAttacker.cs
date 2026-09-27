@@ -56,6 +56,25 @@ namespace KingdomsOfBharat.Combat
         // TrebuchetFactory sets this.
         [SerializeField] private float minAttackRange;
 
+        // Ranged-unit presentation (ArcherFactory): defaults to disabled,
+        // so every existing MeleeAttacker user (Soldier/Cavalry/Spearman/
+        // Siege/Worker/...) is byte-for-byte unaffected. When enabled via
+        // SetProjectile, a hit is no longer resolved the instant the
+        // cooldown elapses - instead this waits for the bound
+        // AnimationDriver's Attack clip to reach releaseNormalizedTime
+        // (the "loose" moment of the draw/swing), spawns a visible
+        // Projectile toward wherever the target stood at that instant, and
+        // only applies the actual hit once that projectile arrives. This
+        // is the seam later ranged/siege units (Cavalry Archer, Scorpion,
+        // Trebuchet) can opt into the same way, per this ticket's own
+        // "pattern for later work" scope note - none of them do yet.
+        private bool _useProjectile;
+        private AnimationDriver _animationDriver;
+        private AnimationClip _attackClip;
+        private float _projectileSpeed = 20f;
+        private float _releaseNormalizedTime = 0.5f;
+        private float _previousAttackClipNormalizedTime = -1f;
+
         private UnitMover _mover;
         private Attackable _self;
         private Attackable _target;
@@ -74,6 +93,11 @@ namespace KingdomsOfBharat.Combat
 
         // For SelectedUnitPanel/HoverTooltip (UI) to show a status line.
         public bool IsAttacking => _target != null;
+
+        // Test-only: confirms a factory actually opted a unit into
+        // projectile presentation, without needing a full Tick/Projectile
+        // round trip just to check the binding happened.
+        internal bool UsesProjectileForTest => _useProjectile;
 
         // Resolved lazily, not cached in Awake - same "sibling component
         // may not exist yet" gotcha documented on GarrisonPoint/Repairable
@@ -192,6 +216,22 @@ namespace KingdomsOfBharat.Combat
             pierceThroughDepth = depth;
         }
 
+        // Applied by ArcherFactory only, for now - see _useProjectile's
+        // own field comment. driver/attackClip must be the exact
+        // AnimationDriver/AnimationClip pair this same unit's factory
+        // configured (the driver is how the release marker is detected;
+        // the clip is which clip's playback time to read - a unit that
+        // plays several different "attack-shaped" clips would need a
+        // richer API, but Archer only has the one).
+        public void SetProjectile(AnimationDriver driver, AnimationClip attackClip, float projectileSpeed, float releaseNormalizedTime = 0.5f)
+        {
+            _useProjectile = true;
+            _animationDriver = driver;
+            _attackClip = attackClip;
+            _projectileSpeed = projectileSpeed;
+            _releaseNormalizedTime = Mathf.Clamp01(releaseNormalizedTime);
+        }
+
         public void AttackMove(Attackable target)
         {
             if (buildingOnly && target.Class != UnitClass.Building)
@@ -226,6 +266,7 @@ namespace KingdomsOfBharat.Combat
             if (_target == null || _target.IsDead)
             {
                 _target = null;
+                _previousAttackClipNormalizedTime = -1f;
                 return;
             }
 
@@ -238,6 +279,12 @@ namespace KingdomsOfBharat.Combat
 
             if (distance < minAttackRange)
             {
+                return;
+            }
+
+            if (_useProjectile)
+            {
+                TickProjectileAttack(deltaTime);
                 return;
             }
 
@@ -254,6 +301,113 @@ namespace KingdomsOfBharat.Combat
                     ResolvePierceThrough(_target);
                 }
                 _cooldown = attackInterval;
+            }
+        }
+
+        // Ranged-unit presentation (ArcherFactory): the cooldown alone
+        // just gates "am I ready for another shot" - once ready, this
+        // waits for the swing/draw animation to actually reach its
+        // release point before anything is fired, so the visible arrow
+        // leaves the bow in step with the animation instead of the
+        // instant the cooldown timer happens to expire.
+        private void TickProjectileAttack(float deltaTime)
+        {
+            _cooldown -= deltaTime;
+            if (_cooldown > 0f)
+            {
+                return;
+            }
+
+            float normalized = _animationDriver != null && _attackClip != null
+                ? _animationDriver.NormalizedTimeInClip(_attackClip)
+                : -1f;
+
+            if (normalized < 0f)
+            {
+                // No animation binding available (e.g. an EditMode test
+                // that never called SetProjectile with a live driver, or
+                // the model's Attack clip failed to load) - fire
+                // immediately rather than stalling combat forever waiting
+                // for a marker that will never come.
+                ReleaseProjectile();
+                return;
+            }
+
+            if (CrossedReleaseMarker(_previousAttackClipNormalizedTime, normalized, _releaseNormalizedTime))
+            {
+                ReleaseProjectile();
+            }
+
+            _previousAttackClipNormalizedTime = normalized;
+        }
+
+        // True if playback moved from previousNormalized to
+        // currentNormalized in a way that passed through `marker` -
+        // either by ordinary forward progress within one loop, or by
+        // wrapping past 1.0 back to 0.0 and the marker falls in the
+        // wrapped-over span. previousNormalized < 0 means "no prior
+        // sample yet" (just became ready to fire, or just fired) - never
+        // counts as a crossing on its own so a fresh wait always needs at
+        // least one full sample before it can release again. Pure/static
+        // so an EditMode test can exercise every case directly, without a
+        // real AnimationDriver/PlayableGraph.
+        internal static bool CrossedReleaseMarker(float previousNormalized, float currentNormalized, float marker)
+        {
+            if (previousNormalized < 0f)
+            {
+                return false;
+            }
+
+            if (currentNormalized >= previousNormalized)
+            {
+                return previousNormalized < marker && currentNormalized >= marker;
+            }
+
+            // Wrapped around (the clip looped) since the last sample -
+            // crossed if the marker sits anywhere in the wrapped-over
+            // span: from previousNormalized up through 1.0, or from 0.0
+            // up through currentNormalized.
+            return previousNormalized < marker || currentNormalized >= marker;
+        }
+
+        private void ReleaseProjectile()
+        {
+            Attackable target = _target;
+            Vector3 origin = transform.position + Vector3.up * 1.2f;
+            Vector3 destination = target.transform.position + Vector3.up * 0.9f;
+            float travelDistance = Vector3.Distance(origin, destination);
+            float travelTime = _projectileSpeed > 0f ? travelDistance / _projectileSpeed : 0f;
+
+            Projectile.Fire(origin, destination, travelTime, () => ResolveOnArrival(target));
+
+            _cooldown = attackInterval;
+            _previousAttackClipNormalizedTime = -1f;
+        }
+
+        // Deferred to the projectile's actual arrival, not its release -
+        // this is what makes impact VFX/SFX (fired from inside
+        // Attackable.TakeDamage) read as synchronized with the arrow
+        // landing rather than with the bow releasing it. The target
+        // captured at release may have died or been destroyed while the
+        // shot was in flight - a wasted arrow in that case, matching this
+        // project's general "capture at release, re-check at
+        // arrival/deposit" convention (see Trader/BoatTrader's own
+        // captured-destination handling).
+        private void ResolveOnArrival(Attackable target)
+        {
+            if (target == null || target.IsDead)
+            {
+                return;
+            }
+
+            ResolveHit(target);
+            if (splashRadius > 0f)
+            {
+                ResolveSplash(target);
+            }
+            if (pierceThroughDepth > 0f)
+            {
+                ResolvePierceThrough(target);
             }
         }
 

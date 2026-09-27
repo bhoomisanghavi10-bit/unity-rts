@@ -60,3 +60,6 @@ Thumbs.db
 
 # MCP-driven Editor debug screenshots (accumulate every session, never needed long-term)
 /Assets/Screenshots/
+
+# Python cache (Tools/ scratch scripts)
+__pycache__/

@@ -45,9 +45,11 @@ namespace KingdomsOfBharat.Progression
             return false;
         }
 
-        internal static void ResetForTests()
+        internal static void Reset()
         {
             Trained.Clear();
         }
+
+        internal static void ResetForTests() => Reset();
     }
 }

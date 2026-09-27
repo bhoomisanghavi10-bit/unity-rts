@@ -82,6 +82,76 @@ namespace KingdomsOfBharat.Camera
             _targetPosition.z = worldZ;
         }
 
+        // Repository-audit reproduction: at match start the camera sat
+        // wherever the scene/CivPicker screen last left it - nowhere near
+        // the local player's actual starting base - and with fog enabled
+        // that reads as an almost entirely black Game view. Explicit
+        // match-start camera-focus API: called once by
+        // CivilizationSetup.BeginMatchCore right after the match's map/
+        // faction configuration is known, so it always has a real ground
+        // target to aim at.
+        //
+        // Deliberately NOT `transform.position = groundTarget` (what
+        // JumpTo effectively does, and what the naive fix would do) - this
+        // camera is permanently pitched downward (see the scene's own
+        // Main Camera transform), so its own XZ position is not the same
+        // point as where its forward ray actually meets the ground.
+        // ComputeGroundFocusPosition solves for the camera position whose
+        // forward ray - at the given height - lands exactly on
+        // groundTarget, so groundTarget ends up centered in the viewport
+        // instead of the camera's own footprint sitting near it.
+        //
+        // Snaps `transform.position` directly (bypassing the usual
+        // SmoothDamp ease) rather than merely setting `_targetPosition`
+        // and letting the next several frames ease toward it - an eased
+        // multi-second pan from wherever the camera happened to be
+        // (possibly far off-map) would still show the same black,
+        // unexplored fog the bug report describes while it catches up.
+        // `_velocity` is reset alongside it so no leftover pan/zoom
+        // momentum causes the very next frame's SmoothDamp step to
+        // overshoot away from the snapped position. Every other camera
+        // behavior (WASD/edge-scroll pan, scroll zoom, minimap JumpTo,
+        // and the SmoothDamp easing they all still use) is untouched.
+        public void FocusOnMatchStart(Vector3 groundTarget)
+        {
+            float height = Mathf.Clamp(transform.position.y, minHeight, maxHeight);
+            Vector3 focusPosition = ComputeGroundFocusPosition(groundTarget, height, transform.forward);
+
+            transform.position = focusPosition;
+            _targetPosition = focusPosition;
+            _velocity = Vector3.zero;
+        }
+
+        // Pure ground-point math, deliberately free of any MonoBehaviour/
+        // scene dependency so it's directly unit-testable: given the
+        // camera's actual forward direction and a desired height, returns
+        // the camera position whose forward ray intersects the
+        // groundTarget's own elevation exactly at groundTarget's XZ.
+        //
+        // Derivation: starting from camera position P looking along unit
+        // vector f, the ray P + t*f reaches groundTarget's elevation when
+        // t = (height - groundTarget.y) / -f.y (solving P.y + t*f.y =
+        // groundTarget.y with P.y = height). The hit point's XZ must equal
+        // groundTarget's XZ, i.e. P.xz + t*f.xz = groundTarget.xz - so
+        // P.xz = groundTarget.xz - t*f.xz. This holds for any yaw, not
+        // just the project's current fixed-yaw rig, and reduces to
+        // groundTarget.xz unchanged only in the degenerate case where the
+        // camera isn't tilted at all (f.y == 0, guarded below since the
+        // camera would never reach the ground and t would be undefined).
+        internal static Vector3 ComputeGroundFocusPosition(Vector3 groundTarget, float height, Vector3 cameraForward)
+        {
+            if (Mathf.Approximately(cameraForward.y, 0f))
+            {
+                return new Vector3(groundTarget.x, height, groundTarget.z);
+            }
+
+            float t = (height - groundTarget.y) / -cameraForward.y;
+            return new Vector3(
+                groundTarget.x - t * cameraForward.x,
+                height,
+                groundTarget.z - t * cameraForward.z);
+        }
+
         // Phase 5 map-awareness fix: mapMin/mapMax were previously fixed at
         // half of RiverValley's 40-unit ground regardless of which map was
         // actually picked - on Highlands (52)/Coastal (50) the pan clamp

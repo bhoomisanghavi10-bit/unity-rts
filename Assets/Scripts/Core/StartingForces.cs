@@ -16,7 +16,15 @@ namespace KingdomsOfBharat.Core
     {
         public const int WorkerCount = 4;
         public const float WorkerSpacing = 2f;
-        public const float WorkerBehindTownCenter = -3f;
+        // Was -3 (flush against TownCenter's own 6-tile footprint edge,
+        // half-width 3) - fine when the model matched its footprint
+        // exactly, but every low-poly TownCenter swap (2026-09-27) reads
+        // up to BuildingModelFactory.MaxFootprintOverhangRatio (1.8x) past
+        // that edge, so a worker sitting exactly on the footprint boundary
+        // ended up standing inside the building's own real mesh - visually
+        // swallowed, not just tightly adjacent. -6.5 clears the worst case
+        // (half-width 3 * 1.8 = 5.4) with about 1 unit of margin.
+        public const float WorkerBehindTownCenter = -6.5f;
 
         public sealed class Plan
         {

@@ -150,12 +150,14 @@ namespace KingdomsOfBharat.Progression
         // themselves from tiers a previous test left behind - same
         // InternalsVisibleTo grant as MeleeAttacker/BoatAttacker's own
         // internal Tick(deltaTime) (see AssemblyInfo.cs).
-        internal static void ResetForTests()
+        internal static void Reset()
         {
             AttackTiers.Clear();
             ArmorTiers.Clear();
             ClassAttackTiers.Clear();
             ClassArmorTiers.Clear();
         }
+
+        internal static void ResetForTests() => Reset();
     }
 }

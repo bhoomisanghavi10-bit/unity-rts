@@ -42,6 +42,31 @@ namespace KingdomsOfBharat.Units
 
         public static Clips LoadFor(HumanModelFactory.Gender gender)
         {
+            return LoadFor(gender, AttackStyle.Melee);
+        }
+
+        // Which Attack clip LoadFor should bind - Melee (a sword swing, the
+        // long-standing default for every non-ranged human unit) or Ranged
+        // (see below). Kept as a small enum rather than a bool so a future
+        // 3rd style (e.g. a thrown-weapon animation for Siege/Scorpion,
+        // per this ticket's "pattern for later work" note) has somewhere
+        // to go without another parameter rename.
+        public enum AttackStyle { Melee, Ranged }
+
+        // Ranged units (Archer - see ArcherFactory) previously loaded the
+        // exact same Attack clip as every melee unit (Sword_Regular_A, a
+        // sword swing), which is why an archer's "attack" animation read
+        // as a soldier miming a sword strike with no sword in hand. Neither
+        // UAL pack ships a dedicated bow-draw/release clip, so this uses
+        // OverhandThrow instead (UAL2's own throwing-motion clip: the arm
+        // draws back then thrusts forward) - the closest available motion
+        // to a bow draw-and-release, and categorically closer than a sword
+        // swing for a unit holding a bow. Flagging directly, per this
+        // project's own "always flag when a task needs a real art asset"
+        // convention: a purpose-made bow-draw/release clip would read
+        // better and should replace this if one is ever sourced.
+        public static Clips LoadFor(HumanModelFactory.Gender gender, AttackStyle attackStyle)
+        {
             string genderFolder = gender == HumanModelFactory.Gender.Male ? "Male" : "Female";
             string tag = gender == HumanModelFactory.Gender.Male ? "HumanM" : "HumanF";
             string basePath = $"human/Human Animations/Animations/{genderFolder}";
@@ -52,7 +77,9 @@ namespace KingdomsOfBharat.Units
             AnimationClip mine = Load($"{basePath}/Work/Mining/{tag}@MiningOneHand01_R - Ground");
             AnimationClip farm = LoadNamed(Ual2Path, "Armature|Farm_Harvest");
             AnimationClip build = Load($"{basePath}/Work/Hammering/{tag}@HammeringGround01_R - Loop");
-            AnimationClip attack = LoadNamed(Ual2Path, "Armature|Sword_Regular_A");
+            AnimationClip attack = attackStyle == AttackStyle.Ranged
+                ? LoadNamed(Ual2Path, "Armature|OverhandThrow")
+                : LoadNamed(Ual2Path, "Armature|Sword_Regular_A");
 
             return new Clips(idle, walk, gather, mine, farm, build, attack);
         }

@@ -27,6 +27,7 @@ namespace KingdomsOfBharat.Tests
         {
             ScoreProgress.ResetForTests();
             UpgradeProgress.ResetForTests();
+            UniqueTechProgress.ResetForTests();
             AgeProgress.Initialize(TestFaction, AgeId.Ancient);
             LogAssert.ignoreFailingMessages = false;
         }
@@ -57,6 +58,7 @@ namespace KingdomsOfBharat.Tests
             _spawned.Clear();
             ScoreProgress.ResetForTests();
             UpgradeProgress.ResetForTests();
+            UniqueTechProgress.ResetForTests();
             AgeProgress.Initialize(TestFaction, AgeId.Ancient);
         }
 
@@ -236,12 +238,17 @@ namespace KingdomsOfBharat.Tests
 
         // --- Technology ---
 
-        // Delta-based, not absolute: UniqueTechProgress.MarkResearched has
-        // no unmark/reset anywhere in this project, so a faction's
-        // "researched" flag can leak across tests within the same domain
-        // regardless of NUnit's (undefined) execution order - comparing
-        // before/after the one change under test keeps these three
-        // Technology tests independent of that leak.
+        // Delta-based, not absolute: kept even though SetUp/TearDown now
+        // also call UniqueTechProgress.ResetForTests() (fixing repository-
+        // audit finding F08 - this class previously had no reset at all,
+        // which is exactly what let a leaked "researched" flag from an
+        // earlier match/test make Technology_AddsFiftyPoints_
+        // OnceUniqueTechResearched fail with "Expected: 50, But was: 0").
+        // The before/after comparison is a second, independent guard: it
+        // keeps these three Technology tests correct even if SetUp/
+        // TearDown's own reset is ever skipped or reordered, and it still
+        // fails loudly (not silently) if the leak comes back, since a
+        // stale "already researched" flag collapses the delta to 0.
         [Test]
         public void Technology_WeightsAgeReached_AtThirtyPerOrdinal()
         {

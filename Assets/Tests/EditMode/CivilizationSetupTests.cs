@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using UnityEngine;
 using KingdomsOfBharat.Core;
 
 namespace KingdomsOfBharat.Tests
@@ -65,6 +66,49 @@ namespace KingdomsOfBharat.Tests
                 CivilizationId.Vijayanagara, taken);
 
             Assert.AreNotEqual(playerCiv, resolvedAiCiv);
+        }
+
+        // Covers the match-start camera-focus fix's own local-faction
+        // resolution: ResolveLocalPlayerStart is the pure decision behind
+        // which map-defined town center CivilizationSetup.BeginMatchCore
+        // focuses the camera on, extracted the same way
+        // ResolveDistinctCivilization already is above - directly
+        // testable without FindFirstObjectByType/a live scene, and the
+        // one piece of the camera fix that was previously unverified: the
+        // PlayMode smoke test only ever exercises the default (Player)
+        // branch, since NetworkMatch.LocalFaction never becomes Enemy
+        // outside a real 2-human LAN match.
+        [Test]
+        public void ResolveLocalPlayerStart_DefaultsToPlayerTownCenter()
+        {
+            var map = new MapDefinitionData
+            {
+                PlayerTownCenter = new Vector3(0f, 1f, 20f),
+                EnemyTownCenter = new Vector3(0f, 1f, -20f),
+            };
+
+            Vector3 result = CivilizationSetup.ResolveLocalPlayerStart(FactionId.Player, map);
+
+            Assert.AreEqual(map.PlayerTownCenter, result);
+        }
+
+        [Test]
+        public void ResolveLocalPlayerStart_ForTheRemoteLanFaction_ReturnsEnemyTownCenter()
+        {
+            // The one branch a single-player skirmish never exercises:
+            // NetworkMatch.LocalFaction == Enemy only for the human who
+            // joined (not hosted) a real 2-human LAN match - that
+            // process's own camera must focus its own faction's start,
+            // not Player's.
+            var map = new MapDefinitionData
+            {
+                PlayerTownCenter = new Vector3(0f, 1f, 20f),
+                EnemyTownCenter = new Vector3(0f, 1f, -20f),
+            };
+
+            Vector3 result = CivilizationSetup.ResolveLocalPlayerStart(FactionId.Enemy, map);
+
+            Assert.AreEqual(map.EnemyTownCenter, result);
         }
     }
 }

@@ -5,3 +5,4 @@ using System.Runtime.CompilerServices;
 // BuildingPlacer's civ-cost multipliers) is worth testing directly rather
 // than driving the full MonoBehaviour/UI flow it lives on.
 [assembly: InternalsVisibleTo("KingdomsOfBharat.Tests")]
+[assembly: InternalsVisibleTo("KingdomsOfBharat.PlayModeTests")]

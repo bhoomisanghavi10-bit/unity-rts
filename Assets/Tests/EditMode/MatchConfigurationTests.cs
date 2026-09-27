@@ -167,9 +167,16 @@ namespace KingdomsOfBharat.Tests
             MapDefinitionData map = MapRegistry.Get(MapId.SkirmishMedium);
             StartingForces.Plan plan = StartingForces.PlanFor(map.PlayerTownCenter);
 
+            // Threshold was 6f, tuned when WorkerBehindTownCenter was -3
+            // (flush against the TownCenter's own footprint edge). Bumped
+            // to clear StartingForces.WorkerBehindTownCenter's own -6.5
+            // fix (see that constant's comment - clears the low-poly
+            // TownCenter models' real visual footprint, which the old -3
+            // put workers underneath) while still asserting "near the
+            // Town Center," not literally at the world origin.
             foreach (Vector3 w in plan.Workers)
             {
-                Assert.Less(Vector3.Distance(w, plan.TownCenter), 6f);
+                Assert.Less(Vector3.Distance(w, plan.TownCenter), 8f);
             }
         }
     }

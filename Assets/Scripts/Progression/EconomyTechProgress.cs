@@ -34,5 +34,15 @@ namespace KingdomsOfBharat.Progression
         {
             Researched[(faction, tech)] = true;
         }
+
+        // Production reset: same rationale as UniqueTechProgress.Reset -
+        // this class previously had no reset at all, so a researched flag
+        // could leak from one match into the next in the same process.
+        internal static void Reset()
+        {
+            Researched.Clear();
+        }
+
+        internal static void ResetForTests() => Reset();
     }
 }
