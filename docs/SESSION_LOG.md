@@ -5,6 +5,165 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-28 — Farm's common visual: 3 pre-rendered isometric sprite states
+
+**Scope**: ad hoc, direct follow-up to the previous session (2026-09-27),
+which deleted the 5 civs' civ-specific Farm models and flagged that the
+resulting shared fallback prefab had a null mesh/zero-size collider (Farms
+invisible/unclickable). User supplied 3 isometric tile-art images (grown
+wheat/vegetable field, harvested dead-stubble field, roped-off construction
+plot) and asked to use them "as 2D isometric sprite model" for Farm.
+
+**Design**: mapped the 3 images directly onto Farm's 3 real gameplay states
+(construction/full/depleted, from the prior session). Confirmed via reading
+`RTSCameraController.cs` that this is a genuine architectural fit: the
+scene's Main Camera is permanently fixed Orthographic at 30°pitch/45°yaw,
+never rotated — a flat pre-rendered isometric ground decal reads correctly
+from that exact angle with zero perspective distortion, the classic
+isometric-strategy-game tile-art technique. Used Plan Mode given the new
+rendering approach for this project (every other building is a 3D mesh via
+`BuildingModelFactory`).
+
+**Asset prep**: alpha-keyed all 3 raw webp images via the existing
+`Tools/ui_art_alpha_key.py` (border-flood-fill, the same tool every prior
+UI/building art delivery in this project has reused) — all 3 were plain RGB
+with a baked-in white background, no real alpha, the same defect every
+previous art delivery here has had. Staged to
+`Assets/Resources/buildings/Farm/{Construction,Full,Depleted}.png`.
+Confirmed via direct Python/PIL pixel sampling (not just the Read tool's
+preview, which renders transparency as white) that the keyed PNGs carry
+real RGBA alpha: corner alpha=0, center alpha=255, ~50/50 opaque/
+transparent split matching each image's own diamond-shaped isometric tile
+silhouette — no alpha inversion, no residual checkerboard.
+
+**Implementation**: new `Assets/Scripts/Buildings/FarmVisual.cs` — a flat
+quad mesh built by hand in code, copying `FogOfWarManager.BuildQuad`'s
+proven vertex/winding convention (`{0,2,1,1,2,3}`, faces up after
+`RecalculateNormals`), sized to Farm's real 2×2-tile footprint
+(`BuildingFootprint.FarmTiles`). 3 shared static Unlit materials
+(Construction/Full/Depleted), built once via `GameplayMaterial.
+FindUnlitShader()` with alpha-clip enabled (`_AlphaClip`/`_Cutoff`/
+`_ALPHATEST_ON`) rather than alpha-blend — deliberately, since alpha
+blending disables ZWrite (`GameplayMaterial.ForceTransparent`'s own
+documented reasoning), which risks z-fighting/sorting artifacts for a
+coplanar ground decal; alpha-clip keeps ZWrite on. Material swapped live
+each `Update()` based on the sibling `Farm`/`ConstructionSite`'s real
+state, only reassigned when the state actually changes (`internal
+RefreshFromState()`, directly testable without a live `Update()` loop,
+same convention as `Farm.Tick`/`ConstructionSite`'s own internal test
+hooks). `FarmFactory.Place` rewritten to bypass `BuildingModelFactory.
+Spawn` entirely (structurally the wrong fit — no civ-tint pass applies to
+fully-authored art, no procedural-fallback shape needed) and build its own
+minimal root/visual/collider directly, keeping every other component wired
+exactly as before (`BuildingFootprint.Attach`/`ConstructionSite`/
+`SelectionIndicator`/`Attackable`/`Repairable`/`HealthBar`/
+`FactionMember`/`VisionSource`/`TeamColorAccent.AttachToBuilding`). This
+also directly fixes the flagged unclickable-Farm gap: the new root carries
+a real 2×0.2×2 `BoxCollider`, unlike the old broken shared prefab's
+zero-size one.
+
+**Tests**: 8 new EditMode tests (`FarmVisualTests.cs`) covering the pure
+state-selection logic (construction/full/depleted → which material, driven
+via the internal refresh method against a real `Farm`/`ConstructionSite`
+pair) plus quad sizing and the deliberate no-collider-on-the-Visual-child
+invariant. Hit and fixed 2 failing tests mid-session: both drove
+`Farm.BeginWorking`+`Tick` without first creating a `ResourceStockpile`
+(`Farm.Tick`'s harvest branch calls `ResourceStockpile.For(Faction).Add`
+directly) — fixed with a `CreateStockpile()` helper matching `FarmTests.
+cs`'s own established convention. 862/862 EditMode tests pass (861 after
+the fix + 1 more added during live-verification, see below; 1
+pre-existing, unrelated `BuildingPrefabValidationTests` NRE, the standing
+baseline).
+
+**Real bug found and fixed during live verification, not shipped blind**:
+entering Play mode and spawning a real Farm via `FarmFactory.Place`
+through UnityMCP showed the Farm essentially invisible on-screen (a thin
+dark sliver, not the expected tile art) despite every material/mesh
+property reading correctly via reflection. Root-caused by replaying
+`FarmFactory.Place`'s own call sequence step by step in a live script,
+logging the Visual child's `localPosition` after each call — isolated the
+exact cause to `ConstructionSite.Configure`→`EnsureInitialized`:
+`ConstructionSite`'s existing squash-to-grow animation
+(`EnsureInitialized`/`ApplyHeight`) assumes `_visual.localScale.y` is a
+real building height, and animates both a Y-scale squash and a
+Y-POSITION shift as construction progresses toward completion — correct
+for every other building's real 3D box-shaped imported model, but
+`FarmVisual`'s flat quad has every vertex at local y=0 (scaling Y does
+nothing visually), while the position math still sank the whole decal
+~0.48 world units underground (fully invisible against the real terrain
+surface) for its entire build duration. Fixed with a new
+`ConstructionSite._skipVisualAnimation` flag, detected once at
+`EnsureInitialized` via `_visual.GetComponent<FarmVisual>() != null` (not
+hardcoded to Farm by name, so any future flat-sprite visual can opt out
+the same way) — `ApplyHeight` now no-ops entirely when set, leaving the
+decal at `FarmVisual.Build`'s own position/scale throughout construction;
+the Construction-state material swap alone now correctly communicates
+build status, matching what a player actually sees. One more regression
+test added
+(`FarmVisualTests.ConstructionSite_DoesNotMoveOrScale_TheFarmVisualQuad_WhileUnderConstruction`).
+
+Also worked through 2 real environment gotchas while live-verifying, both
+pre-existing project conventions rather than new bugs: (1) the fixed
+isometric camera's own `RTSCameraController.Update()` smooths
+`transform.position` toward an internal `_targetPosition` every frame,
+silently overriding a raw manual `transform.position` set one frame
+later — fixed by using the real, already-documented
+`RTSCameraController.FocusOnMatchStart(Vector3 groundTarget)` public API
+(disabling the controller's own `Update()` first, since the camera would
+otherwise drift again before the next screenshot) instead of a naive
+direct position assignment; (2) a second stockpile-timing artifact in the
+verification script itself (not FarmVisual/FarmFactory) — calling
+`ResourceStockpile.SetTotal` synchronously right after
+`AddComponent<ResourceStockpile>()`, before that component's own
+`OnEnable` had run, got silently overwritten back to 0 once `OnEnable`
+did fire (the same "AddComponent ordering hazard" this project's own
+`Farm.cs`/`FarmWorker.cs` comments already document) — fixed by setting
+the stockpile total in a later, separate call once `OnEnable` had
+definitely already run.
+
+**Live verification** (UnityMCP, real production path, real running Play
+session): pre-match `MissionSelectMenu`/`CivPicker` overlays deactivated
+and `FogOfWarManager`'s renderer disabled to see the live game view (this
+project's own established technique for clean HUD screenshots); a real
+`FarmFactory.Place`-spawned Farm at the real raycast-sampled terrain
+height (`Physics.Raycast` straight down onto the real `Ground` Terrain,
+not an assumed flat y=0 — an earlier attempt that assumed y=0 buried the
+first test Farm slightly under the real undulating terrain surface,
+caught and corrected) showed:
+- **Construction** sprite correctly visible (not sunk, post-fix) while
+  `ConstructionSite.IsComplete` was false — screenshot-confirmed reading
+  clearly at the real fixed camera angle (roped-off dirt plot with
+  tools/posts, matching the source art).
+- **Full** sprite after `ConstructionSite.CompleteImmediately()` —
+  screenshot-confirmed (alternating wheat/vegetable rows).
+- **Depleted** sprite after draining via `Farm.BeginWorking`+`Tick(10000f)`
+  — screenshot-confirmed (dead tilled stubble rows).
+- Back to **Full** after reseeding via `Farm.BeginReseed`+`Tick` with a
+  correctly-funded stockpile — confirmed both by material name and a
+  final screenshot.
+- The real 2×0.2×2 `BoxCollider` on the Farm root makes it genuinely
+  clickable — directly closing the previously-flagged unclickable-Farm
+  gap from the 2026-09-27 session.
+
+Full EditMode suite re-confirmed 862/862 after exiting Play mode.
+
+**Commit**: one scoped commit — `Assets/Scripts/Buildings/FarmVisual.cs`
+(new), `Assets/Scripts/Buildings/FarmFactory.cs`,
+`Assets/Scripts/Buildings/ConstructionSite.cs`, the 3 new
+`Assets/Resources/buildings/Farm/{Construction,Full,Depleted}.png` (+
+`.meta`), `Assets/Tests/EditMode/FarmVisualTests.cs` (new), `CLAUDE.md`,
+this log entry. Deliberately excludes the substantial unrelated
+concurrent uncommitted work already sitting in the tree (per `git status`
+at session start — `Progression/*.cs`, `BuildingModelFactory.cs`,
+`RTSCameraController.cs`, `EntitySpawner.cs`, `HumanAnimationSet.cs`,
+`AnimationDriver.cs`, various URP/Package settings files, `.mcp.json`),
+left untouched via targeted `git add`.
+
+**Next**: the user's call — building portraits/other art, or any other
+roadmap item.
+
+---
+
 ## 2026-09-27 — Farm civ-models removed + Farm mechanics corrected against a pasted AoE II reference
 
 **Scope**: ad hoc, two-part user request. (1) Delete the 5 civs' civ-specific `Farm`

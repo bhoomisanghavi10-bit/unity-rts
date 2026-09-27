@@ -34,6 +34,17 @@ namespace KingdomsOfBharat.Buildings
         private float _baseY;
         private int _activeBuilders;
         private float _vfxTimer;
+        // Farm's visual (see FarmVisual) is a flat ground-decal quad, not a
+        // 3D box - its own state-driven texture swap already communicates
+        // "under construction" (a dedicated Construction sprite), so this
+        // squash-from-ground-then-grow animation doesn't apply: every
+        // vertex on that quad sits at local y=0, so scaling its Y does
+        // nothing visually, but the accompanying position math below still
+        // treats localScale.y as if it were a real height, sinking the
+        // whole decal underground for the entire build duration. Detected
+        // once here (not hardcoded to FarmVisual by name) so any future
+        // flat-sprite visual can opt out the same way.
+        private bool _skipVisualAnimation;
 
         public bool IsComplete { get; private set; }
         public float Progress => _progress;
@@ -123,6 +134,7 @@ namespace KingdomsOfBharat.Buildings
             _initialized = true;
 
             _visual = transform.childCount > 0 ? transform.GetChild(0) : transform;
+            _skipVisualAnimation = _visual.GetComponent<FarmVisual>() != null;
             _finalScale = _visual.localScale;
             _baseY = _visual.position.y - _finalScale.y * 0.5f;
             ApplyHeight(0.01f);
@@ -208,6 +220,11 @@ namespace KingdomsOfBharat.Buildings
 
         private void ApplyHeight(float height)
         {
+            if (_skipVisualAnimation)
+            {
+                return;
+            }
+
             _visual.localScale = new Vector3(_finalScale.x, height, _finalScale.z);
             Vector3 position = _visual.position;
             position.y = _baseY + height * 0.5f;
