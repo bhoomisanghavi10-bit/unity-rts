@@ -8,6 +8,21 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Maratha House low-poly swap closed (2026-09-27), pilot for shrinking
+  `Assets/Resources/buildings`.** Meshy delivered an already low-poly house
+  (13,020 tris, 2.6 units tall); new `Assets/Editor/LowpolyBuildingImporter.cs`
+  (`BharatRTS/Import Lowpoly/Maratha House`) builds a standalone prefab (own mesh
+  asset, URP Lit, 2048^2 textures) in `Maratha/_Lowpoly/House/`, and
+  `Maratha/House.prefab` now points at it. The old raw FBX/textures/decimated mesh
+  (~133 MB) are gone (archived in `~/unity-rts-archive/Maratha_House_old/`); the
+  House assets are now ~11 MB, a ~91% reduction. EditMode 822/823: the one failure
+  (`BuildingPrefabValidationTests`) is pre-existing, from untracked
+  validator work throwing an NRE on the shared fallback prefabs, not this change.
+  Live-verified (real Maratha match, `HouseFactory.Place`): 13,020 tris, 2.64 tall,
+  grounded, textured, collider fits, pennant attached; normal, front-elevation and
+  top-down screenshots upright. Method for the other 44 buildings and the disk-audit
+  background are in `docs/SESSION_LOG.md`. Next: user's call, likely the next
+  building on the same pipeline.
 - **Small and large map sizes closed (2026-09-26)** — closes
   `docs/SKIRMISH_MAP_SPEC.md`'s last open item; every item that doc ever
   raised is now resolved. Resolved the doc's own "fixed widths vs
