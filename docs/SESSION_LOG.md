@@ -5,6 +5,79 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-27 — Lumber Camp/Mining Camp/Mill (shared economic buildings) swapped to low-poly (~394 MB -> ~40 MB, -90%)
+
+**Scope**: ad hoc, continuing the low-poly building-swap series onto the 3 remaining
+shared, non-age-tiered economic buildings - `LumberCamp.prefab`/`MiningCamp.prefab`/
+`Mill.prefab` (each its own flat `Buildings/{resourceName}` path, no civ or age
+suffix) - using the `ImportSharedBuilding` entry point from earlier in this same day's
+sessions. **User initially pointed at the same delivery folder already consumed for
+the shared Tower Ancient/Classical/Durg swap** (confirmed via `md5` - byte-identical
+files) - flagged this directly via AskUserQuestion rather than reinterpreting 3
+already-verified watchtower screenshots as economic buildings; user supplied the
+correct folder mid-turn. Confirmed the new folder's 3 glbs were genuinely different
+files (different sizes/timestamps) before proceeding. Disk dropped to 1.8 GiB free by
+the end of this session (tighter than every prior session in this series, still above
+the 1 GB floor, monitored throughout - worth flagging for a future session that this
+number keeps shrinking across this delivery cadence). Checked each glb's material
+structure before importing (same standing practice from the 2 preceding shared-tier
+sessions): all 3 have exactly one material ("BakedMaterial"/"BakedMaterial.001")
+covering the whole mesh, no separate player-color region, relies on the existing
+civ-tint pass.
+
+**Identification** (not civ mapping or age-tier mapping - these are 3 genuinely
+different building types with no per-instance ambiguity beyond "which candidate is
+which") via masked mean-albedo color distance against each building's existing
+`{Name}_albedo.png`: a clean 1:1 result, margins all above 2x (candidate1 -> MiningCamp
+d=5.23 vs next d=24.8; candidate2 -> Mill d=3.31 vs next d=14.07; candidate3 ->
+LumberCamp d=6.12 vs next d=16.98), cross-checked with a visual contact sheet - Mill's
+distinctive golden/wheat-toned palette was immediately obvious by eye, LumberCamp/
+MiningCamp's closer grayish-brown palettes matched their own references well enough at
+the numeric margins already found. Final mapping: candidate1
+(`01a0e330-78ae-...`) -> MiningCamp, candidate2 (`01a0e330-f270-...`) -> Mill,
+candidate3 (`01a0e331-e1ac-...`) -> LumberCamp.
+
+All 3 imported cleanly (7,613-9,012 tris, 7,335-9,749 source verts, no cached-empty-mesh
+bug). No `ImportRotationCorrections` entry exists for any of these 3 names (only
+"Tower"), so the plain identity-rotation import path applied - confirmed correct via
+the real `BuildingModelFactory.Spawn` production path (no age parameter, these aren't
+age-tiered) with angled and front-elevation screenshots for all 3, civ-blind (Chola and
+Maratha measured identical bounds): Lumber Camp (an open-sided wooden storage shed with
+stacked logs visible under a peaked roof), Mining Camp (a stone-based structure with a
+wooden mine hoist/pulley and visible ore pile), Mill (a thatched-roof granary on a stone
+base with grain sacks visible) - each a clear, recognizable match for its building type,
+correctly upright and grounded. Post-swap height 2.5 uniformly for all 3 (was ~4.76
+pre-swap - factory's own scale-normalization target for this delivery, not a bug, same
+pattern every delivery in this series shows).
+
+**EditMode suite**: 834/834 pass, both before and after the old-asset deletion pass (the
+1 standing pre-existing `BuildingPrefabValidationTests` failure, unrelated to this work,
+same baseline as every recent session).
+
+**Old assets removed** after confirming (via GUID grep across every `.prefab`/`.asset`/
+`.unity`/`.mat`) that nothing outside each building's own `_Source` folder referenced it
+(unlike Tower/TownCenter, these 3 never had a `_Decimated` pass - nothing to remove
+there), and the 3 `Assets/importedmodels/{LumberCamp,MiningCamp,Mill}Lowpoly/` staging
+folders deleted once each prefab was confirmed re-spawning correctly:
+
+| Building | Old (`_Source`) | New (`_Lowpoly`) | Reduction |
+|---|---|---|---|
+| Lumber Camp | 136,132 KB | 14,264 KB | -89.5% |
+| Mining Camp | 132,220 KB | 12,616 KB | -90.5% |
+| Mill | 135,352 KB | 13,596 KB | -90.0% |
+| **Total** | **403,704 KB (~394 MB)** | **40,476 KB (~40 MB)** | **-90.0%** |
+
+One scoped commit (all 3 prefabs + `_Lowpoly/{LumberCamp,MiningCamp,Mill}/*` + removed
+`_Source/{LumberCamp,MiningCamp,Mill}`, docs) - no `LowpolyBuildingImporter.cs` changes
+needed this time (no rotation fix required), deliberately excludes the same substantial
+unrelated concurrent uncommitted work already flagged in prior sessions' own status
+entries. **Next**: user's call - the still-un-swapped shared Wall Ancient/Classical
+tiers, the remaining per-civ Farm/Wall/Gate, or continuing elsewhere. **Disk space is
+getting tight (1.8 GiB free) - worth a proactive check/cleanup before the next
+session in this series.**
+
+---
+
 ## 2026-09-27 — Shared Tower Ancient/Classical/Durg age tiers swapped to low-poly (~530 MB -> ~41 MB, -92%)
 
 **Scope**: ad hoc, continuing the low-poly building-swap series onto the shared

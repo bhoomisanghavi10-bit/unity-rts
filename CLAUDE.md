@@ -8,6 +8,34 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Lumber Camp/Mining Camp/Mill swapped to low-poly (2026-09-27).** Continues the
+  low-poly building-swap series onto the 3 remaining shared, non-age-tiered economic
+  buildings, using the `ImportSharedBuilding` entry point from earlier the same day.
+  **User initially pointed at the same delivery folder already consumed for the Tower
+  Ancient/Classical/Durg swap** (confirmed via `md5`) - flagged directly rather than
+  reinterpreting already-verified watchtower screenshots as economic buildings; user
+  supplied the correct folder mid-turn. Checked each glb's material structure first
+  (same standing practice as the 2 preceding shared-tier sessions): all 3 have exactly
+  one material covering the whole mesh, no separate player-color region. Identification
+  via masked mean-albedo color distance against each building's own reference albedo
+  came back clean and 1:1 (margins all above 2x), cross-checked visually (Mill's
+  distinctive golden/wheat palette immediately obvious). All 3 imported cleanly
+  (7,613-9,012 tris); no `ImportRotationCorrections` entry exists for any of these 3
+  names, so identity rotation applied - confirmed correct via the real
+  `BuildingModelFactory.Spawn` path, civ-blind: Lumber Camp (open-sided wooden storage
+  shed with stacked logs), Mining Camp (stone-based structure with a mine hoist/pulley
+  and ore pile), Mill (thatched-roof granary on a stone base with grain sacks) - each a
+  clear match for its building type. 834/834 EditMode tests pass unchanged (1
+  pre-existing, unrelated `BuildingPrefabValidationTests` NRE, same standing baseline).
+  Old `_Source` (~394 MB, no `_Decimated` existed for these 3) -> `_Lowpoly` (~40 MB),
+  -90% overall. One scoped commit (all 3 prefabs + `_Lowpoly/{LumberCamp,MiningCamp,
+  Mill}/*` + removed `_Source/{LumberCamp,MiningCamp,Mill}`, docs) - no importer code
+  change needed this time, deliberately excludes the same substantial unrelated
+  concurrent uncommitted work already flagged in prior sessions' own status entries.
+  **Disk space is getting tight (1.8 GiB free) - worth a proactive check/cleanup
+  before the next session in this series.** **Next**: user's call - the still-
+  un-swapped shared Wall Ancient/Classical tiers, the remaining per-civ Farm/Wall/Gate,
+  or continuing elsewhere.
 - **Shared Tower Ancient/Classical/Durg age tiers swapped to low-poly (2026-09-27).**
   Continues the low-poly building-swap series onto the shared (non-civ) Tower age
   tiers, using the `ImportSharedBuilding` entry point added the immediately preceding
