@@ -8,6 +8,12 @@ namespace KingdomsOfBharat.FogOfWar
     // All each recompute tick instead of scanning the scene.
     public class VisionSource : MonoBehaviour
     {
+        // AoE II reference spec: line-of-sight is hard-capped at 20 tiles
+        // regardless of what a unit/building/tech bonus would otherwise
+        // grant.
+        public const float HardCap = 20f;
+
+        [Range(1f, HardCap)]
         [SerializeField] private float visionRadius = 8f;
 
         public static readonly List<VisionSource> All = new List<VisionSource>();
@@ -41,7 +47,7 @@ namespace KingdomsOfBharat.FogOfWar
 
         public void Configure(float radius)
         {
-            visionRadius = radius;
+            visionRadius = Mathf.Clamp(radius, 1f, HardCap);
         }
 
         private void OnEnable()

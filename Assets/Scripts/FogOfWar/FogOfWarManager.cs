@@ -25,7 +25,23 @@ namespace KingdomsOfBharat.FogOfWar
         [SerializeField] private float quadSize = 48f;
         [SerializeField] private float quadHeight = 2.5f;
 
+        // AoE II elevation sight rules (see docs handed in 2026-09-28):
+        // a source on lower ground has its sight truncated at the first
+        // tile whose terrain sits meaningfully above its own elevation;
+        // a source on higher ground sees down into lower basins with no
+        // penalty. The threshold is well above this project's own ambient
+        // terrain noise (a few tenths of a unit) but well below a real
+        // carved cliff/mesa/ridge feature (SkirmishTerrainCarving raises
+        // those ~6 world units), so ordinary rolling ground never falsely
+        // blocks vision.
+        private const float CliffElevationThreshold = 2.5f;
+
         private CellState[] _cells;
+        // Sampled once per match (terrain never changes mid-match) via a
+        // straight-down raycast per cell against the Ground layer - a
+        // one-time cost at match start, not a per-tick one. Reused by
+        // every vision source's own elevation-aware reveal every recompute.
+        private float[] _elevationGrid;
         private Texture2D _texture;
         private float _timer;
         private bool _wasMatchStarted;
@@ -115,9 +131,74 @@ namespace KingdomsOfBharat.FogOfWar
             quadSize = worldSize + 8f;
 
             _cells = new CellState[gridSize * gridSize];
+            BuildElevationGrid();
             BuildTexture();
             BuildQuad();
             Recompute();
+        }
+
+        // One-time terrain height sample per grid cell, straight down from
+        // well above the map. Ground-layer-masked so it can never pick up
+        // a unit/building/resource collider standing on that cell instead
+        // of the terrain itself (those raycasts previously used no mask at
+        // all - fine for a placement check run before anything nearby is
+        // tall, wrong here since real units already exist at match start).
+        // Falls back to unfiltered if the "Ground" layer somehow doesn't
+        // exist, rather than silently sampling nothing.
+        private void BuildElevationGrid()
+        {
+            _elevationGrid = new float[gridSize * gridSize];
+            int groundLayerIndex = LayerMask.NameToLayer("Ground");
+            int mask = groundLayerIndex >= 0 ? (1 << groundLayerIndex) : Physics.DefaultRaycastLayers;
+
+            for (int z = 0; z < gridSize; z++)
+            {
+                for (int x = 0; x < gridSize; x++)
+                {
+                    Vector3 worldPos = CellToWorldCenter(x, z);
+                    Vector3 origin = new Vector3(worldPos.x, 500f, worldPos.z);
+                    float elevation = 0f;
+                    if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 1000f, mask))
+                    {
+                        elevation = hit.point.y;
+                    }
+
+                    _elevationGrid[z * gridSize + x] = elevation;
+                }
+            }
+        }
+
+        private float ElevationAtCell(int x, int z)
+        {
+            if (_elevationGrid == null || x < 0 || x >= gridSize || z < 0 || z >= gridSize)
+            {
+                return 0f;
+            }
+
+            return _elevationGrid[z * gridSize + x];
+        }
+
+        // Test-only seam: EditMode tests can't run a real Physics scene, so
+        // this lets a test hand in a synthetic elevation grid directly and
+        // exercise HasElevationLineOfSight against it without needing a
+        // live BuildElevationGrid raycast pass.
+        internal void ConfigureForTest(int testGridSize, float[] elevationGrid)
+        {
+            gridSize = testGridSize;
+            _elevationGrid = elevationGrid;
+        }
+
+        internal bool HasElevationLineOfSightForTest(int startX, int startZ, float startElevation, int endX, int endZ)
+        {
+            return HasElevationLineOfSight(startX, startZ, startElevation, endX, endZ);
+        }
+
+        private Vector3 CellToWorldCenter(int x, int z)
+        {
+            float half = worldSize * 0.5f;
+            float worldX = (x + 0.5f) / gridSize * worldSize - half;
+            float worldZ = (z + 0.5f) / gridSize * worldSize - half;
+            return new Vector3(worldX, 0f, worldZ);
         }
 
         private void Recompute()
@@ -157,7 +238,8 @@ namespace KingdomsOfBharat.FogOfWar
         private void RevealAround(Vector3 worldPosition, float radius)
         {
             (int centerX, int centerZ) = WorldToCell(worldPosition);
-            int cellRadius = Mathf.CeilToInt(radius);
+            int cellRadius = Mathf.Clamp(Mathf.CeilToInt(radius), 1, Mathf.CeilToInt(VisionSource.HardCap));
+            float centerElevation = ElevationAtCell(centerX, centerZ);
 
             for (int dz = -cellRadius; dz <= cellRadius; dz++)
             {
@@ -175,9 +257,54 @@ namespace KingdomsOfBharat.FogOfWar
                         continue;
                     }
 
+                    if (!HasElevationLineOfSight(centerX, centerZ, centerElevation, x, z))
+                    {
+                        continue;
+                    }
+
                     _cells[z * gridSize + x] = CellState.Visible;
                 }
             }
+        }
+
+        // AoE II elevation rule: march from the source cell to the target
+        // cell one grid step at a time; a step whose terrain sits more than
+        // CliffElevationThreshold above the source's own elevation blocks
+        // everything beyond it (but never the target tile itself, matching
+        // the spec's "truncated ... beyond the first cliff-edge tile" -
+        // you can still see the edge you're blocked by). A source on equal
+        // or higher ground than everything along the path is never blocked,
+        // which is also what gives higher ground its unobstructed view down
+        // into lower basins - no separate "bonus" branch needed.
+        private bool HasElevationLineOfSight(int startX, int startZ, float startElevation, int endX, int endZ)
+        {
+            if (startX == endX && startZ == endZ)
+            {
+                return true;
+            }
+
+            float dx = endX - startX;
+            float dz = endZ - startZ;
+            float distance = Mathf.Sqrt(dx * dx + dz * dz);
+            float stepX = dx / distance;
+            float stepZ = dz / distance;
+
+            for (float i = 1f; i < distance; i += 1f)
+            {
+                int checkX = Mathf.RoundToInt(startX + stepX * i);
+                int checkZ = Mathf.RoundToInt(startZ + stepZ * i);
+                if (checkX == endX && checkZ == endZ)
+                {
+                    continue;
+                }
+
+                if (ElevationAtCell(checkX, checkZ) > startElevation + CliffElevationThreshold)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private (int x, int z) WorldToCell(Vector3 worldPosition)
@@ -201,7 +328,12 @@ namespace KingdomsOfBharat.FogOfWar
                 }
                 else if (_cells[i] == CellState.Explored)
                 {
-                    pixels[i] = new Color32(0, 0, 0, 140);
+                    // AoE II reference spec: Explored tiles render at
+                    // roughly a 0.35x brightness multiply versus Visible's
+                    // 1.0x. A black overlay's alpha corresponds to
+                    // (1 - keepFraction) here, so 166/255 keeps ~0.35 of
+                    // the terrain's own color through.
+                    pixels[i] = new Color32(0, 0, 0, 166);
                 }
                 else
                 {
@@ -252,7 +384,20 @@ namespace KingdomsOfBharat.FogOfWar
                     continue;
                 }
 
-                if (scoutMemory && RevealBuildingPermanentlyIfSeen(building.gameObject))
+                // AoE II reference rule: an enemy BUILDING seen once stays
+                // visible in its last-known state forever (the "ghost
+                // snapshot") for every civ, not just Maratha's scouting
+                // bonus - buildings don't move, so there's nothing to fake
+                // "last known position" for, unlike units below. This was
+                // previously gated on scoutMemory, which meant every
+                // non-Maratha faction saw enemy buildings vanish outright
+                // the instant fog rolled back over them; that never matched
+                // the reference and is fixed here. Maratha's own bonus
+                // stays meaningfully distinct: it additionally remembers
+                // *units* (which genuinely move) via the ghost markers
+                // below, matching the "even units remembered" reading of
+                // its established scouting identity.
+                if (RevealBuildingPermanentlyIfSeen(building.gameObject))
                 {
                     continue;
                 }

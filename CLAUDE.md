@@ -8,6 +8,49 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Fog of War brought up to the AoE II reference spec (2026-09-28).** Ad hoc,
+  user pasted `AoE2_Fog_Of_War_Specification.md` and asked to update the
+  project's fog-of-war/vision mechanics against it. Existing
+  `FogOfWar/FogOfWarManager.cs`/`VisionSource.cs` already implemented the
+  spec's core architecture (3-state grid, texture overlay, interval-ticked
+  not per-frame recompute, per-faction/diplomacy filtering) - kept, not
+  replaced. Closed 3 real gaps: (1) **elevation sight rules** - new one-time
+  `BuildElevationGrid()` samples terrain height per grid cell via a
+  Ground-layer-masked raycast at match start (cached all match, no per-tick
+  cost), and a new `HasElevationLineOfSight` line-march blocks vision past
+  the first tile more than 2.5 world units above the viewer's own elevation
+  (below real carved cliffs' ~6-unit rise, above ambient terrain noise) -
+  higher ground seeing down into basins falls out for free, no separate
+  bonus branch; (2) **hard 20-tile vision cap** - `VisionSource.HardCap`,
+  enforced in `Configure()` and in `RevealAround`'s cell radius; (3)
+  **universal building ghost-snapshot** - enemy buildings now stay visible
+  in last-known state once ever seen for every civ (previously
+  Maratha-only), matching the spec's own State 1 definition; Maratha's bonus
+  stays distinct via its existing unit-ghost-marker memory, untouched. Also
+  tuned the Explored-tile overlay alpha (140->166) to land closer to the
+  spec's ~0.35x brightness multiplier. 7 new EditMode tests
+  (`FogOfWarElevationTests.cs`, via a new `ConfigureForTest`/
+  `HasElevationLineOfSightForTest` seam - no live Physics/terrain scene
+  exists in EditMode to raycast against for real), 869/869 total pass (862
+  baseline + 7, 1 pre-existing unrelated `BuildingPrefabValidationTests` NRE,
+  same standing baseline). **Live-verified same day on Mountain Pass's real
+  baked terrain** via UnityMCP (`SetMap(SkirmishMountainPass)` +
+  `BeginMatch(Maurya)`, deliberately non-Maratha to also exercise the
+  ghost-snapshot fix): sampled the real elevation grid (off-ridge noise maxes
+  ~0.48 over a 3-cell step, well under the 2.5 threshold; the ridge itself
+  peaks ~7.6-8.4 against a ~1.3-1.9 baseline), drove `HasElevationLineOfSight`
+  against it directly (blocked across the ridge, unblocked looking down from
+  the crest, unaffected on flat ground), then closed the loop through a real
+  `SoldierFactory`-spawned unit + forced `Recompute()`: `IsVisible` correctly
+  false past the first blocking tile but true for the cliff-edge tile itself.
+  Also confirmed live that a real Enemy TownCenter stays rendered after the
+  Player's only Maurya (non-Maratha) unit moves out of vision range - the
+  ghost-snapshot fix holds for a real non-Maratha match, not just the docs
+  claim. Re-ran the full suite after a forced domain reload (hit and resolved
+  the project's own documented post-Play-mode stale-static-state gotcha):
+  869/869 still pass. Committed (`FogOfWarManager.cs`, `VisionSource.cs`,
+  `FogOfWarElevationTests.cs` new, this file, `docs/SESSION_LOG.md`).
+  **Next**: the user's call.
 - **Farm's common visual: 3 pre-rendered isometric sprite states, replacing
   the broken shared placeholder (2026-09-28).** Direct follow-up to the
   previous session's Farm-mechanics overhaul, which deleted the 5 civs'
