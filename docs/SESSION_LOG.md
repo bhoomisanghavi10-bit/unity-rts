@@ -5,6 +5,96 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-27 — All 5 civ TownCenters (Durg age tier) swapped to low-poly (~888 MB -> ~81 MB, -91%)
+
+**Scope**: ad hoc, continuing the low-poly building-swap series (TownCenter [Imperial],
+Barracks, Market, Dock, Tower, and 4 of 5 civs' House done in prior sessions, plus
+Maratha's House already low-poly from an earlier separate pilot) onto **TownCenter_Durg**
+- a distinct target from the earlier Imperial-tier TownCenter session: all 5 civs already
+had a low-poly `TownCenter.prefab` (Imperial), but `TownCenter_Durg.prefab` was still the
+original full-poly asset. User supplied 5 unlabeled Meshy glbs at
+`~/Downloads/Meshy_AI_assets_20260927_133723/<uuid>/Meshy_AI_model.glb` - confirmed the
+folder shape (5 UUID folders, one glb each) and that all 5 civs' `TownCenter_Durg.prefab`
+already existed before starting. Disk had 3.6-4.0 GiB free throughout (checked at start
+and again before import), well above the 1 GB floor.
+
+**Civ mapping came back clean this time, no ambiguity to resolve**: masked mean-albedo
+color distance against each civ's existing `TownCenter_Durg_albedo.png` (green-inclusive,
+since none of these 5 atlases showed the House session's grass-bias problem) gave a
+1:1 result on the first pass - every candidate's best civ match was unique and the runner-
+up margin was at minimum ~2x the best distance (worst case candidate1: Chola d=8.02 vs.
+next-best Maratha d=15.61; best case candidate5: Maratha d=0.92 vs. next-best Chola
+d=9.95). Cross-checked with a visual contact sheet anyway per this series' own standing
+practice, not skipped just because the numbers looked clean - immediately obvious by eye:
+Chola=warm reddish-brown, Rajput=pink/rose, Vijayanagara=medium gray stone, Maurya=light
+cream/tan, Maratha=dark olive/brown with red accents, each matching its established per-
+civ palette. Final mapping, all 5 civs accounted for exactly once: candidate1
+(`01a0e307-6721-...`) -> Chola, candidate2 (`01a0e307-e6cf-...`) -> Rajput, candidate3
+(`01a0e308-3616-...`) -> Vijayanagara, candidate4 (`01a0e308-8b7f-...`) -> Maurya,
+candidate5 (`01a0e308-fd45-...`) -> Maratha.
+
+All 5 imported cleanly (28,363-40,347 tris, 25,927-36,932 source verts, no cached-empty-
+mesh bug) via `LowpolyBuildingImporter.ImportBuilding(civ, "TownCenter_Durg")` - confirmed
+directly beforehand that this call resolves the staging folder, output folder, and
+(critically) the prefab write target to the existing `Assets/Resources/buildings/<Civ>/
+TownCenter_Durg.prefab` path with zero code changes needed, matching every other non-
+Tower building in this series. Also re-confirmed `BuildingModelFactory.
+ImportRotationCorrections` still has no entry for "TownCenter" (only "Tower") before
+importing - it's the `resourceName` ("TownCenter", not "TownCenter_Durg") that the dict
+keys off, and `BuildVisual`'s age-resolution logic tries `Buildings/{civId}/
+{resourceName}_{age}` first for a non-Imperial age, which is exactly where this importer
+writes - confirmed by reading both files fresh rather than trusted from a prior session's
+claim. The plain identity-rotation import path applied with no rotation fix needed, same
+as every non-Tower building this series has swapped.
+
+Measured the existing (pre-swap) Durg TownCenter's live spawn height first, as a
+reference: a uniform 10.94 world units across all 5 civs via the real
+`BuildingModelFactory.Spawn("TownCenter", civ, ..., age: AgeId.Durg)` path. Live-verified
+all 5 post-swap the same way (not `resourceName="TownCenter_Durg"` directly, which would
+bypass the age-resolution logic and give a false result): all 5 landed at a uniform world
+height of 11.2, matching the pre-swap reference closely and the established Imperial-
+TownCenter height convention (~11.2H) almost exactly - like every prior delivery in this
+series, this one arrived pre-normalized by Meshy to already match the target height, no
+extra scale correction needed. Screenshot-verified all 5 upright and correctly identified
+via angled, front-elevation, and (rendered cleanly this session, unlike the immediately
+preceding House session) top-down shots: Chola (temple-tower tiered cap with red banner,
+continuing its established motif), Rajput (pink/rose domed pavilion fort with corner
+turrets on a tiered base), Vijayanagara (gray carved-stone courtyard compound with a
+central dome and lookout turret), Maurya (light cream/tan compound with multiple gilded
+domes, matching its domed identity), Maratha (dark fortified bastion with a red-roofed
+central pavilion and crenellated corner towers) - each matching its established per-civ
+architectural identity from the Imperial-tier TownCenter session.
+
+**EditMode suite**: 834/834 pass, both before and after the old-asset deletion pass (the
+1 standing pre-existing `BuildingPrefabValidationTests` failure, unrelated to this work,
+same baseline as every recent session).
+
+**Old assets removed** after confirming (via GUID grep across every `.prefab`/`.asset`/
+`.unity`/`.mat`) that nothing outside each building's own `_Source`/`_Decimated` folder
+referenced it (Rajput's and Vijayanagara's `_Source/TownCenter_Durg` folders used a plain
+`_model.fbx` filename; the other 3 civs' used `_model_v2.fbx`, a leftover from an earlier
+cache-corruption workaround unrelated to this session - both confirmed clean, no stray
+references either way), and the 5 `Assets/importedmodels/<Civ>TownCenter_DurgLowpoly/`
+staging folders deleted once each prefab was confirmed re-spawning correctly:
+
+| Civ | Old (`_Source` + `_Decimated`) | New (`_Lowpoly`) | Reduction |
+|---|---|---|---|
+| Chola | 189,204 KB | 18,244 KB | -90.4% |
+| Rajput | 187,008 KB | 15,372 KB | -91.8% |
+| Vijayanagara | 176,784 KB | 15,700 KB | -91.1% |
+| Maurya | 178,156 KB | 16,868 KB | -90.5% |
+| Maratha | 177,964 KB | 16,740 KB | -90.6% |
+| **Total** | **909,116 KB (~888 MB)** | **82,924 KB (~81 MB)** | **-90.9%** |
+
+One scoped commit (all 5 civs' `TownCenter_Durg.prefab` + `_Lowpoly/TownCenter_Durg/*` +
+removed `_Source/TownCenter_Durg` + `_Decimated/TownCenter_Durg_decimated.asset*`, docs)
+- deliberately excludes the same substantial unrelated concurrent uncommitted work already
+flagged in prior sessions' own status entries, and `LowpolyBuildingImporter.cs` needed no
+changes since no rotation fix was required. **Next**: user's call - the other 3 remaining
+building types per civ (Farm/Wall/Gate), or continuing the low-poly swap elsewhere.
+
+---
+
 ## 2026-09-27 — Remaining 4 civ Houses swapped to low-poly (~546 MB -> ~56 MB, -90%)
 
 **Scope**: ad hoc, continuing the low-poly building-swap series (TownCenter, Barracks,

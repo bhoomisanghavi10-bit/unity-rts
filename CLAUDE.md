@@ -8,6 +8,48 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **All 5 civ TownCenters (Durg age tier) swapped to low-poly (2026-09-27).** Continues
+  the low-poly building-swap series (TownCenter [Imperial], Barracks, Market, Dock,
+  Tower, House all done prior sessions) onto TownCenter_Durg - a separate target from
+  the earlier Imperial-tier TownCenter session: all 5 civs already had a low-poly
+  `TownCenter.prefab` (Imperial), but `TownCenter_Durg.prefab` was still the original
+  full-poly asset (confirmed present for all 5 before starting, not assumed). Civ
+  mapping via masked mean-albedo color distance against each civ's existing
+  `TownCenter_Durg_albedo.png` came back clean and 1:1 on the first pass this time (no
+  green-foliage-bias trap like the House session hit) - every candidate's best civ
+  match unique, worst-case margin still ~2x (Chola d=8.02 vs next-best d=15.61),
+  cross-checked with a visual contact sheet anyway per this series' standing practice
+  (immediately obvious by eye: warm reddish-brown=Chola, pink/rose=Rajput, gray
+  stone=Vijayanagara, light cream/tan=Maurya, dark olive/red-accented=Maratha). All 5
+  imported cleanly (28,363-40,347 tris, no cached-empty-mesh bug); confirmed fresh
+  (not assumed from a prior session) that `BuildingModelFactory.
+  ImportRotationCorrections` still has no "TownCenter" entry (only "Tower") and that
+  `BuildVisual`'s age-resolution logic tries `Buildings/{civId}/TownCenter_Durg` first
+  for a Durg-age spawn - exactly where this importer writes - so the plain identity-
+  rotation import path applied with no rotation fix needed, and
+  `LowpolyBuildingImporter.cs` itself needed zero changes. Measured the existing
+  pre-swap Durg TownCenter's live spawn height first as a reference (10.94 world units
+  uniformly across all 5 civs); live-verified all 5 post-swap through the real
+  `BuildingModelFactory.Spawn("TownCenter", civ, ..., age: AgeId.Durg)` path (not the
+  `resourceName="TownCenter_Durg"` shortcut, which would bypass the age-resolution
+  logic) - all landed at a uniform 11.2, matching the established ~11.2H TownCenter
+  convention closely; like every prior delivery in this series, arrived pre-normalized
+  by Meshy, no extra scale correction needed. Screenshot-verified all 5 upright and
+  correctly identified via angled, front-elevation, and (rendered cleanly this
+  session, unlike the House session before it) top-down shots: Chola (temple-tower
+  tiered cap), Rajput (pink/rose domed pavilion fort with corner turrets), Vijayanagara
+  (gray carved-stone courtyard compound with central dome), Maurya (light cream/tan
+  compound with multiple gilded domes), Maratha (dark fortified bastion with red-
+  roofed pavilion and crenellated towers) - each matching its established per-civ
+  architectural identity from the Imperial-tier TownCenter session. 834/834 EditMode
+  tests pass unchanged (1 pre-existing, unrelated `BuildingPrefabValidationTests` NRE,
+  same standing baseline). Old `_Source`+`_Decimated` (~888 MB) -> `_Lowpoly`
+  (~81 MB), -91% overall. One scoped commit (all 5 civs' `TownCenter_Durg.prefab` +
+  `_Lowpoly/TownCenter_Durg/*` + removed `_Source/TownCenter_Durg`+
+  `_Decimated/TownCenter_Durg_decimated.asset*`, docs) - deliberately excludes the
+  same substantial unrelated concurrent uncommitted work already flagged in prior
+  sessions' own status entries. **Next**: user's call - the other 3 remaining building
+  types per civ (Farm/Wall/Gate), or continuing the low-poly swap elsewhere.
 - **Remaining 4 civ Houses swapped to low-poly (2026-09-27).** Continues the low-poly
   building-swap series (TownCenter, Barracks, Market, Dock, Tower done prior
   sessions) onto House - only 4 civs (Chola/Rajput/Maurya/Vijayanagara), since
