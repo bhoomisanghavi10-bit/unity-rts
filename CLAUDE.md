@@ -8,6 +8,44 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **All 5 civ Towers swapped to low-poly (2026-09-27).** Continues the low-poly
+  building-swap series (TownCenter, Barracks, Market, Dock done prior sessions) onto
+  Tower. Civ mapping for the 5 unlabeled Meshy glbs was re-derived via masked
+  mean-albedo color distance against each civ's existing `Tower_albedo.png` - all 5
+  margins were clean this time (14.9-42.5, no RGB tie needing an HSV fallback),
+  cross-checked against HSV hue anyway as a sanity check. All 5 imported cleanly on
+  the first attempt (14,280-26,518 verts, no cached-empty-mesh bug). **Tower-specific
+  rotation bug found and fixed via the documented stomp-algebra method, not
+  guessed**: spawning through the real `BuildingModelFactory.Spawn` path (required,
+  since the civ-blind `ImportRotationCorrections["Tower"]` stomp only applies at
+  spawn time) showed all 5 buried underground on their side - this batch's raw mesh
+  ships already-correct Y-up at identity, so the existing `Euler(0,0,-90)` stomp
+  (tuned for earlier deliveries' different up-axis convention) rotated it wrong.
+  Rather than editing the shared civ-blind dict (would break other Tower precedent),
+  baked the algebraic inverse `Euler(0,0,90)` onto the imported model's inner child
+  transform in `LowpolyBuildingImporter.cs` (new Tower-only branch) - both being
+  same-axis Z rotations, they cancel by simple angle addition, composing to identity
+  at spawn. Re-imported and re-verified all 5 live via UnityMCP through the real
+  `BuildingModelFactory.Spawn` path with 3 screenshots apiece (angled, level
+  front-elevation, true top-down - never trusting an angled shot alone per this
+  project's own parallax lesson): Chola (temple-tower turret with a tiered
+  pyramidal cap), Rajput (domed sandstone watchtower with 4 corner turret domes),
+  Maurya (single gilded dome on a tapered base), Vijayanagara (carved stone
+  platform on pillars with a dense crenellated crown), Maratha (dark fortified
+  bastion, crenellated top) - each matching its established per-civ architectural
+  identity. World height consistently 8.00 across all 5 post-fix, matching the
+  established Tower scale convention. Disk had 4.2GB free throughout (no low-disk
+  issues); no environment snags this session (scene stayed loaded, test placements
+  landed clear of the real starting bases from the outset). 834/834 EditMode tests
+  pass unchanged (1 pre-existing, unrelated `BuildingPrefabValidationTests` NRE,
+  same standing baseline). Old `_Source`+`_Decimated` (~654 MB) -> `_Lowpoly`
+  (~71 MB), -89% overall. One scoped commit (`LowpolyBuildingImporter.cs`'s new
+  Tower-rotation branch, all 5 civs' `Tower.prefab` + `_Lowpoly/Tower/*` + removed
+  `_Source/Tower`+`_Decimated/Tower_decimated.asset*`, docs) - deliberately
+  excludes the same substantial unrelated concurrent uncommitted work already
+  flagged in prior sessions' own status entries. **Next**: user's call - the other
+  3 remaining building types per civ (Farm/House/Wall/Gate), or continuing the
+  low-poly swap elsewhere.
 - **All 5 civ Docks swapped to low-poly (2026-09-27).** Continues the low-poly
   building-swap series (TownCenter, Barracks, Market done prior sessions) onto Dock.
   User initially described the delivery as Tower models; corrected mid-task before any

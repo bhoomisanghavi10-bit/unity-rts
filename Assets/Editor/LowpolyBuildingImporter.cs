@@ -127,6 +127,19 @@ namespace KingdomsOfBharat.EditorTools
             model.transform.SetParent(root.transform, false);
             model.AddComponent<MeshFilter>().sharedMesh = mesh;
             model.AddComponent<MeshRenderer>().sharedMaterial = mat;
+            // BuildingModelFactory.ImportRotationCorrections["Tower"] stomps
+            // Euler(0,0,-90) onto the instantiated prefab root at every spawn,
+            // civ-blind. This importer always bakes the model child at
+            // identity, which is correct for every other building - but for
+            // Tower specifically, if the raw glb mesh is already Y-up at
+            // identity (tall axis = Y, not X), the stomp would rotate it onto
+            // its side. Baking the exact inverse (Euler(0,0,90)) onto this
+            // child cancels the stomp algebraically for same-axis rotations
+            // (-90 + 90 = 0), restoring the mesh's own correct orientation.
+            if (buildingName == "Tower")
+            {
+                model.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            }
             PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
             Object.DestroyImmediate(root);
             Debug.Log($"LowpolyBuildingImporter: {prefabPath} tris={mesh.triangles.Length / 3} bounds={mesh.bounds}");
