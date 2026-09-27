@@ -26,16 +26,30 @@ namespace KingdomsOfBharat.EditorTools
         [MenuItem("BharatRTS/Import Lowpoly/Chola TownCenter")]
         public static void ImportCholaTownCenter() => ImportTownCenter("Chola");
 
+        [MenuItem("BharatRTS/Import Lowpoly/Rajput TownCenter")]
+        public static void ImportRajputTownCenter() => ImportTownCenter("Rajput");
+
+        [MenuItem("BharatRTS/Import Lowpoly/Vijayanagara TownCenter")]
+        public static void ImportVijayanagaraTownCenter() => ImportTownCenter("Vijayanagara");
+
+        [MenuItem("BharatRTS/Import Lowpoly/Maratha TownCenter")]
+        public static void ImportMarathaTownCenter() => ImportTownCenter("Maratha", "MarathaTC2");
+
+        [MenuItem("BharatRTS/Import Lowpoly/Maurya TownCenter")]
+        public static void ImportMauryaTownCenter() => ImportTownCenter("Maurya", "MauryaTC2");
+
+        // glbName: only needed when Unity has cached a bad import under the default file name (see SESSION_LOG);
+        // copy the glb to a new file name and pass it here.
         // Staging folder Assets/importedmodels/<Civ>TownCenterLowpoly holds <Civ>TownCenter.glb + PNGs
         // (made by Tools/glb_extract_pbr.py); the result overwrites <Civ>/TownCenter.prefab in place.
-        public static void ImportTownCenter(string civ)
+        public static void ImportTownCenter(string civ, string glbName = null)
         {
             Import($"Assets/importedmodels/{civ}TownCenterLowpoly", $"{civ}TownCenter",
                    $"Assets/Resources/buildings/{civ}/_Lowpoly/TownCenter", "TownCenter",
-                   $"Assets/Resources/buildings/{civ}/TownCenter.prefab");
+                   $"Assets/Resources/buildings/{civ}/TownCenter.prefab", glbName);
         }
 
-        static void Import(string srcFolder, string srcName, string destFolder, string buildingName, string prefabPath)
+        static void Import(string srcFolder, string srcName, string destFolder, string buildingName, string prefabPath, string glbName = null)
         {
             Directory.CreateDirectory(Path.GetFullPath(destFolder));
             string albedo = Move(srcFolder, srcName + "_albedo.png", destFolder, buildingName + "_albedo.png");
@@ -47,7 +61,7 @@ namespace KingdomsOfBharat.EditorTools
             SetTex(packed, false, false);
 
             Mesh src = null;
-            foreach (var o in AssetDatabase.LoadAllAssetsAtPath($"{srcFolder}/{srcName}.glb"))
+            foreach (var o in AssetDatabase.LoadAllAssetsAtPath($"{srcFolder}/{glbName ?? srcName}.glb"))
                 if (o is Mesh m) { src = m; break; }
             if (src == null) { Debug.LogError("LowpolyBuildingImporter: no mesh in glb"); return; }
             Mesh mesh = Object.Instantiate(src);

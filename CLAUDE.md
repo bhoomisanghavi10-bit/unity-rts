@@ -8,6 +8,19 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **All 5 civ Imperial TownCenters swapped to low-poly (2026-09-27).** Rajput
+  (32.6k tris), Vijayanagara (42.4k), Maratha (33.5k) and Maurya (36.3k) join
+  Chola (38.5k): standalone prefabs in `<Civ>/_Lowpoly/TownCenter/`, 11.2 tall,
+  civ mapping confirmed by albedo colour match. Old sources gone: all five
+  TownCenters ~878 MB -> ~85 MB (-90%). Each live-verified (match, Imperial age,
+  angled/front/top-down); EditMode 822/823 (pre-existing validator NRE only). The
+  `~/unity-rts-archive` is cleared after each model (user instruction), so
+  originals live only in git/LFS. **Gotcha**: a low disk during a glTFast import
+  caches an empty mesh keyed by GUID+content; reimports then "succeed" in ~1.5 s with
+  0 verts. Check the glb's mesh has verts before running the importer; fix by a new
+  glb filename (importer `glbName`) and/or changing an import setting in its .meta.
+  Details in `docs/SESSION_LOG.md`. **Next**: user's call, e.g. the other building
+  types per civ, or the Ancient/Classical/Durg TownCenter tiers.
 - **Chola Imperial TownCenter low-poly swap closed (2026-09-27), first of 5
   civ TownCenters.** User delivered 5 Meshy TownCenter GLBs (32-42k tris, upright,
   11.2 tall). Chola's is done via `Tools/glb_extract_pbr.py` +
