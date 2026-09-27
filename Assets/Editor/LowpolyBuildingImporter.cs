@@ -23,6 +23,18 @@ namespace KingdomsOfBharat.EditorTools
                    "Assets/Resources/buildings/Maratha/House_Lowpoly.prefab");
         }
 
+        [MenuItem("BharatRTS/Import Lowpoly/Chola TownCenter")]
+        public static void ImportCholaTownCenter() => ImportTownCenter("Chola");
+
+        // Staging folder Assets/importedmodels/<Civ>TownCenterLowpoly holds <Civ>TownCenter.glb + PNGs
+        // (made by Tools/glb_extract_pbr.py); the result overwrites <Civ>/TownCenter.prefab in place.
+        public static void ImportTownCenter(string civ)
+        {
+            Import($"Assets/importedmodels/{civ}TownCenterLowpoly", $"{civ}TownCenter",
+                   $"Assets/Resources/buildings/{civ}/_Lowpoly/TownCenter", "TownCenter",
+                   $"Assets/Resources/buildings/{civ}/TownCenter.prefab");
+        }
+
         static void Import(string srcFolder, string srcName, string destFolder, string buildingName, string prefabPath)
         {
             Directory.CreateDirectory(Path.GetFullPath(destFolder));

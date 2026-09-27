@@ -8,6 +8,17 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Chola Imperial TownCenter low-poly swap closed (2026-09-27), first of 5
+  civ TownCenters.** User delivered 5 Meshy TownCenter GLBs (32-42k tris, upright,
+  11.2 tall). Chola's is done via `Tools/glb_extract_pbr.py` +
+  `LowpolyBuildingImporter.ImportTownCenter`: `Chola/TownCenter.prefab` now uses
+  `_Lowpoly/TownCenter/` (38,507 tris); old ~197 MB source/decimated assets are
+  down to ~17 MB (-91%), archived in `~/unity-rts-archive/Chola_TownCenter_old/`.
+  Live-verified (angled/front/top-down); EditMode 822/823 (only the pre-existing
+  `BuildingPrefabValidationTests` NRE). **Gotcha**: a full disk makes the glb
+  import fail silently and the importer writes an empty-mesh prefab. **Next**: the
+  other 4 civ TownCenters (Rajput/Vijayanagara/Maratha/Maurya; civ mapping is
+  guessed from texture colour, in `docs/SESSION_LOG.md`, confirm before wiring).
 - **Maratha House low-poly swap closed (2026-09-27), pilot for shrinking
   `Assets/Resources/buildings`.** Meshy delivered an already low-poly house
   (13,020 tris, 2.6 units tall); new `Assets/Editor/LowpolyBuildingImporter.cs`
