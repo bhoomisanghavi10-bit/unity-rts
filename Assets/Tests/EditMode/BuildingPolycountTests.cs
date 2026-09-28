@@ -131,16 +131,18 @@ namespace KingdomsOfBharat.Tests
                     AssertAgeTieredUnderCeiling(civ, "Tower", AgeId.Classical);
                     AssertAgeTieredUnderCeiling(civ, "Tower", AgeId.Durg);
                     AssertAgeTieredUnderCeiling(civ, "Wall", AgeId.Ancient);
-                    // Classical/Durg no longer have any Wall MESH at all
-                    // (2026-09-28's "classic age wall and gate kit" moved
-                    // both onto a flat sprite-billboard visual instead - see
-                    // FortificationVisual/WallSpriteVisual - so there's no
-                    // Buildings/Wall_Classical or Wall_Durg prefab left to
-                    // check here; those two old full-poly assets were
-                    // deleted as confirmed-unused). This call would now only
-                    // ever exercise the harmless procedural placeholder
-                    // fallback, not real content, so it's removed rather
-                    // than kept as a check that can never meaningfully fail.
+                    // Classical/Durg (2026-09-28): a same-day flat sprite-
+                    // billboard kit was itself superseded, same day, by a
+                    // real low-poly Meshy glb kit (straight/corner/end
+                    // post/T/X/gate) - Buildings/Wall_Classical is real
+                    // geometry again (2,781 tris, well under the ceiling),
+                    // reused for Durg via FortificationVisual's darken tint
+                    // (no separate Wall_Durg prefab exists, or is needed -
+                    // "Classical" resolves for either age, see
+                    // WallFactory.ResourceNameFor), so only Classical is
+                    // checked here.
+                    AssertAgeTieredUnderCeiling(civ, "Wall", AgeId.Classical);
+                    AssertAgeTieredUnderCeiling(civ, "Gate", AgeId.Classical);
                 }
             }
             finally

@@ -8,8 +8,80 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Classical-age wall/gate kit re-sourced as real 3D models, replacing the
+  same-day flat sprite billboards (2026-09-28).** Ad hoc, direct same-day
+  follow-up to the flat-sprite session immediately below (that session's own
+  "classic age wall and gate kit" PNG delivery turned out to be a
+  placeholder step — user supplied 6 real Meshy AI glb files and asked to
+  swap the billboard approach for actual 3D meshes matching the Ancient
+  kit's own shape). Identified all 6 via live UnityMCP top-down/angled
+  screenshots rather than trusting filenames — several were genuinely
+  misleading (`Azure_Battlement_Gate` was actually the T-junction,
+  `Stonegate_Bastion` was the real Gate, `Mossy_Stone_Watchtower` was the
+  End Post). Imported via the existing `Tools/glb_extract_pbr.py` +
+  `LowpolyBuildingImporter.ImportSharedBuilding` pipeline (no importer code
+  changes) to `Buildings/Wall_Classical[_Corner|_EndPost|_TJunction
+  |_XJunction]`/`Buildings/Gate_Classical`. **Real rotation bug found and
+  fixed, not shipped blind**: unlike every Ancient-kit piece, this
+  delivery's Straight piece has its long axis on local Z, not X — confirmed
+  via `trimesh` vertex-bounds analysis before touching Unity and reconfirmed
+  live via a true top-down screenshot; fixed with a baked
+  `Quaternion.Euler(0,90,0)` on that one piece's model child (the 4
+  symmetric junction pieces and Gate needed no rotation fix). Non-uniform
+  scale-fit per piece mirroring the Ancient kit's own convention exactly
+  (Straight/Gate fit to their existing gameplay `Size` box; the 4 junction
+  pieces isotropic, since their raw glb height already measured exactly
+  6.0 — the established junction target — needing no rescale at all).
+
+  **Architecture simplified back toward the Ancient kit's own shape**:
+  `FortificationVisual.Build` no longer branches on age — Classical/Durg
+  now go through the identical `BuildingModelFactory.Refresh` mesh path as
+  Ancient/Imperial; the sprite-only branch (`WallSpriteVisual.Build`,
+  `AddBoxCollider`) is gone entirely. Durg still reuses Classical's exact
+  same 6 meshes via a new `FortificationVisual.DarkenMaterials` (the same
+  0.7x material-color multiply the sprite kit used), mirroring
+  `TintMaterials`'s own if/else-if property-priority chain so it can't
+  double-darken a shader exposing more than one recognized color property.
+  `WallFactory.ResourceNameFor`/`GateFactory`'s inline age check pick
+  between the Ancient-tier literal resourceName and the new
+  `Wall_Classical*`/`Gate_Classical` names — Durg and Classical resolve to
+  the identical literal path with zero special-casing, since
+  `BuildingModelFactory.BuildVisual`'s own age-suffix lookup harmlessly
+  misses and falls through to the correct unsuffixed shared path regardless
+  of which real age is passed.
+
+  **Known, accepted simplification**: the new Gate mesh is a single merged
+  mesh with no separable door-leaf sub-object, so unlike the removed sprite
+  kit's live open/closed texture swap, this Gate is visually static (always
+  shows closed-door art) — `Gate.cs`'s actual pathability mechanic
+  (`NavMeshObstacle` carving toggled by proximity) is completely
+  unaffected, matching the exact precedent the Ancient kit's own Gate model
+  already set (no door leaf to animate there either). Removed the now-dead
+  `Gate.IsOpen` accessor, `WallSpriteVisual.cs`, and the
+  `Assets/Resources/buildings/WallSprites/Classical/` PNG folder entirely
+  (git-deleted). `BuildingPolycountTests.cs`'s age-tiered triangle-ceiling
+  test had gone stale claiming "no Wall mesh at Classical/Durg" from the
+  prior session — restored real coverage for `Wall`/`Gate` at
+  `AgeId.Classical` (2,314-2,781 tris, comfortably under the ceiling).
+  869/869 EditMode tests pass (1 pre-existing, unrelated
+  `BuildingPrefabValidationTests` NRE, same standing baseline). Live-
+  verified via UnityMCP through the real production path: all 6 pieces
+  spawned via the real `WallFactory.Place`/`GateFactory.Place` calls at
+  Classical age and screenshotted — Straight's long axis confirmed world-X
+  via a true top-down shot, Corner/EndPost/TJunction/XJunction all read as
+  correctly-connected turret-capped junctions, Gate reads as a genuine
+  two-tower archway with visible closed doors matching its own concept art;
+  a second Straight piece spawned at Durg age confirmed the darken tint
+  applies (measurably darker material) on the byte-identical mesh. Raw glb
+  staging folders (~50MB) deleted per this project's own "transient staging
+  area" convention once every destination `_Lowpoly` asset was confirmed
+  independent (`Resources.Load` re-verified resolving all 6 prefabs
+  correctly post-deletion). Next: whatever the user directs — Imperial-tier
+  wall/gate art is still the one remaining age/civ combination with no
+  dedicated modular-kit treatment.
 - **Classical/Durg age wall-and-gate kit added as flat sprite billboards,
-  gate gains a real open/close door animation (2026-09-28).** Ad hoc,
+  gate gains a real open/close door animation (2026-09-28) — superseded the
+  same day, see the entry above.** Ad hoc,
   direct follow-up to the same-day Ancient modular kit session. User
   supplied 6 unlabeled ChatGPT-generated isometric PNG renders ("classic age
   wall and gate kit") — a 2D concept-art delivery, not a 3D glb/fbx model

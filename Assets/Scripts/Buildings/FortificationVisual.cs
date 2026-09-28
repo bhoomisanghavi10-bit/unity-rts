@@ -5,33 +5,38 @@ using KingdomsOfBharat.Progression;
 namespace KingdomsOfBharat.Buildings
 {
     // Shared age-branching visual builder for Wall (every WallPieceKind
-    // variant) and Gate (2026-09-28, alongside the "classic age wall and
-    // gate kit" delivery). Ancient and Imperial keep using
-    // BuildingModelFactory's real 3D mesh pipeline (via its own Refresh,
-    // given an already-created root) exactly as before this delivery -
-    // Refresh's own age-suffixed lookup chain already degrades correctly
-    // for ages with no dedicated art (Imperial resolves to the per-civ
-    // model, an Ancient-only junction piece resolves to its literal
-    // resourceName with no suffix). Classical and Durg use the new flat
-    // isometric sprite-billboard kit (WallSpriteVisual) instead - Durg
-    // reuses Classical's exact same source images with a plain material
-    // darken tint, not a second baked-darker delivery (see
-    // WallSpriteVisual.MaterialFor).
+    // variant) and Gate. Ancient/Imperial always used BuildingModelFactory's
+    // real 3D mesh pipeline (via its own Refresh, given an already-created
+    // root) - Refresh's own age-suffixed lookup chain already degrades
+    // correctly for ages with no dedicated art (Imperial resolves to the
+    // per-civ model, an Ancient-only junction piece resolves to its literal
+    // resourceName with no suffix). Classical/Durg (2026-09-28, "classic age
+    // wall and gate kit") originally used a flat isometric sprite-billboard
+    // kit (WallSpriteVisual) - a genuine ChatGPT-rendered 2D delivery, not a
+    // 3D model. That delivery was superseded the same day by a real Meshy
+    // glb kit (straight/corner/end post/T/X/gate, matching the Ancient kit's
+    // own shape), so Classical/Durg now go through the exact same
+    // BuildingModelFactory.Refresh mesh path as Ancient/Imperial - the age
+    // branch below is gone entirely. Durg still reuses Classical's exact
+    // same 6 meshes (Buildings/{name}_Classical resolves for both ages,
+    // since Refresh always passes AgeId.Classical for either - see
+    // WallFactory/GateFactory's own ClassicalMeshResourceName), darkened via
+    // the same 0.7x material-color multiply the old sprite path used
+    // (DarkenMaterials below), applied after the normal civ tint.
     internal static class FortificationVisual
     {
-        public static void Build(GameObject root, string meshResourceName, string classicalClosedPath, string classicalOpenPath, AgeId age, CivilizationId civ, Color civColor, FactionId? faction, Vector3 size)
+        private static readonly Color DurgTint = new Color(0.7f, 0.7f, 0.7f, 1f);
+
+        public static void Build(GameObject root, string meshResourceName, AgeId age, CivilizationId civ, Color civColor, FactionId? faction, Vector3 size)
         {
             DestroyExistingVisualAndColliders(root);
 
-            if (age == AgeId.Classical || age == AgeId.Durg)
-            {
-                bool darken = age == AgeId.Durg;
-                WallSpriteVisual.Build(root, classicalClosedPath, classicalOpenPath, size.x, size.y, darken);
-                AddBoxCollider(root, size);
-                return;
-            }
-
             BuildingModelFactory.Refresh(root, meshResourceName, civ, age, size, civColor, faction);
+
+            if (age == AgeId.Durg)
+            {
+                DarkenMaterials(root);
+            }
         }
 
         private static void DestroyExistingVisualAndColliders(GameObject root)
@@ -48,16 +53,37 @@ namespace KingdomsOfBharat.Buildings
             }
         }
 
-        // BuildingModelFactory's own mesh path derives a tight collider from
-        // the real rendered bounds instead - this is the sprite path's
-        // equivalent, sized to the same gameplay Size box every other part
-        // of this piece (NavMeshObstacle/BuildingFootprint) already uses,
-        // so clicking/raycasting against a flat card hits a real volume.
-        private static void AddBoxCollider(GameObject root, Vector3 size)
+        // BuildingModelFactory.TintMaterials already instantiates a unique
+        // Material per renderer (see its own comment) - safe to further
+        // darken those instances here without affecting any other building
+        // sharing the same source texture/material. Mirrors TintMaterials'
+        // own if/else-if property-priority chain exactly (never checking
+        // more than one property per material) so this can't double-darken
+        // a shader that happens to expose more than one of these names.
+        private static void DarkenMaterials(GameObject root)
         {
-            var collider = root.AddComponent<BoxCollider>();
-            collider.size = size;
-            collider.center = Vector3.zero;
+            foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
+            {
+                foreach (Material material in renderer.materials)
+                {
+                    if (material.HasProperty("_Color"))
+                    {
+                        material.color *= DurgTint;
+                    }
+                    else if (material.HasProperty("_BaseColor"))
+                    {
+                        material.SetColor("_BaseColor", material.GetColor("_BaseColor") * DurgTint);
+                    }
+                    else if (material.HasProperty("baseColorFactor"))
+                    {
+                        material.SetColor("baseColorFactor", material.GetColor("baseColorFactor") * DurgTint);
+                    }
+                    else if (material.HasProperty("diffuseFactor"))
+                    {
+                        material.SetColor("diffuseFactor", material.GetColor("diffuseFactor") * DurgTint);
+                    }
+                }
+            }
         }
     }
 }

@@ -9,10 +9,10 @@ namespace KingdomsOfBharat.Buildings
     // building owned by the faction that just aged up rebuilds its visual
     // mesh in place" behavior, user-confirmed 2026-09-04) but calls into
     // FortificationVisual instead of BuildingModelFactory.Refresh directly,
-    // since Wall/Gate now need to pick between a 3D mesh (Ancient/Imperial)
-    // and a flat sprite billboard (Classical/Durg) depending on the new
-    // age - TownCenter/Tower stay on the original AgeTieredBuildingVisual
-    // unchanged, since they're mesh-only at every age.
+    // since Wall/Gate route through a per-WallPieceKind resource-name lookup
+    // (WallFactory.ResourceNameFor/GateFactory's own Classical branch) that
+    // TownCenter/Tower don't need - those stay on the original
+    // AgeTieredBuildingVisual unchanged.
     public class WallAgeVisual : MonoBehaviour
     {
         private bool _isGate;
