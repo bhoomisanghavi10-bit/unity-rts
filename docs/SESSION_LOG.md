@@ -13102,3 +13102,174 @@ Baseline: camera post-processing off, no Volume, no fog, default procedural sky,
 - Deepened `FortificationVisual.DurgTint` from `(0.7,0.7,0.7,1)` to `(0.5,0.5,0.5,1)`. Hit one real verification trap along the way: a first side-by-side screenshot (Classical/Durg Corner pieces placed at the exact same coordinates as an earlier, already-tested batch) came back pixel-identical to a screenshot taken *before* the tint change - not a caching bug, but leftover test GameObjects from the prior spawn still alive at the same position (ad hoc `execute_code` spawns aren't cleaned up by `CivilizationSetup.BeginMatch`), z-fighting with the new ones and consistently winning the depth test. Fixed by destroying every leftover `Wall`/`Gate` test object and re-spawning at fresh, non-overlapping coordinates before re-screenshotting - the darker tint is now clearly visible in a clean side-by-side shot, and `_BaseColor` sampling confirmed exactly 0.5x on the new pieces.
 - 868/869 EditMode tests pass (1 pre-existing, unrelated `BuildingPrefabValidationTests` NRE, same standing baseline). No new test needed (pure constant-value change to already-tested darkening logic).
 - Files touched: `Assets/Scripts/Buildings/FortificationVisual.cs`.
+
+## 2026-09-29 — Wall mechanics audit vs. real AoE2 reference, 4 gaps closed
+- User pasted AoE2's own wall-mechanics writeup (grid/collision, foundation
+  states/quick-wall, procedural sprite/mesh auto-connections, gate
+  integration, fog-of-war placement scanning) and asked for an audit
+  against this project, then to flag and implement the gaps. Audit found
+  5 candidates; re-checking gap 5 (fog-of-war wall-placement scanning)
+  showed it's already correct as-is - `BuildingFootprint.IsClear`/
+  `BarracksFactory.IsClear` both check `Building.All` (full ground truth,
+  no per-faction vision filter), matching AoE2's own real behavior of
+  blocking placement over an unseen enemy building. No work needed there.
+  Flagged the remaining 4 real gaps as a new roadmap row (item #12) in
+  the "Roadmap - Open Items & Priority" sheet before planning
+  implementation via Plan Mode. Two design decisions confirmed with the
+  user via AskUserQuestion before coding: foundation states apply to
+  **all buildings** (not just Wall/Gate, reusing the shared
+  `ConstructionSite`/`Attackable` classes uniformly - matches this
+  project's own precedent for the AoE II multi-builder diminishing-
+  returns fix), and auto piece-kind selection is **fully automatic** (the
+  existing Alpha1-5 manual hotkey scheme is removed entirely, matching
+  AoE2's own always-automatic behavior).
+
+**Part A - Foundation states ("quick-wall"), all buildings**:
+`ConstructionSite.cs` gained a lazily-resolved `NavMeshObstacle` property
+(never resolved in `Awake()`/`EnsureInitialized()` - `WallFactory`/
+`GateFactory` add their own obstacle AFTER `ConstructionSite`, the same
+"AddComponent ordering hazard" this codebase already documents elsewhere
+for `Repairable`/`Barracks`'s lazy `Site`/`FactionMember` getters; every
+caller of the new `Obstacle` property - `Update`/`BeginBuilding`/
+`CompleteImmediately`/`RestoreProgress` - only ever runs after the owning
+Factory's `Place()` has fully returned, so it's always safe there) and a
+new `HasStarted` flag: a fresh foundation's `Update()` flips its obstacle
+to `carving = false` once (the Factory itself is untouched, still creates
+it `carving = true` as before - this just flips it back a frame later,
+before any real gameplay could observe it blocking), `BeginBuilding()`
+flips it permanently to `true` on the first-ever call (matching AoE2's
+"the moment a villager strikes the tile exactly once... immediately
+registers a hard collision box" - `StopBuilding()` never reverts it), and
+`CompleteImmediately()`/`RestoreProgress(progress > 0)` both force it
+`true` directly. `Attackable.TakeDamage` (`Combat/Attackable.cs`) now
+zeroes armor for any melee-armor-resolved hit (Melee/Trample/Siege, not
+Pierce/Fire) against a sibling `ConstructionSite` that isn't yet
+complete - AoE2's "0 Melee Armor while incomplete... massive bonus
+damage from melee attacks" rule, pierce-specific exclusion matching the
+rule's own wording. 9 new EditMode tests
+(`ConstructionSitePassabilityTests.cs`).
+
+**Part B - Diagonal wall-gap blocking**: this project uses a continuous
+NavMesh, not AoE2's tile grid, so the literal "two diagonal tiles block
+the corner" rule doesn't map directly - reproduced geometrically instead.
+New `WallCornerSeal.TryComputeSeal` (pure function): two AABB footprints
+(rotation ignored, same simplification `BuildingFootprint.IsClear`
+already uses everywhere) are "diagonal neighbors" when neither their X
+nor Z ranges overlap (a genuine corner offset, not an orthogonal
+adjacency) and both gaps are <= 1.5 units (big enough to catch a real
+one-tile diagonal skip at the 2.4-unit wall/junction footprint, small
+enough not to falsely seal unrelated nearby walls) - returns the exact
+box needed to plug the gap. New `WallCornerSealLink` (a small poll-every-
+0.5s `MonoBehaviour`, mirroring `Gate.checkInterval`'s own convention)
+self-destroys the seal once either of the two walls/gates it plugs is
+gone, so a broken wall doesn't leave a permanent floating obstacle. Wired
+into `BuildingPlacer.ExecuteBuild`'s Wall/Gate cases via a new
+`SealDiagonalGaps` (faction-agnostic - a pure geometry/pathing rule, same
+convention `BarracksFactory.IsClear` already uses for Wall/Gate
+clearance). 5 new EditMode tests (`WallCornerSealTests.cs`).
+
+**Part C - Gate absorbing overlapping Wall segments**: previously a Gate
+placed where a Wall already stood was just blocked as "not clear."
+`BuildingPlacer` gained `IsClearForGate` (same clearance-circle shape as
+`BarracksFactory.IsClear`, but a same-faction Wall doesn't block - an
+enemy-owned Wall, or any other building, still does, so this can't be
+used to grief an opponent's fortifications), `FindAbsorbableWalls`
+(rotation-agnostic AABB overlap between the Gate's real footprint and
+each same-faction Wall's `BuildingFootprintTag.Size`), and `AbsorbWalls`
+(full refund of each Wall's recorded `BuildingCost` - a replace, not a
+cancel, so unlike `ConstructionSite.CancelAndRefund` this applies the
+same regardless of completion/damage state, matching AoE2's own literal
+"deleting the targeted 1x1 wall entities and refunding... them"). Wired
+into `ExecuteBuild`'s Gate case right before `GateFactory.Place`. 6 new
+EditMode tests (`GateAbsorptionTests.cs`) - hit and fixed a real
+cross-test-leakage bug along the way: `AbsorbWalls` (production code)
+destroys a Wall's GameObject directly without going through the test's
+own `_spawned`-tracked cleanup, and `Building.OnDisable` isn't guaranteed
+to fire synchronously in EditMode (this project's own documented gotcha),
+so a destroyed Wall was left as a stale fake-null entry in the shared
+static `Building.All`, breaking ~25 unrelated tests elsewhere in the
+suite (`ScoreProgressTests`, `MatchManagerTests`, `SaveSchemaVersionTests`,
+etc. - every one that iterates `Building.All`) with a
+`MissingReferenceException`. Fixed by having `GateAbsorptionTests`'s own
+`TearDown` purge null entries from `Building.All` directly
+(`RemoveAll(b => b == null)`), not just entries reachable via its own
+`_spawned` list.
+
+**Part D - Automatic neighbor-based piece-kind selection**: the existing
+Alpha1-5 hotkey scheme (`BuildingPlacer._wallPieceVariant`/
+`UpdateWallPieceSelection`/`WallVariantHotkeys`) is removed entirely,
+along with its `HotkeyOverlay.WallPieceGroup` HUD entry. New
+`WallConnectivity.ClassifyPieceKind` (pure function): since this
+project's walls are free-angle, not grid-snapped (Session A's own
+deliberate choice), a literal cardinal bitmask doesn't apply -
+classifies by the ANGLE BETWEEN neighbor directions instead (rotation-
+invariant, works at any drag angle): 0-1 neighbors -> EndPost, 2 roughly
+opposite (within 30 degrees of 180) -> Straight, 2 at any other angle ->
+Corner, 3 -> TJunction, 4+ -> XJunction. New `BuildingPlacer.
+ClassifyChainSegment` gathers each segment's real neighbors - both
+already-placed Wall/Gate buildings AND the in-progress chain's own other
+segments (not yet real Buildings at classify time) - and is shared by
+`UpdateWallGhosts` (preview) and `ConfirmWallChain` (actual placement),
+so what the player sees is exactly what gets built. A side effect worth
+noting: a straight drag chain's own two ENDPOINTS now correctly get
+EndPost caps automatically (each has only 1 neighbor within range) while
+the interior stays Straight - strictly better than the old rule
+("a real drag is always Straight tiles"), not just a lateral change.
+Disclosed, accepted simplification: classification only runs for the
+piece(s) being newly placed, not retroactively on already-standing
+neighbors (would also need repositioning a piece vertically, since
+Straight/Junction pieces have different baked heights - a materially
+bigger change, flagged as a future follow-up). 7 new EditMode tests
+(`WallConnectivityTests.cs`).
+
+897 EditMode tests total (869 baseline + 28 new), all pass except the
+same 1 pre-existing, unrelated `BuildingPrefabValidationTests` NRE this
+project has carried as a standing baseline for many sessions.
+
+**Live-verified via UnityMCP through the real production path**, all 4
+parts, in a real match (`CivilizationSetup.BeginMatch(Maurya)`):
+- Part D: a real `BuildingPlacer.ConfirmWallChain` call (reflection-driven,
+  a genuine 3-segment L-shaped chain) produced real spawned Walls whose
+  `WallAgeVisual`'s own stored piece kind read exactly EndPost/Corner/
+  EndPost - the bend correctly became a Corner, both ends correctly
+  became EndPosts, confirmed via the actual `WallAgeVisual` component on
+  each spawned GameObject, not a shortcut.
+- Part B: two real Wall pieces placed 3 units apart diagonally (a
+  genuine 0.6x0.6 corner gap at that spacing) produced a real
+  `WallCornerSeal` child GameObject with a `NavMeshObstacle`
+  (`carving=true`, sized exactly to the computed gap) on the second wall.
+  Confirmed the gap is genuinely closed, not just present as an object:
+  `NavMesh.CalculatePath` between two points just inside each wall's
+  facing corner (straight-line distance 1.79 units) returned a real
+  4-corner detour path of length 3.19 units - the pathfinder has to
+  route around, proving the diagonal squeeze is actually blocked.
+- Part C: a real 2-segment straight Wall run, then a real
+  `BuildingPlacer.ExecuteBuild(Gate, ...)` call at the same spot -
+  both Wall GameObjects were gone afterward (only the new Gate remained
+  near that position), and the Player's Stone stockpile showed a net
+  +20 (full refund of both walls' recorded Stone cost exceeded the
+  Gate's own Stone cost) while Wood dropped by exactly the Gate's own
+  Wood cost (Walls never recorded any Wood cost to refund) - both
+  numbers independently consistent with a correct full-refund absorption.
+- Part A: a fresh Wall foundation's real `NavMeshObstacle.carving` read
+  `true` immediately at spawn (the Factory's own unchanged behavior) and
+  `false` after real elapsed gameplay time (`ConstructionSite`'s own
+  `Update()` had run) - confirming the passable window is real, not just
+  present in isolated test fixtures. A real `ConstructionSite.
+  BeginBuilding()` call flipped `carving` back to `true` and
+  `HasStarted` to `true`; a following `StopBuilding()` call left
+  `carving` unchanged at `true` (never un-blocks once started). Separately,
+  a real melee `Attackable.TakeDamage(10f, Melee)` against an incomplete
+  wall (6 melee armor) dropped its HP by the full 10, while the identical
+  hit against a `CompleteImmediately()`-completed twin dropped HP by only
+  4 (10 - 6 armor) - the armor-deficit rule confirmed live, not just in
+  the unit tests.
+
+Files touched: `Assets/Scripts/Buildings/ConstructionSite.cs`,
+`Assets/Scripts/Combat/Attackable.cs`, `Assets/Scripts/Buildings/
+BuildingPlacer.cs`, `Assets/Scripts/UI/HotkeyOverlay.cs`; new
+`WallCornerSeal.cs`/`WallCornerSealLink.cs`/`WallConnectivity.cs`; new
+`ConstructionSitePassabilityTests.cs`/`WallCornerSealTests.cs`/
+`GateAbsorptionTests.cs`/`WallConnectivityTests.cs`;
+`docs/KingdomsOfBharat_Master_Reference.xlsx`'s "Roadmap - Open Items &
+Priority" sheet (item #12 added and marked Implemented).

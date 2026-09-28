@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using KingdomsOfBharat.Vfx;
 using KingdomsOfBharat.Audio;
+using KingdomsOfBharat.Buildings;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Progression;
 
@@ -187,6 +188,18 @@ namespace KingdomsOfBharat.Combat
             if (appliesToThisType && Faction != null)
             {
                 armor += UpgradeProgress.ArmorBonus(Faction.Faction) + UpgradeProgress.ClassArmorBonus(Faction.Faction, unitClass);
+            }
+
+            // AoE2 foundation-state rule: an unfinished building has 0
+            // melee armor - "an incomplete wall tile takes massive bonus
+            // damage from melee attacks." Pierce/Fire hits are untouched
+            // (matches the rule's specific "0 Melee Armor" wording, not a
+            // blanket zero); a building with no ConstructionSite at all
+            // (e.g. the milestone-4 starting Town Center) is always
+            // treated as complete, per ConstructionSite's own class doc.
+            if (!usesPierceArmor && TryGetComponent(out ConstructionSite site) && !site.IsComplete)
+            {
+                armor = 0f;
             }
 
             // Maratha's Ganimi Kava Doctrine unique tech (UniqueTechDefinition):

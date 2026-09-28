@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AI;
 using KingdomsOfBharat.ResourceGathering;
 using KingdomsOfBharat.Core;
 using KingdomsOfBharat.Progression;
@@ -69,11 +70,15 @@ namespace KingdomsOfBharat.Buildings
         // segments) always places Straight tiles - ComputeWallChain's math
         // assumes a uniform repeated tile, so a junction piece there
         // wouldn't line up. A plain click (the chain's own zero-drag
-        // degenerate case, count==1) places whichever piece is currently
-        // selected via the Alpha1-5 keys below, letting the player drop a
-        // Corner/EndPost/T/X-junction at the end of an otherwise-normal
-        // Wall chain drag.
-        private WallFactory.WallPieceKind _wallPieceVariant = WallFactory.WallPieceKind.Straight;
+        // degenerate case, count==1) now auto-selects Straight/Corner/
+        // EndPost/T/X from the click point's real neighbors instead of a
+        // manual hotkey pick - see WallConnectivity.ClassifyPieceKind and
+        // ConfirmWallChain/UpdateWallGhosts below (wall mechanics audit,
+        // 2026-09-29 - replaces the removed Alpha1-5 selector, matching
+        // AoE2's own always-automatic piece shape). Neighbor search radius
+        // is a multiple of wallSize.x (not a fixed constant), so it stays
+        // correct if that field is ever retuned in the Inspector.
+        private const float WallNeighborDistanceMultiplier = 1.15f;
 
         // A junction piece is a taller, bulkier standalone structure than
         // one 2.4-wide straight tile - not independently balanced, just a
@@ -599,34 +604,13 @@ namespace KingdomsOfBharat.Buildings
         // ComputeWallChain trivially returns a single segment at the
         // cursor - identical to the old single-ghost preview, meaning a
         // plain click-without-drag is completely unaffected by this path.
-        // Ancient modular wall kit (2026-09-28): Alpha1-5 pick which piece a
-        // subsequent plain click (not a drag) will place - see
-        // _wallPieceVariant's own comment. Logged on change since there's no
-        // dedicated HUD readout for the current selection yet.
-        private static readonly WallFactory.WallPieceKind[] WallVariantHotkeys =
-        {
-            WallFactory.WallPieceKind.Straight,
-            WallFactory.WallPieceKind.Corner,
-            WallFactory.WallPieceKind.EndPost,
-            WallFactory.WallPieceKind.TJunction,
-            WallFactory.WallPieceKind.XJunction,
-        };
-
-        private void UpdateWallPieceSelection()
-        {
-            for (int i = 0; i < WallVariantHotkeys.Length; i++)
-            {
-                if (Input.GetKeyDown(KeyCode.Alpha1 + i))
-                {
-                    _wallPieceVariant = WallVariantHotkeys[i];
-                    Debug.Log($"BuildingPlacer: wall piece set to {_wallPieceVariant}");
-                }
-            }
-        }
-
+        // Piece shape (Straight/Corner/EndPost/T/X) is now always derived
+        // from real neighbors - see ClassifyChainSegment/
+        // WallConnectivity.ClassifyPieceKind - instead of a manual
+        // Alpha1-5 hotkey pick (removed, wall mechanics audit 2026-09-29:
+        // AoE2 never lets the player choose a wall tile's shape).
         private void UpdateWallDrag()
         {
-            UpdateWallPieceSelection();
             bool hasGround = TryGetGroundPoint(out Vector3 current);
 
             if (!_wallDragActive && Input.GetMouseButtonDown(0) && hasGround)
@@ -676,6 +660,53 @@ namespace KingdomsOfBharat.Buildings
             return result;
         }
 
+        // Wall mechanics audit (2026-09-29): the real neighbor set for
+        // segment `index` in an in-progress chain - every OTHER segment in
+        // this same chain (not yet real Buildings at preview/classify
+        // time) plus every already-placed Wall/Gate, both within
+        // wallSize.x * WallNeighborDistanceMultiplier of this segment's
+        // own position. Shared by UpdateWallGhosts (preview) and
+        // ConfirmWallChain (actual placement) so what the player sees is
+        // exactly what gets built.
+        private WallFactory.WallPieceKind ClassifyChainSegment(
+            int index, System.Collections.Generic.List<(Vector3 position, Quaternion rotation)> chain)
+        {
+            Vector3 position = chain[index].position;
+            float neighborDistance = wallSize.x * WallNeighborDistanceMultiplier;
+            var neighbors = new System.Collections.Generic.List<Vector3>();
+
+            for (int i = 0; i < chain.Count; i++)
+            {
+                if (i == index)
+                {
+                    continue;
+                }
+                if (FlatDistance(position, chain[i].position) <= neighborDistance)
+                {
+                    neighbors.Add(chain[i].position);
+                }
+            }
+
+            foreach (Building building in Building.All)
+            {
+                if (!(building is Wall || building is Gate))
+                {
+                    continue;
+                }
+                if (FlatDistance(position, building.transform.position) <= neighborDistance)
+                {
+                    neighbors.Add(building.transform.position);
+                }
+            }
+
+            return WallConnectivity.ClassifyPieceKind(position, neighbors);
+        }
+
+        private static float FlatDistance(Vector3 a, Vector3 b)
+        {
+            return Mathf.Sqrt((a.x - b.x) * (a.x - b.x) + (a.z - b.z) * (a.z - b.z));
+        }
+
         private void UpdateWallGhosts(System.Collections.Generic.List<(Vector3 position, Quaternion rotation)> chain)
         {
             while (_wallGhosts.Count < chain.Count)
@@ -702,11 +733,10 @@ namespace KingdomsOfBharat.Buildings
                     grounded = position;
                 }
 
-                // A single ghost (no drag yet) previews the currently
-                // selected piece's own real footprint size; a real
-                // multi-segment drag always previews Straight tiles
-                // (matches ConfirmWallChain's own count==1 rule).
-                Vector3 ghostSize = chain.Count == 1 ? WallFactory.PieceSize(_wallPieceVariant) : wallSize;
+                // Each ghost previews its own real, neighbor-derived
+                // piece shape - see ClassifyChainSegment.
+                WallFactory.WallPieceKind previewKind = ClassifyChainSegment(i, chain);
+                Vector3 ghostSize = WallFactory.PieceSize(previewKind);
 
                 GameObject ghost = _wallGhosts[i];
                 ghost.transform.SetPositionAndRotation(grounded + Vector3.up * (ghostSize.y * 0.5f), rotation);
@@ -721,7 +751,7 @@ namespace KingdomsOfBharat.Buildings
                 // can't itself let an unaffordable segment through.
                 bool clear = IsClearForKind(BuildingKind.Wall, grounded);
                 bool affordableSoFar = chain.Count == 1
-                    ? CanAfford(BuildingKind.Wall, _wallPieceVariant)
+                    ? CanAfford(BuildingKind.Wall, previewKind)
                     : CanAffordWallCount(i + 1);
                 ghost.GetComponent<MeshRenderer>().sharedMaterial.color = clear && affordableSoFar
                     ? new Color(0.3f, 1f, 0.3f, 0.5f)
@@ -752,17 +782,18 @@ namespace KingdomsOfBharat.Buildings
         // guard.
         private void ConfirmWallChain(System.Collections.Generic.List<(Vector3 position, Quaternion rotation)> chain)
         {
-            // A real drag (2+ segments) is always Straight tiles - only a
-            // plain click (the chain's zero-drag degenerate case) honors
-            // the player's selected junction piece. See _wallPieceVariant.
-            WallFactory.WallPieceKind pieceKind = chain.Count == 1 ? _wallPieceVariant : WallFactory.WallPieceKind.Straight;
-
-            foreach ((Vector3 position, Quaternion rotation) in chain)
+            for (int i = 0; i < chain.Count; i++)
             {
+                (Vector3 position, Quaternion rotation) = chain[i];
                 if (!TryGetGroundHeightAt(position, out Vector3 grounded))
                 {
                     continue;
                 }
+
+                // Piece shape is derived from real neighbors, exactly
+                // matching whatever UpdateWallGhosts already previewed for
+                // this same segment - see ClassifyChainSegment.
+                WallFactory.WallPieceKind pieceKind = ClassifyChainSegment(i, chain);
 
                 if (!IsClearForKind(BuildingKind.Wall, grounded) || !CanAfford(BuildingKind.Wall, pieceKind))
                 {
@@ -898,10 +929,23 @@ namespace KingdomsOfBharat.Buildings
                     stockpile.Add(ResourceType.Stone, -stone);
                     spawned = WallFactory.Place(point, NetworkMatch.LocalFaction, wallBuildTime, rotation, pieceKind);
                     RecordCost(spawned, ResourceType.Stone, stone);
+                    Vector3 wallPieceSize = WallFactory.PieceSize(pieceKind);
+                    SealDiagonalGaps(spawned, new Vector2(wallPieceSize.x, wallPieceSize.z));
                     break;
                 }
                 case BuildingKind.Gate:
                 {
+                    // Wall mechanics audit: absorb any same-faction Wall
+                    // segment(s) this Gate's own footprint now overlaps -
+                    // see AbsorbWalls/FindAbsorbableWalls. Must happen
+                    // before Place() spawns the Gate (which shares this
+                    // exact spot), and after the re-validated
+                    // IsClearForKind check above already let it through
+                    // (that check excludes same-faction Walls specifically
+                    // so they don't block a Gate that's about to absorb
+                    // them - see IsClearForGate).
+                    AbsorbWalls(FindAbsorbableWalls(point, gateSize, NetworkMatch.LocalFaction), NetworkMatch.LocalFaction);
+
                     float stone = gateStoneCost * multiplier * StoneMultiplierFor(kind);
                     float wood = gateWoodCost * multiplier;
                     stockpile.Add(ResourceType.Stone, -stone);
@@ -909,6 +953,7 @@ namespace KingdomsOfBharat.Buildings
                     spawned = GateFactory.Place(point, NetworkMatch.LocalFaction, gateBuildTime);
                     RecordCost(spawned, ResourceType.Stone, stone);
                     RecordCost(spawned, ResourceType.Wood, wood);
+                    SealDiagonalGaps(spawned, new Vector2(gateSize.x, gateSize.z));
                     break;
                 }
                 case BuildingKind.Tower:
@@ -1138,6 +1183,144 @@ namespace KingdomsOfBharat.Buildings
             };
         }
 
+        // Wall mechanics audit (2026-09-29): same clearance-circle shape as
+        // BarracksFactory.IsClear, but a same-faction Wall doesn't count as
+        // blocking - it's absorbable (see AbsorbWalls). An enemy-owned
+        // Wall (or any non-Wall building, any faction) still blocks
+        // normally, so this can't be used to grief/clear an opponent's
+        // fortifications by dropping a Gate on them.
+        internal static bool IsClearForGate(Vector3 point, float clearance, FactionId faction)
+        {
+            foreach (Building building in Building.All)
+            {
+                if (building is Wall && building.TryGetComponent(out FactionMember member) && member.Faction == faction)
+                {
+                    continue;
+                }
+
+                if (Vector3.Distance(building.transform.position, point) < clearance)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // Every same-faction Wall whose real footprint (BuildingFootprintTag,
+        // set by WallFactory via BuildingFootprint.Attach) genuinely
+        // overlaps the Gate's own footprint at `point` - the set this
+        // Gate placement is about to absorb. Rotation-agnostic AABB
+        // overlap, same simplification BuildingFootprint.IsClear already
+        // uses everywhere in this project.
+        internal static System.Collections.Generic.List<Wall> FindAbsorbableWalls(Vector3 point, Vector3 gateSize, FactionId faction)
+        {
+            var result = new System.Collections.Generic.List<Wall>();
+            float halfX = gateSize.x * 0.5f;
+            float halfZ = gateSize.z * 0.5f;
+
+            foreach (Building building in Building.All)
+            {
+                if (!(building is Wall wall) || !wall.TryGetComponent(out FactionMember member) || member.Faction != faction)
+                {
+                    continue;
+                }
+
+                Vector2 wallFootprint = wall.TryGetComponent(out BuildingFootprintTag tag)
+                    ? tag.Size
+                    : new Vector2(2.4f, 2.4f);
+                float halfWidthSum = halfX + wallFootprint.x * 0.5f;
+                float halfDepthSum = halfZ + wallFootprint.y * 0.5f;
+                Vector3 wallPosition = wall.transform.position;
+
+                if (Mathf.Abs(point.x - wallPosition.x) < halfWidthSum && Mathf.Abs(point.z - wallPosition.z) < halfDepthSum)
+                {
+                    result.Add(wall);
+                }
+            }
+
+            return result;
+        }
+
+        // Deletes each given Wall and refunds its recorded BuildingCost in
+        // full - a replace, not a cancel, so (unlike
+        // ConstructionSite.CancelAndRefund) this applies the same
+        // regardless of the wall's completion/damage state, matching
+        // AoE2's own "deleting the targeted 1x1 wall entities and
+        // refunding... them" rule for a Gate placed over an existing wall
+        // line.
+        internal static void AbsorbWalls(System.Collections.Generic.List<Wall> walls, FactionId faction)
+        {
+            if (walls.Count == 0)
+            {
+                return;
+            }
+
+            ResourceStockpile stockpile = ResourceStockpile.For(faction);
+            foreach (Wall wall in walls)
+            {
+                if (wall.TryGetComponent(out BuildingCost cost))
+                {
+                    cost.Refund(stockpile, 1f);
+                }
+
+                if (Application.isPlaying)
+                {
+                    Destroy(wall.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(wall.gameObject);
+                }
+            }
+        }
+
+        // Wall mechanics audit (2026-09-29): scans every other live
+        // Wall/Gate for a diagonal-corner gap against the just-spawned
+        // piece and plugs each one found - see WallCornerSeal/
+        // WallCornerSealLink. Faction-agnostic (a pure geometry/pathing
+        // rule, not an ownership one, same convention BarracksFactory.
+        // IsClear already uses for Wall/Gate clearance).
+        private const float WallCornerSealMaxGap = 1.5f;
+
+        private void SealDiagonalGaps(GameObject spawned, Vector2 footprint)
+        {
+            if (spawned == null || !spawned.TryGetComponent(out Building newBuilding))
+            {
+                return;
+            }
+
+            Vector3 newCenter = spawned.transform.position;
+
+            foreach (Building other in Building.All)
+            {
+                if (other == newBuilding || !(other is Wall || other is Gate))
+                {
+                    continue;
+                }
+
+                Vector2 otherFootprint = other.TryGetComponent(out BuildingFootprintTag tag)
+                    ? tag.Size
+                    : new Vector2(2.4f, 2.4f);
+
+                if (!WallCornerSeal.TryComputeSeal(newCenter, footprint, other.transform.position, otherFootprint, WallCornerSealMaxGap, out Vector3 sealCenter, out Vector2 sealSize))
+                {
+                    continue;
+                }
+
+                GameObject seal = new GameObject("WallCornerSeal");
+                seal.transform.SetParent(spawned.transform, worldPositionStays: true);
+                seal.transform.position = sealCenter;
+
+                var obstacle = seal.AddComponent<NavMeshObstacle>();
+                obstacle.shape = NavMeshObstacleShape.Box;
+                obstacle.size = new Vector3(sealSize.x, 10f, sealSize.y);
+                obstacle.carving = true;
+
+                seal.AddComponent<WallCornerSealLink>().Configure(newBuilding, other);
+            }
+        }
+
         // Item 49: Dock needs an extra gate beyond the generic "not on top
         // of another building" check every other kind uses - it has to
         // actually be near water to be useful, and can't be placed
@@ -1152,9 +1335,24 @@ namespace KingdomsOfBharat.Buildings
         // different placement in the meantime.
         private bool IsClearForKind(BuildingKind kind, Vector3 point)
         {
-            bool clear = kind == BuildingKind.Wall || kind == BuildingKind.Gate
-                ? BarracksFactory.IsClear(point, kind == BuildingKind.Gate ? gateClearance : wallClearance)
-                : BuildingFootprint.IsClear(point, CurrentFootprint(kind));
+            bool clear;
+            if (kind == BuildingKind.Gate)
+            {
+                // Wall mechanics audit: a same-faction Wall under/near the
+                // Gate doesn't block placement - it gets absorbed instead
+                // (see AbsorbWalls, called from ExecuteBuild). An
+                // enemy-faction Wall still blocks normally, same as any
+                // other building.
+                clear = IsClearForGate(point, gateClearance, NetworkMatch.LocalFaction);
+            }
+            else if (kind == BuildingKind.Wall)
+            {
+                clear = BarracksFactory.IsClear(point, wallClearance);
+            }
+            else
+            {
+                clear = BuildingFootprint.IsClear(point, CurrentFootprint(kind));
+            }
 
             // AoE-style stationary-resource rule: blocked by a gold/stone/
             // farm-type resource under the footprint, but NOT by a tree

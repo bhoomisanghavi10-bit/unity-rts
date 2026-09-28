@@ -77,21 +77,12 @@ namespace KingdomsOfBharat.UI
             new Entry("Place Monastery", "PlaceMonastery", KeyCode.G),
         });
 
-        // Ancient modular wall kit (2026-09-28): only meaningful while
-        // actively placing a Wall (a plain click, not a drag, uses whichever
-        // piece is selected here) - see BuildingPlacer._wallPieceVariant.
-        // Fixed, not rebindable via Settings (these actionIds are never
-        // registered in GameSettings, so GetKey always falls through to the
-        // Default below) - a deliberately smaller scope than every other
-        // hotkey in this file.
-        private static readonly Group WallPieceGroup = new Group("Wall Piece (Placing Wall, Click Not Drag)", new[]
-        {
-            new Entry("Straight", "WallPieceStraight", KeyCode.Alpha1),
-            new Entry("Corner", "WallPieceCorner", KeyCode.Alpha2),
-            new Entry("End Post", "WallPieceEndPost", KeyCode.Alpha3),
-            new Entry("T-Junction", "WallPieceTJunction", KeyCode.Alpha4),
-            new Entry("X-Junction", "WallPieceXJunction", KeyCode.Alpha5),
-        });
+        // Wall mechanics audit (2026-09-29): the Alpha1-5 manual wall-piece
+        // selector this group used to document is gone - piece shape
+        // (Straight/Corner/EndPost/T/X) is now always derived from real
+        // neighbors at placement time (see WallConnectivity.
+        // ClassifyPieceKind), matching AoE2's own always-automatic
+        // behavior. No hotkey group needed here anymore.
 
         private static readonly Group TownCenterGroup = new Group("Town Center Selected", new[]
         {
@@ -192,7 +183,7 @@ namespace KingdomsOfBharat.UI
         private static readonly Group[][] Columns =
         {
             new[] { GlobalGroup, DockGroup, MarketGroup, MonasteryGroup, GarrisonGroup, MillGroup },
-            new[] { PlacementGroup, WallPieceGroup },
+            new[] { PlacementGroup },
             new[] { TownCenterGroup, BarracksGroup, DurgGroup, KarmashalaGroup },
         };
 

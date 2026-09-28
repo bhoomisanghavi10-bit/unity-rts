@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AI;
 using KingdomsOfBharat.Vfx;
 using KingdomsOfBharat.Audio;
 using KingdomsOfBharat.Combat;
@@ -46,8 +47,43 @@ namespace KingdomsOfBharat.Buildings
         // flat-sprite visual can opt out the same way.
         private bool _skipVisualAnimation;
 
+        // AoE2 "quick-wall" foundation states: a freshly placed foundation
+        // is passable (see Update's one-time pass below) until a builder
+        // actually starts working it, at which point it becomes a hard
+        // obstacle forever (even if every builder later leaves - see
+        // BeginBuilding). Resolved lazily via a property, never in
+        // Awake()/EnsureInitialized() - WallFactory/GateFactory add their
+        // NavMeshObstacle AFTER this component (see their own Place()
+        // ordering), so an eager Awake-time lookup would cache null for
+        // those two specifically. Every caller of Obstacle below
+        // (Update/BeginBuilding/CompleteImmediately/RestoreProgress) only
+        // ever runs after the owning Factory's Place() has fully returned,
+        // so the obstacle is always guaranteed to exist by then.
+        private NavMeshObstacle _obstacle;
+        private bool _obstacleLookupDone;
+        private bool _hasStarted;
+        private bool _obstaclePassabilityApplied;
+
         public bool IsComplete { get; private set; }
         public float Progress => _progress;
+
+        // True once at least one builder has ever begun work here (or the
+        // site is already complete) - AoE2's "Initiated Foundation" state,
+        // which never reverts even if every builder subsequently leaves.
+        public bool HasStarted => _hasStarted || IsComplete;
+
+        private NavMeshObstacle Obstacle
+        {
+            get
+            {
+                if (!_obstacleLookupDone)
+                {
+                    TryGetComponent(out _obstacle);
+                    _obstacleLookupDone = true;
+                }
+                return _obstacle;
+            }
+        }
 
         // AoE II's diminishing-returns multi-builder formula, confirmed
         // 2026-08-29: Tn = T1 / (1 + 0.6*min(n-1,1) + 0.3*max(n-2,0)), so
@@ -77,6 +113,22 @@ namespace KingdomsOfBharat.Buildings
         public void BeginBuilding()
         {
             _activeBuilders++;
+
+            // The moment a builder ever starts work, the foundation
+            // registers a hard collision box - permanently, matching
+            // AoE2's own rule ("the moment a villager strikes the tile
+            // exactly once, the tile immediately registers a hard
+            // collision box"). Not re-checked on StopBuilding below - once
+            // started, it stays started.
+            if (!_hasStarted && !IsComplete)
+            {
+                _hasStarted = true;
+                _obstaclePassabilityApplied = true;
+                if (Obstacle != null)
+                {
+                    Obstacle.carving = true;
+                }
+            }
         }
 
         public void StopBuilding()
@@ -93,6 +145,12 @@ namespace KingdomsOfBharat.Buildings
             EnsureInitialized();
             _progress = 1f;
             IsComplete = true;
+            _hasStarted = true;
+            _obstaclePassabilityApplied = true;
+            if (Obstacle != null)
+            {
+                Obstacle.carving = true;
+            }
             ApplyHeight(_finalScale.y);
         }
 
@@ -109,6 +167,17 @@ namespace KingdomsOfBharat.Buildings
             EnsureInitialized();
             _progress = Mathf.Clamp01(progress);
             IsComplete = _progress >= 1f;
+            // Any nonzero saved progress means a builder must have worked
+            // this site before the save happened - restore that as
+            // "started" too, so a restored partially-built foundation
+            // stays a hard obstacle rather than reopening its passable
+            // window.
+            _hasStarted = _progress > 0f || IsComplete;
+            _obstaclePassabilityApplied = true;
+            if (Obstacle != null)
+            {
+                Obstacle.carving = _hasStarted;
+            }
             ApplyHeight(Mathf.Lerp(0.01f, _finalScale.y, _progress));
         }
 
@@ -148,6 +217,23 @@ namespace KingdomsOfBharat.Buildings
         private void Update()
         {
             EnsureInitialized();
+
+            // One-time pass (guaranteed to run after the owning Factory's
+            // Place() has fully returned, unlike Awake - see Obstacle's
+            // own comment): a freshly placed, never-started foundation
+            // starts passable, AoE2's "Placed Blueprint" state. The
+            // Factory itself still creates the obstacle with
+            // carving=true unchanged (no Factory file needs touching) -
+            // this just flips it back off before any real gameplay could
+            // observe it blocking.
+            if (!_obstaclePassabilityApplied)
+            {
+                _obstaclePassabilityApplied = true;
+                if (!IsComplete && !_hasStarted && Obstacle != null)
+                {
+                    Obstacle.carving = false;
+                }
+            }
 
             if (IsComplete || _activeBuilders <= 0)
             {
