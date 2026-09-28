@@ -676,7 +676,6 @@ MonoBehaviour:
   startingWoodlineTreeCount: 3
   startingGoldAmount: 20
   targetTerrain: {fileID: 0}
-  treePrototypeIndex: 0
   grassDetailLayerIndex: 0
   treesPerForestTile: 3
   grassDensityPerTile: 6
@@ -796,6 +795,7 @@ MonoBehaviour:
   gateWoodCost: 5
   gateBuildTime: 4
   gateSize: {x: 2.4, y: 1.8, z: 0.4}
+  gateClearance: 4
   placeTowerKey: 111
   towerWoodCost: 25
   towerStoneCost: 50

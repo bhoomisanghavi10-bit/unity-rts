@@ -32,9 +32,19 @@ namespace KingdomsOfBharat.ResourceGathering
         [Tooltip("Size of the one guaranteed primary gold node near each town centre - deliberately smaller than a general/contested-zone Gold Mine.")]
         [SerializeField] private float startingGoldAmount = 20f;
 
-        [Header("Terrain foliage (Nature Renderer 6 / Terrain trees + details)")]
+        // Trees (this section's own reason for existing - see roadmap item
+        // 13) are real native Terrain TreeInstances, wired by
+        // ProceduralTerrain.ApplyTreePrototypes. The detail (grass) layer
+        // below is deliberately left unwired - TerrainData.detailPrototypes
+        // is never assigned anywhere, so haveGrass/grassDensityPerTile stay
+        // permanently inert - since TerrainClutter.cs already paints a
+        // full, working GPU-instanced grass-tuft layer across every
+        // grass/dirt alphamap cell independently of this system; adding a
+        // second, native detail-grass layer on top would double the grass
+        // rendered with no visual gain. TerrainClutter.cs's own header
+        // comment documents the same split from its side.
+        [Header("Terrain foliage (native Unity Terrain trees + details)")]
         [SerializeField] private Terrain targetTerrain;
-        public int treePrototypeIndex = 0;
         public int grassDetailLayerIndex = 0;
         [Range(0, 12)] public int treesPerForestTile = 3;
         [Range(0, 16)] public int grassDensityPerTile = 6;
@@ -183,10 +193,15 @@ namespace KingdomsOfBharat.ResourceGathering
         // Single coordinated pass over the 158x158 tile matrix. Forest tiles
         // become TreeInstances, Plains tiles feed the detail (grass) density
         // layer; both are pushed back into the TerrainData at the end and
-        // flushed so Nature Renderer 6 picks them up. Managed collections
-        // only (List / int[,]) - nothing native is allocated, so there is
-        // nothing to dispose. Trees here are visual; gatherable Wood still
-        // comes from SpawnTree above.
+        // flushed so Unity's own built-in terrain tree/detail renderer picks
+        // them up (see ProceduralTerrain.ApplyTreePrototypes's own note on
+        // why this uses that instead of the Nature Renderer 6 package).
+        // Managed collections only (List / int[,]) - nothing native is
+        // allocated, so there is nothing to dispose. Trees here are visual;
+        // gatherable Wood still comes from SpawnTree above (this method's
+        // own forest-proxy path below turns painted canopy trees themselves
+        // into the gatherable resource instead, once useTerrainTreesForWood
+        // is true and at least one tree gets placed).
         private bool PopulateTerrainFoliage()
         {
             Terrain terrain = targetTerrain != null ? targetTerrain : FindFirstObjectByType<Terrain>();
@@ -205,7 +220,7 @@ namespace KingdomsOfBharat.ResourceGathering
             float invGrid = 1f / GridSize;
 
             bool haveTrees = data.treePrototypes != null && data.treePrototypes.Length > 0 && treesPerForestTile > 0;
-            int treeProto = haveTrees ? Mathf.Clamp(treePrototypeIndex, 0, data.treePrototypes.Length - 1) : 0;
+            int treeProtoCount = haveTrees ? data.treePrototypes.Length : 0;
             bool treesPlaced = false;
             bool haveGrass = data.detailPrototypes != null && data.detailPrototypes.Length > 0 && grassDensityPerTile > 0;
             int grassLayer = haveGrass ? Mathf.Clamp(grassDetailLayerIndex, 0, data.detailPrototypes.Length - 1) : 0;
@@ -257,6 +272,12 @@ namespace KingdomsOfBharat.ResourceGathering
                                 cells[cellKey] = members;
                             }
                             members.Add(trees.Count);
+                            // Random per-instance among every real prototype
+                            // wired onto the terrain (ProceduralTerrain.
+                            // ApplyTreePrototypes), not a single fixed
+                            // species, so a painted forest reads with real
+                            // canopy variety instead of one repeated model.
+                            int treeProto = treeProtoCount == 1 ? 0 : _rng.Range(0, treeProtoCount);
                             trees.Add(new TreeInstance
                             {
                                 prototypeIndex = treeProto,

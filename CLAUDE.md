@@ -8,6 +8,84 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Roadmap item 13 closed: terrain-scale foliage now actually renders
+  (2026-09-29).** Same-day follow-up to the environment/terrain audit right
+  below. `ProceduralTerrain.cs` gained `ApplyTreePrototypes`, wiring 3 real
+  tree prefabs the project already owns (`Resources/Environment/Trees/
+  URP_Tree_1/2/3`, the same ones `EnvironmentPropFactory` uses for the
+  individual gatherable-tree fallback) onto `TerrainData.treePrototypes`
+  every `Rebuild()` — closing the confirmed gap (nothing anywhere ever
+  assigned this) that made `ResourceNodeSpawner.PopulateTerrainFoliage()`
+  silently no-op every match. Used Unity's own native Terrain tree renderer
+  rather than the imported Nature Renderer 6 package — that package's
+  Layer/Spawner setup is Editor-authored against one fixed scene Terrain
+  instance, which doesn't fit this project's terrain being rebuilt at
+  runtime per match/map (confirmed by reading its actual runtime, mostly
+  precompiled DLLs configured through a global asset). Also found mid-
+  session that the item's "detail" (grass) half was already solved
+  elsewhere — `TerrainClutter.cs`'s own comment documents deliberately
+  leaving `detailPrototypes` unwired since its separate GPU-instanced
+  clutter renderer already paints real grass tufts across every grass/dirt
+  cell — so scope narrowed to trees only, avoiding doubled-up grass
+  rendering. Small adjacent fix: canopy trees previously all used one fixed
+  `treePrototypeIndex` (index 0) regardless of how many species existed;
+  now picks randomly per instance among whatever resolved, for real canopy
+  variety; the now-dead `treePrototypeIndex` field was removed (nothing
+  referenced it). 896/897 EditMode tests pass unchanged before and after
+  (1 pre-existing, unrelated `BuildingPrefabValidationTests` NRE, standing
+  baseline), re-confirmed after a forced domain reload post-Play-mode.
+  Live-verified via UnityMCP through the real production path on 2 maps:
+  `SkirmishClearing` (whose own forest+lane design identity depended on
+  this) painted 45,720 real trees with 4,215 gatherable `ForestNode`
+  proxies wired alongside them; a full harvest-to-depletion of one real
+  proxy (`ResourceNode.Harvest` down to `RemainingFraction == 0`, then a
+  forced `TerrainForest.Flush()`) removed exactly 3 real trees from the
+  terrain's own `treeInstances` array, confirming the thinning-on-harvest
+  mechanic works against real painted trees end to end, not just proxy
+  counters; a real gameplay-camera screenshot (fog-of-war left on) shows a
+  dense, correctly-cut-laned canopy around the cleared starting plateau —
+  sent to the user, the exact previously-invisible identity this item
+  targeted. Re-ran the identical flow on `RiverValley` to confirm the fix
+  generalizes past the one screenshotted map — clean, no errors, a
+  genuinely fresh per-map spawn (distinct resource-node count from
+  Clearing's). One scoped commit (`ProceduralTerrain.cs`,
+  `ResourceNodeSpawner.cs`, docs). **Next**: item 18 (terrain performance
+  profiling) is the recommended follow-up in this same batch, since 45,720
+  trees on one map is real, currently-unmeasured cost — otherwise items
+  14-17 (texture palette, set-dressing, map variety, biome/atmosphere) or
+  any other open item, user's call.
+- **Environment/terrain/map-design audit + scoping (2026-09-29).** Ad hoc,
+  not a roadmap item — user asked to audit the environment/terrain/map
+  design (following an earlier same-conversation audit of character/unit
+  visual quality) and then have the findings written into the roadmap.
+  Investigated live against the actual repo, not from memory: confirmed
+  the render pipeline itself is solid (URP, HDR, SMAA quality-High AA,
+  2048px 4-cascade shadows, SSAO + bloom/color-grading/vignette
+  post-process all already live), and confirmed via direct grep that
+  **terrain-scale foliage never actually renders** — `ResourceNodeSpawner.
+  PopulateTerrainFoliage()` and all the Forest/Clearing classification
+  logic exist and are unit-tested, but nothing anywhere in the codebase
+  ever assigns `treePrototypes`/`detailPrototypes` on the runtime-generated
+  terrain (confirmed: only ever read, never written) — the method silently
+  no-ops every match and the game falls back to scattered individual
+  `SpawnTree` models instead of a painted canopy; the Clearing map's entire
+  design identity (dense forest + cut lanes) is currently invisible in
+  play despite passing tests. Scoped this and 5 more items — terrain
+  texture palette expansion (only 5 layers reused identically across all 7
+  maps), environmental set-dressing (zero non-gameplay decoration exists —
+  no ruins/shrines/decorative props, every map reads as uniformly
+  procedural), map count/variety expansion (small/large sizing exists for
+  only 1 of 5 styles), per-map biome/atmosphere variation (one global
+  lighting Volume shared by every map), and a terrain performance
+  profiling pass (should run right after foliage wiring, since that's the
+  biggest unmeasured cost) — into new items 13-18 on the "Roadmap - Open
+  Items & Priority" sheet's Open Backlog block, each with size estimate,
+  blocker, and recommended order (foliage wiring first, since it unblocks/
+  benefits several of the others). Also updated the "Dev Status Overview"
+  sheet's "WHAT'S NEXT" pointer to reference this batch. Docs-only session,
+  no code/asset changes, no tests affected. Next: user's call — item 13
+  (foliage wiring) is the recommended starting point among this batch, or
+  any other open item across the workbook.
 - **Wall mechanics audit vs. real AoE2 reference, 4 gaps closed (2026-09-29).**
   Ad hoc, user pasted AoE2's own wall-mechanics writeup and asked for an
   audit, then to flag and implement the gaps. Found 5 candidates; gap 5

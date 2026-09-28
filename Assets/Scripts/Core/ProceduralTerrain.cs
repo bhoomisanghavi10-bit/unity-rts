@@ -96,6 +96,27 @@ namespace KingdomsOfBharat.Core
         // needs building, once.
         private TerrainLayer[] _layers;
 
+        // Real tree models (Resources/Environment/Trees, the same prefabs
+        // EnvironmentPropFactory already uses for the individual clickable
+        // gatherable tree fallback) registered as native Unity Terrain
+        // TreePrototypes, so ResourceNodeSpawner.PopulateTerrainFoliage's
+        // Forest-tile canopy has something real to paint instead of
+        // silently no-opping every match (see the environment/terrain audit,
+        // roadmap item 13). Deliberately Unity's own built-in terrain tree
+        // renderer, not Nature Renderer 6's GPU-instanced one - Nature
+        // Renderer's own Layer/Spawner setup is authored per-Terrain-instance
+        // in its Editor window against one fixed scene Terrain, which doesn't
+        // fit this project's terrain being torn down and rebuilt at runtime
+        // per match/map (see BuildTreePrototypes' own note). Cached across
+        // Rebuild() calls, same convention as _layers.
+        private static readonly string[] TreePrototypePaths =
+        {
+            "Environment/Trees/URP_Tree_1",
+            "Environment/Trees/URP_Tree_2",
+            "Environment/Trees/URP_Tree_3",
+        };
+        private TreePrototype[] _treePrototypes;
+
         private void Awake()
         {
             Rebuild();
@@ -164,6 +185,7 @@ namespace KingdomsOfBharat.Core
             ApplyHeights(data, terrainHeightScale, half);
             ClearHoles(data);
             ApplyLayers(data);
+            ApplyTreePrototypes(data);
             float[,,] alphamap = ApplyAlphamaps(data);
 
             terrain.terrainData = data;
@@ -446,6 +468,37 @@ namespace KingdomsOfBharat.Core
                 metallic = 0f,
             };
             return layer;
+        }
+
+        // Nature Renderer 6 is deliberately not used here: it's configured
+        // through a global Editor-authored "Nature Renderer.asset" whose
+        // Layers/Spawners point at one specific scene Terrain, which doesn't
+        // fit this project's runtime-rebuilt-per-match TerrainData - so this
+        // wires Unity's own built-in tree renderer instead (TerrainData.
+        // treePrototypes + SetTreeInstances, both plain native Terrain APIs
+        // that work with or without the Nature Renderer package installed).
+        // Skips any tree whose Resources path doesn't resolve rather than
+        // hard-failing, same defensive convention as BuildLayer's texture
+        // fallback - if every path is missing this comes back empty, which
+        // PopulateTerrainFoliage's own haveTrees guard already treats as "no
+        // foliage this match" (the pre-existing behavior).
+        private void ApplyTreePrototypes(TerrainData data)
+        {
+            if (_treePrototypes == null)
+            {
+                var list = new System.Collections.Generic.List<TreePrototype>(TreePrototypePaths.Length);
+                foreach (string path in TreePrototypePaths)
+                {
+                    GameObject prefab = Resources.Load<GameObject>(path);
+                    if (prefab != null)
+                    {
+                        list.Add(new TreePrototype { prefab = prefab });
+                    }
+                }
+                _treePrototypes = list.ToArray();
+            }
+
+            data.treePrototypes = _treePrototypes;
         }
 
         private static Texture2D FlatTexture(Color color)

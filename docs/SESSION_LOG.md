@@ -5,6 +5,104 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-29 — Roadmap item 13: wire terrain-scale foliage (real tree prototypes)
+
+**Scope**: roadmap item 13 ("Roadmap - Open Items & Priority" sheet, Open
+Backlog), scoped the same day by an environment/terrain/map-design audit.
+`ResourceNodeSpawner.PopulateTerrainFoliage()` and its Forest/Clearing
+classification logic already existed and were unit-tested, but nothing in
+the codebase ever assigned `TerrainData.treePrototypes`/`detailPrototypes`
+on the runtime-generated terrain — confirmed via direct grep before writing
+any code — so the method silently returned false every match and the game
+fell back to individually-placed model trees instead of a painted canopy.
+The Clearing map's entire design identity (dense forest + cut lanes) was
+invisible in play despite passing tests.
+
+**Investigation before coding**: checked whether Nature Renderer 6 (already
+imported, `Assets/Visual Design Cafe/Nature Renderer/`) was the intended
+renderer for this — found its runtime is mostly precompiled DLLs
+(`VisualDesignCafe.Rendering.Nature.dll` etc.) configured through one
+global, Editor-authored `Nature Renderer.asset` whose Layers/Spawners point
+at a *specific* scene Terrain instance. That doesn't fit this project's
+terrain, which is torn down and rebuilt fresh via `ProceduralTerrain.
+Rebuild()` every match/map — so used Unity's own built-in native Terrain
+tree renderer instead (`TerrainData.treePrototypes` + `SetTreeInstances`,
+plain APIs that work with or without the Nature Renderer package present),
+matching the risk mitigation ("native-Terrain-tree fallback") flagged in
+the same-day scoping. Also found the item's own "detail" (grass) half of
+the gap was already solved elsewhere: `TerrainClutter.cs`'s own header
+comment explicitly documents leaving `detailPrototypes` alone because its
+separate GPU-instanced clutter renderer already paints real grass tufts
+across every grass/dirt alphamap cell — wiring native detail-layer grass on
+top would double the grass with no visual gain. Scope narrowed to trees
+only, both `TerrainClutter.cs`'s comment and the new tree code documenting
+why.
+
+**Implementation**: `ProceduralTerrain.cs` gained `ApplyTreePrototypes` (new
+`_treePrototypes` field, cached across `Rebuild()` calls like `_layers`),
+building `TreePrototype[]` from 3 real tree prefabs already owned by the
+project (`Resources/Environment/Trees/URP_Tree_{1,2,3}`, the same prefabs
+`EnvironmentPropFactory`'s "Trees" category already uses for the individual
+clickable gatherable-tree fallback — no new asset sourcing needed) and
+assigning them onto the terrain's `TerrainData` every rebuild. Also fixed a
+second, smaller pre-existing issue while touching this: `ResourceNodeSpawner
+.PopulateTerrainFoliage`'s canopy-painting loop always used one fixed
+`treePrototypeIndex` (default 0) for every tree, so even with 3 species
+wired only one would ever render — changed to pick randomly per instance
+among however many prototypes actually resolved
+(`ResourceNodeSpawner.cs`), for real canopy variety. Removed the now-dead
+`public int treePrototypeIndex` field (no test or other code referenced
+it) rather than leave an unused Inspector field around.
+
+**Tests**: no new EditMode tests, matching this exact code's own established
+precedent (see its 2026-09-21 session note: everything here needs a real
+`Terrain`/`TerrainData`, live-verified instead of forced into EditMode
+coverage). Ran the full EditMode suite before and after (both via
+UnityMCP): 896/897 pass both times (1 pre-existing, unrelated
+`BuildingPrefabValidationTests` NRE, the same standing baseline this
+project's history has carried for many sessions) — confirmed unchanged
+after a forced domain reload post-Play-mode, per this project's own
+documented stale-static-state gotcha.
+
+**Live-verified via UnityMCP through the real production path**: a real
+match on `MapId.SkirmishClearing` (`CivilizationSetup.SetMap` +
+`BeginMatch(Maurya)`, entering Play mode first — `BeginMatch`'s gameplay
+spawn path relies on `AddComponent`'s `Awake()` running synchronously,
+which only holds in Play mode, this project's own documented
+EditMode-vs-runtime gotcha) confirmed `TerrainData.treePrototypes` resolved
+all 3 real prefabs and `treeInstances.Length` = 45,720 real painted trees
+(was always 0 before this session); confirmed a real `TerrainForest`
+component and 4,215 real gatherable `ForestNode` proxies were built
+alongside them. A full harvest-to-depletion of one real forest proxy
+(`ResourceNode.Harvest` calls down to `RemainingFraction == 0`, then
+forcing `TerrainForest`'s batched `Flush()`) removed exactly 3 real trees
+from the terrain's own `treeInstances` array (45717 → 45714) — the visible
+thinning-on-harvest mechanic confirmed working end to end against real
+painted trees, not just the proxy's own counters. A screenshot from the
+real gameplay camera (fog-of-war left on, so this is the actual player
+view) shows a dense, correctly-cut-laned forest canopy around the cleared
+starting plateau on Clearing — the exact previously-invisible design
+identity this item targeted, sent to the user. Separately re-ran the same
+`SetMap`/`BeginMatch` flow on `MapId.RiverValley` to confirm the fix
+generalizes past the one map it was screenshotted on: `MapRegistry.CurrentId`
+correctly read `RiverValley`, `treePrototypes.Length` stayed 3, a fresh
+`treeInstances` array populated with no errors, and the real resource-node
+count (4272) came out close to but distinct from Clearing's own (4274),
+confirming a genuinely fresh per-map spawn rather than stale reused state.
+
+Files touched: `Assets/Scripts/Core/ProceduralTerrain.cs`,
+`Assets/Scripts/Resources/ResourceNodeSpawner.cs`,
+`docs/KingdomsOfBharat_Master_Reference.xlsx`'s "Roadmap - Open Items &
+Priority" sheet (item #13 marked Implemented) and "Dev Status Overview"
+sheet's "WHAT'S NEXT" pointer, `CLAUDE.md`.
+
+**Not done, explicitly deferred to the next scoped item in this batch**:
+tree density/performance at real match scale (45,720 trees on one map is
+unmeasured cost) — item 18 (terrain performance profiling) was scoped
+specifically to run right after this one, for exactly this reason.
+
+---
+
 ## 2026-09-28 — Classical/Durg wall-and-gate kit: flat sprite billboards, real gate open/close
 
 **Scope**: ad hoc, direct follow-up to the same-day Ancient modular kit
