@@ -59,6 +59,23 @@ namespace KingdomsOfBharat.Buildings
             };
         }
 
+        // Classical age wall-and-gate kit (2026-09-28): flat isometric
+        // sprite art, one image per WallPieceKind, shared verbatim by Durg
+        // (see FortificationVisual/WallSpriteVisual's own darken tint) -
+        // no Classical/Durg MESH art exists for any piece, so this is the
+        // only lookup either age ever needs.
+        private static string ClassicalSpritePath(WallPieceKind kind)
+        {
+            return kind switch
+            {
+                WallPieceKind.Corner => "buildings/WallSprites/Classical/Corner",
+                WallPieceKind.EndPost => "buildings/WallSprites/Classical/EndPost",
+                WallPieceKind.TJunction => "buildings/WallSprites/Classical/TJunction",
+                WallPieceKind.XJunction => "buildings/WallSprites/Classical/XJunction",
+                _ => "buildings/WallSprites/Classical/Straight",
+            };
+        }
+
         internal static Vector3 PieceSize(WallPieceKind kind)
         {
             return kind == WallPieceKind.Straight ? Size : JunctionSize;
@@ -71,38 +88,36 @@ namespace KingdomsOfBharat.Buildings
 
         // Wall system Session A: an overload carrying the segment's
         // rotation, for free-angle drag-placed chains (see
-        // BuildingPlacer.ComputeWallChain). BuildingModelFactory.Spawn
-        // always returns its root at identity rotation - only the
-        // model's own child gets any rotation correction (Tower-specific) -
-        // so setting the root's rotation here is safe and doesn't fight
-        // anything Spawn itself does. NavMeshObstacle (Box shape) inherits
+        // BuildingPlacer.ComputeWallChain). The root is created directly
+        // here (not via BuildingModelFactory.Spawn) since the visual itself
+        // now branches between a 3D mesh and a flat sprite depending on age
+        // (see FortificationVisual) - NavMeshObstacle (Box shape) inherits
         // orientation from this same transform automatically, and
         // IsClearForKind's Wall/Gate overlap check is already a rotation-
         // agnostic circular distance test - both need no further changes.
         //
-        // pieceKind (2026-09-28 Ancient modular kit): only Straight is
-        // age-tiered (Wall_Ancient/Classical/Durg all exist or will exist -
-        // see BuildingModelFactory's age-suffixed lookup chain); the 4
-        // junction pieces are a one-off Ancient-only delivery so far, so
-        // they resolve their literal resourceName with no age suffix and
-        // deliberately skip AgeTieredBuildingVisual - re-skinning a Corner
-        // piece as a plain "Wall" on Age-up would silently swap its whole
-        // shape, not just its texture.
+        // pieceKind (2026-09-28 Ancient modular kit, extended 2026-09-28 for
+        // the Classical/Durg sprite kit): every piece is now genuinely
+        // age-tiered - Ancient/Imperial resolve through
+        // BuildingModelFactory's existing mesh lookup chain (a junction
+        // piece's literal resourceName has no Imperial art, so it correctly
+        // falls through to its own bare Ancient-tier path; Straight/Gate
+        // resolve to the real per-civ Imperial model as before), Classical/
+        // Durg resolve to the new sprite kit - see FortificationVisual.
         public static GameObject Place(Vector3 point, FactionId faction, float buildTime, Quaternion rotation, WallPieceKind pieceKind = WallPieceKind.Straight)
         {
             CivilizationId civ = CivilizationRegistry.For(faction);
             CivilizationProfile profile = CivilizationProfile.For(civ);
             string resourceName = PieceResourceName(pieceKind);
             Vector3 size = PieceSize(pieceKind);
-            AgeId? age = pieceKind == WallPieceKind.Straight ? AgeProgress.CurrentAge(faction) : (AgeId?)null;
+            AgeId age = AgeProgress.CurrentAge(faction);
 
-            GameObject go = BuildingModelFactory.Spawn(resourceName, civ, point + Vector3.up * (size.y * 0.5f), size, profile.PrimaryColor, age, faction: faction);
+            GameObject go = new GameObject(resourceName);
+            go.transform.position = point + Vector3.up * (size.y * 0.5f);
             go.transform.rotation = rotation;
+            FortificationVisual.Build(go, resourceName, ClassicalSpritePath(pieceKind), null, age, civ, profile.PrimaryColor, faction, size);
             go.name = faction == FactionId.Player ? "Wall" : "EnemyWall";
-            if (pieceKind == WallPieceKind.Straight)
-            {
-                go.AddComponent<AgeTieredBuildingVisual>().Configure("Wall", size);
-            }
+            go.AddComponent<WallAgeVisual>().ConfigureWall(pieceKind, size);
             // Wall is exempt from BuildingFootprint's square-tile/margin
             // system (it blocks its full footprint edge-to-edge, no
             // passable margin, and keeps its own modular chain-placement
@@ -161,6 +176,17 @@ namespace KingdomsOfBharat.Buildings
             }
 
             return go;
+        }
+
+        // Age-up retroactive re-skin entry point - see WallAgeVisual. Only
+        // touches the visual + its collider (via FortificationVisual),
+        // leaving every gameplay component already on `root` (Attackable,
+        // GarrisonPoint, Repairable, ConstructionSite, etc.) untouched,
+        // same "pure re-skin, not a re-spawn" contract
+        // BuildingModelFactory.Refresh already established.
+        public static void RefreshVisual(GameObject root, WallPieceKind pieceKind, AgeId age, CivilizationId civ, Color civColor, FactionId? faction, Vector3 size)
+        {
+            FortificationVisual.Build(root, PieceResourceName(pieceKind), ClassicalSpritePath(pieceKind), null, age, civ, civColor, faction, size);
         }
     }
 }

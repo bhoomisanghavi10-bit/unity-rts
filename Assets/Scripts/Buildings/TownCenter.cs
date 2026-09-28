@@ -261,6 +261,13 @@ namespace KingdomsOfBharat.Buildings
                 // visual mesh in place right now - see
                 // AgeTieredBuildingVisual.
                 AgeTieredBuildingVisual.RefreshAllForFaction(Faction, _ageUpTarget);
+                // Classical/Durg wall-kit (2026-09-28): Wall/Gate moved off
+                // AgeTieredBuildingVisual onto their own WallAgeVisual (it
+                // needs to pick between a mesh and a sprite depending on the
+                // new age, not just re-run BuildingModelFactory.Refresh) -
+                // called alongside the line above so both still refresh from
+                // this one Age-up moment.
+                WallAgeVisual.RefreshAllForFaction(Faction, _ageUpTarget);
                 _ageUpRemaining = -1f;
             }
         }

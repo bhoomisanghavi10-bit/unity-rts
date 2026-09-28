@@ -8,6 +8,107 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Classical/Durg age wall-and-gate kit added as flat sprite billboards,
+  gate gains a real open/close door animation (2026-09-28).** Ad hoc,
+  direct follow-up to the same-day Ancient modular kit session. User
+  supplied 6 unlabeled ChatGPT-generated isometric PNG renders ("classic age
+  wall and gate kit") — a 2D concept-art delivery, not a 3D glb/fbx model
+  like the Ancient kit. Identified all 6 by content (straight/corner/end
+  post/T-junction/X-junction/gate, matching the Ancient kit's own 6-piece
+  shape) — all already had real, clean alpha channels (no alpha-keying
+  needed, unlike most prior UI art deliveries in this project). Since this
+  is genuinely 2D art for a genuinely 3D-tall structure, extended the
+  project's existing flat-sprite precedent (`FarmVisual.cs`'s ground decal,
+  justified by the scene's permanently fixed Orthographic camera) to a new
+  **vertical, camera-facing billboard** technique: new `WallSpriteVisual.cs`
+  builds an upright XY-plane quad and sets its WORLD rotation directly to
+  `Euler(0, 225, 0)` — a Y-axis-only billboard (never tilted to match the
+  camera's 30-degree pitch, since the art's own isometric foreshortening is
+  already baked into the image) — the 225-degree yaw and correct triangle
+  winding were both found empirically via live UnityMCP screenshots, not
+  derived on paper (a first attempt was invisible with normal back-face
+  culling, diagnosed by temporarily disabling `_Cull`, then fixed by
+  reversing the triangle winding). Setting the child's world `.rotation`
+  (not `.localRotation`) automatically keeps it camera-facing regardless of
+  the parent root's own placement rotation — a diagonally chain-dragged
+  Straight wall segment — with no extra counter-rotation math needed.
+
+  Each piece fits the exact same gameplay `Size` box the Ancient kit already
+  established (2.4x3.2x0.4 straight, 2.4x6x2.4 junctions, 7.2x6x2.6 gate) —
+  non-uniform fit for Straight/Gate (matching the hard chain-tile-width/
+  gate-width constraint), true image aspect ratio for junction pieces
+  (preserving proportions, same "arms overhang the neighbor tile" idea the
+  Ancient kit's junction pieces already use). **Durg reuses Classical's
+  exact same 7 images** — no second delivery, no baked-darker texture — a
+  plain material-color multiply (`(0.7,0.7,0.7,1)`, literally "30% darker")
+  on the identical texture, confirmed via direct pixel sampling of a live
+  side-by-side screenshot (not by eye — at normal scale the difference is
+  easy to miss visually but reads clearly in sampled RGB values).
+
+  **Gate gets a real open/close door for the first time** — the Ancient 3D
+  kit's archway has no door leaf at all (nothing to animate); the Classical
+  art has a real painted double-door. `Gate.cs` gained a public `IsOpen`
+  accessor (`!obstacle.carving`); `WallSpriteVisual` live-swaps between a
+  `GateClosed`/`GateOpen` texture pair every frame, reading it off the
+  sibling `Gate` component — the open texture was synthesized from the
+  closed one by zeroing alpha in a hand-identified door-leaf rectangle
+  (found via a from-scratch BFS connected-component color scan, done
+  entirely through Unity's own `Texture2D` C# API — `GetPixels32`/
+  `SetPixels32`/`EncodeToPNG` — since Bash was transiently unavailable for a
+  stretch this session; a viable, if slower, fallback for raster work with
+  zero Python/PIL dependency). A plain rectangular cutout, not a precise
+  arch-shaped mask — a deliberate simplification.
+
+  **Age-branching architecture**: new internal `FortificationVisual.Build`
+  (shared by `WallFactory`/`GateFactory`) picks a real 3D mesh
+  (`BuildingModelFactory.Refresh`, for Ancient/Imperial — Imperial already
+  correctly falls through to the real per-civ model, unchanged) vs. the new
+  sprite billboard (`WallSpriteVisual.Build`, for Classical/Durg) based on
+  the faction's current Age. `WallFactory.Place`/`GateFactory.Place` now
+  build their own root `GameObject` directly instead of going through
+  `BuildingModelFactory.Spawn` (which unconditionally assumes a mesh prefab
+  lookup) — `FortificationVisual.Build` is the single visual-only entry
+  point for both the initial spawn and the retroactive Age-up re-skin. New
+  `WallAgeVisual` component replaces `AgeTieredBuildingVisual` for Wall/Gate
+  specifically (TownCenter/Tower keep the original mesh-only component
+  unchanged) since it needs to pick between mesh and sprite on re-skin, not
+  just re-run one fixed rebuild path — `TownCenter.TickAgeUp` now calls both
+  `RefreshAllForFaction` methods back to back.
+
+  The old full-poly `Wall_Classical.prefab`/`Wall_Durg.prefab` (+ their
+  `_Source`/`_Decimated`, ~230MB) became fully unreachable the instant this
+  landed and were deleted as confirmed-unused, matching every other
+  superseded-asset cleanup in this project's history; the one EditMode test
+  that specifically exercised their triangle count
+  (`AgeTieredBuildingModels_StayUnderTriangleCeiling_ForEveryCivAndAge`) had
+  its Wall/Classical and Wall/Durg assertions removed rather than left in
+  place silently testing the harmless procedural fallback instead of real
+  content. 868/869 EditMode tests pass unchanged (0 new automated tests this
+  session, matching the Ancient session's own precedent of live-verifying
+  pure asset/rendering-technique work instead; 1 pre-existing, unrelated
+  `BuildingPrefabValidationTests` NRE, same standing baseline), confirmed
+  after a forced domain reload post-Play-mode. Live-verified via UnityMCP
+  through the real production path: all 6 Classical pieces spawned via the
+  real `WallFactory.Place`/`GateFactory.Place` calls and screenshotted from
+  a camera position matching the real fixed camera's exact relative offset
+  (not an arbitrary nearby angle, which showed the card heavily skewed even
+  when correct) — all read cleanly as flat, correctly-proportioned,
+  non-distorted cards matching their source art; a real `WorkerFactory`
+  -spawned unit walking near a real Classical Gate correctly triggered the
+  live open state (door and archway stone both vanish, revealing a passable
+  gap) through the Gate's own real proximity-check `Update()` loop, and
+  correctly closed again once the worker moved away; the identical
+  open/close behavior re-confirmed on a real Durg-age Gate with the darkened
+  tint also visibly applied; a real end-to-end Age-up simulation (`AgeProgress
+  .Advance` + both `RefreshAllForFaction` calls, mirroring
+  `TownCenter.TickAgeUp`'s exact two lines) re-skinned an already-placed
+  Classical Wall to Durg in place — same GameObject instance ID before and
+  after, `Attackable`/`NavMeshObstacle`/exactly one `BoxCollider` all intact
+  and correctly sized, confirming the "pure re-skin, not a re-spawn"
+  contract holds for the new sprite path too. Next: whatever the user
+  directs — Imperial-tier wall/gate art (currently falls through to the
+  original per-civ Imperial 3D models, untouched) is the one remaining
+  age/civ combination with no dedicated modular-kit treatment.
 - **Ancient-age wall modular kit (straight/corner/end post/T-junction/
   X-junction/gate) added, wired into the existing Wall/Gate mechanics
   (2026-09-28).** Ad hoc, user supplied 6 unlabeled Meshy AI glb files

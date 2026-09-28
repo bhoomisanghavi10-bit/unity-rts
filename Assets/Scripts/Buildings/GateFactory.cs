@@ -28,6 +28,15 @@ namespace KingdomsOfBharat.Buildings
         private static readonly Vector3 Size = new Vector3(7.2f, 6f, 2.6f);
         private const float MaxHealth = 220f;
 
+        // Classical age wall-and-gate kit (2026-09-28): the closed/open
+        // door-leaf sprite pair - see WallSpriteVisual's live open/close
+        // swap (driven by the sibling Gate component's own NavMeshObstacle
+        // carving state) and FortificationVisual for the age branch. Durg
+        // reuses these exact images with a material darken tint, no
+        // separate delivery.
+        private const string ClassicalClosedPath = "buildings/WallSprites/Classical/GateClosed";
+        private const string ClassicalOpenPath = "buildings/WallSprites/Classical/GateOpen";
+
         public static GameObject Place(Vector3 point, FactionId faction, float buildTime)
         {
             CivilizationId civ = CivilizationRegistry.For(faction);
@@ -35,14 +44,18 @@ namespace KingdomsOfBharat.Buildings
 
             // Age-aware visuals (matching Wall/Tower/TownCenter's existing
             // convention - see BuildingModelFactory.BuildVisual's age-suffixed
-            // lookup chain): only an Ancient-tier Gate model exists so far
-            // (Buildings/Gate_Ancient), so a Classical/Durg/Imperial faction
-            // falls through to the original shared/civ-specific Gate lookup
+            // lookup chain): only an Ancient-tier Gate mesh exists (Buildings/
+            // Gate_Ancient); Classical/Durg resolve to the new sprite kit
+            // instead (FortificationVisual), and Imperial still falls
+            // through to the original shared/civ-specific Gate lookup
             // unchanged, same graceful-degradation behavior every other
             // age-tiered building already relies on.
-            GameObject go = BuildingModelFactory.Spawn("Gate", civ, point + Vector3.up * (Size.y * 0.5f), Size, profile.PrimaryColor, AgeProgress.CurrentAge(faction), faction: faction);
+            AgeId age = AgeProgress.CurrentAge(faction);
+            GameObject go = new GameObject("Gate");
+            go.transform.position = point + Vector3.up * (Size.y * 0.5f);
+            FortificationVisual.Build(go, "Gate", ClassicalClosedPath, ClassicalOpenPath, age, civ, profile.PrimaryColor, faction, Size);
             go.name = faction == FactionId.Player ? "Gate" : "EnemyGate";
-            go.AddComponent<AgeTieredBuildingVisual>().Configure("Gate", Size);
+            go.AddComponent<WallAgeVisual>().ConfigureGate(Size);
             // Gate is exempt from BuildingFootprint's square-tile/margin
             // system, same reasoning as Wall (see WallFactory) - it has to
             // match a Wall segment's shape to slot into a chain. Only
@@ -88,6 +101,13 @@ namespace KingdomsOfBharat.Buildings
             }
 
             return go;
+        }
+
+        // Age-up retroactive re-skin entry point - see WallAgeVisual and
+        // WallFactory.RefreshVisual's matching comment.
+        public static void RefreshVisual(GameObject root, AgeId age, CivilizationId civ, Color civColor, FactionId? faction, Vector3 size)
+        {
+            FortificationVisual.Build(root, "Gate", ClassicalClosedPath, ClassicalOpenPath, age, civ, civColor, faction, size);
         }
     }
 }

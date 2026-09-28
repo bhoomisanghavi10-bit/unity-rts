@@ -28,6 +28,13 @@ namespace KingdomsOfBharat.Buildings
         private bool _factionResolved;
         private float _timer;
 
+        // Classical/Durg sprite-kit gate visual (WallSpriteVisual) reads
+        // this every frame to live-swap between its closed/open textures -
+        // the Ancient 3D mesh kit has no visible door leaf at all (a plain
+        // archway with no door geometry), so this accessor was never needed
+        // before now.
+        public bool IsOpen => _obstacle != null && !_obstacle.carving;
+
         private FactionId Faction
         {
             get
