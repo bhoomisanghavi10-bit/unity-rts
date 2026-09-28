@@ -21,11 +21,19 @@ namespace KingdomsOfBharat.Buildings
     // same 6 meshes (Buildings/{name}_Classical resolves for both ages,
     // since Refresh always passes AgeId.Classical for either - see
     // WallFactory/GateFactory's own ClassicalMeshResourceName), darkened via
-    // the same 0.7x material-color multiply the old sprite path used
-    // (DarkenMaterials below), applied after the normal civ tint.
+    // a material-color multiply (DarkenMaterials below, see its own
+    // DurgTint comment), applied after the normal civ tint.
     internal static class FortificationVisual
     {
-        private static readonly Color DurgTint = new Color(0.7f, 0.7f, 0.7f, 1f);
+        // 0.7x (the sprite kit's original "30% darker" value) measured
+        // correct via direct material-color sampling but read as barely
+        // distinguishable at normal in-game viewing distance/lighting -
+        // the exact same "reads correctly in RGB, easy to miss by eye"
+        // issue this project's history already documented once for the
+        // sprite kit itself. Deepened to 0.5x (50% darker), user-confirmed
+        // 2026-09-28 after a live side-by-side spawn still looked too
+        // subtle at 0.7x.
+        private static readonly Color DurgTint = new Color(0.5f, 0.5f, 0.5f, 1f);
 
         public static void Build(GameObject root, string meshResourceName, AgeId age, CivilizationId civ, Color civColor, FactionId? faction, Vector3 size)
         {

@@ -8,6 +8,21 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Durg darken tint deepened, 0.7x → 0.5x (2026-09-28).** Ad hoc, same-day
+  follow-up to the 3D wall/gate kit entry immediately below - Durg already
+  reused Classical's 3D meshes with a darkened material tint
+  (`FortificationVisual.DarkenMaterials`), confirmed correct via direct
+  `_BaseColor` sampling (exactly 0.7x), but a clean side-by-side screenshot
+  showed it read as barely distinguishable at normal viewing distance -
+  same "correct in RGB, easy to miss by eye" issue this project's history
+  already hit once for the sprite kit's identical 0.7x value. Deepened to
+  0.5x; hit and resolved one real verification trap along the way (a first
+  side-by-side shot came back pixel-identical to a pre-change screenshot -
+  not a caching bug, but leftover ad hoc test GameObjects from an earlier
+  spawn still alive at the same coordinates, z-fighting with the new ones -
+  fixed by destroying the leftovers and re-spawning at fresh coordinates).
+  868/869 EditMode tests pass (same standing pre-existing baseline
+  failure). See `FortificationVisual.cs`.
 - **Classical-age wall/gate kit re-sourced as real 3D models, replacing the
   same-day flat sprite billboards (2026-09-28).** Ad hoc, direct same-day
   follow-up to the flat-sprite session immediately below (that session's own
