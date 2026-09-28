@@ -5,6 +5,40 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-29 — Ad hoc: Palm tree removed from the general tree pool
+
+**Scope**: ad hoc user bug report from the previous item's own screenshot,
+not a roadmap item. `EnvironmentPropFactory.TrySpawn("Trees", ...)` loads
+every prefab under `Resources/Environment/Trees/` via `Resources.LoadAll`
+and picks one uniformly at random per spawn - `Palm_2_1.prefab` sat in that
+same folder alongside the 3 general-purpose `URP_Tree_*` prefabs (confirmed
+via `Resources.LoadAll` live, no other spawn call referenced it by exact
+path), so it could land on any ordinary inland tile, not just near water -
+too tall and visually out of place away from a shoreline, per the user's
+report. Fixed by moving `Palm_2_1.prefab` (+ its `.meta`, preserving its
+GUID so nothing that already references it breaks) out to a new, currently
+unused `Resources/Environment/Trees_Coastal/` category folder -
+`EnvironmentPropFactory`'s category-by-folder-name convention means it's
+now excluded from the general "Trees" random pool automatically, with zero
+code changes needed. Confirmed live via UnityMCP: `Resources.LoadAll
+("Environment/Trees")` now returns only the 3 `URP_Tree_*` prefabs;
+`Resources.LoadAll("Environment/Trees_Coastal")` returns `Palm_2_1` alone.
+896/897 EditMode tests pass unchanged (1 pre-existing, unrelated
+`BuildingPrefabValidationTests` NRE, standing baseline) after a forced
+domain reload. **Not done, flagged rather than assumed**: no coastal/near-
+water tree placement exists yet, so Palm is currently parked (spawnable by
+nothing) rather than actively used near shorelines - wiring a real
+coastal-only placement pass (e.g. biasing `EnvironmentPropFactory.
+TrySpawn("Trees_Coastal", ...)` calls to points within some distance of
+`WaterProximity`) is a small, separate follow-up if wanted, not built this
+session since it wasn't asked for.
+
+Files touched: `Assets/Resources/Environment/Trees/Palm_2_1.prefab` ->
+`Assets/Resources/Environment/Trees_Coastal/Palm_2_1.prefab` (+ `.meta`,
+git-renamed), `docs/SESSION_LOG.md`.
+
+---
+
 ## 2026-09-29 — Roadmap item 13: wire terrain-scale foliage (real tree prototypes)
 
 **Scope**: roadmap item 13 ("Roadmap - Open Items & Priority" sheet, Open
