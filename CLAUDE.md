@@ -8,6 +8,56 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Coastal Palm tree placement wired near real shorelines (2026-09-29).**
+  Ad hoc, same-day follow-up to the Palm-removal fix immediately below, at
+  the user's explicit request to wire it back in near water. New
+  `ResourceNodeSpawner.SpawnCoastalTrees()`, gated on `WaterProximity.
+  HasWater` (a no-op on every map without real water), scatters Palm trees
+  (`Trees_Coastal` category) just outside the land-side edge of the map's
+  real water rectangle, purely decorative (no `ResourceNode` - the map's
+  Wood economy already comes from the forest/woodline systems, so this
+  deliberately doesn't add a second Wood source), drawing from a new,
+  wholly independent `_coastalRng` substream so it can never shift any
+  existing map's real resource layout. 896/897 EditMode tests pass
+  unchanged before and after a forced domain reload (1 pre-existing,
+  unrelated `BuildingPrefabValidationTests` NRE, standing baseline). **Hit
+  a real environment problem mid-session**: the Unity Editor crashed
+  natively during the post-change test run (unrelated to this code - no
+  managed exception); after relaunching, the MCP-for-Unity bridge plugin
+  didn't reconnect on its own for over an hour until the user manually
+  reopened/refocused the Unity window - flagged directly rather than
+  retried blind. Live-verified via UnityMCP through the real production
+  path on `MapId.Coastal` (a shoreline channel spanning most of the map):
+  real Palm trees spawned clustered along the water's land-side edge with
+  plausible positions and real sampled ground heights; a real gameplay-
+  camera screenshot confirms a clean line of Palm canopies tracing the
+  shoreline, visually distinct from the general forest, sent to the user.
+  One caveat noted, not chased further: a fresh match produced more Palms
+  than the configured count, traced to this session's own `SetMap`+
+  `BeginMatch`-via-reflection test methodology likely triggering `Start()`
+  twice (once via the scene's own default match-start flow, once via the
+  explicit call) rather than a bug in the new code - density/count tuning
+  was already flagged as first-pass, not independently tuned. One scoped
+  commit (`ResourceNodeSpawner.cs`, `Main.unity`, docs). Next: whatever the
+  user directs — item 18 (terrain performance profiling) remains the
+  recommended next item in the environment/terrain batch.
+- **Ad hoc: Palm tree removed from the general terrain tree pool
+  (2026-09-29).** User reported (from a live screenshot) that the Palm
+  tree delivered as part of the terrain-foliage fix was too tall and out
+  of place on ordinary inland terrain. `EnvironmentPropFactory.
+  TrySpawn("Trees", ...)` picks uniformly among every prefab in
+  `Resources/Environment/Trees/`, and Palm sat in that same folder
+  alongside the 3 general-purpose `URP_Tree_*` models - so it could land
+  on any tile, not just near water. Fixed by moving `Palm_2_1.prefab`
+  (+`.meta`, GUID preserved) into a new, then-unused
+  `Resources/Environment/Trees_Coastal/` category folder - excluded from
+  the general pool automatically via `EnvironmentPropFactory`'s
+  category-by-folder-name convention, no code change needed. Confirmed
+  live via UnityMCP: the general "Trees" pool now resolves only the 3
+  non-palm species. 896/897 EditMode tests pass unchanged. Two commits
+  (the git-renamed prefab files, then a follow-up docs/meta commit after a
+  git-add pathspec mistake in the first one). Immediately followed by the
+  coastal-placement item above, same session.
 - **Roadmap item 13 closed: terrain-scale foliage now actually renders
   (2026-09-29).** Same-day follow-up to the environment/terrain audit right
   below. `ProceduralTerrain.cs` gained `ApplyTreePrototypes`, wiring 3 real

@@ -5,6 +5,80 @@ protocol (step 6). Newest entries at the top.
 
 ---
 
+## 2026-09-29 — Ad hoc: coastal Palm tree placement wired near real shorelines
+
+**Scope**: ad hoc follow-up to the same-day Palm-removal fix, at the user's
+explicit request to wire it back in near water. `ResourceNodeSpawner.cs`
+gained a new `SpawnCoastalTrees()` pass, gated on `WaterProximity.HasWater`
+(a no-op on every map without a real water body) and run once at the end of
+`Start()`, after every other resource/foliage pass. New
+`RandomCoastalTreePoint()` samples a random point just outside a randomly
+chosen edge of the map's real water rectangle
+(`MapDefinitionData.WaterCenter`/`WaterHalfExtents`), offset outward (land
+side) by a random distance in `[coastalTreeMinDistance, coastalTreeMaxDistance]`
+(1.5-6 units) - a direct sample rather than a distance-filtered rejection
+loop over the whole map, since the water rectangle is small relative to
+most maps and filtering a uniform draw down to a narrow shoreline band
+would waste most attempts. Each candidate is checked against
+`WaterProximity.IsInsideWater`, the existing `IsNear` town-centre-clearing
+helper, and the map's own bounds, with a bounded `CoastalTreeAttempts` (6)
+retries per tree - same defensive convention as `GenerateLandPoint`, so a
+pathological map shape can't hang `Start()`. Spawns via
+`EnvironmentPropFactory.TrySpawn("Trees_Coastal", ...)` (the category the
+Palm was moved into earlier the same day) - purely decorative, no
+`ResourceNode` attached, since the map's Wood economy already comes from
+the forest/starting-woodline systems and turning shoreline dressing into a
+second Wood source would be an unrequested economy-balance change. Draws
+from a new, wholly independent `_coastalRng` substream
+(`MatchConfiguration.Stream("coastalTrees")`) so adding this pass can never
+shift any existing map's real resource layout - `_rng`'s own "resources"
+stream is untouched.
+
+**Tests**: no new EditMode tests, matching this file's own established
+precedent (needs a real `Terrain`/`MapDefinitionData`/water rectangle,
+live-verified instead of forced into EditMode coverage - same call as the
+terrain-foliage item earlier the same day). 896/897 EditMode tests pass
+unchanged (1 pre-existing, unrelated `BuildingPrefabValidationTests` NRE)
+before and after a forced domain reload.
+
+**Hit and worked through a real environment problem mid-session**: the
+Unity Editor crashed (a native crash inside the Test Runner, unrelated to
+this code - no managed exception, a bare native stack trace) partway
+through this item's own post-change test run. Relaunched Unity from the
+terminal; it came back up cleanly with no compile errors, but the
+MCP-for-Unity Editor-side plugin didn't reconnect to the background bridge
+server on its own (confirmed via the bridge's own log: repeated "No Unity
+plugin reconnected" warnings for over an hour) - needed the user to
+manually reopen/refocus the Unity window before the bridge reconnected.
+Flagged this to the user directly rather than continuing to retry blind
+automated reconnection attempts.
+
+**Live-verified via UnityMCP through the real production path**: a real
+match on `MapId.Coastal` (`WaterCenter=(50,0,0)`, `WaterHalfExtents=
+(12.5,0,62.5)` - a shoreline channel running most of the map's length)
+produced real Palm trees clustered along the water's land-side edge (x in
+roughly 33-36, matching the channel's interior shore, with plausible Z
+spread and real sampled ground heights 0.3-0.7). A first check immediately
+after the `BeginMatch` call showed 0 Palms - traced to a timing artifact
+(Unity's `Start()` runs on the object's next frame tick, not synchronously
+within the same call, so an immediate follow-up check can race it) rather
+than a real bug; a clean fresh Play session with a deliberate pause before
+checking showed 18 real Palms correctly positioned (more than the
+configured `coastalTreeCount=10`, most likely because this session's own
+manual `SetMap`+`BeginMatch` reflection calls triggered `Start()` twice -
+once via the scene's own default match-start flow, once via the explicit
+call - a testing-methodology artifact of driving `BeginMatch` through
+reflection rather than the real UI flow, not a bug in the new code; count
+tuning was already flagged as first-pass/not independently tuned in the
+code's own comments regardless). A real gameplay-camera screenshot
+confirms a clean line of Palm canopies tracing the shoreline, visually
+distinct from the general forest canopy, sent to the user.
+
+Files touched: `Assets/Scripts/Resources/ResourceNodeSpawner.cs`,
+`Assets/Scenes/Main.unity` (new serialized field defaults), docs.
+
+---
+
 ## 2026-09-29 — Ad hoc: Palm tree removed from the general tree pool
 
 **Scope**: ad hoc user bug report from the previous item's own screenshot,

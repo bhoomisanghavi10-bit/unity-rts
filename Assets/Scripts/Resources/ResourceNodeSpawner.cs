@@ -26,6 +26,22 @@ namespace KingdomsOfBharat.ResourceGathering
         [SerializeField] private float fishAmount = 60f;
         [SerializeField] private int relicCount = 5;
 
+        // Ad hoc, not a roadmap item: purely decorative Palm trees along the
+        // real shoreline of any map that has water (see
+        // WaterProximity.HasWater), using the Trees_Coastal category the
+        // general "Trees" pool's Palm was moved out of (see that session's
+        // own note - the general canopy/model-tree pool never picks a Palm
+        // now). Deliberately NOT gatherable Wood (no ResourceNode attached)
+        // - the map's Wood economy already comes from the forest/starting-
+        // woodline systems, and turning shoreline dressing into a second
+        // Wood source would be an economy-balance change nobody asked for.
+        // A first-pass fixed count/band, not independently tuned - future
+        // work if the density needs adjusting per map size.
+        [Header("Coastal decoration (Palm trees, water-adjacent maps only)")]
+        [SerializeField] private int coastalTreeCount = 10;
+        [SerializeField] private float coastalTreeMinDistance = 1.5f;
+        [SerializeField] private float coastalTreeMaxDistance = 6f;
+
         [Header("Zoning spec (docs/SKIRMISH_MAP_SPEC.md) - skirmish maps only")]
         [Tooltip("Trees placed at the guaranteed 10-15 unit starting range around every town centre, on top of any general forest.")]
         [SerializeField] private int startingWoodlineTreeCount = 3;
@@ -96,6 +112,12 @@ namespace KingdomsOfBharat.ResourceGathering
         // global Random state.
         private DeterministicRandom _rng;
 
+        // A wholly separate named substream (see MatchConfiguration.Stream's
+        // own header note) so adding this decorative pass can never shift
+        // any existing map's real resource layout - draws here are
+        // independent of _rng's "resources" stream entirely.
+        private DeterministicRandom _coastalRng;
+
         private void Start()
         {
             ApplyMapDefinition();
@@ -106,6 +128,9 @@ namespace KingdomsOfBharat.ResourceGathering
             _rng = MatchConfiguration.Current != null
                 ? MatchConfiguration.Current.Stream("resources")
                 : new DeterministicRandom(randomSeed == -1 ? System.Environment.TickCount : randomSeed);
+            _coastalRng = MatchConfiguration.Current != null
+                ? MatchConfiguration.Current.Stream("coastalTrees")
+                : new DeterministicRandom(randomSeed == -1 ? System.Environment.TickCount : randomSeed + 777);
 
             // Zoning spec rules 1-2: every start gets a guaranteed woodline
             // + a small primary gold node 10-15 units out, before anything
@@ -157,6 +182,92 @@ namespace KingdomsOfBharat.ResourceGathering
             for (int i = 0; i < relicCount; i++)
             {
                 SpawnRelic(GenerateLandPoint(() => RandomPointForRelic(i, relicCount)));
+            }
+
+            if (WaterProximity.HasWater)
+            {
+                SpawnCoastalTrees();
+            }
+        }
+
+        // Scatters coastalTreeCount Palm trees just outside the water
+        // rectangle's real edges (on the land side, within
+        // coastalTreeMin/MaxDistance of the shoreline) - a no-op on any map
+        // without water (guarded by the caller). Purely decorative: see the
+        // field's own header comment for why these aren't gatherable Wood.
+        // Bounded retries per tree (same convention as GenerateLandPoint)
+        // rather than an unbounded rejection loop, so a pathological map
+        // shape can't hang Start().
+        private const int CoastalTreeAttempts = 6;
+
+        private void SpawnCoastalTrees()
+        {
+            for (int i = 0; i < coastalTreeCount; i++)
+            {
+                Vector3 point = Vector3.zero;
+                bool found = false;
+                for (int attempt = 0; attempt < CoastalTreeAttempts; attempt++)
+                {
+                    Vector3 candidate = RandomCoastalTreePoint();
+                    if (WaterProximity.IsInsideWater(candidate))
+                    {
+                        continue;
+                    }
+
+                    MapDefinitionData map = MapRegistry.Current;
+                    if (IsNear(map.PlayerTownCenter, candidate.x, candidate.z) ||
+                        IsNear(map.EnemyTownCenter, candidate.x, candidate.z) ||
+                        IsNear(map.Enemy2TownCenter, candidate.x, candidate.z))
+                    {
+                        continue;
+                    }
+
+                    float half = _mapSize * 0.5f;
+                    if (Mathf.Abs(candidate.x) > half || Mathf.Abs(candidate.z) > half)
+                    {
+                        continue;
+                    }
+
+                    point = candidate;
+                    found = true;
+                    break;
+                }
+
+                if (!found)
+                {
+                    continue;
+                }
+
+                EnvironmentPropFactory.TrySpawn("Trees_Coastal", ResolveGroundPoint(point));
+            }
+        }
+
+        // A random point just outside a randomly-chosen edge of the water
+        // rectangle (see MapDefinitionData.WaterCenter/WaterHalfExtents),
+        // offset outward (away from the water) by a random distance in
+        // [coastalTreeMinDistance, coastalTreeMaxDistance] - the same "land
+        // side, near the shoreline" idea WaterProximity's own Dock-placement
+        // callers use, just expressed as a direct sample instead of a
+        // distance-filtered rejection loop (the water rectangle is small
+        // relative to most maps, so filtering a uniform map-wide draw down
+        // to a narrow shoreline band would waste most attempts).
+        private Vector3 RandomCoastalTreePoint()
+        {
+            MapDefinitionData map = MapRegistry.Current;
+            Vector3 center = map.WaterCenter;
+            Vector3 half = map.WaterHalfExtents;
+            float offset = _coastalRng.Range(coastalTreeMinDistance, coastalTreeMaxDistance);
+            int side = _coastalRng.Range(0, 4);
+            switch (side)
+            {
+                case 0: // +Z edge
+                    return new Vector3(center.x + _coastalRng.Range(-half.x, half.x), 0f, center.z + half.z + offset);
+                case 1: // -Z edge
+                    return new Vector3(center.x + _coastalRng.Range(-half.x, half.x), 0f, center.z - half.z - offset);
+                case 2: // +X edge
+                    return new Vector3(center.x + half.x + offset, 0f, center.z + _coastalRng.Range(-half.z, half.z));
+                default: // -X edge
+                    return new Vector3(center.x - half.x - offset, 0f, center.z + _coastalRng.Range(-half.z, half.z));
             }
         }
 
