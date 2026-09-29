@@ -13479,3 +13479,133 @@ BuildingPlacer.cs`, `Assets/Scripts/UI/HotkeyOverlay.cs`; new
 `GateAbsorptionTests.cs`/`WallConnectivityTests.cs`;
 `docs/KingdomsOfBharat_Master_Reference.xlsx`'s "Roadmap - Open Items &
 Priority" sheet (item #12 added and marked Implemented).
+
+## 2026-09-29 — Ancient + Classical Wall/Gate re-sourced from a real fortress asset pack, Straight/Corner/Gate replaced for both ages
+
+Ad hoc, not a numbered roadmap item — user supplied two real, full fortress
+asset packs (`ancient_fortress_asset_pack_-_part_2.glb`, `clasical age
+fortress asset pack.glb`, full assembled scenes with many named pieces:
+walls, corner pieces, watchtowers, gatehouses, moats) and asked to use them
+for both the Ancient and Classical wall/gate kits, checking size/proportion
+against the project's own convention. Both ages already had a real Meshy
+glb wall/gate kit shipped (2026-09-28 sessions, see CLAUDE.md) — this
+session replaces the Straight/Corner/Gate pieces only, keeping the existing
+EndPost/TJunction/XJunction pieces untouched (this delivery has no
+equivalent pieces for those — flagged, not synthesized).
+
+**Identification, not name-trusted**: rendered every wall/gate candidate
+with a from-scratch matplotlib Poly3DCollection wireframe viewer (no
+Blender available in this environment, confirmed again) since neither pack
+had descriptive per-piece names beyond generic type/number suffixes.
+Picked, per age, by comparing straight/corner/gate candidates side by side
+and a dedicated near-top-down "does this have a real walkable archway gap"
+check for gate candidates (a white gap in the silhouette = real passage):
+- **Ancient**: `Wall-Type02` (straight, taller/more detailed crenellated
+  earthen-wall-with-talus-base variant over `Wall-Type01`),
+  `Wall-Type02CornerPiece` (matching L-corner), `Gateway-Medium ` (a real
+  2-tower thatched-roof gate with a genuine passable gap — `Gateway-Small01`
+  was just a plain wall segment with a slit, `Gateway-Main`/`.001` and the
+  bundled `Text` mesh are the whole scene's own title-card overview,
+  correctly excluded).
+- **Classical**: `Palisade_1.005` (a plain symmetric crenellated stone
+  panel, chosen over `Palisade_3.002`'s asymmetric tapered end and
+  `Palisade_4.004`'s pre-baked corner-towers-included run, both bad fits
+  for a piece meant to repeat edge-to-edge), `Palisade_5.001` (a real
+  L-corner with its own turret cap), `Gateway/GateHouse_1.001` (confirmed
+  via a near-top-down render to have a real open doorway gap, unlike
+  `MainEntranceWay.001` which turned out to be a stepped ramp/ladder
+  structure, not a gate passage at all, despite the name).
+
+**Extraction, not a raw glb copy**: `LowpolyBuildingImporter.
+ImportSharedBuilding` expects one already-normalized single-mesh glb per
+target plus 3 PBR PNGs — neither source pack is that (each piece is one
+named node inside a fully-assembled, non-origin-centered scene, sharing one
+2048x2048 material each: `MainMaterial` for the whole Ancient pack,
+`FortificationsTexture` for Classical's wall/gate pieces specifically,
+`WeaponsShields` reserved for gatehouse/watchtower shield decorations and
+deliberately not used here). Wrote a one-off Python/trimesh extraction
+script: per piece, transform to world space, recenter (straight/gate: bbox
+XZ center; corner: a top-heavy-vertex-density heuristic approximating the
+turret pillar's own XZ location, mirroring this project's own established
+"scan vertex density, don't guess" method from the earlier
+`WallPieceMeshSplitter` corner-splitting sessions), scale to the exact
+existing `WallFactory.Size`/`JunctionSize`/`GateFactory.Size` boxes
+(non-uniform fit for Straight/Gate, isotropic height-match to `JunctionSize.
+y=6.0` for Corner — same convention the original Ancient kit's own memory
+note documents), then export as a standalone single-mesh glb (no rotation
+correction needed — both source packs are already Y-up at identity, unlike
+every prior Meshy delivery this project has imported).
+
+**Real PBR bug found and fixed before it shipped, not after**: a first
+metallic/smoothness extraction (mirroring `Tools/glb_extract_pbr.py`'s own
+raw-channel-copy approach) ignored glTF's `metallicFactor`/`roughnessFactor`
+material scalars entirely — Ancient's `MainMaterial` has `metallicFactor=0.0`
+but a raw metallic-channel (B) value of 255 everywhere in its texture, so
+the naive extraction produced a fully-white (metallic=1, smoothness=1)
+packed texture, and every Ancient piece spawned looking like polished
+chrome reflecting the sky (a shimmering blue/black look initially
+misdiagnosed as "water showing through the mesh" before checking the
+material directly). Fixed by multiplying the raw texture channels by their
+respective factors (defaulting to glTF's own spec default of 1.0 when a
+factor is absent, as Classical's material has) before packing into Unity's
+metallic(B)/smoothness(1-roughness, alpha) convention — re-verified via
+direct pixel-mean sampling (Ancient: metal mean 0.0, smooth mean 0.40;
+Classical: metal mean 0.026, smooth mean 0.35) before re-importing.
+
+Also hit and worked through two real environment gotchas while live-
+verifying, worth remembering for a future session: (1) `Resources.Load`
+caches loaded objects across a session — re-running `ImportSharedBuilding`
+to regenerate a prefab/mesh asset **while an old instance from that same
+Resources path is already loaded in memory** (e.g. from an earlier
+in-session test spawn) leaves already-`Resources.Load`-cached references
+silently pointing at deleted/regenerated GUIDs; the fix that actually
+worked was exiting Play mode, forcing an asset refresh, and re-entering
+Play before respawning — not just re-instantiating in the same session.
+(2) The project's real terrain-scale foliage feature (roadmap item 13,
+"45,720 real trees" on some maps) can plant a dense forest exactly where a
+quick ad hoc test object gets placed near world origin — confirmed via a
+live `ForestNode`/`Wood` tooltip on what looked like generic terrain
+clutter — worked around by setting `Terrain.activeTerrain.
+drawTreesAndFoliage = false` for the verification session (not a
+persisted scene change; Play-mode-only runtime state, discarded on stop).
+
+897/897 EditMode tests pass unchanged (1 pre-existing, unrelated
+`BuildingPrefabValidationTests` NRE, the project's own standing baseline —
+confirmed by forcing a real domain reload first, since a first post-Play
+run showed 3 spuriously-failing, unrelated `FarmVisualTests` from stale
+Play-mode static state bleeding into EditMode, the project's own documented
+"exiting Play Mode doesn't itself trigger a domain reload" gotcha). Live-
+verified all 6 replaced pieces via UnityMCP through the real production
+path (`WallFactory.Place`/`GateFactory.Place`, with `AgeProgress.
+Initialize` forcing Player to Ancient then Classical age in the same real
+match, `ConstructionSite.CompleteImmediately()` to see the finished mesh
+rather than the fresh-foundation squash state): screenshots confirm the
+Ancient straight/corner read as a proper crenellated stone-and-earth wall
+with a talus base, the Ancient gate reads as a genuine two-tower thatched-
+roof gatehouse with a real passable gap, the Classical straight/corner read
+as a distinct pale ashlar-stone crenellated wall (visually distinguishable
+from Ancient's wooden/earthen look), and the Classical gate reads as a
+grander carved-stone gatehouse with domed towers and arched windows — all
+6 with correct scale relative to the pre-existing worker/building
+convention and the faction's own team-color banner attaching correctly.
+Raw staging glb/PNG folders (~119MB, `Assets/importedmodels/*Lowpoly/`)
+deleted once every destination `_Lowpoly` asset was confirmed to carry no
+reference to them and `Resources.Load` re-resolves all 6 paths correctly
+post-deletion, matching this project's own "transient staging area"
+convention.
+
+**Deliberately out of scope, flagged not attempted**: EndPost/TJunction/
+XJunction pieces for either age (this delivery has no equivalent pieces —
+the existing ones from the 2026-09-28 sessions are untouched and still
+resolve correctly), the packs' own Moat/WatchTower/MainEntranceWay pieces
+(not requested), and Classical's `WeaponsShields` decorative overlay
+material on the gatehouse mesh (skipped for simplicity — the gate reads
+correctly without the small shield/weapon decorations that material would
+add).
+
+Files touched: `Assets/Resources/buildings/Wall_Ancient.prefab`,
+`Wall_Ancient_Corner.prefab`, `Gate_Ancient.prefab`, `Wall_Classical.
+prefab`, `Wall_Classical_Corner.prefab`, `Gate_Classical.prefab`, and each
+one's `_Lowpoly/<name>/` mesh/material/albedo/normal/metallicSmoothness
+assets (all regenerated in place via the existing `LowpolyBuildingImporter.
+ImportSharedBuilding`, no importer code changes needed). No script changes.

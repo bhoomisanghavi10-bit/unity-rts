@@ -8,6 +8,65 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Ancient + Classical Wall/Gate re-sourced from a real fortress asset pack
+  (2026-09-29).** Ad hoc, not a numbered roadmap item - user supplied two
+  full fortress asset packs (`ancient_fortress_asset_pack_-_part_2.glb`,
+  `clasical age fortress asset pack.glb`) and asked to use them for both
+  ages' wall/gate kits, checked against the project's own size/proportion
+  convention. Replaced Straight/Corner/Gate for both ages (EndPost/
+  TJunction/XJunction pieces untouched - this delivery has no equivalent
+  pieces, flagged not synthesized). Identification was render-based, not
+  name-trusted (no Blender available in this environment; used a from-
+  scratch matplotlib wireframe viewer): Ancient picked `Wall-Type02`/
+  `Wall-Type02CornerPiece`/`Gateway-Medium ` (a real 2-tower thatched-roof
+  gate with a genuine passable gap, confirmed via a near-top-down render);
+  Classical picked `Palisade_1.005`/`Palisade_5.001`/`Gateway/
+  GateHouse_1.001` (confirmed via the same top-down check - the
+  similarly-named `MainEntranceWay.001` turned out to be a stepped ramp,
+  not a real gate passage, despite its name). Extracted via a one-off
+  Python/trimesh script (neither pack is a single-mesh glb like
+  `LowpolyBuildingImporter` expects - each piece is one node inside a
+  fully-assembled scene): recenter (corner pieces via a top-heavy-vertex-
+  density heuristic locating the turret pillar, same method family as the
+  earlier `WallPieceMeshSplitter` corner-splitting sessions), scale to the
+  exact existing `WallFactory.Size`/`JunctionSize`/`GateFactory.Size`
+  boxes, export as a standalone mesh-only glb (no rotation correction
+  needed - both packs are already Y-up at identity). **Real PBR bug found
+  and fixed before shipping**: a first metallic/smoothness extraction
+  ignored glTF's `metallicFactor`/`roughnessFactor` scalars - Ancient's
+  material has `metallicFactor=0.0` but a raw metallic-channel value of 255
+  everywhere, so the naive extraction produced fully-white (chrome-like)
+  packed textures, and every Ancient piece spawned looking like polished
+  metal reflecting the sky (initially misdiagnosed as "water showing
+  through the mesh" before checking the material directly). Fixed by
+  multiplying texture channels by their material factors (defaulting to
+  glTF's spec default of 1.0 when absent) before packing. Hit and worked
+  through 2 real environment gotchas: `Resources.Load`'s runtime cache can
+  keep pointing at a deleted/regenerated GUID after re-running the importer
+  mid-session (fixed by exiting Play, forcing a refresh, re-entering Play
+  before respawning); and the project's real terrain-scale foliage feature
+  can plant a dense forest exactly where a quick test object lands near
+  world origin (worked around with `Terrain.activeTerrain.
+  drawTreesAndFoliage = false`, Play-mode-only, not a persisted change).
+  897/897 EditMode tests pass unchanged (1 pre-existing, unrelated
+  `BuildingPrefabValidationTests` NRE, standing baseline - confirmed after
+  a forced domain reload, since a first post-Play run showed 3 spuriously-
+  failing unrelated `FarmVisualTests` from stale Play-mode state, the
+  project's own documented no-domain-reload-on-stop gotcha). Live-verified
+  all 6 replaced pieces via UnityMCP through the real
+  `WallFactory.Place`/`GateFactory.Place` production path at both ages in
+  a real match: screenshots confirm the Ancient wall/corner read as a
+  crenellated stone-and-earth wall with a talus base, the Ancient gate as a
+  genuine two-tower thatched-roof gatehouse with a real passable gap, the
+  Classical wall/corner as a visually distinct pale ashlar-stone
+  crenellated wall, and the Classical gate as a grander carved-stone
+  gatehouse with domed towers and arched windows - all with correct scale
+  and working team-color banners. Raw staging folders (~119MB) deleted
+  once every destination asset was confirmed independent and
+  `Resources.Load` re-resolves all 6 paths correctly post-deletion. Next:
+  whatever the user directs - the packs' own unused Moat/WatchTower/
+  MainEntranceWay pieces and Classical's `WeaponsShields` decorative
+  overlay were deliberately not used this session.
 - **Coastal Palm tree placement wired near real shorelines (2026-09-29).**
   Ad hoc, same-day follow-up to the Palm-removal fix immediately below, at
   the user's explicit request to wire it back in near water. New
