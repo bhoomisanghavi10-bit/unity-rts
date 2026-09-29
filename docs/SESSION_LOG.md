@@ -13609,3 +13609,93 @@ prefab`, `Wall_Classical_Corner.prefab`, `Gate_Classical.prefab`, and each
 one's `_Lowpoly/<name>/` mesh/material/albedo/normal/metallicSmoothness
 assets (all regenerated in place via the existing `LowpolyBuildingImporter.
 ImportSharedBuilding`, no importer code changes needed). No script changes.
+
+## 2026-09-29 — Wall EndPost re-sourced for both ages, T/X-junction pieces removed
+
+Same-session follow-up to the Wall/Gate re-sourcing entry immediately
+above, prompted by the user pointing at 2 specific pieces from the same
+asset packs and saying "this is the end post" (twice, once per age), plus
+an explicit instruction: no T-junction/X-junction pieces needed, matching
+real AoE II (a 3+-way wall meeting point there just reuses the Corner
+tile — no dedicated T/X art exists in the real game).
+
+**Identification** (both confirmed via AskUserQuestion after initial visual
+guesses came back ambiguous — asking beat guessing wrong twice):
+- **Classical**: `WatchTower_1.004` — a plain, solid, box-shaped stone
+  tower with a door/window opening and a crenellated top. Two other
+  candidates (`WatchTower-Octagonal.002`, an octagonal-footprint variant;
+  `Gateway/GateHouse_2`, the multi-block complex already familiar from the
+  Gate) were shown alongside it and explicitly ruled out.
+- **Ancient**: `Gateway-Medium ` — the SAME mesh already used for the
+  Ancient Gate. Unlike the Classical case, there's no separate standalone
+  single-tower node in this pack for an end post — this mesh is a single
+  fused blob of 2 round thatched-roof towers connected by a low
+  crenellated bridge (confirmed by rendering it and comparing directly
+  against the user's screenshot). Geometrically split with
+  `trimesh.Trimesh.slice_plane` at the mesh's own X midpoint (found via a
+  histogram of vertex X positions — no clean vertex-free gap exists since
+  the connecting wall's geometry is continuous, so the split just cuts
+  through it, keeping one full tower + a wall stub on one side).
+  `slice_plane(..., cap=True)` needed `shapely`/`networkx`/`rtree` — pulled
+  in via `pip3 install shapely networkx`, but `rtree` wasn't installed and
+  wasn't worth chasing further for a seam that's either abutted by an
+  adjoining wall segment in play or off-camera from the fixed isometric
+  angle — used `cap=False` instead (a disclosed, deliberate simplification:
+  the cut cross-section is open/unsealed). Re-rendered the resulting half
+  mesh before importing to confirm it reads as a clean single-tower end
+  post, not an obviously-severed gate half.
+
+Both pieces scaled isotropic height-match to `JunctionSize.y=6.0` (the same
+convention already used for Corner in the prior entry), textured with the
+same shared per-age PBR extraction (`_ancient_tex`/`_classical_tex`) from
+the earlier session — no new texture work needed.
+
+**Code simplification, not just an asset swap**: `WallFactory.WallPieceKind`
+dropped `TJunction`/`XJunction` from the enum entirely (was Straight/
+Corner/EndPost/TJunction/XJunction, now Straight/Corner/EndPost only) —
+their `PieceResourceName`/`ClassicalMeshResourceName` switch-arms removed
+along with them. `WallConnectivity.ClassifyPieceKind`'s `count == 3`/
+`count >= 4` branches, which previously returned the now-deleted
+`TJunction`/`XJunction` values, now both return `Corner` directly — this
+isn't a fallback or a stopgap, it's the actual intended behavior (matches
+real AoE II, where a 3-way or 4-way wall meeting point is just built from
+corner tiles, no dedicated junction art exists there either).
+`WallConnectivityTests.cs`'s `ThreeNeighbors_ClassifiesAsTJunction`/
+`FourOrMoreNeighbors_ClassifiesAsXJunction` renamed to
+`ThreeNeighbors_ClassifiesAsCorner`/`FourOrMoreNeighbors_ClassifiesAsCorner`
+and their assertions updated to match. Grepped the whole `Assets/Scripts`/
+`Assets/Tests` tree afterward to confirm zero remaining references to
+`TJunction`/`XJunction` anywhere (`BuildingPlacer.cs`'s own manual
+Alpha1-5 piece-kind hotkey selector was already removed in an earlier,
+same-day session per the wall-mechanics-audit commit, so no placement-UI
+changes were needed here).
+
+Deleted the 4 now-fully-unreachable prefabs and their `_Lowpoly` mesh/
+material/texture assets: `Wall_Ancient_TJunction`, `Wall_Ancient_XJunction`,
+`Wall_Classical_TJunction`, `Wall_Classical_XJunction` — confirmed
+unreachable first (no code path can produce those `WallPieceKind` values
+anymore, matching this project's own "delete only after confirming nothing
+references it" convention for superseded assets).
+
+897/897 EditMode tests pass (1 pre-existing, unrelated
+`BuildingPrefabValidationTests` NRE, standing baseline — hit the exact same
+stale-Play-mode-state false-failure in `FarmVisualTests` as the immediately
+preceding session before forcing a real domain reload; same fix, same root
+cause, already documented). Live-verified both new EndPost pieces via
+UnityMCP through the real `WallFactory.Place` production path, forcing
+`AgeProgress.Initialize` to Ancient then Classical in the same real match:
+screenshots confirm the Ancient endpost reads as a round wooden watchtower
+with a thatched roof and a stake-topped wall stub leading into it, and the
+Classical endpost as a solid, plain stone tower with a visible door/window
+and crenellated top — both clearly distinct in style from their own age's
+already-shipped Straight/Corner pieces. Raw staging folders deleted once
+`Resources.Load` re-confirmed resolving both new paths correctly
+post-deletion.
+
+Files touched: `Assets/Scripts/Buildings/WallFactory.cs`,
+`Assets/Scripts/Buildings/WallConnectivity.cs`,
+`Assets/Tests/EditMode/WallConnectivityTests.cs`,
+`Assets/Resources/buildings/Wall_Ancient_EndPost.prefab` + its `_Lowpoly`
+assets, `Assets/Resources/buildings/Wall_Classical_EndPost.prefab` + its
+`_Lowpoly` assets (both regenerated in place), and the deletion of the 4
+now-unreachable T/X-junction prefabs + their `_Lowpoly` assets.

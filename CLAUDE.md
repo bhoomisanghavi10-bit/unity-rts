@@ -8,6 +8,48 @@ and "Implementation Waves 0-6" sheets (docs/Roadmap.md and
 docs/IMPLEMENTATION_ROADMAP.md are retired — their content lives on those sheets).
 
 ## Current status (keep current — update every session)
+- **Wall EndPost re-sourced for both ages + T/X-junction pieces removed
+  entirely (2026-09-29), same-session follow-up to the Wall/Gate
+  re-sourcing immediately below.** User flagged 2 real pieces from the same
+  packs as the intended End Post look (a round thatched-roof tower for
+  Ancient, a solid square stone tower for Classical) and said explicitly:
+  no T/X-junction pieces needed, matching real AoE II (a 3+-way wall
+  meeting point just reuses the Corner piece there, no dedicated art).
+  **Ancient EndPost**: `Gateway-Medium ` (the same mesh already used for
+  the Ancient Gate) is a single fused mesh of 2 towers + a connecting
+  bridge - no separate single-tower node exists to reference directly, so
+  it was geometrically split with `trimesh.slice_plane` at the mesh's own
+  X midpoint (open cross-section left uncapped - shapely/networkx/rtree
+  needed for auto-capping weren't worth installing for a seam that's
+  either hidden against an adjoining wall segment or not visible from the
+  fixed isometric camera), keeping one tower + a wall stub - confirmed via
+  render to read as a clean single-tower endpost, not a cut-off gate half.
+  **Classical EndPost**: `WatchTower_1.004` (a plain standalone box tower
+  with a window/door and crenellated top, correctly identified over the
+  octagonal variant and the multi-block GateHouse complex via direct user
+  confirmation against 3 labeled render candidates). Both scaled isotropic
+  height-match to `JunctionSize.y=6.0`, same convention as Corner. **Code
+  simplification**: `WallFactory.WallPieceKind` dropped `TJunction`/
+  `XJunction` entirely (was Straight/Corner/EndPost/TJunction/XJunction,
+  now just Straight/Corner/EndPost); `WallConnectivity.ClassifyPieceKind`'s
+  3-neighbor and 4+-neighbor branches now both return `Corner` instead of
+  dedicated kinds (matches AoE II's own real behavior directly, not a
+  fallback); `WallConnectivityTests.cs`'s 2 matching tests renamed/updated
+  to assert `Corner`. Deleted the 4 now-fully-unreachable
+  `Wall_{Ancient,Classical}_{TJunction,XJunction}` prefabs + their
+  `_Lowpoly` mesh/material/texture assets (confirmed unreachable - no code
+  path can ever produce those `WallPieceKind` values anymore). 897/897
+  EditMode tests pass (1 pre-existing, unrelated
+  `BuildingPrefabValidationTests` NRE, standing baseline - confirmed after
+  a forced domain reload, same stale-Play-mode-state gotcha as the
+  immediately-preceding session hit). Live-verified both new EndPost
+  pieces via UnityMCP through the real `WallFactory.Place` production path
+  at both ages: screenshots confirm the Ancient endpost reads as a round
+  wooden watchtower with a thatched roof and a stake-topped wall stub, the
+  Classical endpost as a solid stone tower with a visible door/window and
+  crenellated top - both clearly distinct from their own age's
+  Straight/Corner pieces. Raw staging folders deleted, `Resources.Load`
+  re-confirmed resolving both paths post-deletion.
 - **Ancient + Classical Wall/Gate re-sourced from a real fortress asset pack
   (2026-09-29).** Ad hoc, not a numbered roadmap item - user supplied two
   full fortress asset packs (`ancient_fortress_asset_pack_-_part_2.glb`,

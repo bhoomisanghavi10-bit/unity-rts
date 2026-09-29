@@ -16,14 +16,17 @@ namespace KingdomsOfBharat.Buildings
     // support AoE's click-drag multi-segment chain placement.
     public static class WallFactory
     {
-        // Ancient-age modular wall kit (2026-09-28): straight run + 4
-        // standalone junction pieces (Corner/EndPost/T/X), all mechanically
+        // Ancient-age modular wall kit (2026-09-28): straight run + 2
+        // standalone junction pieces (Corner/EndPost), all mechanically
         // identical Wall buildings (same HP/armor/garrison/repair/
         // fortification bonuses) - only the visual resourceName and
         // gameplay-footprint Size differ per piece. See PieceResourceName/
         // PieceSize below and BuildingPlacer's wall-piece-variant selector
-        // (Alpha1-5 while placing a Wall).
-        public enum WallPieceKind { Straight, Corner, EndPost, TJunction, XJunction }
+        // (Alpha1-5 while placing a Wall). No dedicated T/X-junction art
+        // (2026-09-29, user's explicit call, matching real AoE II - a 3+
+        // way junction just reuses the Corner piece, see
+        // WallConnectivity.ClassifyPieceKind).
+        public enum WallPieceKind { Straight, Corner, EndPost }
 
         // Straight segment height was a stale 1.8 (shorter than the ~1.9
         // worker unit) until the low-poly Ancient kit landed - now matches
@@ -31,7 +34,7 @@ namespace KingdomsOfBharat.Buildings
         // project_lowpoly_asset_size_conventions memory: straight 3.0-3.5).
         private static readonly Vector3 Size = new Vector3(2.4f, 3.2f, 0.4f);
 
-        // Corner/EndPost/T/X pieces read as turret caps rising above the
+        // Corner/EndPost pieces read as turret caps rising above the
         // wall line (AoE II convention) - taller than the straight run,
         // per the same memory's table. The gameplay footprint deliberately
         // stays a single wall-tile square (2.4x2.4), not the piece's full
@@ -53,8 +56,6 @@ namespace KingdomsOfBharat.Buildings
             {
                 WallPieceKind.Corner => "Wall_Ancient_Corner",
                 WallPieceKind.EndPost => "Wall_Ancient_EndPost",
-                WallPieceKind.TJunction => "Wall_Ancient_TJunction",
-                WallPieceKind.XJunction => "Wall_Ancient_XJunction",
                 _ => "Wall",
             };
         }
@@ -73,8 +74,6 @@ namespace KingdomsOfBharat.Buildings
             {
                 WallPieceKind.Corner => "Wall_Classical_Corner",
                 WallPieceKind.EndPost => "Wall_Classical_EndPost",
-                WallPieceKind.TJunction => "Wall_Classical_TJunction",
-                WallPieceKind.XJunction => "Wall_Classical_XJunction",
                 _ => "Wall_Classical",
             };
         }

@@ -34,12 +34,10 @@ namespace KingdomsOfBharat.Buildings
                 return roughlyOpposite ? WallFactory.WallPieceKind.Straight : WallFactory.WallPieceKind.Corner;
             }
 
-            if (count == 3)
-            {
-                return WallFactory.WallPieceKind.TJunction;
-            }
-
-            return WallFactory.WallPieceKind.XJunction;
+            // AoE II reference (2026-09-29, user's explicit call): no
+            // dedicated T/X-junction art - a 3-way or 4+-way meeting point
+            // just reuses the Corner piece, same as the real game.
+            return WallFactory.WallPieceKind.Corner;
         }
 
         private static Vector2 FlatDirection(Vector3 from, Vector3 to)

@@ -80,8 +80,10 @@ namespace KingdomsOfBharat.Tests
         }
 
         [Test]
-        public void ThreeNeighbors_ClassifiesAsTJunction()
+        public void ThreeNeighbors_ClassifiesAsCorner()
         {
+            // No dedicated T-junction art (2026-09-29, matching real AoE
+            // II) - a 3-way meeting point reuses the Corner piece.
             var neighbors = new List<Vector3>
             {
                 new Vector3(2.4f, 0f, 0f),
@@ -91,12 +93,14 @@ namespace KingdomsOfBharat.Tests
 
             var kind = WallConnectivity.ClassifyPieceKind(Origin, neighbors);
 
-            Assert.AreEqual(WallFactory.WallPieceKind.TJunction, kind);
+            Assert.AreEqual(WallFactory.WallPieceKind.Corner, kind);
         }
 
         [Test]
-        public void FourOrMoreNeighbors_ClassifiesAsXJunction()
+        public void FourOrMoreNeighbors_ClassifiesAsCorner()
         {
+            // No dedicated X-junction art (2026-09-29, matching real AoE
+            // II) - a 4+-way meeting point reuses the Corner piece.
             var neighbors = new List<Vector3>
             {
                 new Vector3(2.4f, 0f, 0f),
@@ -107,7 +111,7 @@ namespace KingdomsOfBharat.Tests
 
             var kind = WallConnectivity.ClassifyPieceKind(Origin, neighbors);
 
-            Assert.AreEqual(WallFactory.WallPieceKind.XJunction, kind);
+            Assert.AreEqual(WallFactory.WallPieceKind.Corner, kind);
         }
     }
 }
